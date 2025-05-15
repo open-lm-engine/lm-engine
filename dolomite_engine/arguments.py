@@ -204,6 +204,11 @@ class OptimizerArgs(BaseArgs):
     }
 
     def model_post_init(self, __context: Any) -> None:
+        if self.class_name != "Muon":
+            self.class_args = {
+                k: v for k, v in self.class_args.items() if "muon" not in k
+            }
+
         _check_not_None([(self.class_name, "optimizer class_name")])
 
 
