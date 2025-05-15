@@ -157,6 +157,10 @@ class Muon(torch.optim.Optimizer):
                 g = p.grad
                 if g is None:
                     continue
+            
+                mup_scale = getattr(p, "_mup", None)
+                if mup_scale is not None:
+                    lr = lr /mup_scale # For Mup 
 
                 if getattr(p, "_is_expert_weight", False):
                     num_experts = p.shape[0]
@@ -191,7 +195,7 @@ class Muon(torch.optim.Optimizer):
                         u = zeropower_via_newtonschulz5(expert_grad, steps=group["ns_steps"])
                         
                         # For FSDP : We distribute tensor back to original config
-                        if met_data_dtensor:
+                        if met_data_dtensor is not None:
                             u = distribute_tensor(u, device_mesh=met_data_dtensor["device_mesh"], placements=met_data_dtensor["placements"])
 
 
@@ -231,7 +235,7 @@ class Muon(torch.optim.Optimizer):
                     
                     u = zeropower_via_newtonschulz5(g, steps=group["ns_steps"])
 
-                    if met_data_dtensor:
+                    if met_data_dtensor is not None:
                         u=distribute_tensor(u, device_mesh=met_data_dtensor["device_mesh"], placements=met_data_dtensor["placements"])
 
                     # scale update
@@ -257,6 +261,11 @@ class Muon(torch.optim.Optimizer):
                 g = p.grad
                 if g is None:
                     continue
+                
+                mup_scale = getattr(p, "_mup", None)
+                if mup_scale is not None:
+                    lr = lr /mup_scale # For Mup 
+                
                 state = self.state[p]
                 if "step" not in state:
                     state["step"] = 0

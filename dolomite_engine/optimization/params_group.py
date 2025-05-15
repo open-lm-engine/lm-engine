@@ -98,11 +98,27 @@ def get_muon_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -
     muon_params = []
     adamw_params = []
 
+    # collect parameters with mup learning rate
+    for module_name, module in model.named_modules():
+        if isinstance(module, (Attention, MLP, MoE, RNN)):
+            for param_name, param in module.named_parameters():
+                # we don't add bias or norms to mup group
+                if not (param_name.endswith("bias") or "norm" in param_name):
+                    # add name of module to name of subparam
+                    param._mup_scale = model.config.m_width
+        elif isinstance(module, Mamba2):
+            for param_name, param in module.named_parameters():
+                if param_name in ["A_log", "D"] or not (param_name.endswith("bias") or "norm" in param_name):
+                    param._mup_scale = model.config.m_width
+
+
     for name, module in model.named_modules():
         if isinstance(module, ParameterizedExperts):
             for _, param in module.named_parameters():
                 param._is_expert_weight = True  # Set the flag for expert weights
                 muon_params.append(param)
+
+
 
     # Handle other parameters 
     for name, p in model.named_parameters():
@@ -113,7 +129,6 @@ def get_muon_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -
             if not hasattr(p, "_is_expert_weight"):  
                 setattr(p, "_is_expert_weight", False)  # Mark it explicitly as non-expert weight
             muon_params.append(p)
-
         else:
             adamw_params.append(p)
 
