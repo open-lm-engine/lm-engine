@@ -2,42 +2,14 @@ import os
 import math
 import torch
 from .matmul_muon_triton import matmul_transpose_assign
+from torch.distributed.tensor import distribute_tensor
+from torch.distributed.tensor import DTensor
 
-
-
-# def fast_newtonschulz(G: Tensor, steps: int) -> Tensor:
-#     """
-#     adapted from https://github.com/KellerJordan/Muon/blob/master/muon.py
-#     Arguments:
-#         G: The gradient or momentum matrix to be orthogonalized.
-#         steps: Number of Newton-Schulz iterations.
-#     """
-#     assert G.ndim >= 2
-#     a, b, c = (3.4445, -4.7750,  2.0315)
-#     X = G.bfloat16()
-#     if G.size(-2) > G.size(-1):
-#         X = X.mT
-
-#     buf1 = torch.empty(X.size(0), X.size(0), dtype=X.dtype, device=X.device)
-#     buf2 = torch.empty(X.size(0), X.size(0), dtype=X.dtype, device=X.device)
-    
-#     # Ensure spectral norm is at most 1
-#     X = X / (X.norm(dim=(-2, -1), keepdim=True) + 1e-7)
-#     # Perform the NS iterations
-#     for _ in range(steps):
-#         matmul_transpose_assign(X, buf1)
-#         matmul_transpose_assign(buf1, buf2)
-#         B = b * buf1 + c * buf2
-#         X = a * X + B @ X
-    
-#     if G.size(-2) > G.size(-1):
-#         X = X.mT
-#     return X
 
 
 # This code snippet is a modified version adapted from the following GitHub repository:
 # https://github.com/KellerJordan/Muon/blob/master/muon.py
-# @torch.compile
+@torch.compile
 def zeropower_via_newtonschulz5(G, steps):
     """
     Newton-Schulz iteration to compute the zeroth power / orthogonalization of G. We opt to use a
@@ -55,27 +27,35 @@ def zeropower_via_newtonschulz5(G, steps):
         X = X.T
 
 
-    buf1 = torch.empty(X.size(0), X.size(0), dtype=X.dtype, device=X.device)
-    buf2 = torch.empty(X.size(0), X.size(0), dtype=X.dtype, device=X.device)
+    # buf1 = torch.empty(X.size(0), X.size(0), dtype=X.dtype, device=X.device)
+    # buf2 = torch.empty(X.size(0), X.size(0), dtype=X.dtype, device=X.device)
     
     # Ensure spectral norm is at most 1
     X = X / (X.norm() + 1e-7)
     # Perform the NS iterations
     for _ in range(steps):
-        # A = X @ X.T
-        matmul_transpose_assign(X, buf1)
-        matmul_transpose_assign(buf1, buf2)
-        # B = (
-        #     b * A + c * A @ A
-        # )  # adapted from suggestion by @jxbz, @leloykun, and @YouJiacheng
+        A = X @ X.T
+        # matmul_transpose_assign(X, buf1)
+        # matmul_transpose_assign(buf1, buf2)
+        B = (
+            b * A + c * A @ A
+        )  # adapted from suggestion by @jxbz, @leloykun, and @YouJiacheng
 
-        B = b * buf1 + c * buf2
+        # B = b * buf1 + c * buf2
         X = a * X + B @ X
 
     if G.size(0) > G.size(1):
         X = X.T
     return X
 
+
+ 
+# adjust LR based on: https://github.com/MoonshotAI/Moonlight
+def adjust_lr_wd_for_muon(lr, matched_adamw_rms, param_shape):
+    A, B = param_shape[:2]
+    adjusted_ratio = math.sqrt(max(A, B)) * matched_adamw_rms
+    adjusted_lr = lr * adjusted_ratio
+    return adjusted_lr
 
 class Muon(torch.optim.Optimizer):
     """
@@ -102,6 +82,7 @@ class Muon(torch.optim.Optimizer):
         betas: The betas for the internal AdamW.
         eps: The epsilon for the internal AdamW.
         wd: The weight decay for all params.
+        matched_adamw_rms: The AdamW Update RMS that Muon is designed to match. (0.2~0.4 recommended)
     """
 
     def __init__(
@@ -109,22 +90,24 @@ class Muon(torch.optim.Optimizer):
         lr=1e-3,
         weight_decay=0.1,
         muon_params=None,
-        momentum=0.95,
-        nesterov=True,
-        ns_steps=5,
+        muon_momentum=0.95,
+        muon_nesterov=True,
+        muon_ns_steps=5,
         adamw_params=None,
         betas=[0.9, 0.95],
         eps=1e-8,
+        muon_matched_adamw_rms=0.2,
     ):
 
         defaults = dict(
             lr=lr,
             wd=weight_decay,
-            momentum=momentum,
-            nesterov=nesterov,
-            ns_steps=ns_steps,
+            momentum=muon_momentum,
+            nesterov=muon_nesterov,
+            ns_steps=muon_ns_steps,
             adamw_betas=betas,
             adamw_eps=eps,
+            matched_adamw_rms=muon_matched_adamw_rms,
         )
 
         params = list(muon_params)
@@ -141,14 +124,8 @@ class Muon(torch.optim.Optimizer):
             # Do not use Muon for parameters in adamw_params
             self.state[p]["use_muon"] = False
 
-    def adjust_lr_for_muon(self, lr, param_shape):
-        A, B = param_shape[:2]
-        # We adjust the learning rate and weight decay based on the size of the parameter matrix
-        # as describted in the paper
-        adjusted_ratio = 0.2 * math.sqrt(max(A, B))
-        adjusted_lr = lr * adjusted_ratio
-        return adjusted_lr
 
+    
     def step(self, closure=None):
         """Perform a single optimization step.
 
@@ -172,6 +149,7 @@ class Muon(torch.optim.Optimizer):
             lr = group["lr"]
             wd = group["wd"]
             momentum = group["momentum"]
+            matched_adamw_rms = group["matched_adamw_rms"]
 
             # generate weight updates in distributed fashion
             for p in params:
@@ -195,17 +173,35 @@ class Muon(torch.optim.Optimizer):
                             state["momentum_buffer"] = torch.zeros_like(expert_grad)
                         buf = state["momentum_buffer"]
                         buf.mul_(momentum).add_(expert_grad)
+                        
                         if group["nesterov"]:
-                            expert_grad = expert_grad.add(buf, alpha=momentum)
+                            expert_grad = expert_grad.add(buf, alpha=momentum) # can use inplace ? (But inplace would change .grad attribute so not doing here)
                         else:
                             expert_grad = buf
-                        u = zeropower_via_newtonschulz5(expert_grad, steps=group["ns_steps"])
+                        
+                        # For FSDP : We get full tensor for newtonschulz
+                        met_data_dtensor = None
+                        if isinstance(expert_grad, DTensor):
+                            met_data_dtensor = dict(
+                                placements=expert_grad.placements,
+                                device_mesh=expert_grad.device_mesh,
+                            )
+                            expert_grad = expert_grad.full_tensor()
 
+                        u = zeropower_via_newtonschulz5(expert_grad, steps=group["ns_steps"])
+                        
+                        # For FSDP : We distribute tensor back to original config
+                        if met_data_dtensor:
+                            u = distribute_tensor(u, device_mesh=met_data_dtensor["device_mesh"], placements=met_data_dtensor["placements"])
+
+
+                        # scale update
+                        adjusted_lr = adjust_lr_wd_for_muon(lr, matched_adamw_rms,p.shape)
                         # Apply weight decay
                         expert_weight.data.mul_(1 - lr * wd)
 
                         # Apply update for the expert weight
-                        expert_weight.data.add_(u, alpha=-lr)
+                        expert_weight.data.add_(u, alpha=-adjusted_lr)
                 
                 else:
                     if g.ndim > 2:
@@ -223,10 +219,23 @@ class Muon(torch.optim.Optimizer):
                         g = g.add(buf, alpha=momentum)
                     else:
                         g = buf
+
+
+                    met_data_dtensor = None
+                    if isinstance(g, DTensor):
+                        met_data_dtensor = dict(
+                            placements=g.placements,
+                            device_mesh=g.device_mesh,
+                        )
+                        g = g.full_tensor()
+                    
                     u = zeropower_via_newtonschulz5(g, steps=group["ns_steps"])
 
+                    if met_data_dtensor:
+                        u=distribute_tensor(u, device_mesh=met_data_dtensor["device_mesh"], placements=met_data_dtensor["placements"])
+
                     # scale update
-                    adjusted_lr = self.adjust_lr_for_muon(lr, p.shape)
+                    adjusted_lr = adjust_lr_wd_for_muon(lr,matched_adamw_rms, p.shape)
 
                     # apply weight decay
                     p.data.mul_(1 - lr * wd)

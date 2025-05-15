@@ -97,10 +97,10 @@ def get_muon_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -
 
     muon_params = []
     adamw_params = []
-    # TODO: Check expert handled here 
+
     for name, module in model.named_modules():
         if isinstance(module, ParameterizedExperts):
-            for param_name, param in module.named_parameters():
+            for _, param in module.named_parameters():
                 param._is_expert_weight = True  # Set the flag for expert weights
                 muon_params.append(param)
 
