@@ -20,7 +20,7 @@ from torch.optim.sgd import SGD as TorchSGD
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from ..enums import ParamsGroupMethod
 from .params_group import get_param_groups_list
-
+from .muon import Muon
 
 # https://pytorch.org/docs/stable/optim.html
 _OPTIMIZER_CLASSES = {
@@ -36,6 +36,7 @@ _OPTIMIZER_CLASSES = {
     "TorchRMSprop": TorchRMSprop,
     "TorchRprop": TorchRprop,
     "TorchSGD": TorchSGD,
+    "Muon" :Muon,
 }
 
 
@@ -69,6 +70,8 @@ def get_optimizer_container(
     params_groups_list = get_param_groups_list(model_container, optimizer_class_args, params_group_method)
 
     if use_optimizer_with_backward_hook:
+        assert optimizer_class_name != "Muon" , "Muon optimizer not supported with Backward Hook Optimizer yet"
+
         for model, params_groups in zip(model_container, params_groups_list):
             for param_name, param in model.named_parameters():
                 for group in params_groups.params_groups:
@@ -87,11 +90,19 @@ def get_optimizer_container(
 
         optimizer_list = BackwardHookOptimizerContainer([None] * len(model_container))
     else:
-        optimizer_list = OptimizerContainer(
-            [
-                optimizer_class(params_groups.to_torch_compatible_params_groups(), **optimizer_class_args)
-                for params_groups in params_groups_list
-            ]
-        )
+        if optimizer_class_name == "Muon":
+            optimizer_list = OptimizerContainer(
+                [
+                    optimizer_class(muon_params=params_groups["muon_params"],adamw_params= params_groups["adamw_params"], **optimizer_class_args)
+                    for params_groups in params_groups_list
+                ]
+            )
+        else:
+            optimizer_list = OptimizerContainer(
+                [
+                    optimizer_class(params_groups.to_torch_compatible_params_groups(), **optimizer_class_args)
+                    for params_groups in params_groups_list
+                ]
+            )
 
     return optimizer_list
