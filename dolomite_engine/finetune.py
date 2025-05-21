@@ -322,7 +322,6 @@ def main() -> None:
     init_distributed(
         tensor_parallel_world_size=args.distributed_args.tensor_parallel_world_size,
         pipeline_parallel_world_size=args.distributed_args.pipeline_parallel_world_size,
-        data_parallel_size=args.distributed_args.data_parallel_size,
         data_parallel_replication_world_size=args.distributed_args.zero_topology.data_parallel_replication_world_size,
         data_parallel_sharding_world_size=args.distributed_args.zero_topology.data_parallel_sharding_world_size,
         zero_stage=args.distributed_args.stage,

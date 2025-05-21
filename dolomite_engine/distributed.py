@@ -31,6 +31,7 @@ from .containers import ModelContainer
 from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
 from .hf_models import CausalLMOutputWithPast
+from .hf_models.parameter import _ALL_MARKERS
 from .kernels import is_kernel_allowed
 from .utils import (
     ProcessGroupManager,
@@ -58,6 +59,81 @@ _STAGE_HYBRID_SHARDING_STRATEGY_MAP = {
     2: ShardingStrategy._HYBRID_SHARD_ZERO2,
     3: ShardingStrategy.HYBRID_SHARD,
 }
+
+
+def _get_pipeline_parallel_schedule(
+    pipeline_parallel_schedule: str,
+    gradient_accumulation_steps: int,
+    pipeline_stages: list[PipelineStage],
+    loss_fn: Callable,
+) -> _PipelineSchedule:
+    try:
+        schedule_class = get_schedule_class(pipeline_parallel_schedule)
+    except ValueError:
+        raise ValueError(
+            f"unexpected schedule ({pipeline_parallel_schedule}), expected values are: ['1F1B', "
+            "'Interleaved1F1B', 'GPipe', 'FlexibleInterleaved1F1B', 'LoopedBFS', 'InterleavedZeroBubble', "
+            "'PipelineScheduleSingle', 'PipelineScheduleMulti']"
+        )
+
+    if schedule_class in [PipelineScheduleSingle, PipelineScheduleMulti]:
+        raise NotImplementedError()
+
+    if issubclass(schedule_class, PipelineScheduleSingle):
+        assert len(pipeline_stages) == 1
+
+    def custom_loss_function(output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        loss_dict = loss_fn(output, target)
+        return loss_dict["loss"]
+
+    return schedule_class(
+        pipeline_stages if issubclass(schedule_class, PipelineScheduleMulti) else pipeline_stages[0],
+        n_microbatches=gradient_accumulation_steps,
+        loss_fn=custom_loss_function,
+    )
+
+
+def _get_fsdp_mixed_precision(
+    dtype: torch.dtype, communication_dtype: torch.dtype | None, fsdp_algorithm: int
+) -> MixedPrecision1:
+    if communication_dtype is None:
+        communication_dtype = dtype
+
+    if fsdp_algorithm == 1:
+        mixed_precision = MixedPrecision1(param_dtype=dtype, reduce_dtype=communication_dtype, buffer_dtype=dtype)
+    else:
+        mixed_precision = MixedPrecision2(param_dtype=dtype, reduce_dtype=communication_dtype)
+
+    return mixed_precision
+
+
+def _get_parameter_marker_maps(model_container: ModelContainer) -> list[dict]:
+    marker_maps = []
+    for model in model_container:
+        marker_maps.append({})
+        for param_name, param in model.named_parameters():
+            marker_maps[-1][param_name] = {}
+            for marker in _ALL_MARKERS:
+                marker_maps[-1][param_name][marker] = getattr(param, marker, False)
+
+    return marker_maps
+
+
+def _set_parameter_marker_maps(model_container: ModelContainer, marker_maps: list[dict]) -> None:
+    for original_param_name in marker_maps[0]:
+        break
+
+    for new_param_name, _ in model_container[0].named_parameters():
+        break
+
+    prefix = new_param_name.split(original_param_name)[0]
+
+    for model, _marker_map in zip(model_container, marker_maps):
+        for new_param_name, parameter in model.named_parameters():
+            original_param_name = new_param_name.split(prefix)[-1]
+
+            for marker, value in _marker_map[original_param_name].items():
+                setattr(parameter, marker, value)
 
 
 def wrap_model_container_for_distributed_training(
@@ -120,6 +196,8 @@ def wrap_model_container_for_distributed_training(
     block_classes = [
         get_module_class_from_name(model_container[0], name) for name in block_names + teacher_block_names
     ]
+
+    marker_maps = _get_parameter_marker_maps(model_container)
 
     if args.distributed_args.gradient_checkpointing_method is not None:
         assert len(block_names) == 1
@@ -274,6 +352,8 @@ def wrap_model_container_for_distributed_training(
         for i, model in enumerate(model_container):
             model_container[i] = torch.compile(model)
 
+    _set_parameter_marker_maps(model_container, marker_maps)
+
     pipeline_stages = []
     pipeline_schedule = None
 
@@ -343,49 +423,3 @@ def wrap_model_container_for_distributed_training(
         )
 
     return model_container, pipeline_schedule
-
-
-def _get_pipeline_parallel_schedule(
-    pipeline_parallel_schedule: str,
-    gradient_accumulation_steps: int,
-    pipeline_stages: list[PipelineStage],
-    loss_fn: Callable,
-) -> _PipelineSchedule:
-    try:
-        schedule_class = get_schedule_class(pipeline_parallel_schedule)
-    except ValueError:
-        raise ValueError(
-            f"unexpected schedule ({pipeline_parallel_schedule}), expected values are: ['1F1B', "
-            "'Interleaved1F1B', 'GPipe', 'FlexibleInterleaved1F1B', 'LoopedBFS', 'InterleavedZeroBubble', "
-            "'PipelineScheduleSingle', 'PipelineScheduleMulti']"
-        )
-
-    if schedule_class in [PipelineScheduleSingle, PipelineScheduleMulti]:
-        raise NotImplementedError()
-
-    if issubclass(schedule_class, PipelineScheduleSingle):
-        assert len(pipeline_stages) == 1
-
-    def custom_loss_function(output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        loss_dict = loss_fn(output, target)
-        return loss_dict["loss"]
-
-    return schedule_class(
-        pipeline_stages if issubclass(schedule_class, PipelineScheduleMulti) else pipeline_stages[0],
-        n_microbatches=gradient_accumulation_steps,
-        loss_fn=custom_loss_function,
-    )
-
-
-def _get_fsdp_mixed_precision(
-    dtype: torch.dtype, communication_dtype: torch.dtype | None, fsdp_algorithm: int
-) -> MixedPrecision1:
-    if communication_dtype is None:
-        communication_dtype = dtype
-
-    if fsdp_algorithm == 1:
-        mixed_precision = MixedPrecision1(param_dtype=dtype, reduce_dtype=communication_dtype, buffer_dtype=dtype)
-    else:
-        mixed_precision = MixedPrecision2(param_dtype=dtype, reduce_dtype=communication_dtype)
-
-    return mixed_precision
