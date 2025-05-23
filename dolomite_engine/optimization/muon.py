@@ -49,7 +49,8 @@ def zeropower_via_newtonschulz5(G, steps):
     return X
 
 
- 
+
+    
 # adjust LR based on: https://github.com/MoonshotAI/Moonlight
 def adjust_lr_wd_for_muon(lr, matched_adamw_rms, param_shape):
     A, B = param_shape[:2]
@@ -87,16 +88,16 @@ class Muon(torch.optim.Optimizer):
 
     def __init__(
         self,
+        params,
         lr=1e-3,
         weight_decay=0.1,
-        muon_params=None,
         muon_momentum=0.95,
         muon_nesterov=True,
         muon_ns_steps=5,
-        adamw_params=None,
         betas=[0.9, 0.95],
         eps=1e-8,
         muon_matched_adamw_rms=0.2,
+        grad_clip_norm = None,
     ):
 
         defaults = dict(
@@ -108,24 +109,15 @@ class Muon(torch.optim.Optimizer):
             adamw_betas=betas,
             adamw_eps=eps,
             matched_adamw_rms=muon_matched_adamw_rms,
+            grad_clip_norm= grad_clip_norm,
         )
 
-        params = list(muon_params)
-        adamw_params = list(adamw_params) if adamw_params is not None else []
-        params.extend(adamw_params)
+
         super().__init__(params, defaults)
-        
-        # Sort parameters into those for which we will use Muon, and those for which we will not
-        for p in muon_params:
-            # Use Muon for every parameter in muon_params which is >= 2D and doesn't look like an embedding or head layer
-            assert p.ndim == 2 or p._is_expert_weight, p.ndim
-            self.state[p]["use_muon"] = True
-        for p in adamw_params:
-            # Do not use Muon for parameters in adamw_params
-            self.state[p]["use_muon"] = False
 
 
-    
+
+    @torch.no_grad()    
     def step(self, closure=None):
         """Perform a single optimization step.
 
@@ -144,146 +136,136 @@ class Muon(torch.optim.Optimizer):
             #           Muon           #
             ############################
 
-            params = [p for p in group["params"] if self.state[p]["use_muon"]]
+            # params = [p for p in group["params"] if self.state[p]["use_muon"]]
             # import pdb; pdb.set_trace()
             lr = group["lr"]
             wd = group["wd"]
             momentum = group["momentum"]
             matched_adamw_rms = group["matched_adamw_rms"]
-
+            beta1, beta2 = group["adamw_betas"]
+            eps = group["adamw_eps"]
             # generate weight updates in distributed fashion
-            for p in params:
+            for p in group["params"]:
                 # sanity check
                 g = p.grad
                 if g is None:
                     continue
             
-                mup_scale = getattr(p, "_mup", None)
-                if mup_scale is not None:
-                    lr = lr /mup_scale # For Mup 
+                if len(p.shape>=2):
+                    if getattr(p, "_is_expert_weight", False):
+                        num_experts = p.shape[0]
+                        expert_weights_ = p  # (num_experts, out_feat,in_feat)
+                        expert_grads_  = g 
 
-                if getattr(p, "_is_expert_weight", False):
-                    num_experts = p.shape[0]
-                    expert_weights_ = p  # (num_experts, out_feat,in_feat)
-                    expert_grads_  = g 
+                        for i in range(num_experts):
+                            expert_weight = expert_weights_[i]
+                            expert_grad = expert_grads_[i]
 
-                    for i in range(num_experts):
-                        expert_weight = expert_weights_[i]
-                        expert_grad = expert_grads_[i]
+                            # Calculate update for each expert
+                            state = self.state[p]
+                            if "momentum_buffer" not in state:
+                                state["momentum_buffer"] = torch.zeros_like(expert_grad)
+                            buf = state["momentum_buffer"]
+                            buf.mul_(momentum).add_(expert_grad)
+                            
+                            if group["nesterov"]:
+                                expert_grad = expert_grad.add(buf, alpha=momentum) # can use inplace ? (But inplace would change .grad attribute so not doing here)
+                            else:
+                                expert_grad = buf
+                            
+                            # For FSDP : We get full tensor for newtonschulz
+                            met_data_dtensor = None
+                            if isinstance(expert_grad, DTensor):
+                                met_data_dtensor = dict(
+                                    placements=expert_grad.placements,
+                                    device_mesh=expert_grad.device_mesh,
+                                )
+                                expert_grad = expert_grad.full_tensor()
 
-                        # Calculate update for each expert
+                            u = zeropower_via_newtonschulz5(expert_grad, steps=group["ns_steps"])
+                            
+                            # For FSDP : We distribute tensor back to original config
+                            if met_data_dtensor is not None:
+                                u = distribute_tensor(u, device_mesh=met_data_dtensor["device_mesh"], placements=met_data_dtensor["placements"])
+
+
+                            # scale update
+                            adjusted_lr = adjust_lr_wd_for_muon(lr, matched_adamw_rms,p.shape)
+                            # Apply weight decay
+                            expert_weight.data.mul_(1 - lr * wd)
+
+                            # Apply update for the expert weight
+                            expert_weight.data.add_(u, alpha=-adjusted_lr)
+                    
+                    else:
+
+                        if g.ndim > 2:
+                            # raise ValueError(f"Muon doesn't work with {g.ndim} Dims")
+                            g = g.view(g.size(0), -1)
+                        assert g is not None
+
+                        # calc update
                         state = self.state[p]
                         if "momentum_buffer" not in state:
-                            state["momentum_buffer"] = torch.zeros_like(expert_grad)
+                            state["momentum_buffer"] = torch.zeros_like(g)
                         buf = state["momentum_buffer"]
-                        buf.mul_(momentum).add_(expert_grad)
-                        
+                        buf.mul_(momentum).add_(g)
                         if group["nesterov"]:
-                            expert_grad = expert_grad.add(buf, alpha=momentum) # can use inplace ? (But inplace would change .grad attribute so not doing here)
+                            g = g.add(buf, alpha=momentum)
                         else:
-                            expert_grad = buf
-                        
-                        # For FSDP : We get full tensor for newtonschulz
+                            g = buf
+
+
                         met_data_dtensor = None
-                        if isinstance(expert_grad, DTensor):
+                        if isinstance(g, DTensor):
                             met_data_dtensor = dict(
-                                placements=expert_grad.placements,
-                                device_mesh=expert_grad.device_mesh,
+                                placements=g.placements,
+                                device_mesh=g.device_mesh,
                             )
-                            expert_grad = expert_grad.full_tensor()
-
-                        u = zeropower_via_newtonschulz5(expert_grad, steps=group["ns_steps"])
+                            g = g.full_tensor()
                         
-                        # For FSDP : We distribute tensor back to original config
-                        if met_data_dtensor is not None:
-                            u = distribute_tensor(u, device_mesh=met_data_dtensor["device_mesh"], placements=met_data_dtensor["placements"])
+                        u = zeropower_via_newtonschulz5(g, steps=group["ns_steps"])
 
+                        if met_data_dtensor is not None:
+                            u=distribute_tensor(u, device_mesh=met_data_dtensor["device_mesh"], placements=met_data_dtensor["placements"])
 
                         # scale update
-                        adjusted_lr = adjust_lr_wd_for_muon(lr, matched_adamw_rms,p.shape)
-                        # Apply weight decay
-                        expert_weight.data.mul_(1 - lr * wd)
+                        adjusted_lr = adjust_lr_wd_for_muon(lr,matched_adamw_rms, p.shape)
 
-                        # Apply update for the expert weight
-                        expert_weight.data.add_(u, alpha=-adjusted_lr)
-                
+                        # apply weight decay
+                        p.data.mul_(1 - lr * wd)
+
+                        # apply update
+                        p.data.add_(u, alpha=-adjusted_lr)
                 else:
-                    if g.ndim > 2:
-                        raise ValueError(f"Muon doesn't work with {g.ndim} Dims")
-                        # g = g.view(g.size(0), -1)
-                    assert g is not None
-
-                    # calc update
-                    state = self.state[p]
-                    if "momentum_buffer" not in state:
-                        state["momentum_buffer"] = torch.zeros_like(g)
-                    buf = state["momentum_buffer"]
-                    buf.mul_(momentum).add_(g)
-                    if group["nesterov"]:
-                        g = g.add(buf, alpha=momentum)
-                    else:
-                        g = buf
+                    ############################
+                    #         AdamW            #
+                    ############################
 
 
-                    met_data_dtensor = None
-                    if isinstance(g, DTensor):
-                        met_data_dtensor = dict(
-                            placements=g.placements,
-                            device_mesh=g.device_mesh,
-                        )
-                        g = g.full_tensor()
                     
-                    u = zeropower_via_newtonschulz5(g, steps=group["ns_steps"])
+                    # mup_scale = getattr(p, "_mup", None)
+                    # if mup_scale is not None:
+                    #     lr = lr /mup_scale # For Mup 
+                    
+                    state = self.state[p]
+                    if "step" not in state:
+                        state["step"] = 0
+                        state["moment1"] = torch.zeros_like(g)
+                        state["moment2"] = torch.zeros_like(g)
+                    state["step"] += 1
+                    step = state["step"]
+                    buf1 = state["moment1"]
+                    buf2 = state["moment2"]
+                    buf1.lerp_(g, 1 - beta1)
+                    buf2.lerp_(g.square(), 1 - beta2)
 
-                    if met_data_dtensor is not None:
-                        u=distribute_tensor(u, device_mesh=met_data_dtensor["device_mesh"], placements=met_data_dtensor["placements"])
+                    g = buf1 / (eps + buf2.sqrt())
 
-                    # scale update
-                    adjusted_lr = adjust_lr_wd_for_muon(lr,matched_adamw_rms, p.shape)
-
-                    # apply weight decay
+                    bias_correction1 = 1 - beta1**step
+                    bias_correction2 = 1 - beta2**step
+                    scale = bias_correction1 / bias_correction2**0.5
                     p.data.mul_(1 - lr * wd)
-
-                    # apply update
-                    p.data.add_(u, alpha=-adjusted_lr)
-
-            ############################
-            #       AdamW backup       #
-            ############################
-
-            params = [p for p in group["params"] if not self.state[p]["use_muon"]]
-            lr = group['lr']
-            beta1, beta2 = group["adamw_betas"]
-            eps = group["adamw_eps"]
-            weight_decay = group["wd"]
-
-            for p in params:
-                g = p.grad
-                if g is None:
-                    continue
-                
-                mup_scale = getattr(p, "_mup", None)
-                if mup_scale is not None:
-                    lr = lr /mup_scale # For Mup 
-                
-                state = self.state[p]
-                if "step" not in state:
-                    state["step"] = 0
-                    state["moment1"] = torch.zeros_like(g)
-                    state["moment2"] = torch.zeros_like(g)
-                state["step"] += 1
-                step = state["step"]
-                buf1 = state["moment1"]
-                buf2 = state["moment2"]
-                buf1.lerp_(g, 1 - beta1)
-                buf2.lerp_(g.square(), 1 - beta2)
-
-                g = buf1 / (eps + buf2.sqrt())
-
-                bias_correction1 = 1 - beta1**step
-                bias_correction2 = 1 - beta2**step
-                scale = bias_correction1 / bias_correction2**0.5
-                p.data.mul_(1 - lr * weight_decay)
-                p.data.add_(g, alpha=-lr / scale)
+                    p.data.add_(g, alpha=-lr / scale)
 
         return loss
