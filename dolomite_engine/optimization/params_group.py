@@ -15,8 +15,9 @@ from ..hf_models import (
     LadderResidualForCausalLM_TP,
     is_parameter_with_mup_learning_rate,
     is_parameter_with_no_weight_decay,
+    mark_parameter_as_muon
 )
-from ..hf_models.modeling_utils import RNN, Attention, Mamba2, MoE
+from ..hf_models.modeling_utils import MLP, RNN, Attention, Mamba2, MoE,ParameterizedExperts
 from ..model_wrapper import ModelWrapper
 from ..utils import BaseArgs, log_rank_0
 
@@ -87,6 +88,113 @@ def get_normal_group_with_names(model: ModelWrapper, optimizer_class_args: dict)
     return params_group_list
 
 
+
+def get_muon_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -> dict:
+    # TODO: Work on wihtou MuP and Expert weights
+    if model.has_teacher_model():
+        log_rank_0(logging.WARN, "found a teacher model in the ModelWrapper")
+        # this is the student model
+        model = model.model
+
+
+    muon_params = {}
+    adamw_params = {}
+    muon_mup_params = {}
+
+
+    for name, parameter in model.named_parameters():
+        if is_parameter_with_mup_learning_rate(parameter) and (parameter.ndim >= 2 and "wte" not in name and "lm_head" not in name):
+            # MuP + MUON 
+            mark_parameter_as_muon(parameter)
+            muon_mup_params[name] = parameter
+        elif (not is_parameter_with_mup_learning_rate(parameter)) and (parameter.ndim >= 2 and "wte" not in name and "lm_head" not in name):
+            # MUON
+            mark_parameter_as_muon(parameter)
+            muon_params[name] = parameter
+        else:
+            adamw_params[name] = parameter
+
+
+    params_group_list = _ParamsGroupsList(
+        params_groups=[
+            _ParamsGroup(name="normal", parameter_name_map=adamw_params),
+            _ParamsGroup(
+                name="muon_params",
+            ),
+            _ParamsGroup(
+                name="muon_mup_params",
+                parameter_name_map=muon_mup_params,
+                params_group_kwargs={"lr": optimizer_class_args["lr"] / model.config.m_width},
+            ),
+        ]
+    )
+
+
+
+    # for name, module in model.named_modules():
+    #     if isinstance(module, ParameterizedExperts):
+    #         for _, param in module.named_parameters():
+    #             param._is_expert_weight = True  # Set the flag for expert weights
+    #             muon_params.append(param)
+
+
+
+    # # Handle other parameters 
+    # for name, p in model.named_parameters():
+    #     if getattr(p, "_is_expert_weight", False):
+    #         continue
+        
+    #     if p.ndim >= 2 and "wte" not in name and "lm_head" not in name:
+    #         if not hasattr(p, "_is_expert_weight"):  
+    #             setattr(p, "_is_expert_weight", False)  # Mark it explicitly as non-expert weight
+    #         muon_params.append(p)
+    #     else:
+    #         adamw_params.append(p)
+
+    return params_group_list
+
+
+
+def get_mup_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -> list[_ParamsGroup]:
+    assert (
+        model.config.init_method == "mup"
+    ), "both init method for model and params group method for optimizer should be set to mup"
+
+    if model.has_teacher_model():
+        log_rank_0(logging.WARN, "found a teacher model in the ModelWrapper")
+        # this is the student model
+        model = model.model
+
+    normal_params = {}
+    no_weight_decay_params = {}
+    mup_params = {}
+
+    for name, parameter in model.named_parameters():
+        if is_parameter_with_mup_learning_rate(parameter):
+            mup_params[name] = parameter
+        elif is_parameter_with_no_weight_decay(parameter):
+            no_weight_decay_params[name] = parameter
+        else:
+            normal_params[name] = parameter
+
+    params_group_list = _ParamsGroupsList(
+        params_groups=[
+            _ParamsGroup(name="normal", parameter_name_map=normal_params),
+            _ParamsGroup(
+                name="no_weight_decay",
+                parameter_name_map=no_weight_decay_params,
+                params_group_kwargs={"weight_decay": 0},
+            ),
+            _ParamsGroup(
+                name="mup",
+                parameter_name_map=mup_params,
+                params_group_kwargs={"lr": optimizer_class_args["lr"] / model.config.m_width},
+            ),
+        ]
+    )
+
+    return params_group_list
+
 def get_mup_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -> list[_ParamsGroup]:
     assert (
         model.config.init_method == "mup"
@@ -131,6 +239,7 @@ def get_mup_group_with_names(model: ModelWrapper, optimizer_class_args: dict) ->
 _PARAM_GROUPS = {
     None: get_normal_group_with_names,
     ParamsGroupMethod.mup: get_mup_group_with_names,
+    ParamsGroupMethod.muon : get_muon_group_with_names,
 }
 
 

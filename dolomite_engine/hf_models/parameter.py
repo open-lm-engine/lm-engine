@@ -5,8 +5,20 @@
 import torch.nn as nn
 
 
-_ALL_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate"]
+_ALL_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate","_is_expert_weight"]
 
+
+def mark_parameter_as_muon(parameter: nn.Parameter | None) -> nn.Parameter | None:
+    if parameter is not None:
+        parameter._use_muon = True
+
+    return parameter
+
+def mark_parameter_as_expert_weight(parameter: nn.Parameter | None) -> nn.Parameter | None:
+    if parameter is not None:
+        parameter._is_expert_weight = True
+
+    return parameter
 
 def mark_parameter_as_no_weight_decay(parameter: nn.Parameter | None) -> nn.Parameter | None:
     if parameter is not None:

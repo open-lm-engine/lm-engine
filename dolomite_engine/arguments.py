@@ -196,9 +196,19 @@ class OptimizerArgs(BaseArgs):
         "weight_decay": 0.1,
         "betas": [0.9, 0.95],
         "eps": 1e-10,
+        # Muon.
+        "muon_momentum": 0.95,  # Momentum factor for Muon optimizer.
+        "muon_nesterov":  True,
+        "muon_ns_steps":  5,
+        "muon_matched_adamw_rms": 0.2 # The adamw update rms that muon is designed to matched, typicially 0.2 ~ 0.4
     }
 
     def model_post_init(self, __context: Any) -> None:
+        if self.class_name != "Muon":
+            self.class_args = {
+                k: v for k, v in self.class_args.items() if "muon" not in k
+            }
+
         _check_not_None([(self.class_name, "optimizer class_name")])
 
 

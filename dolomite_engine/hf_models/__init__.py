@@ -33,6 +33,8 @@ from .parameter import (
     is_parameter_with_no_weight_decay,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
+    mark_parameter_as_muon,
+    mark_parameter_as_expert_weight,
 )
 from .register_hf import get_model_parallel_class, is_custom_model, register_model_classes
 from .unshard import fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
