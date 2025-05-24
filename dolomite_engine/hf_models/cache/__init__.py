@@ -6,12 +6,14 @@ import torch
 from transformers import Cache
 
 from ..config import CommonConfig
+from .causal_convolution import _CausalConvolutionCache
 from .mamba2 import _Mamba2Cache
 from .rnn import _RNNCache
 from .softmax_attention import _SoftmaxAttentionCache
 
 
 _CACHE_CLASSES = {
+    "causal_convolution": _CausalConvolutionCache,
     "mamba2": _Mamba2Cache,
     "multihead_latent_attention": _SoftmaxAttentionCache,
     "rnn": _RNNCache,
@@ -43,7 +45,7 @@ class GenerationCache(Cache):
     def update(self, *, layer_idx: int, **kwargs) -> tuple[torch.Tensor | None]:
         return self.cache[layer_idx].update(**kwargs)
 
-    def get_cache(self, layer_idx: int) -> tuple[torch.Tensor | None]:
+    def get_cache(self, layer_idx: int) -> torch.Tensor | tuple[torch.Tensor | None] | None:
         return self.cache[layer_idx].get_cache()
 
     def get_seq_length(self, layer_idx: int | None = 0) -> int:

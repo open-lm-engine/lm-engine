@@ -3,6 +3,7 @@
 # **************************************************
 
 from ...config import CommonConfig
+from .causal_convolution import CausalConvolution
 from .flash_attention_utils import flash_attention
 from .gru import GRU
 from .mamba2 import Mamba2
@@ -27,7 +28,23 @@ def get_sequence_mixer(
     block = config.sequence_mixer_blocks[layer_idx]
     sequence_mixer_type = block.sequence_mixer_type
 
-    if sequence_mixer_type == "gru":
+    if sequence_mixer_type == "causal_convolution":
+        return CausalConvolution(
+            hidden_size=config.hidden_size,
+            in_channels=block.in_channels,
+            out_channels=block.out_channels,
+            kernel_size=block.kernel_size,
+            num_groups=block.num_groups,
+            activation_function=block.activation_function,
+            add_bias=block.add_bias,
+            initializer_range=config.initializer_range,
+            m_width=config.m_width,
+            init_method=config.init_method,
+            num_layers=config.num_layers,
+            layer_idx=layer_idx,
+            use_padding_free_transformer=use_padding_free_transformer,
+        )
+    elif sequence_mixer_type == "gru":
         return GRU(
             input_size=config.hidden_size,
             state_size=block.state_size,

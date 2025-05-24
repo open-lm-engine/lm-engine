@@ -10,6 +10,7 @@ from transformers import PretrainedConfig
 from ...utils import BaseArgs, divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import (
+    _CausalConvolution,
     _GRUArgs,
     _Mamba2Args,
     _MultiHeadLatentAttentionArgs,
@@ -62,6 +63,7 @@ _NAKED_DISALLOWED_ARGS = [
 ]
 
 _SEQUENCE_MIXER_CONFIG_CLASSES = {
+    "causal_convolution": _CausalConvolution,
     "gru": _GRUArgs,
     "mamba2": _Mamba2Args,
     "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
@@ -194,10 +196,12 @@ class CommonConfig(PretrainedConfig):
             self.sequence_mixer_blocks = [{} for _ in range(self.num_layers)]
 
         sequence_mixer_blocks: list[
-            _SoftmaxAttentionArgs
+            _CausalConvolution
+            | _GRUArgs
             | _Mamba2Args
             | _MultiHeadLatentAttentionArgs
             | _RNNArgs
+            | _SoftmaxAttentionArgs
             | _StickbreakingAttentionArgs
         ] = []
         for i in range(self.num_layers):

@@ -2,7 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from typing import Union
 
 import torch
 import torch.nn as nn
@@ -17,7 +16,7 @@ class ParameterizedConv1d(nn.Conv1d):
         out_channels: int,
         kernel_size: int,
         stride: int = 1,
-        padding: Union[str, int] = 0,
+        padding: str | int = 0,
         dilation: int = 1,
         groups: int = 1,
         bias: bool = True,

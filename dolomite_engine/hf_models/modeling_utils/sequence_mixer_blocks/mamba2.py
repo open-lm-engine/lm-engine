@@ -36,7 +36,7 @@ def _pad_tensor_by_size(input_tensor: torch.Tensor, pad_size: int) -> torch.Tens
     """
     pad_shape = (0, 0, 0, 0, 0, pad_size, 0, 0) if len(input_tensor.shape) == 4 else (0, 0, 0, pad_size, 0, 0)
 
-    return torch.nn.functional.pad(input_tensor, pad_shape, mode="constant", value=0)
+    return F.pad(input_tensor, pad_shape, mode="constant", value=0)
 
 
 def _reshape_into_chunks(input_tensor: torch.Tensor, pad_size: int, chunk_size: int) -> torch.Tensor:
@@ -285,7 +285,7 @@ class Mamba2(nn.Module):
             # [num_heads] -> [num_heads, head_dim]
             dt_bias = self.dt_bias[..., None].expand(self.dt_bias.shape[0], self.head_dim)
 
-            dt = torch.nn.functional.softplus(dt + dt_bias.to(dt.dtype))
+            dt = F.softplus(dt + dt_bias.to(dt.dtype))
             dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
             A = A[..., None, None].expand(self.num_heads, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
             # [bsz, num_heads, head_dim, state_size]

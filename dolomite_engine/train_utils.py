@@ -11,7 +11,7 @@ from transformers import AutoConfig
 from .enums import GradientCheckpointingMethod
 from .hf_models import CommonConfig, is_custom_model
 from .hf_models.modeling_utils import is_glu
-from .utils import ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager, log_metrics
+from .utils import ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager, divide_if_divisible, log_metrics
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
@@ -114,7 +114,21 @@ def get_model_tflops(
         sequence_mixer_type = block.sequence_mixer_type
         gradient_checkpointing_enabled = layer_idx < num_layers_checkpointed
 
-        if sequence_mixer_type in ["softmax_attention", "stickbreaking_attention"]:
+        if sequence_mixer_type == "causal_convolution":
+            sequence_mixer_flops = _get_linear_flops(
+                b * s, h, block.in_channels, gradient_checkpointing=gradient_checkpointing_enabled
+            )
+            sequence_mixer_flops += divide_if_divisible(
+                _get_linear_flops(
+                    b * s, block.in_channels, block.out_channels, gradient_checkpointing=gradient_checkpointing_enabled
+                ),
+                block.num_groups,
+                "",
+            )
+            sequence_mixer_flops += _get_linear_flops(
+                b * s, block.out_channels, h, gradient_checkpointing=gradient_checkpointing_enabled
+            )
+        elif sequence_mixer_type in ["softmax_attention", "stickbreaking_attention"]:
             # QKV projection FLOPs
             sequence_mixer_flops = _get_linear_flops(
                 b * s,

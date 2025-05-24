@@ -69,6 +69,7 @@ class ExperimentsTrackerName(Enum):
 
 class Kernel(Enum):
     # cute kernels
+    causal_conv1d = "causal_conv1d"
     continuous_count_cute = "continuous_count_cute"
     cross_entropy_cute = "cross_entropy_cute"
     fused_linear_cross_entropy_cute = "fused_linear_cross_entropy_cute"
