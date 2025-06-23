@@ -55,9 +55,14 @@ class GPTDataset(MegatronDataset):
         self.np_rng = numpy.random.RandomState(seed=config.random_seed)  # rng state for FIM
 
         if self.fim_rate != 0:
+            assert self.fim_rate <= 1 and self.fim_rate >= 0, "FIM rate must be a probability 0 <= rate <= 1"
+
             self.suffix_tok_id, self.prefix_tok_id, self.middle_tok_id, self.pad_tok_id = (
                 self.tokenizer.convert_tokens_to_ids(tok) for tok in [FIM_SUFFIX, FIM_PREFIX, FIM_MIDDLE, FIM_PAD]
             )
+
+            self.eos_token_id = self.tokenizer.eos_token_id
+            assert self.eos_token_id is not None
 
     def _finalize(self) -> None:
         """Abstract method implementation
@@ -169,11 +174,7 @@ class GPTDataset(MegatronDataset):
 
         if self.fim_rate != 0:
             sample_len = sample.shape[0]
-
-            assert self.fim_rate <= 1 and self.fim_rate >= 0, "FIM rate must be a probability 0 <= rate <= 1"
-
-            eod = self.tokenizer.eod
-            segment_breaks = numpy.argwhere(sample == eod)  # split sample by document
+            segment_breaks = numpy.argwhere(sample == self.eos_token_id)  # split sample by document
 
             if segment_breaks.shape != (0, 1):  # then there is an EOD token in this example
                 curr_start_position = 0
@@ -194,7 +195,7 @@ class GPTDataset(MegatronDataset):
                             middle_tok_id=self.middle_tok_id,
                             pad_tok_id=self.pad_tok_id,
                         )
-                        new_samples += [permuted, [eod]]
+                        new_samples += [permuted, [self.eos_token_id]]
 
                     curr_start_position = loc + 1  # jump over the EOD token
                 # Permute the segment after the last EOD
@@ -528,7 +529,7 @@ def permute(
     """
 
     if np_rng.binomial(1, fim_rate):  # sample bernoulli dist
-        contents = tokenizer.detokenize(sample)
+        contents = tokenizer.decode(sample)
 
         try:
             # A boundary can be =0 (prefix will be empty)
@@ -545,9 +546,9 @@ def permute(
         middle = contents[boundaries[0] : boundaries[1]]
         suffix = contents[boundaries[1] :]
 
-        prefix = numpy.array([*tokenizer.tokenize(prefix)], dtype=numpy.int64)
-        middle = numpy.array([*tokenizer.tokenize(middle)], dtype=numpy.int64)
-        suffix = numpy.array([*tokenizer.tokenize(suffix)], dtype=numpy.int64)
+        prefix = numpy.array([*tokenizer.encode(prefix)], dtype=numpy.int64)
+        middle = numpy.array([*tokenizer.encode(middle)], dtype=numpy.int64)
+        suffix = numpy.array([*tokenizer.encode(suffix)], dtype=numpy.int64)
 
         # here we truncate each given segment to fit the same length as it was before
         # A consequence is that we never reach the end of a file?
