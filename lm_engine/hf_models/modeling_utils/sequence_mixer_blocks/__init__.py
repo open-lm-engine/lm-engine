@@ -6,10 +6,10 @@ from ...config import CommonConfig
 from .causal_convolution import CausalConvolution
 from .flash_attention_utils import flash_attention
 from .gru import GRU
+from .hippo_rnn import HiPPO_RNN
 from .mamba2 import Mamba2
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
-from .rnn_hippo import HiPPO_RNN
 from .softmax_attention import (
     Attention,
     get_attention_head_type,
