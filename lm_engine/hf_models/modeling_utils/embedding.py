@@ -37,10 +37,6 @@ class ParameterizedEmbedding(nn.Embedding):
             dtype,
         )
 
-    @torch.compiler.disable
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return super().forward(input)
-
     @torch.no_grad()
     def reset_parameters(self) -> None:
         if self.std is None:
