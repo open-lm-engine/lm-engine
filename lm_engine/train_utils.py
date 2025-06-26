@@ -186,7 +186,7 @@ def get_model_tflops(
                 * (
                     _get_linear_flops(b, head_dim, head_dim)
                     + b * head_dim
-                    + _get_linear_flops(b, block.hippo_size, block.head_dim)
+                    + _get_linear_flops(b, block.hippo_size, head_dim)
                 )
             )
 
