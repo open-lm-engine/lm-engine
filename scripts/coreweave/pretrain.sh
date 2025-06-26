@@ -4,6 +4,8 @@ export MASTER_PORT=28444
 export NNODES=$SLURM_NNODES
 export NODE_RANK=$SLURM_PROCID
 
+export TRITON_PRINT_AUTOTUNING=1
+
 TOKENIZERS_PARALLELISM=false \
 torchrun --nnodes=$NNODES \
     --node_rank=$NODE_RANK \

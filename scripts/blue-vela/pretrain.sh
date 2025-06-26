@@ -60,6 +60,7 @@ NODE_RANK=$(($(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | sed 'n; d' | grep -n -m1 $
 
 #track the LSF/Slurm job in W&B per run - bobcalio
 export JOB_ID=$LSB_JOBID 
+export TRITON_PRINT_AUTOTUNING=1
 
 TOKENIZERS_PARALLELISM=false \
 torchrun --nnodes=$NNODES \
