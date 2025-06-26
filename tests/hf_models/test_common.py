@@ -10,8 +10,8 @@ import torch
 from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM
 
-from dolomite_engine import SafeTensorsWeightsManager
-from dolomite_engine.hf_models import CommonConfig, GPTDolomiteConfig, export_to_huggingface, import_from_huggingface
+from lm_engine import SafeTensorsWeightsManager
+from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingface, import_from_huggingface
 
 from ..test_common import BaseTestCommons
 
@@ -53,7 +53,7 @@ class TestCommons(BaseTestCommons):
         m_residual: float = None,
         attention_multiplier: float = None,
         num_attention_heads: int = 4,
-    ) -> GPTDolomiteConfig:
+    ) -> GPTBaseConfig:
         if attention_head_type == "mha":
             num_key_value_heads = num_attention_heads
         elif attention_head_type == "mqa":
@@ -63,7 +63,7 @@ class TestCommons(BaseTestCommons):
         else:
             raise ValueError(f"unexpected attention_head_type ({attention_head_type})")
 
-        return GPTDolomiteConfig(
+        return GPTBaseConfig(
             vocab_size=2048,
             max_position_embeddings=1024,
             hidden_size=32,
@@ -109,7 +109,7 @@ class TestCommons(BaseTestCommons):
         m_residual: float = None,
         attention_multiplier: float = None,
         num_attention_heads: int = 4,
-    ) -> GPTDolomiteConfig:
+    ) -> GPTBaseConfig:
         if attention_head_type == "mha":
             num_key_value_heads = num_attention_heads
         elif attention_head_type == "mqa":
@@ -119,7 +119,7 @@ class TestCommons(BaseTestCommons):
         else:
             raise ValueError(f"unexpected attention_head_type ({attention_head_type})")
 
-        return GPTDolomiteConfig(
+        return GPTBaseConfig(
             vocab_size=2048,
             max_position_embeddings=1024,
             hidden_size=32,
@@ -171,7 +171,7 @@ class TestCommons(BaseTestCommons):
 
     def model_conversion_test(
         self,
-        dolomite_config: CommonConfig,
+        lm_engine_config: CommonConfig,
         model_type: str,
         device: torch.device,
         exact_match: bool = True,
@@ -191,15 +191,15 @@ class TestCommons(BaseTestCommons):
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
-        dolomite_model = self.from_config(dolomite_config).to(device)
-        dolomite_model.eval()
+        lm_engine_model = self.from_config(lm_engine_config).to(device)
+        lm_engine_model.eval()
 
         with tempfile.TemporaryDirectory() as tmp_path:
             save_path = os.path.join(tmp_path, "save")
             export_path = os.path.join(tmp_path, "export")
             import_path = os.path.join(tmp_path, "import")
 
-            dolomite_model.save_pretrained(save_path, safe_serialization=True)
+            lm_engine_model.save_pretrained(save_path, safe_serialization=True)
 
             export_to_huggingface(save_path, export_path, model_type=model_type)
             import_from_huggingface(export_path, import_path)
@@ -215,18 +215,18 @@ class TestCommons(BaseTestCommons):
         hf_logits = hf_output.logits
         hf_loss = hf_output.loss
 
-        dolomite_output = dolomite_model(
+        lm_engine_output = lm_engine_model(
             input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True
         )
-        dolomite_logits = dolomite_output.logits
-        dolomite_loss = dolomite_output.loss
+        lm_engine_logits = lm_engine_output.logits
+        lm_engine_loss = lm_engine_output.loss
 
         # we don't care about what happens on masked values (they don't match btw)
         hf_logits[attention_mask == 0] = 0
-        dolomite_logits[attention_mask == 0] = 0
+        lm_engine_logits[attention_mask == 0] = 0
 
         self.assert_equal_tensors(
-            dolomite_logits,
+            lm_engine_logits,
             hf_logits,
             exact_match,
             rtol_float32=logits_rtol_float32,
@@ -239,7 +239,7 @@ class TestCommons(BaseTestCommons):
 
         if compare_loss:
             self.assert_equal_tensors(
-                dolomite_loss,
+                lm_engine_loss,
                 hf_loss,
                 exact_match,
                 rtol_float32=loss_rtol_float32,

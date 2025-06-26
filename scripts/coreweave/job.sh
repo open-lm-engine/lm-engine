@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=gb200
 #SBATCH --nodes=16
-#SBATCH --job-name=dolomite-job
+#SBATCH --job-name=lm-engine-job
 #SBATCH --ntasks-per-node=1  #<--must be 1 for torchrun / override for others like mpi
 #SBATCH --gpus-per-node=4
 #SBATCH --wait-all-nodes=1
@@ -11,7 +11,7 @@
 ####SBATCH --exclusive <-- currently commented out and experimenting how it impacts 256 node job
 
 #run this command on slurm login node: 
-# sbatch -N 16 /mnt/home/bobcalio/ai-coreweave/dolomite_engine/scripts/cw-gb200/pretrain-120b.sbatch <config>
+# sbatch -N 16 /mnt/home/bobcalio/ai-coreweave/lm_engine/scripts/cw-gb200/pretrain-120b.sbatch <config>
 
 . $HOME/.bashrc
 export HF_HOME="$HOME/.cache/huggingface/"
@@ -45,7 +45,7 @@ container_image="/mnt/vast/squash/${container_name}.sqsh"
 container_mounts="/mnt:/mnt"
 
 # from MLPerf team -- need top review 
-#. ${HOME}/ai-coreweave/dolomite_engine/scripts/cw-gb200/config_common.sh
+#. ${HOME}/ai-coreweave/lm_engine/scripts/cw-gb200/config_common.sh
 
 #default nccl vars handled in .nccl.conf
 export TOKENIZERS_PARALLELISM=false 
@@ -132,10 +132,10 @@ echo $DISTRIBUTED_ARGS
 export TRITON_PRINT_AUTOTUNING=1
 
 # # srun ${SRUN_ARGS} pip install -e ../cute-kernels/
-# command='bash -c "pip install -e ../cute-kernels/ && torchrun $DISTRIBUTED_ARGS  -m dolomite_engine.pretrain --config $config"'
+# command='bash -c "pip install -e ../cute-kernels/ && torchrun $DISTRIBUTED_ARGS  -m lm_engine.pretrain --config $config"'
 # srun ${SRUN_ARGS} ${command}
 # # Optional: install package before running
 # # srun ${SRUN_ARGS} pip install -e ../cute-kernels/
 
-command="torchrun $DISTRIBUTED_ARGS -m dolomite_engine.pretrain --config $config"
+command="torchrun $DISTRIBUTED_ARGS -m lm_engine.pretrain --config $config"
 srun ${SRUN_ARGS} bash -c "$command"

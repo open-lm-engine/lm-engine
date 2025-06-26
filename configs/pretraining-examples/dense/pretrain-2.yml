@@ -27,7 +27,7 @@ tokenizer_args:
 model_args:
   model_class: AutoModelForCausalLM
   pretrained_config:
-    model_type: gpt_dolomite
+    model_type: gpt_base
     vocab_size: 50257
     max_position_embeddings: 2048
     hidden_size: 768

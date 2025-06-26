@@ -5,10 +5,10 @@
 import torch
 from transformers import AutoModelForCausalLM
 
-from dolomite_engine.hf_models import GPTDolomiteConfig
+from lm_engine.hf_models import GPTBaseConfig
 
 
-config = GPTDolomiteConfig(
+config = GPTBaseConfig(
     vocab_size=65024,
     max_position_embeddings=4096,
     hidden_size=8192,

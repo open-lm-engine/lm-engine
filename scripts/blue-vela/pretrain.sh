@@ -67,5 +67,5 @@ torchrun --nnodes=$NNODES \
     --nproc_per_node=$GPUS_PER_NODE \
     --master_addr=$MASTER_ADDR \
     --master_port=$MASTER_PORT \
-    -m dolomite_engine.pretrain \
+    -m lm_engine.pretrain \
     --config ${1}

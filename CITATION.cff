@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 date-released: 2024-06-23
 message: "If you use this software, please cite it using this metadata."
-title: "Dolomite Engine: A Hyper-Optimized Library for Pretraining and Finetuning"
-url: "https://github.com/ibm-granite/dolomite-engine"
+title: "LM Engine: A Hyper-Optimized Library for Pretraining and Finetuning"
+url: "https://github.com/open-lm-engine/lm-engine"
 authors: 
   - family-names: Mishra
     given-names: Mayank

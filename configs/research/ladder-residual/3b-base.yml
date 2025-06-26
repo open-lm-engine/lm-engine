@@ -24,7 +24,7 @@ model_args:
   pretrained_config:
     initializer_range: 0.02
     layer_norm_epsilon: 1e-05
-    model_type: gpt_dolomite
+    model_type: gpt_base
     hidden_size: 2304
     num_layers: 40
     max_position_embeddings: 2048

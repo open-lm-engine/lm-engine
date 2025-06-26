@@ -8,16 +8,12 @@ import os
 import torch
 import torch.distributed
 
-from dolomite_engine.arguments import TrainingArgs, UnshardingArgs
-from dolomite_engine.checkpointing import (
-    ensure_last_checkpoint_is_saved,
-    load_checkpoint_for_inference,
-    save_checkpoint,
-)
-from dolomite_engine.distributed import wrap_model_container_for_distributed_training
-from dolomite_engine.enums import Mode
-from dolomite_engine.model_wrapper import get_model_container
-from dolomite_engine.utils import ProcessGroupManager, load_yaml
+from lm_engine.arguments import TrainingArgs, UnshardingArgs
+from lm_engine.checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_inference, save_checkpoint
+from lm_engine.distributed import wrap_model_container_for_distributed_training
+from lm_engine.enums import Mode
+from lm_engine.model_wrapper import get_model_container
+from lm_engine.utils import ProcessGroupManager, load_yaml
 
 
 parser = argparse.ArgumentParser()
@@ -103,7 +99,9 @@ ensure_last_checkpoint_is_saved()
 
 torch.distributed.barrier()
 
-_, _, consolidated_state_dict = load_checkpoint_for_inference(unshard_config, mode=Mode.unsharding, use_meta=False)
+_, _, consolidated_state_dict = load_checkpoint_for_inference(
+    unshard_config, mode=Mode.unsharding, allowed_meta_device=False
+)
 
 if global_rank == 0:
     original_state_dict = model_container[0].state_dict()

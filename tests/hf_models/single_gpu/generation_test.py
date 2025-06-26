@@ -9,7 +9,7 @@ import torch
 from parameterized import parameterized
 from transformers import AutoModelForCausalLM
 
-from dolomite_engine.hf_models import export_to_huggingface
+from lm_engine.hf_models import export_to_huggingface
 
 from ..test_common import TestCommons
 
@@ -35,25 +35,25 @@ class GenerationTest(TestCommons):
         self.skip_test_if_device_unavailable(device)
         self.skip_test_if_layernorm_kernel_unavailable(device, torch_dtype)
 
-        dolomite_config = self.get_dense_test_config(attention_head_type, position_embedding_type)
-        dolomite_config.use_cache = use_cache
+        lm_engine_config = self.get_dense_test_config(attention_head_type, position_embedding_type)
+        lm_engine_config.use_cache = use_cache
 
-        dolomite_model = self.from_config(dolomite_config, torch_dtype=torch_dtype).to(device)
-        dolomite_model.eval()
+        lm_engine_model = self.from_config(lm_engine_config, torch_dtype=torch_dtype).to(device)
+        lm_engine_model.eval()
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            dolomite_path = os.path.join(tmpdir, "dolomite")
+            lm_engine_path = os.path.join(tmpdir, "lm_engine")
             bigcode_path = os.path.join(tmpdir, "bigcode")
 
-            dolomite_model.save_pretrained(dolomite_path)
-            export_to_huggingface(dolomite_path, bigcode_path, model_type="gpt_bigcode")
+            lm_engine_model.save_pretrained(lm_engine_path)
+            export_to_huggingface(lm_engine_path, bigcode_path, model_type="gpt_bigcode")
 
             bigcode_model = AutoModelForCausalLM.from_pretrained(bigcode_path).to(device)
             bigcode_model.eval()
 
         input_ids, attention_mask, _ = self.get_dummy_inputs(device)
 
-        dolomite_output = dolomite_model.generate(
+        lm_engine_output = lm_engine_model.generate(
             input_ids=input_ids,
             attention_mask=attention_mask,
             use_cache=use_cache,
@@ -68,11 +68,11 @@ class GenerationTest(TestCommons):
             output_scores=True,
         )
 
-        assert dolomite_output.sequences.equal(bigcode_output.sequences)
+        assert lm_engine_output.sequences.equal(bigcode_output.sequences)
 
-        for dolomite_token_score, bigcode_token_score in zip(dolomite_output.scores, bigcode_output.scores):
+        for lm_engine_token_score, bigcode_token_score in zip(lm_engine_output.scores, bigcode_output.scores):
             self.assert_equal_tensors(
-                dolomite_token_score,
+                lm_engine_token_score,
                 bigcode_token_score,
                 False,
                 rtol_float32=0,

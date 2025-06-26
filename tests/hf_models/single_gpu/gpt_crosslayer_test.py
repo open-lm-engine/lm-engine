@@ -7,9 +7,9 @@ from parameterized import parameterized
 from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM, set_seed
 
-from dolomite_engine.enums import Kernel
-from dolomite_engine.hf_models import convert_gpt_dolomite_to_gpt_crosslayer
-from dolomite_engine.kernels import enable_kernels
+from lm_engine.enums import Kernel
+from lm_engine.hf_models import convert_gpt_base_to_gpt_crosslayer
+from lm_engine.kernels import enable_kernels
 
 from ..test_common import TestCommons
 
@@ -38,7 +38,7 @@ class GPTCrossLayerAttentionTest(TestCommons):
         )
         original_model = AutoModelForCausalLM.from_config(original_config).to(device)
 
-        _, model = convert_gpt_dolomite_to_gpt_crosslayer(original_config, original_model)
+        _, model = convert_gpt_base_to_gpt_crosslayer(original_config, original_model)
         model = model.to(device)
 
         original_model.eval()
@@ -68,7 +68,7 @@ class GPTCrossLayerAttentionTest(TestCommons):
             [True, False],
         )
     )
-    def test_generation_matches_gpt_dolomite(
+    def test_generation_matches_gpt_base(
         self,
         device: torch.device,
         attention_head_type: str,
@@ -84,7 +84,7 @@ class GPTCrossLayerAttentionTest(TestCommons):
         original_config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
         original_model = AutoModelForCausalLM.from_config(original_config, torch_dtype=torch_dtype).to(device)
 
-        _, model = convert_gpt_dolomite_to_gpt_crosslayer(original_config, original_model)
+        _, model = convert_gpt_base_to_gpt_crosslayer(original_config, original_model)
         model = model.to(device)
 
         original_model.eval()
@@ -218,7 +218,7 @@ class GPTCrossLayerAttentionTest(TestCommons):
         model = AutoModelForCausalLM.from_config(config, **kwargs)
 
         kwargs.pop("torch_dtype")
-        _, model = convert_gpt_dolomite_to_gpt_crosslayer(config, model, **kwargs)
+        _, model = convert_gpt_base_to_gpt_crosslayer(config, model, **kwargs)
 
         use_padding_free_transformer = kwargs.pop("use_padding_free_transformer", False)
         if use_padding_free_transformer:

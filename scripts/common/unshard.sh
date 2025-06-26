@@ -1,1 +1,1 @@
-python -m dolomite_engine.unshard --config ${1}
+python -m lm_engine.unshard --config ${1}

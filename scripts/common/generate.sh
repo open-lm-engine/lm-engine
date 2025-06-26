@@ -1,1 +1,1 @@
-python -m dolomite_engine.generate --config ${1}
+python -m lm_engine.generate --config ${1}

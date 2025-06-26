@@ -9,8 +9,8 @@ import tempfile
 from parameterized import parameterized
 from transformers import AutoTokenizer
 
-from dolomite_engine.data import get_datasets_list
-from dolomite_engine.enums import DatasetSplit, Mode
+from lm_engine.data import get_datasets_list
+from lm_engine.enums import DatasetSplit, Mode
 
 from .test_commons import TestCommons
 

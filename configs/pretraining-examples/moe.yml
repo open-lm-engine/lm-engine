@@ -27,7 +27,7 @@ model_args:
   model_class: AutoModelForCausalLM
   pretrained_config:
     initializer_range: 0.1
-    model_type: gpt_dolomite
+    model_type: gpt_base
     hidden_size: 1024
     num_layers: 24
     max_position_embeddings: 4096
