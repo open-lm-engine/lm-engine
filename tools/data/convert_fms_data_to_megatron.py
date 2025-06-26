@@ -9,8 +9,8 @@ from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-from dolomite_engine.data.megatron.merge_data import merge_files
-from dolomite_engine.data.megatron.preprocess_data import convert_file
+from lm_engine.data.megatron.merge_data import merge_files
+from lm_engine.data.megatron.preprocess_data import convert_file
 
 
 def get_args() -> Namespace:

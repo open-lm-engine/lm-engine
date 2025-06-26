@@ -4,9 +4,9 @@
 
 from transformers import AutoTokenizer
 
-from dolomite_engine.arguments import DatasetArgs, DistributedArgs, RandomArgs, TrainingParameters
-from dolomite_engine.data import get_megatron_gpt_dataloaders
-from dolomite_engine.utils import ProcessGroupManager, set_logger
+from lm_engine.arguments import DatasetArgs, DistributedArgs, RandomArgs, TrainingParameters
+from lm_engine.data import get_megatron_gpt_dataloaders
+from lm_engine.utils import ProcessGroupManager, set_logger
 
 
 # this is needed to print logs during preparation of dataloader
@@ -82,7 +82,7 @@ assert (
 
 # following logic is for FSDP/ZeRO without any model parallelism
 # since the function is model parallelism aware, we need to emulate no model parallelism
-# if you are using model parallelism, either train directly on dolomite or try modifying this logic
+# if you are using model parallelism, either train directly on lm-engine or try modifying this logic
 with (
     ProcessGroupManager.set_dummy_data_parallel_world_size(ProcessGroupManager.get_world_size()),
     ProcessGroupManager.set_dummy_data_parallel_rank(ProcessGroupManager.get_global_rank()),

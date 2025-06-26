@@ -2,10 +2,10 @@
 Copyright (c) 2025, Mayank Mishra
 ************************************************** -->
 
-<h1 align="center" style="font-size: 50px;">Dolomite Engine</h1>
+<h1 align="center" style="font-size: 50px;">LM Engine</h1>
 
 <p align="center">
-  <img src="assets/dolomite.jpeg" width="300px" height="300px">
+  <img src="assets/lm-engine.jpeg" width="300px" height="300px">
 </p>
 
 <!-- Topic -->
@@ -17,7 +17,7 @@ Copyright (c) 2025, Mayank Mishra
 [Model Architecture]: https://img.shields.io/static/v1?label=&message=Model%20Architecture&color=blueviolet
 
 # Introduction
-This repository contains code used for pretraining and finetuning IBM's Granite models. It also includes the following key innovations on model architectures, finetuning methods, systems optimizations:
+This repository contains code used for training new model architectures. This repo has also been used to train IBM's Granite models. It also includes the following key innovations on model architectures, finetuning methods, systems optimizations:
 1. [Saving Memory Using Padding-Free Transformer Layers during Finetuning](https://huggingface.co/blog/mayank-mishra/padding-free-transformer)  
 _Mayank Mishra_  
 ![image][Efficient Training]
@@ -51,21 +51,21 @@ The repository currently only supports generative models but can be easily exten
 Please note that this repository doesn't support Tensor Parallel or Pipeline Parallel (yet :wink:).
 
 # HuggingFace compatible custom models
-This repository works with all HuggingFace models (text-to-text only for the moment) out-of-the-box. The checkpoints have to be in safetensors format, if not you can check `tools/pt_to_safetensors.py`. If your model_type is `gpt_megatron` just change it to `gpt_dolomite`.
+This repository works with all HuggingFace models (text-to-text only for the moment) out-of-the-box. The checkpoints have to be in safetensors format, if not you can check `tools/pt_to_safetensors.py`.
 
 > [!TIP]
-> You might be able to enjoy additional memory and computation savings when finetuning your models using the [padding free transformers optimization](https://huggingface.co/blog/mayank-mishra/padding-free-transformer). This optimization is currently only supported for decoder models and requires converting your model (say LLama-3 for example) to a [custom class](dolomite_engine/hf_models/models/gpt_dolomite/) implemented in this repo. This is completely optional and not required for finetuning. The conversion can be achieved as follows:
+> You might be able to enjoy additional memory and computation savings when finetuning your models using the [padding free transformers optimization](https://huggingface.co/blog/mayank-mishra/padding-free-transformer). This optimization is currently only supported for decoder models and requires converting your model (say LLama-3 for example) to a [custom class](lm_engine/hf_models/models/gpt_base/) implemented in this repo. This is completely optional and not required for finetuning. The conversion can be achieved as follows:
 ```python
-from dolomite_engine.hf_models import import_from_huggingface
+from lm_engine.hf_models import import_from_huggingface
 
 import_from_huggingface(
     pretrained_model_name_or_path="ibm-granite/granite-3b-code-base",
-    save_path="dolomite_compatible_model"
+    save_path="lm_engine_compatible_model"
 )
 ```
 Once done training, you can convert the model back to the HF class as:
 ```python
-from dolomite_engine.hf_models import export_to_huggingface
+from lm_engine.hf_models import export_to_huggingface
 
 export_to_huggingface(
     pretrained_model_name_or_path="trained_checkpoint",
@@ -76,9 +76,9 @@ export_to_huggingface(
 
 If you are interested in using this optimization outside this repo for some reason, you can do as follows:
 ```python
-from dolomite_engine.enums import Kernel
-from dolomite_engine.hf_models import GPTDolomiteForCausalLM
-from dolomite_engine.kernels import enable_kernels
+from lm_engine.enums import Kernel
+from lm_engine.hf_models import GPTBaseForCausalLM
+from lm_engine.kernels import enable_kernels
 
 
 # we need unpadded lists here for avoiding any useless computations on pad tokens
@@ -89,7 +89,7 @@ labels = [[-100, -100, -100, 4, 5, 0], [-100, -100, 8, 0]]
 
 # this will throw a warning saying that the model is of gpt_bigcode class
 # ignore the warning
-model = GPTDolomiteForCausalLM.from_pretrained(<model_path>, use_padding_free_transformer=True).cuda()
+model = GPTBaseForCausalLM.from_pretrained(<model_path>, use_padding_free_transformer=True).cuda()
 
 with enable_kernels([Kernel.flash_attention_2]):
     loss = model(input_ids=input_ids, labels=labels).loss
@@ -114,7 +114,7 @@ sh scripts/pretrain.sh configs/pretraining-examples/pretrain-1.yml
 sh scripts/generate.sh configs/sst2/inference.yml
 ```
 
-3. [Unshard the checkpoint](scripts/unshard.sh): This is used to unshard the model to a safetensors checkpoint since dolomite-engine saves a sharded model during training
+3. [Unshard the checkpoint](scripts/unshard.sh): This is used to unshard the model to a safetensors checkpoint since lm-engine saves a sharded model during training
 ```shell
 sh scripts/unshard.sh configs/sst2/unshard.yml
 ```
@@ -202,11 +202,11 @@ from torch.optim.sgd import SGD as TorchSGD
 # Citation
 If you find this repository useful, please consider citing it in your research:
 ```bibtex
-@software{Mishra_Dolomite_Engine_A_2024,
+@software{Mishra_lm_engine_A_2024,
     author = {Mishra, Mayank},
     month = jun,
-    title = {{Dolomite Engine: A Hyper-Optimized Library for Pretraining and Finetuning}},
-    url = {https://github.com/ibm/dolomite-engine},
+    title = {{LM Engine: A Hyper-Optimized Library for Pretraining and Finetuning}},
+    url = {https://github.com/ibm/lm-engine},
     year = {2024}
 }
 ```

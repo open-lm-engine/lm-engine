@@ -6,14 +6,14 @@ from functools import partial
 
 from transformers import AutoTokenizer
 
-from dolomite_engine.data import (
+from lm_engine.data import (
     BlendedDatasets,
     BlendedDistributedSampler,
     ResumableDataLoader,
     collate_fn,
     get_datasets_list,
 )
-from dolomite_engine.enums import DatasetSplit, Mode
+from lm_engine.enums import DatasetSplit, Mode
 
 from .test_commons import TestCommons
 

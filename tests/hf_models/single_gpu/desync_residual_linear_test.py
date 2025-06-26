@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from parameterized import parameterized
 from transformers import set_seed
 
-from dolomite_engine.hf_models.models.desync_residual.linear import DesyncResidualLinear
+from lm_engine.hf_models.models.desync_residual.linear import DesyncResidualLinear
 
 from ..test_common import TestCommons
 

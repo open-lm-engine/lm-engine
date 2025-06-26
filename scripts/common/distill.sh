@@ -17,5 +17,5 @@ torchrun --nnodes=$NNODES \
     --nproc_per_node=$GPUS_PER_NODE \
     --rdzv_id=101 \
     --rdzv_endpoint=$MASTER_ADDRESS:$MASTER_PORT \
-    -m dolomite_engine.distill \
+    -m lm_engine.distill \
     --config ${1}

@@ -6,8 +6,8 @@ import torch
 from parameterized import parameterized
 from transformers import set_seed
 
-from dolomite_engine.enums import Kernel
-from dolomite_engine.kernels import enable_kernels
+from lm_engine.enums import Kernel
+from lm_engine.kernels import enable_kernels
 
 from ..test_common import TestCommons
 

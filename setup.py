@@ -12,13 +12,13 @@ with open("requirements.txt") as requirements:
 VERSION = "0.0.1.dev"
 
 setup(
-    name="dolomite-engine",
+    name="lm-engine",
     version=VERSION,
     install_requires=requirements,
     author="Mayank Mishra",
-    author_email="mayank.mishra2@ibm.com",
+    author_email="mayank31398@gmail.com",
     license="Apache License 2.0",
-    url="https://github.com/ibm-granite/dolomite-engine",
+    url="https://github.com/open-lm-engine/lm-engine",
     packages=find_packages("./"),
     include_package_data=True,
     package_data={"": ["**/*.cu", "**/*.cpp", "**/*.cuh", "**/*.h", "**/*.pyx"]},

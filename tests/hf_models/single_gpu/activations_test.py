@@ -5,9 +5,9 @@
 import torch
 from parameterized import parameterized
 
-from dolomite_engine.hf_models.modeling_utils import get_activation_function
-from dolomite_engine.hf_models.modeling_utils.activations import get_base_activation
-from dolomite_engine.hf_models.modeling_utils.activations.glu import GLUActivation
+from lm_engine.hf_models.modeling_utils import get_activation_function
+from lm_engine.hf_models.modeling_utils.activations import get_base_activation
+from lm_engine.hf_models.modeling_utils.activations.glu import GLUActivation
 
 from ..test_common import TestCommons
 

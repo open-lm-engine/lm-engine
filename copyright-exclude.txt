@@ -1,4 +1,4 @@
 cute-kernels/
 copyright/
-dolomite_engine/data/megatron/
-dolomite_engine/data/ibm.py
+lm_engine/data/megatron/
+lm_engine/data/ibm.py
