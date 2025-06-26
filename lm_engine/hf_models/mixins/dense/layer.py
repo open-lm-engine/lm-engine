@@ -89,7 +89,7 @@ class Block(nn.Module):
             hidden_states = self.sequence_mixer(
                 hidden_states, cache_params=past_key_values, attention_mask=attention_mask
             )
-        elif self.sequence_mixer_type in ["gru", "rnn"]:
+        elif self.sequence_mixer_type in ["gru", "hippo_rnn", "rnn"]:
             hidden_states = self.sequence_mixer(
                 hidden_states,
                 cache_params=past_key_values,
