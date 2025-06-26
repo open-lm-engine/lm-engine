@@ -167,9 +167,48 @@ def get_model_tflops(
 
             sequence_mixer_flops = projection_flops + ssm_flops
             sequence_mixer_flops *= 2
+        elif sequence_mixer_type == "hippo_rnn":
+            # input projection FLOPs
+            sequence_mixer_flops = _get_linear_flops(
+                b * s,
+                h,
+                block.state_size + (block.state_size if block.normalization_function == "silu_gated_rmsnorm" else 0),
+            )
+            # output projection FLOPs
+            sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
+
+            head_dim = block.state_size / block.num_heads
+
+            # h = sigmoid(Wh + Vc + x)
+            sequence_mixer_flops += (
+                s
+                * block.num_heads
+                * (
+                    _get_linear_flops(b, head_dim, head_dim)
+                    + b * head_dim
+                    + _get_linear_flops(b, block.hippo_size, block.head_dim)
+                )
+            )
+
+            # f = Uh
+            sequence_mixer_flops += s * block.num_heads * _get_linear_flops(b, head_dim, 1)
+
+            # c = Ac + Bf
+            sequence_mixer_flops += (
+                s
+                * block.num_heads
+                * (
+                    _get_linear_flops(b, block.hippo_size, block.hippo_size)
+                    + _get_linear_flops(b, 1, block.hippo_size)
+                )
+            )
         elif sequence_mixer_type == "rnn":
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, block.state_size)
+            sequence_mixer_flops = _get_linear_flops(
+                b * s,
+                h,
+                block.state_size + (block.state_size if block.normalization_function == "silu_gated_rmsnorm" else 0),
+            )
             # output projection FLOPs
             sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
 
@@ -179,7 +218,12 @@ def get_model_tflops(
             sequence_mixer_flops += s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
         elif sequence_mixer_type == "gru":
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, 3 * block.state_size)
+            sequence_mixer_flops = _get_linear_flops(
+                b * s,
+                h,
+                3 * block.state_size
+                + (block.state_size if block.normalization_function == "silu_gated_rmsnorm" else 0),
+            )
             # output projection FLOPs
             sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
 
