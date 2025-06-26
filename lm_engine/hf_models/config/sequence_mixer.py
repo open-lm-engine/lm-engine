@@ -91,6 +91,15 @@ class _RNNArgs(_GRUArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
+class _HiPPO_RNNArgs(_GRUArgs):
+    sequence_mixer_type: str = "hippo_rnn"
+    hippo_size: int = 64
+    hippo_measure: str = "legs"
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "hippo_rnn"
+
+
 class _CausalConvolution(BaseArgs):
     sequence_mixer_type: str = "causal_convolution"
     activation_function: str = "silu"
