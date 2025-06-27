@@ -139,9 +139,9 @@ class HiPPO_RNN(nn.Module):
 
         input = hippo_rnn_cute(
             input=input,
-            weight=self.state_weight,
-            hippo_weight=self.hippo_weight,
-            compress_weight=self.compress_weight,
+            weight=state_weight,
+            hippo_weight=hippo_weight,
+            compress_weight=compress_weight,
             hippo_A=self.A.type_as(input),
             hippo_B=self.B.type_as(input),
             input_state=input_state,
