@@ -341,21 +341,13 @@ def main() -> None:
     model_container = get_model_container(args, mode)
 
     train_dataloader = get_finetuning_dataloader(
-        args,
-        split=DatasetSplit.train,
-        mode=mode,
-        tokenizer=model_container[0].tokenizer,
-        is_encoder_decoder=model_container[0].is_encoder_decoder,
+        args, split=DatasetSplit.train, mode=mode, tokenizer=model_container[0].tokenizer
     )
 
     val_dataloader = None
     if args.training_parameters.eval_during_training:
         val_dataloader = get_finetuning_dataloader(
-            args,
-            split=DatasetSplit.val,
-            mode=mode,
-            tokenizer=model_container[0].tokenizer,
-            is_encoder_decoder=model_container[0].is_encoder_decoder,
+            args, split=DatasetSplit.val, mode=mode, tokenizer=model_container[0].tokenizer
         )
 
     model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
