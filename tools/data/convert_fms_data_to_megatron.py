@@ -7,10 +7,10 @@ import os
 from argparse import ArgumentParser, Namespace
 
 from tqdm import tqdm
-from transformers import AutoTokenizer
 
 from lm_engine.data.megatron.merge_data import merge_files
 from lm_engine.data.megatron.preprocess_data import convert_file
+from lm_engine.tokenizers import get_tokenizer
 
 
 def get_args() -> Namespace:
@@ -104,7 +104,7 @@ def job(args: Namespace, is_blue_vela: bool = False) -> None:
 
 def interactive(args: Namespace) -> None:
     os.makedirs(args.output_path, exist_ok=True)
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+    tokenizer = get_tokenizer("AutoTokenizer", args.tokenizer)
 
     for data_subset in args.data_subsets:
         if args.convert:

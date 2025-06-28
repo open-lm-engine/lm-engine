@@ -4,9 +4,9 @@
 
 import torch
 import torch.distributed
-from transformers import AutoTokenizer
 
 from lm_engine.hf_models import GPTBaseForCausalLM_TP
+from lm_engine.tokenizers import get_tokenizer
 from lm_engine.utils import ProcessGroupManager
 
 
@@ -32,7 +32,7 @@ model.eval()
 
 # happy generation
 text = "def generate():"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer = get_tokenizer("AutoTokenizer", model_name)
 
 x = tokenizer([text], return_tensors="pt")
 
