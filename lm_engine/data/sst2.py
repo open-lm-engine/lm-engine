@@ -3,9 +3,9 @@
 # **************************************************
 
 from datasets import load_dataset
-from transformers import AutoTokenizer
 
 from ..enums import DatasetSplit, Mode
+from ..tokenizers import TOKENIZER_TYPE
 from .base import BaseDataset
 
 
@@ -17,7 +17,7 @@ class SST2Dataset(BaseDataset):
         class_args: dict,
         split: DatasetSplit,
         mode: Mode,
-        tokenizer: AutoTokenizer,
+        tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
         output_format: str,
