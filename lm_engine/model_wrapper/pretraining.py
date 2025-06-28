@@ -264,8 +264,6 @@ class ModelWrapperForPretraining(ModelWrapper):
         return batch
 
     def _setup_model(self) -> None:
-        assert not self.is_encoder_decoder, "currently encoder_decoder models are not supported for pretraining"
-
         super()._setup_model()
         self.reset_parameters()
 

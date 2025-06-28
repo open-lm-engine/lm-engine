@@ -35,11 +35,7 @@ _DATASETS_LIST = {
 
 
 def get_datasets_list(
-    dataset_args_list: list[DatasetArgs],
-    split: DatasetSplit,
-    mode: Mode,
-    tokenizer: AutoTokenizer,
-    is_encoder_decoder: bool,
+    dataset_args_list: list[DatasetArgs], split: DatasetSplit, mode: Mode, tokenizer: AutoTokenizer
 ) -> tuple[list[BaseDataset], list[int]]:
     """get the list of datasets from their configs
 
@@ -48,7 +44,6 @@ def get_datasets_list(
         split (DatasetSplit): train / val / test split
         mode (Mode): training / inference mode for running the program
         tokenizer (AutoTokenizer): tokenizer
-        is_encoder_decoder (bool): whether the model is an encoder-decoder or a decoder-only model
 
     Raises:
         ValueError: if invalid class_name for dataset is found
@@ -68,7 +63,6 @@ def get_datasets_list(
             split=split,
             mode=mode,
             tokenizer=tokenizer,
-            is_encoder_decoder=is_encoder_decoder,
             data_name=data_args.data_name,
             input_format=data_args.input_format,
             output_format=data_args.output_format,
@@ -94,11 +88,7 @@ def get_datasets_list(
 
 
 def get_finetuning_dataloader(
-    args: TrainingArgs | InferenceArgs,
-    split: DatasetSplit,
-    mode: Mode,
-    tokenizer: AutoTokenizer,
-    is_encoder_decoder: bool,
+    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: AutoTokenizer
 ) -> tuple[ResumableDataLoader]:
     """prepares datasets and sampler
 
@@ -107,7 +97,6 @@ def get_finetuning_dataloader(
         split (DatasetSplit): train / val / test split
         mode (Mode): training / inference mode
         tokenizer (AutoTokenizer): tokenizer
-        is_encoder_decoder (bool): whether the model is an encoder-decoder or a decoder-only model
 
     Returns:
         tuple[ResumableDataLoader]: dataloader for a blended dataset
@@ -123,13 +112,9 @@ def get_finetuning_dataloader(
             ProcessGroupManager.get_tensor_parallel_world_size() == 1
         ), "tensor parallel doesn't support dispatching dataloader"
 
-        dataloader = _get_dispatching_dataloader(
-            args, split=split, mode=mode, tokenizer=tokenizer, is_encoder_decoder=is_encoder_decoder
-        )
+        dataloader = _get_dispatching_dataloader(args, split=split, mode=mode, tokenizer=tokenizer)
     else:
-        dataloader = _get_non_dispatching_dataloader(
-            args, split=split, mode=mode, tokenizer=tokenizer, is_encoder_decoder=is_encoder_decoder
-        )
+        dataloader = _get_non_dispatching_dataloader(args, split=split, mode=mode, tokenizer=tokenizer)
 
     return dataloader
 
@@ -146,11 +131,7 @@ def get_pretraining_dataloaders(
 
 
 def _get_dispatching_dataloader(
-    args: TrainingArgs | InferenceArgs,
-    split: DatasetSplit,
-    mode: Mode,
-    tokenizer: AutoTokenizer,
-    is_encoder_decoder: bool,
+    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: AutoTokenizer
 ) -> tuple[ResumableDataLoader]:
     micro_batch_size = args.training_parameters.micro_batch_size
 
@@ -171,11 +152,7 @@ def _get_dispatching_dataloader(
     # check if node's first rank
     if ProcessGroupManager.get_global_rank() == node_rank * num_ranks_per_node:
         datasets_list, data_sampling_ratios = get_datasets_list(
-            dataset_args_list=args.datasets,
-            split=split,
-            mode=Mode.training,
-            tokenizer=tokenizer,
-            is_encoder_decoder=is_encoder_decoder,
+            dataset_args_list=args.datasets, split=split, mode=Mode.training, tokenizer=tokenizer
         )
 
         if len(datasets_list) == 0:
@@ -213,7 +190,6 @@ def _get_dispatching_dataloader(
             mode=mode,
             loss_mask=args.training_parameters.loss_mask,
             eos_token_id=tokenizer.eos_token_id,
-            is_encoder_decoder=is_encoder_decoder,
             use_padding_free_transformer=args.model_args.use_padding_free_transformer,
             pad_to_multiple_of=ProcessGroupManager.get_tensor_parallel_world_size(),
         ),
@@ -234,20 +210,12 @@ def _get_dispatching_dataloader(
 
 
 def _get_non_dispatching_dataloader(
-    args: TrainingArgs | InferenceArgs,
-    split: DatasetSplit,
-    mode: Mode,
-    tokenizer: AutoTokenizer,
-    is_encoder_decoder: bool,
+    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: AutoTokenizer
 ) -> tuple[ResumableDataLoader]:
     micro_batch_size = args.training_parameters.micro_batch_size
 
     datasets_list, data_sampling_ratios = get_datasets_list(
-        dataset_args_list=args.datasets,
-        split=split,
-        mode=Mode.training,
-        tokenizer=tokenizer,
-        is_encoder_decoder=is_encoder_decoder,
+        dataset_args_list=args.datasets, split=split, mode=Mode.training, tokenizer=tokenizer
     )
 
     if len(datasets_list) == 0:
@@ -277,7 +245,6 @@ def _get_non_dispatching_dataloader(
             mode=mode,
             loss_mask=args.training_parameters.loss_mask,
             eos_token_id=tokenizer.eos_token_id,
-            is_encoder_decoder=is_encoder_decoder,
             use_padding_free_transformer=args.model_args.use_padding_free_transformer,
             pad_to_multiple_of=ProcessGroupManager.get_tensor_parallel_world_size(),
         ),

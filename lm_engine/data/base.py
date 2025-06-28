@@ -18,7 +18,6 @@ class BaseDataset(torch.utils.data.Dataset):
         split: DatasetSplit,
         mode: Mode,
         tokenizer: AutoTokenizer,
-        is_encoder_decoder: bool,
         data_name: str,
         input_format: str,
         output_format: str,
@@ -29,12 +28,8 @@ class BaseDataset(torch.utils.data.Dataset):
 
         self.split = split
         self.mode = mode
-
         self.class_args = class_args
-
         self.tokenizer = tokenizer
-        self.is_encoder_decoder = is_encoder_decoder
-
         self.data_name = data_name
         self.input_format = input_format
         self.output_format = output_format
@@ -48,9 +43,6 @@ class BaseDataset(torch.utils.data.Dataset):
             self.max_input_tokens = None
         else:
             self.max_input_tokens = max_input_tokens
-
-            if self.is_encoder_decoder:
-                self.max_input_tokens -= 1
 
         self.max_output_tokens = None if max_output_tokens is None else max_output_tokens - 1
 
@@ -96,26 +88,19 @@ class BaseDataset(torch.utils.data.Dataset):
         """
 
         eos_token_id: int = self.tokenizer.eos_token_id
-
         input: list[int] = self.tokenizer(input, add_special_tokens=False)["input_ids"]
 
-        if self.is_encoder_decoder:
-            if self.max_input_tokens is not None:
-                input = input[: self.max_input_tokens - 1]
-            input.append(eos_token_id)
-        else:
-            if self.max_input_tokens is not None:
-                input = input[: self.max_input_tokens]
+        if self.max_input_tokens is not None:
+            input = input[: self.max_input_tokens]
 
         if self.mode == Mode.training:
             output: list[int] = self.tokenizer(output, add_special_tokens=False)["input_ids"]
 
             if self.max_output_tokens is not None:
                 output = output[: self.max_output_tokens - 1]
-            output.append(eos_token_id)
 
-            if not self.is_encoder_decoder:
-                input.extend(output)
+            output.append(eos_token_id)
+            input.extend(output)
 
             result = {"input": input, "output": output}
         else:

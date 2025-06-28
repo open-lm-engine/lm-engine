@@ -30,11 +30,7 @@ class DataLoaderTest(TestCommons):
 
         tokenizer = AutoTokenizer.from_pretrained(args.model_args.model_name)
         datasets_list, _ = get_datasets_list(
-            dataset_args_list=args.datasets,
-            split=split,
-            mode=mode,
-            tokenizer=tokenizer,
-            is_encoder_decoder=False,
+            dataset_args_list=args.datasets, split=split, mode=mode, tokenizer=tokenizer
         )
         blended_dataset = BlendedDatasets(datasets=datasets_list, split=split)
 
@@ -58,7 +54,6 @@ class DataLoaderTest(TestCommons):
                     mode=mode,
                     loss_mask=args.training_parameters.loss_mask,
                     eos_token_id=tokenizer.eos_token_id,
-                    is_encoder_decoder=False,
                     use_padding_free_transformer=args.model_args.use_padding_free_transformer,
                     device="cpu",
                 ),
