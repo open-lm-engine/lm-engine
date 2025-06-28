@@ -6,7 +6,13 @@ import logging
 
 import torch
 import torch.nn as nn
-from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    PreTrainedTokenizerBase,
+)
 
 from ..enums import Kernel, Mode
 from ..hf_models import get_model_parallel_class, is_custom_model

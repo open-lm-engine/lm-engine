@@ -17,12 +17,25 @@ class AlphaNumericTokenizer:
         self.pad_token = self.eos_token
         self.lowercase_only = lowercase_only
 
+        self._0 = ord("0")
+        self._9 = ord("9")
+        self.a = ord("a")
+        self.z = ord("z")
+        self.A = ord("A")
+        self.Z = ord("Z")
+
+        self.special_tokens = {}
+
     def __call__(
         self, x: str | list[str], return_tensors: str | None = None, padding: bool = False
     ) -> torch.Tensor | list[int]:
+        assert return_tensors in ["pt", None]
+
         is_list = isinstance(x, list)
         if not is_list:
             x = [x]
+
+        assert all([isinstance(i, str) for i in x])
 
         batch_size = len(x)
         sequence_lengths = [len(i) for i in x]
@@ -33,12 +46,35 @@ class AlphaNumericTokenizer:
                 [i == max_sequence_length for i in sequence_lengths]
             ), "padding should be True for examples of unequal shapes"
 
-        x = [[ord(i) for i in sample] for sample in x]
+        y = []
+        for sample in x:
+            y.append([])
+            for token in sample:
+                y[-1].append(self._get_token_id(token))
 
-        return torch.tensor(encoded, dtype=torch.int64)
+        if return_tensors == "pt":
+            y = torch.tensor(y)
+        elif not is_list:
+            y = y[0]
 
-    def __len__(self):
-        return len(self.TO_TOKEN)
+        return y
+
+    def _get_token_id(self, x: str) -> None:
+        assert isinstance(x, str)
+        assert len(x) == 1
+
+        if self._0 <= x <= self._9:
+            y = x - self._0
+        elif self.a <= x <= self.z:
+            y = x - self.a + 10
+        elif self.A <= x <= self.Z:
+            y = x - self.A + 36
+        elif x == self.eos_token:
+            y = 62
+        else:
+            raise ValueError(f"unexpected token ({x})")
+
+        return y
 
 
 def sample_phonebook(args, tokenizer, phonebook_size=500_000, name_length=5, phone_digits=8):
