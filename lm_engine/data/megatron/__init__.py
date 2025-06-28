@@ -2,10 +2,10 @@ import logging
 
 import torch
 import torch.distributed
-from transformers import AutoTokenizer
 
 from ...arguments import TrainingArgs
 from ...defaults import INPUT_FORMAT, OUTPUT_FORMAT
+from ...tokenizers import TOKENIZER_TYPE
 from ...utils import ProcessGroupManager, log_rank_0
 from ..dataloader import DispatchingDataLoader, ResumableDataLoader, get_source_and_broadcast_group
 from .blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
@@ -15,7 +15,7 @@ from .sampler import MegatronBatchSampler
 from .utils import Split, compile_helpers
 
 
-def get_megatron_gpt_dataloaders(args: TrainingArgs, tokenizer: AutoTokenizer, consumed_samples: int) -> None:
+def get_megatron_gpt_dataloaders(args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int) -> None:
     assert len(args.datasets) == 1
     class_args = args.datasets[0].class_args
 

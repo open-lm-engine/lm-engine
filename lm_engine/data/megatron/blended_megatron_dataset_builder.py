@@ -7,8 +7,8 @@ from typing import Any, List, Optional, Type, Union
 import numpy
 import torch
 import torch.distributed
-from transformers import AutoTokenizer
 
+from ...tokenizers import TOKENIZER_TYPE
 from ...utils import ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
@@ -35,7 +35,7 @@ class BlendedMegatronDatasetBuilder(object):
         cls: Type[MegatronDataset],
         sizes: List[int],
         config: BlendedMegatronDatasetConfig,
-        tokenizer: AutoTokenizer,
+        tokenizer: TOKENIZER_TYPE,
     ):
         self.cls = cls
         self.sizes = sizes

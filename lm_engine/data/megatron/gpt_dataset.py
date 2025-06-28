@@ -516,7 +516,7 @@ def permute(
     np_rng: numpy.random.RandomState,
     fim_rate: float,
     fim_spm_rate: float,
-    tokenizer: AutoTokenizer,
+    tokenizer: TOKENIZER_TYPE,
     truncate_or_pad: bool = True,
     suffix_tok_id: int | None = None,
     prefix_tok_id: int | None = None,

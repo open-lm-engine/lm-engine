@@ -2,8 +2,9 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, AutoTokenizer, GenerationConfig, GraniteMoeConfig, GraniteMoeForCausalLM
+from transformers import AutoConfig, GenerationConfig, GraniteMoeConfig, GraniteMoeForCausalLM
 
+from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
 from ..models import GPTBaseConfig
 from .granitemoeshared import _export_state_dict_to_huggingface, _import_state_dict_from_huggingface
@@ -105,7 +106,7 @@ def export_to_huggingface_granitemoe(pretrained_model_name_or_path: str, save_pa
     original_generation_config.save_pretrained(save_path)
 
     try:
-        tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+        tokenizer = get_tokenizer("AutoTokenizer", pretrained_model_name_or_path)
         tokenizer.save_pretrained(save_path, legacy_format=False)
     except:
         pass
