@@ -4,7 +4,8 @@
 
 from transformers import AutoConfig, AutoTokenizer, GenerationConfig, GPTBigCodeConfig, GPTBigCodeForCausalLM
 
-from ...utils import SafeTensorsWeightsManager, divide_if_divisible, download_repo
+from ...tokenizers import get_tokenizer
+from ...utils import SafeTensorsWeightsManager, download_repo
 from ..modeling_utils import get_attention_head_type
 from ..models import GPTBaseConfig
 
@@ -125,7 +126,7 @@ def export_to_huggingface_bigcode(pretrained_model_name_or_path: str, save_path:
     original_generation_config.save_pretrained(save_path)
 
     try:
-        tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
         tokenizer.save_pretrained(save_path, legacy_format=False)
     except:
         pass

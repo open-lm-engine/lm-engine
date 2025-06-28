@@ -3,10 +3,10 @@
 # **************************************************
 
 import torch
-from transformers import AutoTokenizer
 
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..enums import DatasetSplit, Mode
+from ..tokenizers import TOKENIZER_TYPE
 
 
 class BaseDataset(torch.utils.data.Dataset):
@@ -17,7 +17,7 @@ class BaseDataset(torch.utils.data.Dataset):
         class_args: dict,
         split: DatasetSplit,
         mode: Mode,
-        tokenizer: AutoTokenizer,
+        tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
         output_format: str,

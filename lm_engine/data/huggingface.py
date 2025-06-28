@@ -3,7 +3,8 @@
 # **************************************************
 
 from datasets import load_dataset
-from transformers import AutoTokenizer
+
+from lm_engine.tokenizers import TOKENIZER_TYPE
 
 from ..enums import DatasetSplit, Mode
 from .base import BaseDataset
@@ -17,7 +18,7 @@ class HuggingFaceDataset(BaseDataset):
         class_args: dict,
         split: DatasetSplit,
         mode: Mode,
-        tokenizer: AutoTokenizer,
+        tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
         output_format: str,

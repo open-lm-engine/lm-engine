@@ -7,10 +7,10 @@ from functools import partial
 
 import torch
 import torch.distributed
-from transformers import AutoTokenizer
 
 from ..arguments import DatasetArgs, InferenceArgs, TrainingArgs
 from ..enums import DatasetSplit, Mode
+from ..tokenizers import TOKENIZER_TYPE
 from ..utils import ProcessGroupManager, log_rank_0, run_rank_n
 from .base import BaseDataset, BlendedDatasets
 from .dataloader import DispatchingDataLoader, ResumableDataLoader
@@ -35,7 +35,7 @@ _DATASETS_LIST = {
 
 
 def get_datasets_list(
-    dataset_args_list: list[DatasetArgs], split: DatasetSplit, mode: Mode, tokenizer: AutoTokenizer
+    dataset_args_list: list[DatasetArgs], split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
 ) -> tuple[list[BaseDataset], list[int]]:
     """get the list of datasets from their configs
 
@@ -43,7 +43,7 @@ def get_datasets_list(
         dataset_args_list (list[DatasetArgs]): list of DatasetArgs objects
         split (DatasetSplit): train / val / test split
         mode (Mode): training / inference mode for running the program
-        tokenizer (AutoTokenizer): tokenizer
+        tokenizer (TOKENIZER_TYPE): tokenizer
 
     Raises:
         ValueError: if invalid class_name for dataset is found
@@ -88,7 +88,7 @@ def get_datasets_list(
 
 
 def get_finetuning_dataloader(
-    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: AutoTokenizer
+    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
 ) -> tuple[ResumableDataLoader]:
     """prepares datasets and sampler
 
@@ -96,7 +96,7 @@ def get_finetuning_dataloader(
         args (TrainingArgs | InferenceArgs): arguments based on training / inference mode
         split (DatasetSplit): train / val / test split
         mode (Mode): training / inference mode
-        tokenizer (AutoTokenizer): tokenizer
+        tokenizer (TOKENIZER_TYPE): tokenizer
 
     Returns:
         tuple[ResumableDataLoader]: dataloader for a blended dataset
@@ -120,7 +120,7 @@ def get_finetuning_dataloader(
 
 
 def get_pretraining_dataloaders(
-    args: TrainingArgs, tokenizer: AutoTokenizer, consumed_samples: int
+    args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
 ) -> tuple[ResumableDataLoader]:
     if args.datasets[0].class_name == "MegatronDataset":
         dataloaders = get_megatron_gpt_dataloaders(args, tokenizer, consumed_samples=consumed_samples)
@@ -131,7 +131,7 @@ def get_pretraining_dataloaders(
 
 
 def _get_dispatching_dataloader(
-    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: AutoTokenizer
+    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
 ) -> tuple[ResumableDataLoader]:
     micro_batch_size = args.training_parameters.micro_batch_size
 
@@ -210,7 +210,7 @@ def _get_dispatching_dataloader(
 
 
 def _get_non_dispatching_dataloader(
-    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: AutoTokenizer
+    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
 ) -> tuple[ResumableDataLoader]:
     micro_batch_size = args.training_parameters.micro_batch_size
 

@@ -5,8 +5,8 @@ import os
 import time
 
 import numpy
-from transformers import AutoTokenizer
 
+from ...tokenizers import TOKENIZER_TYPE
 from ...utils import log_rank_0
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
@@ -42,7 +42,7 @@ class GPTDataset(MegatronDataset):
         indexed_indices: numpy.ndarray,
         num_samples: int,
         index_split: Split,
-        tokenizer: AutoTokenizer,
+        tokenizer: TOKENIZER_TYPE,
         config: GPTDatasetConfig,
         caching_allowed: bool,
     ) -> None:
@@ -516,7 +516,7 @@ def permute(
     np_rng: numpy.random.RandomState,
     fim_rate: float,
     fim_spm_rate: float,
-    tokenizer: AutoTokenizer,
+    tokenizer: TOKENIZER_TYPE,
     truncate_or_pad: bool = True,
     suffix_tok_id: int | None = None,
     prefix_tok_id: int | None = None,
