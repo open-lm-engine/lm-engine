@@ -11,7 +11,7 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM
 from ..enums import Kernel, Mode
 from ..hf_models import get_model_parallel_class, is_custom_model
 from ..kernels import is_kernel_allowed
-from ..tokenizers import TOKENIZER_TYPE, get_tokenizer
+from ..tokenizers import get_tokenizer
 from ..utils import ProcessGroupManager, SafeTensorsWeightsManager, log_rank_0, string_to_torch_dtype
 
 
