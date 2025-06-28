@@ -34,11 +34,7 @@ class JSONLinesTest(TestCommons):
 
             tokenizer = AutoTokenizer.from_pretrained(args.model_args.model_name)
             datasets_list, _ = get_datasets_list(
-                dataset_args_list=args.datasets,
-                split=split,
-                mode=mode,
-                tokenizer=tokenizer,
-                is_encoder_decoder=False,
+                dataset_args_list=args.datasets, split=split, mode=mode, tokenizer=tokenizer
             )
 
         assert len(datasets_list) == 1

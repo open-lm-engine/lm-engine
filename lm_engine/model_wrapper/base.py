@@ -123,9 +123,7 @@ class ModelWrapper(nn.Module):
             batch[i] = batch[i].to(torch.cuda.current_device())
 
         generated = self.model.generate(**batch, **generate_kwargs, eos_token_id=self.eos_token_id)
-
-        if not self.is_encoder_decoder:
-            generated = generated[:, batch["input_ids"].shape[1] :]
+        generated = generated[:, batch["input_ids"].shape[1] :]
 
         # add 1 since eos token to also count eos in generated tokens
         num_generated_tokens = ((generated != self.eos_token_id).sum(dim=-1) + 1).tolist()
@@ -153,8 +151,9 @@ class ModelWrapper(nn.Module):
             else AutoConfig.from_pretrained(self.model_name, trust_remote_code=self.trust_remote_code)
         )
 
+        assert not self.config.is_encoder_decoder, "we don't support encoder-decoder models"
+
         self.tie_word_embeddings = self.config.tie_word_embeddings
-        self.is_encoder_decoder = self.config.is_encoder_decoder
         self.router_aux_loss_coef = getattr(self.config, "router_aux_loss_coef", None)
 
         log_rank_0(logging.INFO, self.config)
