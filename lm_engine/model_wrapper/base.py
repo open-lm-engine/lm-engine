@@ -6,7 +6,7 @@ import logging
 
 import torch
 import torch.nn as nn
-from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM
+from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
 
 from ..enums import Kernel, Mode
 from ..hf_models import get_model_parallel_class, is_custom_model
@@ -156,7 +156,7 @@ class ModelWrapper(nn.Module):
     def _setup_tokenizer(self) -> None:
         assert self.tokenizer_name is not None, "pass a tokenizer"
 
-        self.tokenizer = get_tokenizer("AutoTokenizer", self.tokenizer_name)
+        self.tokenizer = get_tokenizer(AutoTokenizer.__name__, self.tokenizer_name)
         self.eos_token_id = self.tokenizer.eos_token_id
 
     def _get_model_kwargs(self) -> dict:

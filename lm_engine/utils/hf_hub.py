@@ -4,7 +4,7 @@
 
 import os
 
-from transformers import AutoConfig
+from transformers import AutoConfig, AutoTokenizer
 from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, cached_file
 from transformers.utils.hub import get_checkpoint_shard_files
 
@@ -46,7 +46,7 @@ def _download_config(repo_name_or_path: str) -> AutoConfig | None:
 
 def _download_tokenizer(repo_name_or_path: str) -> TOKENIZER_TYPE | None:
     try:
-        tokenizer = get_tokenizer("AutoTokenizer", repo_name_or_path)
+        tokenizer = get_tokenizer(AutoTokenizer.__name__, repo_name_or_path)
     except:
         tokenizer = None
 

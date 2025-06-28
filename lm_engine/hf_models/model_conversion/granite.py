@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, GenerationConfig, GraniteConfig, GraniteForCausalLM
+from transformers import AutoConfig, AutoTokenizer, GenerationConfig, GraniteConfig, GraniteForCausalLM
 
 from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
@@ -103,7 +103,7 @@ def export_to_huggingface_granite(pretrained_model_name_or_path: str, save_path:
     original_generation_config.save_pretrained(save_path)
 
     try:
-        tokenizer = get_tokenizer("AutoTokenizer", pretrained_model_name_or_path)
+        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
         tokenizer.save_pretrained(save_path, legacy_format=False)
     except:
         pass

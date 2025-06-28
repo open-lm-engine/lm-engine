@@ -3,8 +3,15 @@
 # **************************************************
 
 import torch
-from transformers import AutoConfig, AutoTokenizer, GenerationConfig
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    GenerationConfig,
+    GraniteMoeHybridConfig,
+    GraniteMoeHybridForCausalLM,
+)
 
+from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible, download_repo
 from ..modeling_utils import (
     get_attention_head_type,
@@ -12,14 +19,6 @@ from ..modeling_utils import (
     split_query_key_value_tensor_for_attention,
 )
 from ..models import GPTBaseConfig
-
-
-# TODO remove try except once GraniteMoeHybrid is added into HF
-try:
-    from transformers import GraniteMoeHybridConfig, GraniteMoeHybridForCausalLM
-except:
-    GraniteMoeHybridConfig = None
-    GraniteMoeHybridForCausalLM = None
 
 
 def import_from_huggingface_granitemoehybrid(pretrained_model_name_or_path: str, save_path: str) -> None:
@@ -252,7 +251,7 @@ def export_to_huggingface_granitemoehybrid(pretrained_model_name_or_path: str, s
     original_generation_config.save_pretrained(save_path)
 
     try:
-        tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
         tokenizer.save_pretrained(save_path, legacy_format=False)
     except:
         pass

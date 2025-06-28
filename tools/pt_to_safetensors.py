@@ -32,5 +32,5 @@ model.save_pretrained(safetensors_destination_path)
 
 # to move tokenizer
 # simply load from the source and save it to the destination path
-tokenizer = get_tokenizer("AutoTokenizer", checkpoint_to_be_converted)
+tokenizer = get_tokenizer(AutoTokenizer.__name__, checkpoint_to_be_converted)
 tokenizer.save_pretrained(safetensors_destination_path, legacy_format=False)

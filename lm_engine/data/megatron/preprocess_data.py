@@ -7,7 +7,7 @@ import tempfile
 import pyarrow as pa
 import torch
 from datasets import load_dataset
-from tqdm import tqdm
+from transformers import AutoTokenizer
 
 from ...tokenizers import TOKENIZER_TYPE, get_tokenizer
 from ...utils import is_zstandard_available
@@ -31,7 +31,7 @@ class ArrowIterator:
 
 class Encoder:
     def __init__(self, tokenizer: TOKENIZER_TYPE | str, json_keys: list[str], append_eod: bool) -> None:
-        self.tokenizer = get_tokenizer("AutoTokenizer", tokenizer) if isinstance(tokenizer, str) else tokenizer
+        self.tokenizer = get_tokenizer(AutoTokenizer.__name__, tokenizer) if isinstance(tokenizer, str) else tokenizer
         self.json_keys = json_keys
         self.append_eod = append_eod
 

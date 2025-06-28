@@ -2,9 +2,10 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from transformers import AutoTokenizer
+
 from lm_engine.arguments import DatasetArgs, DistributedArgs, RandomArgs, TrainingParameters
 from lm_engine.data import get_megatron_gpt_dataloaders
-from lm_engine.tokenizers import get_tokenizer
 from lm_engine.utils import ProcessGroupManager, set_logger
 
 
@@ -14,7 +15,7 @@ set_logger()
 
 # use the appropriate tokenizer here
 # the tokenizer is required for using FIM during training
-tokenizer = get_tokenizer("AutoTokenizer", "ibm-granite/granite-3b-code-base")
+tokenizer = AutoTokenizer.from_pretrained("ibm-granite/granite-3b-code-base")
 
 # adjust these hyperparameters
 num_training_steps = 10000
