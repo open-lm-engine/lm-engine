@@ -10,12 +10,16 @@ import string
 
 import torch
 
+from .utils import pad
+
 
 class AlphaNumericTokenizer:
     def __init__(self, lowercase_only: bool = True) -> AlphaNumericTokenizer:
         self.eos_token = "<|endoftext|>"
         self.pad_token = self.eos_token
         self.lowercase_only = lowercase_only
+
+        self.eos_token_id = 62
 
         self._0 = ord("0")
         self._9 = ord("9")
@@ -27,7 +31,11 @@ class AlphaNumericTokenizer:
         self.special_tokens = {}
 
     def __call__(
-        self, x: str | list[str], return_tensors: str | None = None, padding: bool = False
+        self,
+        x: str | list[str],
+        return_tensors: str | None = None,
+        padding: bool = False,
+        add_special_tokens: bool = True,
     ) -> torch.Tensor | list[int]:
         assert return_tensors in ["pt", None]
 
@@ -52,6 +60,12 @@ class AlphaNumericTokenizer:
             for token in sample:
                 y[-1].append(self._get_token_id(token))
 
+            if add_special_tokens:
+                y[-1].append(self.eos_token_id)
+
+        if padding:
+            y, attention_mask = pad(inputs=y, pad_token_id=self.pad_token_id)
+
         if return_tensors == "pt":
             y = torch.tensor(y)
         elif not is_list:
@@ -63,14 +77,16 @@ class AlphaNumericTokenizer:
         assert isinstance(x, str)
         assert len(x) == 1
 
-        if self._0 <= x <= self._9:
-            y = x - self._0
-        elif self.a <= x <= self.z:
-            y = x - self.a + 10
-        elif self.A <= x <= self.Z:
-            y = x - self.A + 36
-        elif x == self.eos_token:
-            y = 62
+        xid = ord(x)
+
+        if self._0 <= xid <= self._9:
+            y = xid - self._0
+        elif self.a <= xid <= self.z:
+            y = xid - self.a + 10
+        elif self.A <= xid <= self.Z:
+            y = xid - self.A + 36
+        elif xid == self.eos_token:
+            y = self.eos_token_id
         else:
             raise ValueError(f"unexpected token ({x})")
 
