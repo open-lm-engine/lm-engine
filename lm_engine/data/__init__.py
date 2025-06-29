@@ -19,19 +19,22 @@ from .huggingface import HuggingFaceDataset
 from .ibm import get_ibm_dataloaders
 from .instruction_tuning import AlpacaDataset, DollyDataset, SlimOrcaDataset
 from .megatron import get_megatron_gpt_dataloaders
+from .phonebook import PhonebookDataset
 from .sampler import BlendedDistributedSampler
 from .sst2 import SST2Dataset
 from .utils import collate_fn, custom_iterator, get_next_batch
 
 
-_DATASETS_LIST = {
-    "AlpacaDataset": AlpacaDataset,
-    "DebugDataset": DebugDataset,
-    "DollyDataset": DollyDataset,
-    "HuggingFaceDataset": HuggingFaceDataset,
-    "SlimOrcaDataset": SlimOrcaDataset,
-    "SST2Dataset": SST2Dataset,
+_FINETUNING_DATASETS_LIST = {
+    AlpacaDataset.__name__: AlpacaDataset,
+    DebugDataset.__name__: DebugDataset,
+    DollyDataset.__name__: DollyDataset,
+    HuggingFaceDataset.__name__: HuggingFaceDataset,
+    SlimOrcaDataset.__name__: SlimOrcaDataset,
+    SST2Dataset.__name__: SST2Dataset,
 }
+
+_PRETRAINING_DATASETS_LIST = {PhonebookDataset.__name__: PhonebookDataset}
 
 
 def get_datasets_list(
@@ -55,10 +58,10 @@ def get_datasets_list(
     datasets_list = []
     data_sampling_ratios = []
     for data_args in dataset_args_list:
-        if data_args.class_name not in _DATASETS_LIST:
+        if data_args.class_name not in _FINETUNING_DATASETS_LIST:
             raise ValueError(f"invalid class_name ({data_args.class_name}) for dataset")
 
-        dataset = _DATASETS_LIST[data_args.class_name](
+        dataset = _FINETUNING_DATASETS_LIST[data_args.class_name](
             class_args=data_args.class_args,
             split=split,
             mode=mode,
@@ -122,9 +125,15 @@ def get_finetuning_dataloader(
 def get_pretraining_dataloaders(
     args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
 ) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
-    if args.datasets[0].class_name == "MegatronDataset":
+    assert len(args.datasets) == 1
+    class_name = args.datasets[0].class_name
+
+    if class_name in _PRETRAINING_DATASETS_LIST:
+        _PRETRAINING_DATASETS_LIST[class_name]()
+
+    if class_name == "MegatronDataset":
         dataloaders = get_megatron_gpt_dataloaders(args, tokenizer, consumed_samples=consumed_samples)
-    elif args.datasets[0].class_name == "IBMDataset":
+    elif class_name == "IBMDataset":
         dataloaders = get_ibm_dataloaders(args, tokenizer)
 
     return dataloaders
