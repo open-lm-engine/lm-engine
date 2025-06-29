@@ -5,9 +5,6 @@
 from transformers import AutoConfig, AutoModel, AutoModelForCausalLM
 
 from .models import (
-    DesyncResidualConfig,
-    DesyncResidualForCausalLM,
-    DesyncResidualModel,
     GPTBaseConfig,
     GPTBaseForCausalLM,
     GPTBaseForCausalLM_TP,
@@ -29,7 +26,6 @@ from .models import (
 _CUSTOM_MODEL_REGISTRY = [
     (GPTBaseConfig, GPTBaseModel, GPTBaseForCausalLM),
     (GPTCrossLayerConfig, GPTCrossLayerModel, GPTCrossLayerForCausalLM),
-    (DesyncResidualConfig, DesyncResidualModel, DesyncResidualForCausalLM),
     (LadderResidualConfig, LadderResidualModel, LadderResidualForCausalLM),
     (PaLMConfig, PaLMModel, PaLMForCausalLM),
 ]
