@@ -247,7 +247,9 @@ def train_step_without_pipeline_parallel(
             metrics_tracker = metrics_tracker / gradient_accumulation_steps
 
         metrics_tracker["grad_norm"] = (
-            torch.tensor(0, device=torch.cuda.current_device()) if grad_norm is None else grad_norm
+            torch.zeros((1,), device=torch.cuda.current_device(), dtype=torch.float32)
+            if grad_norm is None
+            else grad_norm
         )
 
         for key in metrics_tracker:
