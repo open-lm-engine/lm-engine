@@ -191,12 +191,7 @@ class OptimizerArgs(BaseArgs):
     # backward hooked optimizer
     use_optimizer_with_backward_hook: bool = False
     # class args for optimizer
-    class_args: dict = {
-        "lr": 1e-5,
-        "weight_decay": 0.1,
-        "betas": [0.9, 0.95],
-        "eps": 1e-10,
-    }
+    class_args: dict = {"lr": 1e-5, "weight_decay": 0.1, "betas": [0.9, 0.95], "eps": 1e-10}
 
     def model_post_init(self, __context: Any) -> None:
         _check_not_None([(self.class_name, "optimizer class_name")])
