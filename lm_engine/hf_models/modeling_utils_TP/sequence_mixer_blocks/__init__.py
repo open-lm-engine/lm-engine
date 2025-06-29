@@ -6,13 +6,7 @@ from ...config import CommonConfig
 from .softmax_attention import Attention_TP
 
 
-def get_sequence_mixer_TP(
-    config: CommonConfig,
-    causal: bool,
-    use_padding_free_transformer: bool,
-    layer_idx: int,
-    sequence_parallel: bool,
-) -> Attention_TP:
+def get_sequence_mixer_TP(config: CommonConfig, causal: bool, layer_idx: int, sequence_parallel: bool) -> Attention_TP:
     block = config.sequence_mixer_blocks[layer_idx]
     sequence_mixer_type = block.sequence_mixer_type
 
@@ -35,4 +29,4 @@ def get_sequence_mixer_TP(
     )
 
     if sequence_mixer_type == "softmax_attention":
-        return Attention_TP(**sequence_mixer_kwargs, use_padding_free_transformer=use_padding_free_transformer)
+        return Attention_TP(**sequence_mixer_kwargs)

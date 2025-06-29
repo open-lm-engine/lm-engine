@@ -33,7 +33,6 @@ class Attention_TP(Attention):
         num_layers: int,
         causal: bool,
         layer_idx: int | None = None,
-        use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> Attention_TP:
         nn.Module.__init__(self)
@@ -45,7 +44,6 @@ class Attention_TP(Attention):
         self.global_num_heads = num_attention_heads
         self.global_num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
 
         divide_if_divisible(
             self.global_hidden_size,
@@ -84,7 +82,6 @@ class Attention_TP(Attention):
                 self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
                 bias=self.add_bias,
                 std=std,
-                use_padding_free_transformer=use_padding_free_transformer,
                 sequence_parallel=sequence_parallel,
             )
         elif self.attention_head_type == "gqa":
@@ -114,7 +111,6 @@ class Attention_TP(Attention):
                 self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
                 bias=self.add_bias,
                 std=std,
-                use_padding_free_transformer=use_padding_free_transformer,
                 sequence_parallel=sequence_parallel,
             )
         elif self.attention_head_type == "mqa":
@@ -135,7 +131,6 @@ class Attention_TP(Attention):
                 num_layers=num_layers,
                 init_method=init_method,
                 initializer_range=initializer_range,
-                use_padding_free_transformer=use_padding_free_transformer,
                 sequence_parallel=sequence_parallel,
             )
         else:
@@ -146,49 +141,24 @@ class Attention_TP(Attention):
             self.global_hidden_size,
             bias=self.add_bias,
             std=std / math.sqrt(2 * num_layers),
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
 
         self.softmax_dropout_p = softmax_dropout
 
         self.softmax_dropout = (
-            nn.Identity()
-            if softmax_dropout == 0
-            else Dropout_TP(
-                softmax_dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
+            nn.Identity() if softmax_dropout == 0 else Dropout_TP(softmax_dropout, sequence_parallel=sequence_parallel)
         )
-        self.dropout = (
-            nn.Identity()
-            if dropout == 0
-            else Dropout_TP(
-                dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
-        )
+        self.dropout = nn.Identity() if dropout == 0 else Dropout_TP(dropout, sequence_parallel=sequence_parallel)
 
     def _prepare_qkv_for_forward_mqa(
         self, query_key_value: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         query, key, value = query_key_value
 
-        if self.use_padding_free_transformer:
-            total_q = query.shape[0]
-
-            query = query.view(total_q, self.num_heads, -1)
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
-        else:
-            batch_size, query_length = query.shape[:-1]
-            query = query.view(batch_size, query_length, self.num_heads, -1)
-
-            query = query.transpose(1, 2)
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
+        query = query.view(query.size(0), self.num_heads, -1)
+        key = key.unsqueeze(1)
+        value = value.unsqueeze(1)
 
         return query, key, value
 
@@ -203,7 +173,6 @@ class _MQA_QueryKeyValueProjection(nn.Module):
         num_layers: int,
         init_method: str,
         initializer_range: float,
-        use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> None:
         super().__init__()
@@ -229,7 +198,6 @@ class _MQA_QueryKeyValueProjection(nn.Module):
             self.global_hidden_size,
             bias=self.add_bias,
             std=std,
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
 
@@ -238,7 +206,6 @@ class _MQA_QueryKeyValueProjection(nn.Module):
             2 * self.head_dim,
             bias=self.add_bias,
             std=std / math.sqrt(2 * num_layers),
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
 
