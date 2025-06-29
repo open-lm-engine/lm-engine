@@ -4,6 +4,8 @@
 
 """Logic is copied from transformers.models.llama.modeling_utils with slight modifications"""
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -16,7 +18,7 @@ class RoPE(nn.Module):
         head_dim: int,
         max_position_embeddings: int = 2048,
         base: int = 10000,
-    ) -> None:
+    ) -> RoPE:
         super().__init__()
 
         self.head_dim = head_dim
@@ -71,7 +73,7 @@ class YaRNScaledRoPE(RoPE):
         attn_factor: float = 1,
         beta_fast: int = 32,
         beta_slow: int = 1,
-    ) -> None:
+    ) -> YaRNScaledRoPE:
         nn.Module.__init__(self)
 
         self.head_dim = head_dim
@@ -105,9 +107,7 @@ class YaRNScaledRoPE(RoPE):
         return inv_freq
 
 
-def apply_rotary_pos_emb(
-    x: torch.Tensor, cos_sin: tuple[torch.Tensor, torch.Tensor]
-) -> tuple[torch.Tensor, torch.Tensor]:
+def apply_rotary_pos_emb(x: torch.Tensor, cos_sin: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
     cos, sin = cos_sin
 
     head_dim = x.size(-1)
