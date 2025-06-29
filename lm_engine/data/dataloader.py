@@ -2,7 +2,9 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from typing import Callable, Iterable
+from __future__ import annotations
+
+from typing import Callable, Iterable, Iterator
 
 import torch
 import torch.distributed
@@ -37,7 +39,7 @@ class DispatchingDataLoader(ResumableDataLoader):
         broadcast_world_size: int | None = None,
         static_shape_per_rank: tuple[int, int] | None = None,
         keys: list[str] = ["input_ids", "attention_mask", "labels"],
-    ) -> None:
+    ) -> DispatchingDataLoader:
         self.broadcast_world_size = broadcast_world_size
 
         self.is_source, self.source_rank, self.local_rank_in_broadcast_group, self.broadcast_group = (
@@ -67,7 +69,7 @@ class DispatchingDataLoader(ResumableDataLoader):
 
         self.keys = keys
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[dict]:
         iterator = super().__iter__() if self.is_source else range(self._length)
 
         for batch in iterator:
