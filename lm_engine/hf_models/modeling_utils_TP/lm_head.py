@@ -15,45 +15,27 @@ from .TP import get_module_placements
 class LMHead_TP(Embedding_TP):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return self.compute_with_weight(
-            input,
-            self.weight,
-            use_padding_free_transformer=self.use_padding_free_transformer,
-            sequence_parallel=self.sequence_parallel,
-            tp_mesh=self.tp_mesh,
+            input, self.weight, sequence_parallel=self.sequence_parallel, tp_mesh=self.tp_mesh
         )
 
     @staticmethod
     def compute_with_weight(
-        input: torch.Tensor,
-        weight: torch.Tensor,
-        use_padding_free_transformer: bool,
-        sequence_parallel: bool,
-        tp_mesh: DeviceMesh,
+        input: torch.Tensor, weight: torch.Tensor, sequence_parallel: bool, tp_mesh: DeviceMesh
     ) -> torch.Tensor:
         function = (
             LMHead_TP._compute_with_weight_compiled if use_async_tensor_parallel() else LMHead_TP._compute_with_weight
         )
 
-        return function(
-            input=input,
-            weight=weight,
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
-            tp_mesh=tp_mesh,
-        )
+        return function(input=input, weight=weight, sequence_parallel=sequence_parallel, tp_mesh=tp_mesh)
 
     @staticmethod
     def _compute_with_weight(
-        input: torch.Tensor,
-        weight: torch.Tensor,
-        use_padding_free_transformer: bool,
-        sequence_parallel: bool,
-        tp_mesh: DeviceMesh,
+        input: torch.Tensor, weight: torch.Tensor, sequence_parallel: bool, tp_mesh: DeviceMesh
     ) -> torch.Tensor:
         input = tensor_to_dtensor(
             input,
             device_mesh=tp_mesh,
-            current_placement=get_module_placements(use_padding_free_transformer, sequence_parallel),
+            current_placement=get_module_placements(sequence_parallel),
             desired_placement=Replicate(),
         )
         input = F.linear(input, weight)

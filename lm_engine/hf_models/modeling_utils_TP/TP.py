@@ -40,12 +40,9 @@ def tensor_parallel_split_safetensor_slice(slice, dim: int, start_end: tuple[int
     return output
 
 
-def get_module_placements(use_padding_free_transformer: bool, sequence_parallel: bool) -> Placement:
+def get_module_placements(sequence_parallel: bool) -> Placement:
     if sequence_parallel:
-        if use_padding_free_transformer:
-            placement = Shard(0)
-        else:
-            placement = Shard(1)
+        placement = Shard(0)
     else:
         placement = Replicate()
 

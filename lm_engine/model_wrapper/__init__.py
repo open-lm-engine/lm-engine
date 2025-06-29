@@ -40,7 +40,6 @@ def get_model_container(
         "model_class": args.model_args.model_class,
         "dtype": args.mixed_precision_args.dtype,
         "efficient_initialization": args.model_args.efficient_initialization,
-        "use_padding_free_transformer": args.model_args.use_padding_free_transformer,
         "sequence_parallel": args.distributed_args.sequence_parallel,
         "num_pipeline_stages": num_pipeline_stages,
         "trust_remote_code": args.model_args.trust_remote_code,
