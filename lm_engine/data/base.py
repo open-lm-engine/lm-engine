@@ -39,11 +39,7 @@ class BaseDataset(torch.utils.data.Dataset):
         self.do_format_output = self.output_format != OUTPUT_FORMAT
 
         # length to use for trimming (excludes eos)
-        if max_input_tokens is None:
-            self.max_input_tokens = None
-        else:
-            self.max_input_tokens = max_input_tokens
-
+        self.max_input_tokens = max_input_tokens
         self.max_output_tokens = None if max_output_tokens is None else max_output_tokens - 1
 
         self.examples = []
