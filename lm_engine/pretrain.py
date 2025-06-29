@@ -170,6 +170,7 @@ def train_step_without_pipeline_parallel(
         MetricsTrackingDict: metrics to track
     """
 
+    assert len(model_container) == 1
     model = model_container[0]
 
     fsdp_algorithm = 2 if hasattr(model, "set_requires_gradient_sync") else 1
@@ -204,7 +205,7 @@ def train_step_without_pipeline_parallel(
 
             # compute gradients
             with backward_context():
-                if batch is None:
+                if batches is None:
                     (loss_micro_step_dict["loss"] / gradient_accumulation_steps).backward()
                 else:
                     loss_micro_step_dict["loss"].backward()
