@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 from transformers import PreTrainedModel
@@ -29,7 +31,7 @@ class PreTrainedModelMixin(PreTrainedModel):
     _no_split_modules = ["Block"]
     _skip_keys_device_placement = "past_key_values"
 
-    def __init__(self, config: CommonConfig, *args, **kwargs) -> None:
+    def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
         super().__init__(config, *args, **kwargs)
 
         assert self.config_class is not None
@@ -94,7 +96,7 @@ class PreTrainedModelMixin(PreTrainedModel):
 class BaseModelMixin(PreTrainedModelMixin):
     mask_value = None
 
-    def __init__(self, config: CommonConfig, **kwargs) -> None:
+    def __init__(self, config: CommonConfig, **kwargs) -> BaseModelMixin:
         super().__init__(config, **kwargs)
         self._init_model(config, **kwargs)
 
@@ -218,7 +220,9 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         return position_ids
 
-    def _get_rope_cos_sin(self, key_length: int, position_ids: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+    def _get_rope_cos_sin(
+        self, key_length: int, position_ids: torch.Tensor, dtype: torch.dtype
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         if self.position_embedding_type == "rope":
             cos, sin = self.rope(key_length, dtype=dtype)
             cos = cos[position_ids].unsqueeze(1)
@@ -312,19 +316,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         use_cache: bool | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
-    ) -> tuple[
-        bool,
-        bool,
-        bool,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        tuple[torch.Tensor],
-    ]:
+    ) -> tuple[bool, torch.Tensor, torch.Tensor, torch.Tensor | None, GenerationCache | None]:
         if use_cache is None:
             use_cache = False if self.use_padding_free_transformer else self.config.use_cache
 
