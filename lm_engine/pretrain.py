@@ -150,6 +150,7 @@ def train_step_without_pipeline_parallel(
     backward_context: AbstractContextManager,
     sync_every_gradient_accumulation_step: bool,
     lm_loss_multiplier: float,
+    tuning_method: TuningMethod,
 ) -> MetricsTrackingDict:
     """runs backpropagation and applies the gradient if at the edge of gradient accumulation boundary
 
@@ -163,6 +164,7 @@ def train_step_without_pipeline_parallel(
         backward_context (AbstractContextManager): a context that is used for every model backward call
         sync_every_gradient_accumulation_step (bool): whether to sync on every gradient accumulation step
         lm_loss_multiplier (int): lm loss multiplier
+        tuning_method (TuningMethod): tuning method for the current run
 
     Returns:
         MetricsTrackingDict: metrics to track
@@ -185,16 +187,28 @@ def train_step_without_pipeline_parallel(
 
     gradient_accumulation_steps = StepTracker.get_gradient_accumulation_steps()
 
+    if tuning_method == TuningMethod.full_finetuning:
+        assert lm_loss_multiplier is None
+
+        # note the effect of gradient accumulation division is already in the lm_loss_multiplier
+        batches = [get_next_batch(train_dataloader) for _ in range(gradient_accumulation_steps)]
+        lm_loss_multiplier = 1 / sum([(batch["labels"] != -100).sum() for batch in batches])
+    else:
+        batches = None
+
     with no_sync():
-        for _ in range(gradient_accumulation_steps - 1):
-            batch = get_next_batch(train_dataloader)
+        for step in range(gradient_accumulation_steps - 1):
+            batch = get_next_batch(train_dataloader) if batches is None else batches[step]
             with forward_context():
                 loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
 
             # compute gradients
             with backward_context():
-                loss_micro_step_scaled: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
-                loss_micro_step_scaled.backward()
+                if batch is None:
+                    loss_micro_step_scaled: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
+                    loss_micro_step_scaled.backward()
+                else:
+                    loss_micro_step_dict["loss"].backward()
 
             with torch.inference_mode():
                 metrics_tracker = metrics_tracker + loss_micro_step_dict
@@ -202,14 +216,17 @@ def train_step_without_pipeline_parallel(
     if fsdp_algorithm == 2:
         model.set_requires_gradient_sync(True)
 
-    batch = get_next_batch(train_dataloader)
+    batch = get_next_batch(train_dataloader) if batches is None else batches[-1]
     with forward_context():
         loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
 
     # compute gradients
     with backward_context():
-        loss_micro_step_scaled: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
-        loss_micro_step_scaled.backward()
+        if batches is None:
+            loss_micro_step_scaled: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
+            loss_micro_step_scaled.backward()
+        else:
+            loss_micro_step_dict["loss"].backward()
 
     with torch.inference_mode():
         metrics_tracker = metrics_tracker + loss_micro_step_dict
@@ -230,7 +247,8 @@ def train_step_without_pipeline_parallel(
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp([model])
 
     with torch.inference_mode():
-        metrics_tracker = metrics_tracker / gradient_accumulation_steps
+        if batches is None:
+            metrics_tracker = metrics_tracker / gradient_accumulation_steps
 
         metrics_tracker["grad_norm"] = (
             torch.tensor(0, device=torch.cuda.current_device()) if grad_norm is None else grad_norm
@@ -394,6 +412,7 @@ def train(
                 backward_context=backward_context,
                 sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
                 lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                tuning_method=args.tuning_args.tuning_method,
             )
 
         metrics_tracker = metrics_tracker + loss_step_dict
