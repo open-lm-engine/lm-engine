@@ -36,9 +36,7 @@ class PreTrainedModelMixin(PreTrainedModel):
 
         assert self.config_class is not None
 
-        self.use_padding_free_transformer = kwargs.get("use_padding_free_transformer", False)
         self._tied_word_embeddings = config.tie_word_embeddings
-
         self._has_mamba2 = any([block.sequence_mixer_type == "mamba2" for block in self.config.sequence_mixer_blocks])
 
     def _init_weights(self, module: nn.Module) -> None:
@@ -59,37 +57,36 @@ class PreTrainedModelMixin(PreTrainedModel):
         attention_mask: torch.Tensor | None,
         use_cache: bool,
     ) -> tuple[torch.Tensor]:
-        if self.use_padding_free_transformer:
-            if isinstance(input_ids, list) or isinstance(inputs_embeds, list):
-                # this is managed internally
-                error_message = (
-                    "{variable} should not be passed for flash attention when using List[List[int]] "
-                    "input types attention mask logic is handled internally"
-                )
-                assert cu_seqlens is None, error_message.format(variable="cu_seqlens")
-                assert max_seqlen is None, error_message.format(variable="max_seqlen")
-                assert attention_mask is None, error_message.format(variable="attention_mask")
+        if isinstance(input_ids, list) or isinstance(inputs_embeds, list):
+            # this is managed internally
+            error_message = (
+                "{variable} should not be passed for flash attention when using List[List[int]] "
+                "input types attention mask logic is handled internally"
+            )
+            assert cu_seqlens is None, error_message.format(variable="cu_seqlens")
+            assert max_seqlen is None, error_message.format(variable="max_seqlen")
+            assert attention_mask is None, error_message.format(variable="attention_mask")
 
-                input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = (
-                    convert_padding_free_lists_to_tensors(
-                        input_ids=input_ids,
-                        inputs_embeds=inputs_embeds,
-                        position_ids=position_ids,
-                        token_type_ids=token_type_ids,
-                        labels=labels,
-                        device=torch.cuda.current_device(),
-                    )
+            input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = (
+                convert_padding_free_lists_to_tensors(
+                    input_ids=input_ids,
+                    inputs_embeds=inputs_embeds,
+                    position_ids=position_ids,
+                    token_type_ids=token_type_ids,
+                    labels=labels,
+                    device=torch.cuda.current_device(),
                 )
-            else:
-                assert (
-                    cu_seqlens is not None
-                ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
-                assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-                assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-                assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
+            )
+        else:
+            assert (
+                cu_seqlens is not None
+            ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
+            assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+            assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+            assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
 
-            if use_cache or past_key_values is not None:
-                raise NotImplementedError("KV caching is not supported with padding_free transformer")
+        if use_cache or past_key_values is not None:
+            raise NotImplementedError("KV caching is not supported with padding_free transformer")
 
         return input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen
 
@@ -114,12 +111,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         self.embedding_dropout = (
             nn.Identity() if config.embedding_dropout == 0 else nn.Dropout(config.embedding_dropout)
         )
-        self.h = nn.ModuleList(
-            [
-                self.layer_class(config, use_padding_free_transformer=self.use_padding_free_transformer, layer_idx=i)
-                for i in range(config.num_layers)
-            ]
-        )
+        self.h = nn.ModuleList([self.layer_class(config, layer_idx=i) for i in range(config.num_layers)])
         self.ln_f = get_normalization_function(
             config.normalization_function, self.embed_dim, eps=config.layer_norm_epsilon
         )

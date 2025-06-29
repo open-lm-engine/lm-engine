@@ -43,14 +43,7 @@ def generate(args: InferenceArgs, model: ModelWrapper, datasets_list: list[BaseD
             batch.append(example)
 
             if len(batch) == batch_size or index == len(dataset) - 1:
-                batch = collate_fn(
-                    batch,
-                    mode=mode,
-                    loss_mask=None,
-                    eos_token_id=model.eos_token_id,
-                    use_padding_free_transformer=False,
-                )
-
+                batch = collate_fn(batch, mode=mode, loss_mask=None, eos_token_id=model.eos_token_id)
                 generated_text, num_generated_tokens = model.generate(batch, generate_kwargs)
 
                 for generated_text_, num_generated_tokens_ in zip(generated_text, num_generated_tokens):
@@ -83,7 +76,6 @@ def main() -> None:
 
     if args.load_args is None:
         assert not args.model_args.efficient_initialization
-        assert not args.model_args.use_padding_free_transformer
 
         with (
             torch.device(torch.cuda.current_device()),
@@ -99,7 +91,6 @@ def main() -> None:
                 model_class=args.model_args.model_class,
                 dtype=args.mixed_precision_args.dtype,
                 efficient_initialization=False,
-                use_padding_free_transformer=False,
                 sequence_parallel=False,
                 random_seed=args.random_args.seed,
                 trust_remote_code=args.model_args.trust_remote_code,

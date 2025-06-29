@@ -301,13 +301,8 @@ class Attention(nn.Module):
     def _prepare_qkv_for_forward_mha(
         self, hidden_states: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-            hidden_states = hidden_states.view(total_q, self.num_key_value_heads, -1)
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-            hidden_states = hidden_states.view(batch_size, query_length, self.num_heads, -1)
-            hidden_states = hidden_states.transpose(1, 2)
+        total_q = hidden_states.shape[0]
+        hidden_states = hidden_states.view(total_q, self.num_key_value_heads, -1)
 
         query, key, value = hidden_states.chunk(3, dim=-1)
 
@@ -316,14 +311,9 @@ class Attention(nn.Module):
     def _prepare_qkv_for_forward_gqa(
         self, hidden_states: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-            input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
-            output_shape = (total_q, -1, self.head_dim)
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-            input_shape = (*hidden_states.shape[:-1], self.num_key_value_heads, -1)
-            output_shape = (batch_size, query_length, -1, self.head_dim)
+        total_q = hidden_states.shape[0]
+        input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
+        output_shape = (total_q, -1, self.head_dim)
 
         hidden_states = hidden_states.view(*input_shape)
 
@@ -333,33 +323,17 @@ class Attention(nn.Module):
 
         query = query.reshape(*output_shape)
 
-        if not self.use_padding_free_transformer:
-            query = query.transpose(1, 2)
-            key = key.transpose(1, 2)
-            value = value.transpose(1, 2)
-
         return query, key, value
 
     def _prepare_qkv_for_forward_mqa(
         self, hidden_states: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-
+        total_q = hidden_states.shape[0]
         query, key, value = hidden_states.split((self.hidden_size, self.head_dim, self.head_dim), dim=-1)
 
-        if self.use_padding_free_transformer:
-            query = query.view(total_q, self.num_heads, -1)
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
-        else:
-            query = query.view(batch_size, query_length, self.num_heads, -1)
-
-            query = query.transpose(1, 2)
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
+        query = query.view(total_q, self.num_heads, -1)
+        key = key.unsqueeze(1)
+        value = value.unsqueeze(1)
 
         return query, key, value
 
@@ -375,9 +349,8 @@ class Attention(nn.Module):
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
-        if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
-            assert past_key_values is None
+        assert use_flash_attention_2 or use_flash_attention_3
+        assert past_key_values is None
 
         query, key, value = self._prepare_qkv_for_forward(hidden_states)
 
@@ -389,20 +362,7 @@ class Attention(nn.Module):
             key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
 
         if use_flash_attention_2 or use_flash_attention_3:
-            if self.use_padding_free_transformer:
-                output_shape = (-1, self.hidden_size)
-            else:
-                # TODO avoid this extra transpose
-                query = query.transpose(1, 2)
-                if self.attention_head_type == "mqa":
-                    key = key.squeeze(1).unsqueeze(2)
-                    value = value.squeeze(1).unsqueeze(2)
-                else:
-                    key = key.transpose(1, 2)
-                    value = value.transpose(1, 2)
-
-                batch_size, query_length = query.shape[:2]
-                output_shape = (batch_size, query_length, -1)
+            output_shape = (-1, self.hidden_size)
 
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
@@ -415,7 +375,6 @@ class Attention(nn.Module):
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 attention_mask=attention_mask,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self._get_softmax_scale(),
