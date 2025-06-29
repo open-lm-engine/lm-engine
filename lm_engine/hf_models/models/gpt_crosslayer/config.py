@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from os import PathLike
 
 from ...config import CommonConfig
@@ -10,7 +12,7 @@ from ...config import CommonConfig
 class GPTCrossLayerConfig(CommonConfig):
     model_type = "gpt_crosslayer"
 
-    def __init__(self, sharing_pattern: list[int] | None = None, **kwargs) -> None:
+    def __init__(self, sharing_pattern: list[int] | None = None, **kwargs) -> GPTCrossLayerConfig:
         super().__init__(**kwargs)
 
         if sharing_pattern is None:
@@ -36,7 +38,7 @@ class GPTCrossLayerConfig(CommonConfig):
 
         assert self.init_method == "normal"
 
-    def save_pretrained(self, save_directory: str | PathLike, push_to_hub: bool = False, **kwargs):
+    def save_pretrained(self, save_directory: str | PathLike, push_to_hub: bool = False, **kwargs) -> None:
         # we don't want to exporet attention_head_type in this config, not sure if there is a better way to do this
         attention_head_type = self.attention_head_type
         del self.attention_head_type
