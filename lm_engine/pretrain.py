@@ -243,8 +243,7 @@ def train_step_without_pipeline_parallel(
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp([model])
 
     with torch.inference_mode():
-        if batches is None:
-            metrics_tracker = metrics_tracker / gradient_accumulation_steps
+        metrics_tracker = metrics_tracker / gradient_accumulation_steps
 
         metrics_tracker["grad_norm"] = (
             torch.zeros((1,), device=torch.cuda.current_device(), dtype=torch.float32)
