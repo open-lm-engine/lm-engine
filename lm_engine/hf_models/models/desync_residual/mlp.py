@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -28,7 +30,7 @@ class DesyncResidualMLP(nn.Module):
         num_layers: int,
         pretraining_tensor_parallel_size: int,
         all_reduce: bool,
-    ) -> None:
+    ) -> DesyncResidualMLP:
         super().__init__()
 
         self.m_residual = m_residual

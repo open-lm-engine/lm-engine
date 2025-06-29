@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -9,7 +11,7 @@ import torch.nn as nn
 class DesyncResidualLinear(nn.Module):
     def __init__(
         self, in_features: int, out_features: int, tensor_parallel_size: int, std: float, bias: bool = True
-    ) -> None:
+    ) -> DesyncResidualLinear:
         super().__init__()
 
         self.in_features = in_features

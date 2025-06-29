@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 
 from ...mixins import PreTrainedModelMixin
@@ -17,9 +19,8 @@ class DesyncResidualPreTrainedModel(PreTrainedModelMixin):
 
 
 class DesyncResidualModel(DesyncResidualPreTrainedModel, GPTBaseModel):
-    def __init__(self, config: DesyncResidualConfig, **kwargs) -> None:
+    def __init__(self, config: DesyncResidualConfig, **kwargs) -> DesyncResidualModel:
         self.tensor_parallel_size = config.pretraining_tensor_parallel_size
-
         super().__init__(config, **kwargs)
 
     def _get_rope_cos_sin(self, key_length: int, position_ids: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:

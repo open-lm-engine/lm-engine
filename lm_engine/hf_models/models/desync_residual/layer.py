@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -14,7 +16,9 @@ from .sequence_mixers import get_sequence_mixer
 
 
 class DesyncResidualBlock(nn.Module):
-    def __init__(self, config: DesyncResidualConfig, use_padding_free_transformer: bool, layer_idx: int) -> None:
+    def __init__(
+        self, config: DesyncResidualConfig, use_padding_free_transformer: bool, layer_idx: int
+    ) -> DesyncResidualBlock:
         super().__init__()
 
         hidden_size = config.hidden_size
