@@ -27,13 +27,8 @@ from .utils import (
     ProcessGroupManager,
     StepTracker,
     init_distributed,
-    is_torchao_available,
     setup_tf32,
 )
-
-
-if is_torchao_available():
-    from .distributed import FP8Manager
 
 
 def train(
