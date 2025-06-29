@@ -7,9 +7,6 @@ from .loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
 from .mixins import CausalLMOutputWithPast, PipelineParallelInput, PipelineParallelOutput
 from .model_conversion import export_to_huggingface, import_from_huggingface
 from .models import (
-    DesyncResidualConfig,
-    DesyncResidualForCausalLM,
-    DesyncResidualModel,
     GPTBaseConfig,
     GPTBaseForCausalLM,
     GPTBaseForCausalLM_TP,
