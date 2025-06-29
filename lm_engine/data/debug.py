@@ -62,12 +62,7 @@ class DebugDataset(BaseDataset):
         return example
 
     def __getitem__(self, index: int) -> dict:
-        if self._static_examples:
-            example = self._example
-        else:
-            example = self._get_example(index)
-
-        return example
+        return self._example if self._static_examples else self._get_example(index)
 
     def __len__(self) -> int:
         return self._length
