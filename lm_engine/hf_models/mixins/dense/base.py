@@ -45,6 +45,7 @@ class PreTrainedModelMixin(PreTrainedModel):
         if hasattr(module, "reset_parameters"):
             module.reset_parameters()
 
+    # FIXME typing
     def prepare_inputs_for_model(
         self,
         input_ids: torch.Tensor | list[list[int]] | None,
