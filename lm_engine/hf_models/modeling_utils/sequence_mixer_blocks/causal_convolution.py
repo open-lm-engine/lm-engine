@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -146,7 +148,7 @@ class CausalConvolution(nn.Module):
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> CausalConvolution:
         super().__init__()
 
         if use_padding_free_transformer:

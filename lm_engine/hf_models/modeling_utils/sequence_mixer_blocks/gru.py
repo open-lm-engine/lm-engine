@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -39,7 +41,7 @@ class GRU(nn.Module):
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> GRU:
         super().__init__()
 
         self.input_size = input_size

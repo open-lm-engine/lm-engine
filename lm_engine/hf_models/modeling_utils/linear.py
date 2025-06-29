@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -17,7 +19,7 @@ class ParameterizedLinear(nn.Linear):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
-    ) -> None:
+    ) -> ParameterizedLinear:
         self.std = std
         super().__init__(in_features, out_features, bias, device, dtype)
 
