@@ -32,7 +32,7 @@ def pack_sequence(
         inputs=inputs,
         cu_seqlens=cu_seqlens,
         kernel_backend_forward=kernel_backend,
-        kernel_backend_forward=kernel_backend,
+        kernel_backend_backward=kernel_backend,
     )
 
     return inputs
