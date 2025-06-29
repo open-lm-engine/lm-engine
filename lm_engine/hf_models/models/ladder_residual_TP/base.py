@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 from torch.distributed._tensor.placement_types import Partial, Replicate
 
@@ -19,7 +21,7 @@ class LadderResidualPreTrainedModel_TP(PreTrainedModelMixin_TP):
     layer_class = LadderResidualBlock_TP
     _no_split_modules = ["LadderResidualBlock_TP"]
 
-    def __init__(self, config, *args, **kwargs):
+    def __init__(self, config, *args, **kwargs) -> LadderResidualPreTrainedModel_TP:
         super().__init__(config, *args, **kwargs)
 
         if self.num_pipeline_stages > 1:

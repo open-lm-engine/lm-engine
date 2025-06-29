@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class MegatronBatchSampler:
     def __init__(
         self,
@@ -7,7 +10,7 @@ class MegatronBatchSampler:
         num_replicas: int,
         rank: int,
         drop_last: bool = True,
-    ) -> None:
+    ) -> MegatronBatchSampler:
         self.total_samples = total_samples
         self.consumed_samples = consumed_samples
         self.micro_batch_size = micro_batch_size

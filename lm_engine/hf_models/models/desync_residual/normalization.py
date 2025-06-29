@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import numbers
 
 import torch
@@ -9,7 +11,7 @@ import torch.nn as nn
 
 
 class DesyncResidualRMSNorm(nn.RMSNorm):
-    def __init__(self, normalized_shape: int, tp_world_size: int, eps: float = 1e-6) -> None:
+    def __init__(self, normalized_shape: int, tp_world_size: int, eps: float = 1e-6) -> DesyncResidualRMSNorm:
         nn.Module.__init__(self)
 
         self.tp_world_size = tp_world_size

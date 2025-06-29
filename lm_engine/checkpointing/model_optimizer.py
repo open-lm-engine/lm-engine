@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import os
 
 from torch.distributed.checkpoint.state_dict import (
@@ -17,7 +19,9 @@ from ..containers import ModelContainer, OptimizerContainer
 
 
 class _ModelOptimizerSaver(Stateful):
-    def __init__(self, model_container: ModelContainer, optimizer_container: OptimizerContainer) -> None:
+    def __init__(
+        self, model_container: ModelContainer, optimizer_container: OptimizerContainer
+    ) -> _ModelOptimizerSaver:
         self.model_container = model_container
         self.optimizer_container = optimizer_container
 

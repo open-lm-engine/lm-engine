@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -33,7 +35,7 @@ class Attention_TP(Attention):
         layer_idx: int | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> Attention_TP:
         nn.Module.__init__(self)
 
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()

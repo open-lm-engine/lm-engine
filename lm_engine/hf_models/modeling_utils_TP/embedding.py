@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -23,7 +25,7 @@ class Embedding_TP(ParameterizedEmbedding, DTensorModule):
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> Embedding_TP:
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
         self.use_padding_free_transformer = use_padding_free_transformer

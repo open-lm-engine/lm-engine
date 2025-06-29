@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch.nn as nn
 
 from ...config import CommonConfig
@@ -16,7 +18,7 @@ class Block_TP(Block):
         use_padding_free_transformer: bool,
         layer_idx: int | None = None,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> Block_TP:
         nn.Module.__init__(self)
 
         hidden_size = config.hidden_size

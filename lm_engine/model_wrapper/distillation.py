@@ -2,11 +2,12 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import logging
 
 import torch
 import torch.nn.functional as F
-from torch.distributed._tensor.placement_types import Replicate
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
 from ..dtensors import tensor_to_dtensor
@@ -18,10 +19,8 @@ from ..hf_models import (
     is_aux_loss_zero,
 )
 from ..kernels import is_kernel_allowed
-from ..utils import MetricsTrackingDict, ProcessGroupManager, log_rank_0, string_to_torch_dtype
-from .base import ModelWrapper
+from ..utils import ProcessGroupManager, log_rank_0, string_to_torch_dtype
 from .pretraining import ModelWrapperForPretraining
-from .utils import broadcast_tensor_parallel_input
 
 
 class ModelWrapperForDistillation(ModelWrapperForPretraining):
@@ -49,7 +48,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         additional_special_tokens: list[str] | None = None,
         reset_attention_mask: bool = False,
         reset_position_ids: bool = False,
-    ) -> None:
+    ) -> ModelWrapperForDistillation:
         """initializes a model wrapper for a HuggingFace model
 
         Args:

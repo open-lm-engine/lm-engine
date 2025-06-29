@@ -89,7 +89,7 @@ def get_datasets_list(
 
 def get_finetuning_dataloader(
     args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
-) -> tuple[ResumableDataLoader]:
+) -> ResumableDataLoader:
     """prepares datasets and sampler
 
     Args:
@@ -99,7 +99,7 @@ def get_finetuning_dataloader(
         tokenizer (TOKENIZER_TYPE): tokenizer
 
     Returns:
-        tuple[ResumableDataLoader]: dataloader for a blended dataset
+        ResumableDataLoader: dataloader for a blended dataset
     """
 
     assert mode == Mode.training, "blended dataset is only supported in training mode"
@@ -121,7 +121,7 @@ def get_finetuning_dataloader(
 
 def get_pretraining_dataloaders(
     args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
-) -> tuple[ResumableDataLoader]:
+) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
     if args.datasets[0].class_name == "MegatronDataset":
         dataloaders = get_megatron_gpt_dataloaders(args, tokenizer, consumed_samples=consumed_samples)
     elif args.datasets[0].class_name == "IBMDataset":
@@ -132,7 +132,7 @@ def get_pretraining_dataloaders(
 
 def _get_dispatching_dataloader(
     args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
-) -> tuple[ResumableDataLoader]:
+) -> ResumableDataLoader:
     micro_batch_size = args.training_parameters.micro_batch_size
 
     num_ranks_per_node = torch.cuda.device_count()
@@ -211,7 +211,7 @@ def _get_dispatching_dataloader(
 
 def _get_non_dispatching_dataloader(
     args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
-) -> tuple[ResumableDataLoader]:
+) -> ResumableDataLoader:
     micro_batch_size = args.training_parameters.micro_batch_size
 
     datasets_list, data_sampling_ratios = get_datasets_list(

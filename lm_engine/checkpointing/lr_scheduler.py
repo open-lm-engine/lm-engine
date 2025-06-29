@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import os
 
 import torch.nn as nn
@@ -16,10 +18,10 @@ from ..utils import ProcessGroupManager
 
 
 class _LRSchedulerSaver(Stateful):
-    def __init__(self, lr_scheduler_container: LRSchedulerContainer) -> None:
+    def __init__(self, lr_scheduler_container: LRSchedulerContainer) -> _LRSchedulerSaver:
         self.lr_scheduler_container = lr_scheduler_container
 
-    def state_dict(self) -> dict:
+    def state_dict(self) -> list[dict]:
         return [lr_scheduler.state_dict() for lr_scheduler in self.lr_scheduler_container]
 
     def load_state_dict(self, state_dict: list[dict]) -> None:

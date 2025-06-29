@@ -35,6 +35,7 @@ def convert_padding_free_lists_to_tensors(
 
     input_ids = _flatten_and_convert_to_tensors(input_ids, device)
 
+    # TODO drop inputs_embeds
     if inputs_embeds is not None:
         inputs_embeds = _flatten_and_convert_to_tensors(inputs_embeds, device)
 

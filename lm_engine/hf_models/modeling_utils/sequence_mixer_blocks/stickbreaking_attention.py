@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -57,7 +59,7 @@ class SBAttention(Attention):
         causal: bool,
         layer_idx: int,
         use_padding_free_transformer: bool = False,
-    ) -> None:
+    ) -> SBAttention:
         super().__init__(
             hidden_size=hidden_size,
             num_attention_heads=num_attention_heads,
@@ -161,7 +163,7 @@ class PaddingFreeSBAttention(SBAttention):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-    ) -> None:
+    ) -> PaddingFreeSBAttention:
         super().__init__(
             hidden_size=hidden_size,
             num_attention_heads=num_attention_heads,

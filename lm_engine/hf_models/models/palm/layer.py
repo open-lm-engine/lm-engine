@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -11,7 +13,9 @@ from .config import PaLMConfig
 
 
 class PaLMBlock(nn.Module):
-    def __init__(self, config: PaLMConfig, use_padding_free_transformer: bool, layer_idx: int | None = None) -> None:
+    def __init__(
+        self, config: PaLMConfig, use_padding_free_transformer: bool, layer_idx: int | None = None
+    ) -> PaLMBlock:
         super().__init__()
 
         self.m_residual = config.m_residual

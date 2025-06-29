@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch.nn as nn
@@ -38,7 +40,7 @@ class _LRScheduler(LambdaLR):
         num_training_steps: int,
         lr_decay_factor: float,
         last_epoch: int = -1,
-    ) -> None:
+    ) -> _LRScheduler:
         self.lr_warmup_boundary = num_warmup_steps
         self.lr_constant_boundary = self.lr_warmup_boundary + num_constant_steps
 
@@ -63,7 +65,7 @@ class ConstantScheduler(_LRScheduler):
         num_training_steps: int,
         lr_decay_factor: float,
         last_epoch: int = -1,
-    ) -> None:
+    ) -> ConstantScheduler:
         assert num_decay_steps == 0, "num_decay_steps should be 0 for constant schedule"
 
         super().__init__(
@@ -153,7 +155,7 @@ class PowerScheduler(_LRScheduler):
         b: float,
         c: float,
         last_epoch: int = -1,
-    ) -> None:
+    ) -> PowerScheduler:
         assert num_constant_steps == 0, "num_constant_steps should be 0 for power law scheduler"
 
         self.a = a

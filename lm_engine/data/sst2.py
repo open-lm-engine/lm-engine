@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from datasets import load_dataset
 
 from ..enums import DatasetSplit, Mode
@@ -23,7 +25,7 @@ class SST2Dataset(BaseDataset):
         output_format: str,
         max_input_tokens: int,
         max_output_tokens: int,
-    ) -> None:
+    ) -> SST2Dataset:
         super().__init__(
             class_args=class_args,
             split=split,
