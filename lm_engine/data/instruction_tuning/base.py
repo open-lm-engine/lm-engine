@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from ...enums import DatasetSplit, Mode
 from ...tokenizers import TOKENIZER_TYPE
 from ..base import BaseDataset
@@ -19,7 +21,7 @@ class BaseInstructionDataset(BaseDataset):
         output_format: str,
         max_input_tokens: int,
         max_output_tokens: int,
-    ) -> None:
+    ) -> BaseInstructionDataset:
         super().__init__(
             class_args=class_args,
             split=split,
@@ -37,7 +39,7 @@ class BaseInstructionDataset(BaseDataset):
 
         self.examples = self.prepare_examples()
 
-    def construct_input_from_format(self, instruction: str, input: str) -> list[int]:
+    def construct_input_from_format(self, instruction: str, input: str) -> str:
         input_text = instruction + "\n\n"
         if not (input is None or input == ""):
             input_text += f"input: {input}\n"

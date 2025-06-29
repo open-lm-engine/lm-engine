@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import inspect
 import math
 
@@ -209,7 +211,7 @@ class Attention(nn.Module):
         causal: bool,
         layer_idx: int,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> Attention:
         super().__init__()
 
         self.causal = causal

@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch.nn as nn
@@ -26,7 +28,7 @@ class MLP_TP(MLP):
         num_layers: int,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> MLP_TP:
         nn.Module.__init__(self)
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)

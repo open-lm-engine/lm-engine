@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import json
 import os
 
@@ -13,7 +15,7 @@ from transformers.modeling_utils import SAFE_WEIGHTS_INDEX_NAME
 
 
 class SafeTensorsWeightsManager:
-    def __init__(self, model_path: str) -> None:
+    def __init__(self, model_path: str) -> SafeTensorsWeightsManager:
         if model_path.endswith(".safetensors"):
             filenames = [model_path]
         else:

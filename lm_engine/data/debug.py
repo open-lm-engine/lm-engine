@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from ..enums import DatasetSplit, Mode
 from ..tokenizers import TOKENIZER_TYPE
 from .base import BaseDataset
@@ -21,7 +23,7 @@ class DebugDataset(BaseDataset):
         output_format: str,
         max_input_tokens: int,
         max_output_tokens: int,
-    ) -> None:
+    ) -> DebugDataset:
         super().__init__(
             class_args=class_args,
             split=split,

@@ -3,6 +3,8 @@
 # **************************************************
 
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -24,7 +26,7 @@ class ParameterizedConv1d(nn.Conv1d):
         device=None,
         dtype=None,
         std: float | None = None,
-    ) -> None:
+    ) -> ParameterizedConv1d:
         self.std = std
         super().__init__(
             in_channels=in_channels,

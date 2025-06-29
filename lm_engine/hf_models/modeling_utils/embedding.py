@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -21,7 +23,7 @@ class ParameterizedEmbedding(nn.Embedding):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
-    ) -> None:
+    ) -> ParameterizedEmbedding:
         self.std = std
         super().__init__(
             num_embeddings,

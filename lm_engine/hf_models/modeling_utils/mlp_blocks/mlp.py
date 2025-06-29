@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -24,7 +26,7 @@ class MLP(nn.Module):
         initializer_range: float,
         m_width: float,
         num_layers: int,
-    ) -> None:
+    ) -> MLP:
         super().__init__()
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)

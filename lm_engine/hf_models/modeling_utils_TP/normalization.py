@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 from torch.distributed._tensor.placement_types import Partial, Replicate
@@ -25,7 +27,7 @@ class LayerNorm_TP(nn.LayerNorm, DTensorModule):
         eps: float = 1e-6,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> LayerNorm_TP:
         super().__init__(normalized_shape, eps=eps)
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
@@ -59,7 +61,7 @@ class RMSNorm_TP(nn.RMSNorm, DTensorModule):
         eps: float = 1e-6,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> RMSNorm_TP:
         super().__init__(normalized_shape, eps=eps)
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
@@ -108,7 +110,7 @@ def get_normalization_function_TP(
     eps: float = 1e-5,
     use_padding_free_transformer: bool = False,
     sequence_parallel: bool = False,
-) -> nn.LayerNorm:
+) -> LayerNorm_TP | RMSNorm_TP:
     if normalization_function in _NORMALIZATION_FUNCTIONS:
         normalization = _NORMALIZATION_FUNCTIONS[normalization_function](
             normalized_shape,

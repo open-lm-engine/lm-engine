@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 from typing import Tuple
 
@@ -37,7 +39,7 @@ class DesyncResidualAttention(Attention):
         causal: bool,
         layer_idx: int,
         all_reduce: bool,
-    ) -> None:
+    ) -> DesyncResidualAttention:
         nn.Module.__init__(self)
 
         self.tp_world_size = pretraining_tensor_parallel_size

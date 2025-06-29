@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import os
 from contextlib import contextmanager
 from datetime import timedelta
@@ -54,7 +56,7 @@ class ProcessGroupManager:
         zero_stage: int = 3,
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
-    ) -> None:
+    ) -> ProcessGroupManager:
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
 

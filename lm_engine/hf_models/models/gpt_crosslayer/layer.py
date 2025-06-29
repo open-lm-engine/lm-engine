@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -21,7 +23,9 @@ from .sequence_mixers import KeyValueProjection, get_sequence_mixer
 
 
 class GPTCrossLayerBlock(nn.Module):
-    def __init__(self, config: GPTCrossLayerConfig, use_padding_free_transformer: bool, layer_idx: int) -> None:
+    def __init__(
+        self, config: GPTCrossLayerConfig, use_padding_free_transformer: bool, layer_idx: int
+    ) -> GPTCrossLayerBlock:
         super().__init__()
 
         hidden_size = config.hidden_size

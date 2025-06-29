@@ -4,7 +4,7 @@ import logging
 import os
 from enum import Enum
 
-import numpy
+import numpy as np
 import torch
 from torch.utils.cpp_extension import load as load_cpp_extension
 
@@ -38,8 +38,8 @@ def compile_helpers() -> None:
 
 
 def build_blending_indices(
-    dataset_index: numpy.ndarray,
-    dataset_sample_index: numpy.ndarray,
+    dataset_index: np.ndarray,
+    dataset_sample_index: np.ndarray,
     weights: list[float],
     num_datasets: int,
     size: int,
@@ -51,14 +51,14 @@ def build_blending_indices(
 
 
 def build_sample_idx(
-    sizes: numpy.ndarray, doc_idx: numpy.ndarray, sequence_length: int, num_epochs: int, tokens_per_epoch: int
-) -> numpy.ndarray:
+    sizes: np.ndarray, doc_idx: np.ndarray, sequence_length: int, num_epochs: int, tokens_per_epoch: int
+) -> np.ndarray:
     import helpers
 
-    if doc_idx.dtype == numpy.int32:
+    if doc_idx.dtype == np.int32:
         log_rank_0(logging.INFO, f"using int32 for sample idx")
         sample_idx = helpers.build_sample_idx_int32(sizes, doc_idx, sequence_length, num_epochs, tokens_per_epoch)
-    elif doc_idx.dtype == numpy.int64:
+    elif doc_idx.dtype == np.int64:
         log_rank_0(logging.INFO, f"using int64 for sample idx")
         sample_idx = helpers.build_sample_idx_int64(sizes, doc_idx, sequence_length, num_epochs, tokens_per_epoch)
     else:
@@ -76,7 +76,7 @@ def normalize(weights: list[float]) -> list[float]:
     Returns:
         list[float]: The normalized weights
     """
-    w = numpy.array(weights, dtype=numpy.float64)
-    w_sum = numpy.sum(w)
+    w = np.array(weights, dtype=np.float64)
+    w_sum = np.sum(w)
     w = (w / w_sum).tolist()
     return w

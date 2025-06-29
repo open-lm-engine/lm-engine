@@ -1,5 +1,7 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
+from __future__ import annotations
+
 import hashlib
 import json
 from abc import ABC, abstractmethod
@@ -37,7 +39,7 @@ class MegatronDataset(ABC, torch.utils.data.Dataset):
         index_split: Split,
         config: BlendedMegatronDatasetConfig,
         caching_allowed: bool,
-    ) -> None:
+    ) -> MegatronDataset:
         assert indexed_indices.size > 0
         assert num_samples > 0
         assert self.is_multimodal() == indexed_dataset.multimodal

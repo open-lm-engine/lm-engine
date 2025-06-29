@@ -2,6 +2,10 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
+from typing import Iterable
+
 import torch
 from transformers import Cache
 
@@ -21,9 +25,11 @@ _CACHE_CLASSES = {
     "stickbreaking_attention": _SoftmaxAttentionCache,
 }
 
+CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
+
 
 class GenerationCache(Cache):
-    def __init__(self, config: CommonConfig, **kwargs) -> None:
+    def __init__(self, config: CommonConfig, **kwargs) -> GenerationCache:
         super().__init__()
 
         self._seen_tokens = 0
@@ -32,23 +38,24 @@ class GenerationCache(Cache):
             for i in range(config.num_layers)
         ]
 
-    def __getitem__(self, layer_idx: int) -> tuple[torch.Tensor]:
+    def __getitem__(self, layer_idx: int) -> CACHE_TYPE:
         return self.cache[layer_idx].get_cache()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[CACHE_TYPE]:
         for layer_idx in range(len(self)):
             yield self.cache[layer_idx].get_cache()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.seen_tokens
 
-    def update(self, *, layer_idx: int, **kwargs) -> tuple[torch.Tensor | None]:
+    def update(self, *, layer_idx: int, **kwargs) -> CACHE_TYPE:
         return self.cache[layer_idx].update(**kwargs)
 
-    def get_cache(self, layer_idx: int) -> torch.Tensor | tuple[torch.Tensor | None] | None:
+    # TODO remove this function
+    def get_cache(self, layer_idx: int) -> CACHE_TYPE:
         return self.cache[layer_idx].get_cache()
 
-    def get_seq_length(self, layer_idx: int | None = 0) -> int:
+    def get_seq_length(self, layer_idx: int = 0) -> int:
         return self.cache[layer_idx].get_seq_length()
 
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:

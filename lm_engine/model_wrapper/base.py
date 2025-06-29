@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import logging
 
 import torch
@@ -33,7 +35,7 @@ class ModelWrapper(nn.Module):
         trust_remote_code: bool = False,
         tokenizer_name: str | None = None,
         additional_special_tokens: list[str] | None = None,
-    ) -> None:
+    ) -> ModelWrapper:
         """initializes a model wrapper for a HuggingFace model
 
         Args:

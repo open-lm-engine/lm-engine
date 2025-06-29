@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from ...config import CommonConfig
 
 
@@ -13,7 +15,7 @@ class DesyncResidualConfig(CommonConfig):
         pretraining_tensor_parallel_size: int = 1,
         reduce_pattern: dict | None = None,
         **kwargs,
-    ) -> None:
+    ) -> DesyncResidualConfig:
         super().__init__(**kwargs)
 
         self.pretraining_tensor_parallel_size = pretraining_tensor_parallel_size

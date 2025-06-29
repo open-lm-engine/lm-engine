@@ -18,6 +18,7 @@ from itertools import accumulate
 from types import TracebackType
 
 import numpy
+import numpy as np
 import torch
 
 from ...utils import log_rank_0
@@ -39,11 +40,11 @@ class DType(Enum):
     uint16 = 8
 
     @classmethod
-    def code_from_dtype(cls, value: type[numpy.number]) -> int:
+    def code_from_dtype(cls, value: type[np.number]) -> int:
         """Get the code from the dtype
 
         Args:
-            value (type[numpy.number]): The dtype
+            value (type[np.number]): The dtype
 
         Returns:
             int: The code
@@ -51,23 +52,23 @@ class DType(Enum):
         return cls[value.__name__].value
 
     @classmethod
-    def dtype_from_code(cls, value: int) -> type[numpy.number]:
+    def dtype_from_code(cls, value: int) -> type[np.number]:
         """Get the dtype from the code
 
         Args:
             value (int): The code
 
         Returns:
-            type[numpy.number]: The dtype
+            type[np.number]: The dtype
         """
         return getattr(numpy, cls(value).name)
 
     @staticmethod
-    def size(key: int | type[numpy.number]) -> int:
+    def size(key: int | type[np.number]) -> int:
         """Get the size of the dtype/code in bytes
 
         Args:
-            key (int | type[numpy.number]): The dtype or code
+            key (int | type[np.number]): The dtype or code
 
         Raises:
             ValueError: If the key is neither dtype nor integer code
@@ -77,25 +78,25 @@ class DType(Enum):
         """
         if isinstance(key, int):
             return DType.dtype_from_code(key)().itemsize
-        elif numpy.number in key.__mro__:
+        elif np.number in key.__mro__:
             return key().itemsize
         else:
             raise ValueError
 
     @staticmethod
-    def optimal_dtype(cardinality: int | None) -> type[numpy.number]:
+    def optimal_dtype(cardinality: int | None) -> type[np.number]:
         """Get the dtype to use for an index of a certain cardinality
 
         Args:
             cardinality (int | None): The number of elements to be indexed
 
         Returns:
-            type[numpy.number]: The dtype to use for the index
+            type[np.number]: The dtype to use for the index
         """
         if cardinality is not None and cardinality < 65500:
-            return numpy.uint16
+            return np.uint16
         else:
-            return numpy.int32
+            return np.int32
 
 
 class _IndexWriter:
@@ -104,10 +105,10 @@ class _IndexWriter:
     Args:
         idx_path (str): The path to the index file
 
-        dtype (type[numpy.number]): The dtype of the index file
+        dtype (type[np.number]): The dtype of the index file
     """
 
-    def __init__(self, idx_path: str, dtype: type[numpy.number]) -> None:
+    def __init__(self, idx_path: str, dtype: type[np.number]) -> _IndexWriter:
         self.idx_path = idx_path
         self.dtype = dtype
 
@@ -165,24 +166,24 @@ class _IndexWriter:
 
         # the number of tokens per sequence
         assert (
-            max(sequence_lengths) <= numpy.iinfo(numpy.int32).max
+            max(sequence_lengths) <= np.iinfo(np.int32).max
         ), "sequence lengths are assumed to be smaller than the max value of np.int32"
-        sequence_lengths = numpy.array(sequence_lengths, dtype=numpy.int32)
+        sequence_lengths = np.array(sequence_lengths, dtype=np.int32)
         self.idx_writer.write(sequence_lengths.tobytes(order="C"))
         del sequence_lengths
 
         # the byte offsets for all sequences
-        sequence_pointers = numpy.array(sequence_pointers, dtype=numpy.int64)
+        sequence_pointers = np.array(sequence_pointers, dtype=np.int64)
         self.idx_writer.write(sequence_pointers.tobytes(order="C"))
         del sequence_pointers
 
         # the sequence indices marking the end of each document
-        document_indices = numpy.array(document_indices, dtype=numpy.int64)
+        document_indices = np.array(document_indices, dtype=np.int64)
         self.idx_writer.write(document_indices.tobytes(order="C"))
 
         # the mode per sequence
         if sequence_modes is not None:
-            sequence_modes = numpy.array(sequence_modes, dtype=numpy.int8)
+            sequence_modes = np.array(sequence_modes, dtype=np.int8)
             self.idx_writer.write(sequence_modes.tobytes(order="C"))
             del sequence_modes
 
@@ -212,7 +213,7 @@ class _IndexReader:
         multimodal (bool): Whether the dataset is multimodal
     """
 
-    def __init__(self, idx_path: str, multimodal: bool) -> None:
+    def __init__(self, idx_path: str, multimodal: bool) -> _IndexReader:
         log_rank_0(logging.INFO, f"Load the {type(self).__name__} from {idx_path}")
 
         with open(idx_path, "rb") as stream:
@@ -231,22 +232,22 @@ class _IndexReader:
 
             offset = stream.tell()
 
-        self.bin_buffer_mmap = numpy.memmap(idx_path, mode="r", order="C")
+        self.bin_buffer_mmap = np.memmap(idx_path, mode="r", order="C")
         self.bin_buffer = memoryview(self.bin_buffer_mmap)
 
         log_rank_0(logging.INFO, f"\tExtract the sequence lengths")
         t_beg = time.time()
-        self.sequence_lengths = numpy.frombuffer(
-            self.bin_buffer, dtype=numpy.int32, count=self.sequence_count, offset=offset
+        self.sequence_lengths = np.frombuffer(
+            self.bin_buffer, dtype=np.int32, count=self.sequence_count, offset=offset
         )
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
         log_rank_0(logging.INFO, f"\tExtract the sequence pointers")
         t_beg = time.time()
-        self.sequence_pointers = numpy.frombuffer(
+        self.sequence_pointers = np.frombuffer(
             self.bin_buffer,
-            dtype=numpy.int64,
+            dtype=np.int64,
             count=self.sequence_count,
             offset=offset + self.sequence_lengths.nbytes,
         )
@@ -255,9 +256,9 @@ class _IndexReader:
 
         log_rank_0(logging.INFO, f"\tExtract the document indices")
         t_beg = time.time()
-        self.document_indices = numpy.frombuffer(
+        self.document_indices = np.frombuffer(
             self.bin_buffer,
-            dtype=numpy.int64,
+            dtype=np.int64,
             count=self.document_count,
             offset=offset + self.sequence_lengths.nbytes + self.sequence_pointers.nbytes,
         )
@@ -268,9 +269,9 @@ class _IndexReader:
         if multimodal:
             log_rank_0(logging.INFO, f"\tExtract the sequence modes")
             t_beg = time.time()
-            self.sequence_modes = numpy.frombuffer(
+            self.sequence_modes = np.frombuffer(
                 self.bin_buffer,
-                dtype=numpy.int8,
+                dtype=np.int8,
                 count=self.sequence_count,
                 offset=offset
                 + self.sequence_lengths.nbytes
@@ -301,14 +302,14 @@ class _IndexReader:
         return self.sequence_count
 
     @lru_cache(maxsize=8)
-    def __getitem__(self, idx: int) -> tuple[numpy.int32, numpy.int64, numpy.int8 | None]:
+    def __getitem__(self, idx: int) -> tuple[np.int32, np.int64, np.int8 | None]:
         """Return the pointer, length, and mode at the index
 
         Args:
             idx (int): The index into the dataset
 
         Returns:
-            Tuple[numpy.int64, numpy.int32, numpy.int8 | None]: The pointer, length and mode at
+            Tuple[np.int64, np.int32, np.int8 | None]: The pointer, length and mode at
             the index
         """
         return (
@@ -327,7 +328,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         multimodal (bool, optional): Whether the dataset is multimodal. Defaults to False.
     """
 
-    def __init__(self, path_prefix: str, multimodal: bool = False) -> None:
+    def __init__(self, path_prefix: str, multimodal: bool = False) -> MMapIndexedDataset:
         super().__init__()
         self.path_prefix = None
         self.multimodal = None
@@ -352,7 +353,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         self.path_prefix = path_prefix
         self.multimodal = multimodal
         self.index = _IndexReader(get_idx_path(self.path_prefix), self.multimodal)
-        self.bin_buffer_mmap = numpy.memmap(get_bin_path(self.path_prefix), mode="r", order="C")
+        self.bin_buffer_mmap = np.memmap(get_bin_path(self.path_prefix), mode="r", order="C")
         self.bin_buffer = memoryview(self.bin_buffer_mmap)
 
     def __getstate__(self) -> tuple[str, bool]:
@@ -387,23 +388,23 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         """
         return len(self.index)
 
-    def __getitem__(self, idx: int | numpy.integer | slice) -> numpy.ndarray | tuple[numpy.ndarray, numpy.ndarray]:
+    def __getitem__(self, idx: int | np.integer | slice) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """Return from the dataset
 
         Args:
-            idx (int | numpy.integer | slice): The index or index slice into the dataset
+            idx (int | np.integer | slice): The index or index slice into the dataset
 
         Raises:
             ValueError: When the index slice is non-contiguous
             TypeError: When the index is of an unexpected type
 
         Returns:
-            numpy.ndarray | tuple[numpy.ndarray, numpy.ndarray]: The sequence tokens and
+            np.ndarray | tuple[np.ndarray, np.ndarray]: The sequence tokens and
             modes at the index or index slice
         """
-        if isinstance(idx, (int, numpy.integer)):
+        if isinstance(idx, (int, np.integer)):
             sequence_pointer, sequence_length, sequence_mode = self.index[idx]
-            sequence = numpy.frombuffer(
+            sequence = np.frombuffer(
                 self.bin_buffer,
                 dtype=self.index.dtype,
                 count=sequence_length,
@@ -417,8 +418,8 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
             sequence_lengths = self.index.sequence_lengths[idx]
             sequence_modes = self.index.sequence_modes[idx] if self.multimodal else None
             sequence_offsets = list(accumulate(sequence_lengths))
-            sequences = numpy.split(
-                numpy.frombuffer(
+            sequences = np.split(
+                np.frombuffer(
                     self.bin_buffer,
                     dtype=self.index.dtype,
                     count=sum(sequence_lengths),
@@ -430,7 +431,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         else:
             raise TypeError("Unexpected type received for idx: {}".format(type(idx)))
 
-    def get(self, idx: int, offset: int = 0, length: int | None = None) -> numpy.ndarray:
+    def get(self, idx: int, offset: int = 0, length: int | None = None) -> np.ndarray:
         """Retrieve a single item from the dataset with the option to only
         return a portion of the item.
 
@@ -443,53 +444,53 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         if length is None:
             length = sequence_length - offset
         sequence_pointer += offset * DType.size(self.index.dtype)
-        sequence = numpy.frombuffer(self.bin_buffer, dtype=self.index.dtype, count=length, offset=sequence_pointer)
+        sequence = np.frombuffer(self.bin_buffer, dtype=self.index.dtype, count=length, offset=sequence_pointer)
         return (sequence, sequence_mode) if sequence_mode is not None else sequence
 
     @property
-    def sequence_lengths(self) -> numpy.ndarray:
+    def sequence_lengths(self) -> np.ndarray:
         """Get the sequence lengths
 
         Returns:
-            numpy.ndarray: The sequence lengths
+            np.ndarray: The sequence lengths
         """
         return self.index.sequence_lengths
 
     @property
-    def document_indices(self) -> numpy.ndarray:
+    def document_indices(self) -> np.ndarray:
         """Get the document indices
 
         Returns:
-            numpy.ndarray: The document indices
+            np.ndarray: The document indices
         """
         return self.index.document_indices
 
-    def get_document_indices(self) -> numpy.ndarray:
+    def get_document_indices(self) -> np.ndarray:
         """Get the document indices
 
         This method is slated for deprecation.
 
         Returns:
-            numpy.ndarray: The document indices
+            np.ndarray: The document indices
         """
         return self.index.document_indices
 
-    def set_document_indices(self, document_indices: numpy.ndarray) -> None:
+    def set_document_indices(self, document_indices: np.ndarray) -> None:
         """Set the document indices
 
         This method is slated for deprecation.
 
         Args:
-            document_indices (numpy.ndarray): The document indices
+            document_indices (np.ndarray): The document indices
         """
         self.index.document_indices = document_indices
 
     @property
-    def sequence_modes(self) -> numpy.ndarray:
+    def sequence_modes(self) -> np.ndarray:
         """Get the sequence modes
 
         Returns:
-            numpy.ndarray: The sequence modes
+            np.ndarray: The sequence modes
         """
         return self.index.sequence_modes
 
@@ -512,12 +513,12 @@ class MMapIndexedDatasetBuilder:
     Args:
         bin_path (str): The path to the data (.bin) file
 
-        dtype (numpy.dtype, optional): The dtype of the index file. Defaults to numpy.int32.
+        dtype (np.dtype, optional): The dtype of the index file. Defaults to np.int32.
 
         multimodal (bool, optional): Whether the dataset is multimodal. Defaults to False.
     """
 
-    def __init__(self, bin_path: str, dtype: numpy.dtype = numpy.int32, multimodal: bool = False) -> None:
+    def __init__(self, bin_path: str, dtype: np.dtype = np.int32, multimodal: bool = False) -> None:
         self.data_file = open(bin_path, "wb")
         self.dtype = dtype
         self.multimodal = multimodal
@@ -534,7 +535,7 @@ class MMapIndexedDatasetBuilder:
 
             mode (int, optional): The mode for the item. Defaults to 0.
         """
-        np_array = numpy.array(tensor.numpy(), dtype=self.dtype)
+        np_array = np.array(tensor.numpy(), dtype=self.dtype)
         self.data_file.write(np_array.tobytes(order="C"))
         self.sequence_lengths.append(np_array.size)
         if self.multimodal:
@@ -549,7 +550,7 @@ class MMapIndexedDatasetBuilder:
             modes (Optional[List[int]], optional): The modes for each item in the document.
             Defaults to None.
         """
-        np_array = numpy.array(tensor, dtype=self.dtype)
+        np_array = np.array(tensor, dtype=self.dtype)
         self.data_file.write(np_array.tobytes(order="C"))
         self.sequence_lengths.extend(lengths)
         self.document_indices.append(len(self.sequence_lengths))

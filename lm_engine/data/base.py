@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
@@ -23,7 +25,7 @@ class BaseDataset(torch.utils.data.Dataset):
         output_format: str,
         max_input_tokens: int,
         max_output_tokens: int,
-    ) -> None:
+    ) -> BaseDataset:
         super().__init__()
 
         self.split = split
@@ -120,7 +122,7 @@ class BaseDataset(torch.utils.data.Dataset):
 class BlendedDatasets(torch.utils.data.Dataset):
     """Concatenated list of datasets for training or inference"""
 
-    def __init__(self, datasets: list[BaseDataset], split: DatasetSplit) -> None:
+    def __init__(self, datasets: list[BaseDataset], split: DatasetSplit) -> BlendedDatasets:
         super().__init__()
 
         self.split = split

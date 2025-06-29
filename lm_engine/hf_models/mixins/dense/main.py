@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn.functional as F
 from transformers import GenerationMixin
@@ -20,7 +22,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
     _tied_weights_keys = ["lm_head.weight"]
     base_model_class = None
 
-    def __init__(self, config: CommonConfig, **kwargs) -> None:
+    def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:
         super().__init__(config, **kwargs)
 
         self.router_aux_loss_coef = getattr(config, "router_aux_loss_coef", 0)
