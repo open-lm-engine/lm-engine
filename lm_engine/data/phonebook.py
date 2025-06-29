@@ -14,32 +14,9 @@ from ..tokenizers import TOKENIZER_TYPE
 from .base import BaseDataset
 
 
-def sample_phonebook(tokenizer: TOKENIZER_TYPE, phonebook_size: int, name_length: int = 5, phone_digits: int = 8):
-    num_total_names = 26**name_length
-    num_phone_numbers = 10**phone_digits
-
-    assert (
-        min(num_total_names, num_phone_numbers) >= phonebook_size
-    ), f"either {num_total_names} or {num_phone_numbers} is too small!"
-
-    name_iter = list(itertools.product(list(string.ascii_lowercase), repeat=name_length))
-    phone_iter = list(itertools.product(list(string.digits), repeat=phone_digits))
-
-    random.shuffle(name_iter)
-    random.shuffle(phone_iter)
-
-    ret = []
-    for i, name in enumerate(name_iter):
-        if i == phonebook_size:
-            # stack and shuffle
-            return torch.vstack(ret)
-        ret.append(tokenizer(f'${"".join(name)}|{"".join(phone_iter[i])}.'))
-    return torch.vstack(ret)
-
-
 class PhonebookDataset(BaseDataset):
     def __init__(
-        self, tokenizer: TOKENIZER_TYPE, phonebook_size: int, name_length: int = 5, num_digits: int = 8
+        self, tokenizer: TOKENIZER_TYPE, phonebook_size: int, name_length: int, num_digits: int
     ) -> PhonebookDataset:
         num_total_names = 26**name_length
         num_phone_numbers = 10**num_digits
@@ -48,19 +25,22 @@ class PhonebookDataset(BaseDataset):
             min(num_total_names, num_phone_numbers) >= phonebook_size
         ), f"either {num_total_names} or {num_phone_numbers} is too small!"
 
-        name_iter = list(itertools.product(list(string.ascii_lowercase), repeat=name_length))
-        phone_iter = list(itertools.product(list(string.digits), repeat=num_digits))
+        names = list(itertools.product(list(string.ascii_lowercase), repeat=name_length))
+        phone_numbers = list(itertools.product(list(string.digits), repeat=num_digits))
 
-        random.shuffle(name_iter)
-        random.shuffle(phone_iter)
+        random.shuffle(names)
+        random.shuffle(phone_numbers)
 
-        ret = []
-        for i, name in enumerate(name_iter):
-            if i == phonebook_size:
-                # stack and shuffle
-                return torch.vstack(ret)
-            ret.append(tokenizer(f'${"".join(name)}|{"".join(phone_iter[i])}.'))
-        return torch.vstack(ret)
+        names = names[:phonebook_size]
+        phone_numbers = phone_numbers[:phonebook_size]
+
+        self.dataset = []
+        for i in range(phonebook_size):
+            sample = "".join(names[i]) + "<sep>" + "".join(phone_numbers[i])
+            sample = tokenizer(sample, add_special_tokens=False)
+            sample += [tokenizer.eos_token_id]
+
+            self.dataset.append(sample)
 
     def __len__(self):
         return len(self.phonebook_dict["input_ids"])
