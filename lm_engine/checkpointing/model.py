@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import os
 
 from torch.distributed.checkpoint.state_dict import StateDictOptions, get_model_state_dict, set_model_state_dict
@@ -11,7 +13,7 @@ from ..containers import ModelContainer
 
 
 class _ModelSaver(Stateful):
-    def __init__(self, model_container: ModelContainer) -> None:
+    def __init__(self, model_container: ModelContainer) -> _ModelSaver:
         self.model_container = model_container
 
     def state_dict(self) -> dict:
