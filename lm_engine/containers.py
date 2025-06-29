@@ -28,7 +28,7 @@ class _Container:
     def __len__(self) -> int:
         return len(self.model_list)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.model_list)
 
 
