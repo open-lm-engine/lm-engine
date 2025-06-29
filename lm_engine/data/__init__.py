@@ -25,7 +25,7 @@ from .sst2 import SST2Dataset
 from .utils import collate_fn, custom_iterator, get_next_batch
 
 
-_FINETUNING_DATASETS_LIST = {
+_FINETUNING_DATASETS_MAPPING = {
     AlpacaDataset.__name__: AlpacaDataset,
     DebugDataset.__name__: DebugDataset,
     DollyDataset.__name__: DollyDataset,
@@ -34,7 +34,7 @@ _FINETUNING_DATASETS_LIST = {
     SST2Dataset.__name__: SST2Dataset,
 }
 
-_PRETRAINING_DATASETS_LIST = {PhonebookDataset.__name__: PhonebookDataset}
+_PRETRAINING_DATASETS_MAPPING = {PhonebookDataset.__name__: PhonebookDataset}
 
 
 def get_datasets_list(
@@ -58,10 +58,10 @@ def get_datasets_list(
     datasets_list = []
     data_sampling_ratios = []
     for data_args in dataset_args_list:
-        if data_args.class_name not in _FINETUNING_DATASETS_LIST:
+        if data_args.class_name not in _FINETUNING_DATASETS_MAPPING:
             raise ValueError(f"invalid class_name ({data_args.class_name}) for dataset")
 
-        dataset = _FINETUNING_DATASETS_LIST[data_args.class_name](
+        dataset = _FINETUNING_DATASETS_MAPPING[data_args.class_name](
             class_args=data_args.class_args,
             split=split,
             mode=mode,
@@ -123,15 +123,42 @@ def get_finetuning_dataloader(
 
 
 def get_pretraining_dataloaders(
-    args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
+    args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int, mode: Mode
 ) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
     assert len(args.datasets) == 1
     class_name = args.datasets[0].class_name
 
-    if class_name in _PRETRAINING_DATASETS_LIST:
-        _PRETRAINING_DATASETS_LIST[class_name]()
+    if class_name in _PRETRAINING_DATASETS_MAPPING:
+        assert args.load_args is None
 
-    if class_name == "MegatronDataset":
+        train_dataloader = _PRETRAINING_DATASETS_MAPPING[class_name](
+            class_args=args.datasets[0].class_args,
+            split=DatasetSplit.train,
+            mode=mode,
+            tokenizer=tokenizer,
+            data_name="",
+            input_format="__input__",
+            output_format="__output__",
+            max_input_tokens=None,
+            max_output_tokens=None,
+        )
+
+        val_dataloaders = [
+            _PRETRAINING_DATASETS_MAPPING[class_name](
+                class_args=args.datasets[0].class_args,
+                split=DatasetSplit.val,
+                mode=mode,
+                tokenizer=tokenizer,
+                data_name="",
+                input_format="__input__",
+                output_format="__output__",
+                max_input_tokens=None,
+                max_output_tokens=None,
+            )
+        ]
+
+        dataloaders = (train_dataloader, val_dataloaders, val_dataloaders)
+    elif class_name == "MegatronDataset":
         dataloaders = get_megatron_gpt_dataloaders(args, tokenizer, consumed_samples=consumed_samples)
     elif class_name == "IBMDataset":
         dataloaders = get_ibm_dataloaders(args, tokenizer)

@@ -40,10 +40,13 @@ class PhonebookDataset(BaseDataset):
             max_output_tokens=max_output_tokens,
         )
 
+        self.separator_token = "<sep>"
+
         assert not self.do_format_input
         assert not self.do_format_output
         assert self.max_input_tokens is None
         assert self.max_output_tokens is None
+        assert self.separator_token in tokenizer.get_vocab()
 
         name_length = self.class_args["name_length"]
         num_digits = self.class_args["num_digits"]
@@ -70,7 +73,7 @@ class PhonebookDataset(BaseDataset):
 
         self.examples = []
         for i in trange(self.phonebook_size):
-            sample = "".join(names[i]) + "<sep>" + "".join(phone_numbers[i])
+            sample = "".join(names[i]) + self.separator_token + "".join(phone_numbers[i])
             sample = tokenizer(sample, add_special_tokens=False)
             sample += [tokenizer.eos_token_id]
 
