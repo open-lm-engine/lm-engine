@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -54,7 +56,7 @@ class ParameterizedExperts(nn.Module):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
-    ) -> None:
+    ) -> ParameterizedExperts:
         super().__init__()
 
         self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features, device=device, dtype=dtype))
@@ -109,7 +111,7 @@ class ParameterizedExperts(nn.Module):
 
         return input
 
-    def extra_repr(self):
+    def extra_repr(self) -> str:
         return "num_experts={}, in_features={}, out_features={}".format(
             self.num_experts, self.in_features, self.out_features
         )
@@ -139,7 +141,7 @@ class MoE(nn.Module):
         m_width: float,
         num_layers: int,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> MoE:
         super().__init__()
 
         self.num_experts = num_experts
@@ -243,7 +245,7 @@ class MoE(nn.Module):
 
         return hidden_states
 
-    def _compute_routing_weights(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor]:
+    def _compute_routing_weights(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # hidden_states -> (total_q, hidden_size)
         router_logits = self.gate(hidden_states)
         # router_logits -> (total_q, num_experts)
@@ -316,7 +318,7 @@ class MoE(nn.Module):
 
     def _compute_expert_assignment(
         self, router_weights: torch.Tensor, selected_experts: torch.Tensor
-    ) -> tuple[torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         selected_experts = selected_experts.flatten()
 
         num_tokens_per_expert = compute_bincount(
