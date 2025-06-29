@@ -15,7 +15,9 @@ from .sampler import MegatronBatchSampler
 from .utils import Split, compile_helpers
 
 
-def get_megatron_gpt_dataloaders(args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int) -> None:
+def get_megatron_gpt_dataloaders(
+    args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
+) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
     assert len(args.datasets) == 1
     class_args = args.datasets[0].class_args
 
@@ -227,7 +229,7 @@ def _get_train_val_test_samples(
     gradient_accumulation_steps: int,
     eval_interval: int,
     eval_steps: int,
-) -> tuple[int]:
+) -> tuple[int, int, int]:
     dp_world_size = ProcessGroupManager.get_data_parallel_world_size()
 
     train_samples = num_training_steps * micro_batch_size * gradient_accumulation_steps * dp_world_size

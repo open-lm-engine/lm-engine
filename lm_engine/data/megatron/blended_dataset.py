@@ -1,5 +1,7 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -7,7 +9,7 @@ import os
 import time
 from collections import OrderedDict
 
-import numpy
+import numpy as np
 import torch
 
 from ...utils import log_rank_0
@@ -42,10 +44,10 @@ class BlendedDataset(torch.utils.data.Dataset):
         size: int,
         config: BlendedMegatronDatasetConfig,
         caching_allowed: bool,
-    ) -> None:
-        assert len(datasets) < numpy.iinfo(numpy.int16).max
+    ) -> BlendedDataset:
+        assert len(datasets) < np.iinfo(np.int16).max
         assert len(datasets) == len(weights)
-        assert numpy.isclose(sum(weights), 1.0)
+        assert np.isclose(sum(weights), 1.0)
         assert all(map(lambda _: type(_) == type(datasets[0]), datasets))
 
         # Alert user to unnecessary blending
@@ -83,7 +85,7 @@ class BlendedDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return self.size
 
-    def __getitem__(self, idx: int) -> dict[str, int | numpy.ndarray]:
+    def __getitem__(self, idx: int) -> dict[str, int | np.ndarray]:
         dataset_id = self.dataset_index[idx]
         dataset_sample_id = self.dataset_sample_index[idx]
         return {
@@ -91,7 +93,7 @@ class BlendedDataset(torch.utils.data.Dataset):
             **self.datasets[dataset_id][dataset_sample_id],
         }
 
-    def _build_indices(self) -> tuple[numpy.ndarray, numpy.ndarray]:
+    def _build_indices(self) -> tuple[np.ndarray, np.ndarray]:
         """Build and optionally cache the dataset index and the dataset sample index
 
         The dataset index is a 1-D mapping which determines the dataset to query. The dataset
@@ -99,7 +101,7 @@ class BlendedDataset(torch.utils.data.Dataset):
         dataset.
 
         Returns:
-            tuple[numpy.ndarray, numpy.ndarray]: The dataset index and the dataset sample index
+            tuple[np.ndarray, np.ndarray]: The dataset index and the dataset sample index
         """
 
         path_to_cache = getattr(self.config, "path_to_cache")
@@ -127,8 +129,8 @@ class BlendedDataset(torch.utils.data.Dataset):
             log_rank_0(logging.INFO, f"\tBuild and save the dataset and dataset sample indexes")
             t_beg = time.time()
 
-            dataset_index = numpy.zeros(self.size, dtype=numpy.int16)
-            dataset_sample_index = numpy.zeros(self.size, dtype=numpy.int64)
+            dataset_index = np.zeros(self.size, dtype=np.int16)
+            dataset_sample_index = np.zeros(self.size, dtype=np.int64)
             build_blending_indices(
                 dataset_index, dataset_sample_index, self.weights, len(self.datasets), self.size, _VERBOSE
             )
@@ -139,8 +141,8 @@ class BlendedDataset(torch.utils.data.Dataset):
                 with open(path_to_description, "wt") as writer:
                     writer.write(self.unique_description)
                 # Save the indexes
-                numpy.save(path_to_dataset_index, dataset_index, allow_pickle=True)
-                numpy.save(path_to_dataset_sample_index, dataset_sample_index, allow_pickle=True)
+                np.save(path_to_dataset_index, dataset_index, allow_pickle=True)
+                np.save(path_to_dataset_sample_index, dataset_sample_index, allow_pickle=True)
             else:
                 log_rank_0(logging.WARNING, "Unable to save the indexes because path_to_cache is None")
 
@@ -153,13 +155,13 @@ class BlendedDataset(torch.utils.data.Dataset):
 
         log_rank_0(logging.INFO, f"\tLoad the dataset index from {path_to_dataset_index}")
         t_beg = time.time()
-        dataset_index = numpy.load(path_to_dataset_index, allow_pickle=True, mmap_mode="r")
+        dataset_index = np.load(path_to_dataset_index, allow_pickle=True, mmap_mode="r")
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
         log_rank_0(logging.INFO, f"\tLoad the dataset sample index from {path_to_dataset_sample_index}")
         t_beg = time.time()
-        dataset_sample_index = numpy.load(path_to_dataset_sample_index, allow_pickle=True, mmap_mode="r")
+        dataset_sample_index = np.load(path_to_dataset_sample_index, allow_pickle=True, mmap_mode="r")
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
