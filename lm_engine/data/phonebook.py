@@ -27,7 +27,6 @@ class PhonebookDataset(BaseDataset):
         output_format: str,
         max_input_tokens: int,
         max_output_tokens: int,
-        seed: int,
     ) -> PhonebookDataset:
         super().__init__(
             class_args=class_args,
@@ -77,5 +76,5 @@ class PhonebookDataset(BaseDataset):
 
             self.examples.append(sample)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.phonebook_size
