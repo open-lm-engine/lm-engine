@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn.functional as F
+from pydantic import ConfigDict
 
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
@@ -81,6 +82,8 @@ def unpack_sequence(
 
 
 class AttentionMaskInfo(BaseArgs):
+    model_config = ConfigDict(extra="forbid", protected_namespaces=(), arbitrary_types_allowed=True)
+
     attention_mask: torch.Tensor | None = None
     cu_seqlens: torch.Tensor | None = None
     max_seqlen: int | None = None
