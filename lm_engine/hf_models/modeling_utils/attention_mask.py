@@ -86,8 +86,8 @@ class AttentionMaskInfo(BaseArgs):
 
     attention_mask: torch.Tensor | None = None
     cu_seqlens: torch.Tensor | None = None
-    max_seqlen: int | None = None
     batch_size: int | None = None
+    max_seqlen: int | None = None
     total_tokens: int | None = None
     all_sequences_of_equal_length: bool
 
@@ -117,8 +117,8 @@ class AttentionMaskInfo(BaseArgs):
         else:
             attention_mask_info = AttentionMaskInfo(
                 cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
                 batch_size=B,
+                max_seqlen=max_seqlen,
                 total_tokens=cu_seqlens[-1].item(),
                 all_sequences_of_equal_length=all_sequences_of_equal_length,
             )
