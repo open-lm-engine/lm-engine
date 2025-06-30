@@ -357,8 +357,6 @@ class Attention(nn.Module):
             key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
 
         if use_flash_attention_2 or use_flash_attention_3:
-            output_shape = (-1, self.hidden_size)
-
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
@@ -378,7 +376,7 @@ class Attention(nn.Module):
             del query, key, value
 
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(*output_shape)
+            hidden_states = hidden_states.view(-1, self.hidden_size)
         else:
             key = repeat_key_value(key, self.num_heads, self.num_key_value_heads)
             value = repeat_key_value(value, self.num_heads, self.num_key_value_heads)
