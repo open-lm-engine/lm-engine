@@ -95,17 +95,10 @@ class AttentionMaskInfo(BaseArgs):
     def from_attention_mask(attention_mask: torch.Tensor) -> AttentionMaskInfo:
         seqlens = attention_mask.sum(dim=-1, dtype=torch.int32)
         cu_seqlens = F.pad(torch.cumsum(seqlens, dim=0, dtype=torch.int32), (1, 0))
-        max_seqlen = seqlens.max().item()
 
         B, S = attention_mask.size()
 
-        return AttentionMaskInfo(
-            attention_mask=attention_mask,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-            batch_size=B,
-            max_seqlen=S,
-        )
+        return AttentionMaskInfo(attention_mask=attention_mask, cu_seqlens=cu_seqlens, batch_size=B, max_seqlen=S)
 
     @staticmethod
     def from_cu_seqlens(cu_seqlens: torch.Tensor, all_sequences_of_equal_length: bool) -> AttentionMaskInfo:
