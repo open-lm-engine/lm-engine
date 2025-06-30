@@ -142,13 +142,11 @@ class MultiHeadLatentAttention(nn.Module):
             value = self.value_up_projection(value)
 
         if use_flash_attention_2 or use_flash_attention_3:
-            total_q = query.shape[0]
+            T = query.size(0)
 
-            query = query.view(total_q, self.num_heads, -1)
-            key = key.view(total_q, self.num_heads, -1)
-            value = value.view(total_q, self.num_heads, -1)
-
-            output_shape = (-1, self.hidden_size)
+            query = query.view(T, self.num_heads, -1)
+            key = key.view(T, self.num_heads, -1)
+            value = value.view(T, self.num_heads, -1)
 
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
@@ -169,10 +167,10 @@ class MultiHeadLatentAttention(nn.Module):
             del query, key, value
 
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(*output_shape)
+            hidden_states = hidden_states.view(-1, self.hidden_size)
         else:
-            batch_size, query_length = query.shape[:-1]
-            key_length = key.shape[1]
+            batch_size, query_length = query.size()[:-1]
+            key_length = key.size(1)
 
             query = query.view(batch_size, query_length, self.num_heads, -1).transpose(1, 2)
             key = key.view(batch_size, key_length, self.num_heads, -1).transpose(1, 2)
