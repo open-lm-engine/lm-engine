@@ -58,7 +58,6 @@ class SBAttention(Attention):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool = False,
     ) -> SBAttention:
         super().__init__(
             hidden_size=hidden_size,
@@ -75,7 +74,6 @@ class SBAttention(Attention):
             num_layers=num_layers,
             causal=causal,
             layer_idx=layer_idx,
-            use_padding_free_transformer=use_padding_free_transformer,
         )
 
         self.head_bias = torch.nn.Parameter(torch.zeros(self.hidden_size // self.head_dim, self.head_dim))
@@ -178,7 +176,6 @@ class PaddingFreeSBAttention(SBAttention):
             num_layers=num_layers,
             causal=causal,
             layer_idx=layer_idx,
-            use_padding_free_transformer=True,
         )
 
     def forward(
