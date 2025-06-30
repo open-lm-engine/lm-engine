@@ -159,15 +159,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             max_seqlen=max_seqlen,
         )
 
-        # ==========================================================================================
-        # padding_free:
-        #     attention_mask -> None
-        # flash:
-        #     attention_mask -> (batch_size, key_length)
-        # else:
-        #     attention_mask -> (batch_size, 1, query_length, key_length)
-        # ==========================================================================================
-
         if is_generation_cache_enabled():
             past_key_values = (
                 GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
@@ -230,10 +221,6 @@ class BaseModelMixin(PreTrainedModelMixin):
     ) -> torch.Tensor:
         past_length = key_length - query_length
 
-        # ==========================================================================================
-        # attention_mask -> (batch_size, key_length)
-        # ==========================================================================================
-
         if query_length > 1:
             # (query_length, key_length)
             causal_mask = torch.empty((query_length, key_length), dtype=torch.bool, device=device)
@@ -261,15 +248,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 # (batch_size, query_length, key_length)
                 causal_mask = attention_mask.unsqueeze(1).to(dtype=torch.bool, device=device)
 
-        # ==========================================================================================
-        # attention_mask -> (batch_size, query_length, key_length)
-        # ==========================================================================================
-
         causal_mask = causal_mask.unsqueeze(1)
-
-        # ==========================================================================================
-        # attention_mask -> (batch_size, 1, query_length, key_length)
-        # ==========================================================================================
 
         return causal_mask
 
