@@ -43,31 +43,6 @@ class PreTrainedModelMixin(PreTrainedModel):
         if hasattr(module, "reset_parameters"):
             module.reset_parameters()
 
-    # FIXME typing
-    def prepare_inputs_for_model(
-        self,
-        input_ids: torch.Tensor | list[list[int]] | None,
-        position_ids: torch.Tensor | list[list[int]] | None,
-        token_type_ids: torch.Tensor | list[list[int]] | None,
-        labels: torch.Tensor | list[list[int]] | None,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: int | None,
-        past_key_values: tuple[tuple[torch.Tensor]],
-        attention_mask: torch.Tensor | None,
-        use_cache: bool,
-    ) -> tuple[torch.Tensor]:
-        assert (
-            cu_seqlens is not None
-        ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
-        assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-        assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-        assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
-
-        if use_cache or past_key_values is not None:
-            raise NotImplementedError("KV caching is not supported with padding_free transformer")
-
-        return input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen
-
 
 class BaseModelMixin(PreTrainedModelMixin):
     mask_value = None

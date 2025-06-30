@@ -80,17 +80,15 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
         if self.is_first_stage:
             assert pipeline_parallel_input is None, "first stage should not get pipeline_parallel_input"
-            input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
-                input_ids=input_ids,
-                position_ids=position_ids,
-                token_type_ids=token_type_ids,
-                labels=labels,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-                past_key_values=past_key_values,
-                attention_mask=attention_mask,
-                use_cache=use_cache,
-            )
+            assert (
+                cu_seqlens is not None
+            ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
+            assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+            assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+            assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
+
+            if use_cache or past_key_values is not None:
+                raise NotImplementedError("KV caching is not supported with padding_free transformer")
         else:
             assert input_ids is None
             add_aux_loss(pipeline_parallel_input.aux_loss)
