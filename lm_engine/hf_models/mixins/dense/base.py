@@ -47,7 +47,6 @@ class PreTrainedModelMixin(PreTrainedModel):
     def prepare_inputs_for_model(
         self,
         input_ids: torch.Tensor | list[list[int]] | None,
-        inputs_embeds: torch.Tensor | list[list[float]] | None,
         position_ids: torch.Tensor | list[list[int]] | None,
         token_type_ids: torch.Tensor | list[list[int]] | None,
         labels: torch.Tensor | list[list[int]] | None,
@@ -57,7 +56,7 @@ class PreTrainedModelMixin(PreTrainedModel):
         attention_mask: torch.Tensor | None,
         use_cache: bool,
     ) -> tuple[torch.Tensor]:
-        if isinstance(input_ids, list) or isinstance(inputs_embeds, list):
+        if isinstance(input_ids, list):
             # this is managed internally
             error_message = (
                 "{variable} should not be passed for flash attention when using List[List[int]] "
@@ -70,7 +69,6 @@ class PreTrainedModelMixin(PreTrainedModel):
             input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = (
                 convert_padding_free_lists_to_tensors(
                     input_ids=input_ids,
-                    inputs_embeds=inputs_embeds,
                     position_ids=position_ids,
                     token_type_ids=token_type_ids,
                     labels=labels,

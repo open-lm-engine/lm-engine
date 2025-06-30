@@ -73,7 +73,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
 
         input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
             input_ids=input_ids,
-            inputs_embeds=inputs_embeds,
             position_ids=position_ids,
             token_type_ids=token_type_ids,
             labels=labels,

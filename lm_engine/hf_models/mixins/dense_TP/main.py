@@ -82,7 +82,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             assert pipeline_parallel_input is None, "first stage should not get pipeline_parallel_input"
             input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
                 input_ids=input_ids,
-                inputs_embeds=inputs_embeds,
                 position_ids=position_ids,
                 token_type_ids=token_type_ids,
                 labels=labels,
