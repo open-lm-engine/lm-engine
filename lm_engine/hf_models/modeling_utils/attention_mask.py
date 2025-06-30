@@ -128,7 +128,7 @@ class AttentionMaskInfo(BaseArgs):
     def get_attention_mask(self) -> torch.Tensor:
         if self.attention_mask is None:
             self.attention_mask = unpack_sequence(
-                inputs=torch.ones((self.total_tokens,), dtype=torch.uint32, device=self.cu_seqlens.device),
+                inputs=torch.ones((self.total_tokens,), dtype=torch.int32, device=self.cu_seqlens.device),
                 cu_seqlens=self.cu_seqlens,
                 desired_shape=(self.batch_size, self.max_seqlen),
             )
