@@ -311,20 +311,15 @@ class BaseModelMixin(PreTrainedModelMixin):
         max_seqlen: int | None = None,
     ) -> tuple[bool, torch.Tensor, torch.Tensor, torch.Tensor | None, GenerationCache | None]:
         if use_cache is None:
-            use_cache = False if self.use_padding_free_transformer else self.config.use_cache
+            use_cache = self.config.use_cache
 
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
         elif input_ids is not None:
             input_shape = input_ids.size()
-
-            # special handling for padding free transformer with list inputs
-            if self.use_padding_free_transformer:
-                # for flash attention, there is no padding and we do packing
-                # so, input_ids is of shape (s1 + s2 + ... + sb)
-                batch_size = cu_seqlens.shape[0] - 1
-            else:
-                batch_size = input_shape[0]
+            # for flash attention, there is no padding and we do packing
+            # so, input_ids is of shape (s1 + s2 + ... + sb)
+            batch_size = cu_seqlens.shape[0] - 1
         elif inputs_embeds is not None:
             # TODO special handling for padding free transformer needed here if we support inputs_embeds argument
             input_shape = inputs_embeds.size()[:-1]
@@ -337,67 +332,19 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         device = input_ids.device if input_ids is not None else inputs_embeds.device
 
-        if self.use_padding_free_transformer:
-            assert position_ids is not None, (
-                "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] "
-                "inputs"
-            )
-        else:
-            if token_type_ids is not None:
-                token_type_ids = token_type_ids.view(-1, input_shape[-1])
-
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> None or (batch_size, key_length)
-        # ==========================================================================================
+        assert position_ids is not None, (
+            "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] " "inputs"
+        )
 
         past_length = None
         query_length = None
-        key_length = None
-        if self.use_padding_free_transformer:
-            key_length = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
-        else:
-            past_length = 0 if past_key_values is None else past_key_values.get_seq_length()
-            query_length = input_shape[-1]
-            key_length = past_length + query_length
+        key_length = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
 
         if position_ids is None:
             position_ids = self._get_position_ids(attention_mask, past_length, query_length, key_length, device)
 
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> (batch_size, query_length)
-        # ==========================================================================================
-
         hidden_states = self._get_initial_hidden_state(input_ids, inputs_embeds, position_ids, token_type_ids)
-
-        # ==========================================================================================
-        # padding_free:
-        #     hidden_states -> (total_q, num_heads * head_dim)
-        # else:
-        #     hidden_states -> (batch_size, query_length, num_heads * head_dim)
-        # ==========================================================================================
-
         rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
-
-        # ==========================================================================================
-        # padding_free:
-        #     rope_cos_sin -> 2 * (max_seqlen, head_dim)
-        # else:
-        #     rope_cos_sin -> 2 * (key_length, head_dim)
-        # ==========================================================================================
 
         attention_mask = self._get_maybe_causal_mask(
             attention_mask, batch_size, query_length, key_length, hidden_states.dtype, device
