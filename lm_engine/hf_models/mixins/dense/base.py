@@ -88,7 +88,6 @@ class BaseModelMixin(PreTrainedModelMixin):
         input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         inputs_embeds: torch.Tensor | None = None,
         use_cache: bool | None = None,
@@ -106,7 +105,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             input_ids=input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
             position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
@@ -208,20 +206,13 @@ class BaseModelMixin(PreTrainedModelMixin):
         return causal_mask
 
     def _get_initial_hidden_state(
-        self,
-        input_ids: torch.Tensor,
-        inputs_embeds: torch.Tensor | None,
-        position_ids: torch.Tensor | None,
-        token_type_ids: torch.Tensor | None,
+        self, input_ids: torch.Tensor, inputs_embeds: torch.Tensor | None, position_ids: torch.Tensor | None
     ) -> torch.Tensor:
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
 
         if self.position_embedding_type == "learned_absolute":
             inputs_embeds = inputs_embeds + self.wpe(position_ids)
-
-        if token_type_ids is not None:
-            inputs_embeds = inputs_embeds + self.wte(token_type_ids)
 
         inputs_embeds = self.embedding_dropout(inputs_embeds)
 
@@ -235,7 +226,6 @@ class BaseModelMixin(PreTrainedModelMixin):
         input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         inputs_embeds: torch.Tensor | None = None,
         use_cache: bool | None = None,
@@ -275,7 +265,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         if position_ids is None:
             position_ids = self._get_position_ids(attention_mask, past_length, query_length, key_length, device)
 
-        hidden_states = self._get_initial_hidden_state(input_ids, inputs_embeds, position_ids, token_type_ids)
+        hidden_states = self._get_initial_hidden_state(input_ids, inputs_embeds, position_ids)
         rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
         attention_mask = self._get_maybe_causal_mask(
