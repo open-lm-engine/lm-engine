@@ -88,7 +88,6 @@ class AttentionMaskInfo(BaseArgs):
     cu_seqlens: torch.Tensor | None = None
     max_seqlen: int | None = None
     batch_size: int | None = None
-    sequence_length: int | None = None
     total_tokens: int | None = None
     all_sequences_of_equal_length: bool
 
@@ -105,23 +104,25 @@ class AttentionMaskInfo(BaseArgs):
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
             batch_size=B,
-            sequence_length=S,
+            max_seqlen=S,
         )
 
     @staticmethod
     def from_cu_seqlens(cu_seqlens: torch.Tensor, all_sequences_of_equal_length: bool) -> AttentionMaskInfo:
         B = cu_seqlens.size(0) - 1
+        seqlen = cu_seqlens[1:] - cu_seqlens[:-1]
+        # we move to CPU here otherwise FlashAttention will move to CPU on every invocation i.e all layers
+        max_seqlen = seqlen.max().item()
 
         if all_sequences_of_equal_length:
-            return AttentionMaskInfo(
-                cu_seqlens=cu_seqlens, batch_size=B, all_sequences_of_equal_length=all_sequences_of_equal_length
+            attention_mask_info = AttentionMaskInfo(
+                cu_seqlens=cu_seqlens,
+                batch_size=B,
+                max_seqlen=max_seqlen,
+                all_sequences_of_equal_length=all_sequences_of_equal_length,
             )
         else:
-            seqlen = cu_seqlens[1:] - cu_seqlens[:-1]
-            # we move to CPU here otherwise FlashAttention will move to CPU on every invocation i.e all layers
-            max_seqlen = seqlen.max().item()
-
-            return AttentionMaskInfo(
+            attention_mask_info = AttentionMaskInfo(
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 batch_size=B,
@@ -129,12 +130,14 @@ class AttentionMaskInfo(BaseArgs):
                 all_sequences_of_equal_length=all_sequences_of_equal_length,
             )
 
+        return attention_mask_info
+
     def get_attention_mask(self) -> torch.Tensor:
         if self.attention_mask is None:
             self.attention_mask = unpack_sequence(
                 inputs=torch.ones((self.total_tokens,), dtype=torch.uint32, device=self.cu_seqlens.device),
                 cu_seqlens=self.cu_seqlens,
-                desired_shape=(self.batch_size, self.sequence_length),
+                desired_shape=(self.batch_size, self.max_seqlen),
             )
 
         return self.attention_mask
