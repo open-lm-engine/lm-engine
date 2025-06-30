@@ -14,6 +14,7 @@ from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_cute_kernels_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ..attention_mask import AttentionMaskInfo
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 
@@ -85,15 +86,11 @@ class RNN(nn.Module):
         self,
         input: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
     ) -> torch.Tensor:
         assert cache_params is None
-        assert attention_mask is None
 
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-
         input = self.input_projection(input)
 
         if self.is_gated_normalization:
@@ -112,8 +109,8 @@ class RNN(nn.Module):
             weight=weight,
             input_state=input_state,
             gradient_clipping=self.gradient_clipping,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
+            cu_seqlens=attention_mask_info.cu_seqlens,
+            max_seqlen=attention_mask_info.max_seqlen,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn_cute) else KernelBackend.torch,
         )
 
