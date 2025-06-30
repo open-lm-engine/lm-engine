@@ -347,9 +347,6 @@ class Attention(nn.Module):
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
-        assert use_flash_attention_2 or use_flash_attention_3
-        assert past_key_values is None
-
         query, key, value = self._prepare_qkv_for_forward(hidden_states)
 
         if self.position_embedding_type == "rope":
