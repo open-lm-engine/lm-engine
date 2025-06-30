@@ -111,10 +111,7 @@ class AttentionMaskInfo(BaseArgs):
 
         if all_sequences_of_equal_length:
             return AttentionMaskInfo(
-                batch_size=B,
-                sequence_length=S,
-                total_tokens=B * S,
-                all_sequences_of_equal_length=all_sequences_of_equal_length,
+                cu_seqlens=cu_seqlens, batch_size=B, all_sequences_of_equal_length=all_sequences_of_equal_length
             )
         else:
             seqlen = cu_seqlens[1:] - cu_seqlens[:-1]
