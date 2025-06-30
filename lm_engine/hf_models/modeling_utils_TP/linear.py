@@ -24,7 +24,6 @@ class ReplicatedLinear(ParameterizedLinear, DTensorModule):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
-        use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> ReplicatedLinear:
         super().__init__(in_features, out_features, bias, device, dtype, std)
@@ -45,7 +44,7 @@ class ReplicatedLinear(ParameterizedLinear, DTensorModule):
                 )
             )
 
-        self.input_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+        self.input_placement = get_module_placements(sequence_parallel)
 
         if use_async_tensor_parallel():
             self.compile()

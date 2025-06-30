@@ -45,16 +45,8 @@ class LMHead_TP(Embedding_TP):
     @torch.compile
     @staticmethod
     def _compute_with_weight_compiled(
-        input: torch.Tensor,
-        weight: torch.Tensor,
-        use_padding_free_transformer: bool,
-        sequence_parallel: bool,
-        tp_mesh: DeviceMesh,
+        input: torch.Tensor, weight: torch.Tensor, sequence_parallel: bool, tp_mesh: DeviceMesh
     ) -> torch.Tensor:
         return LMHead_TP._compute_with_weight(
-            input=input,
-            weight=weight,
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
-            tp_mesh=tp_mesh,
+            input=input, weight=weight, sequence_parallel=sequence_parallel, tp_mesh=tp_mesh
         )
