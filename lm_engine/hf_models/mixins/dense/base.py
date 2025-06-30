@@ -13,7 +13,7 @@ from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
-from ...utils import convert_padding_free_lists_to_tensors, is_generation_cache_enabled
+from ...utils import is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
 
@@ -56,32 +56,12 @@ class PreTrainedModelMixin(PreTrainedModel):
         attention_mask: torch.Tensor | None,
         use_cache: bool,
     ) -> tuple[torch.Tensor]:
-        if isinstance(input_ids, list):
-            # this is managed internally
-            error_message = (
-                "{variable} should not be passed for flash attention when using List[List[int]] "
-                "input types attention mask logic is handled internally"
-            )
-            assert cu_seqlens is None, error_message.format(variable="cu_seqlens")
-            assert max_seqlen is None, error_message.format(variable="max_seqlen")
-            assert attention_mask is None, error_message.format(variable="attention_mask")
-
-            input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = (
-                convert_padding_free_lists_to_tensors(
-                    input_ids=input_ids,
-                    position_ids=position_ids,
-                    token_type_ids=token_type_ids,
-                    labels=labels,
-                    device=torch.cuda.current_device(),
-                )
-            )
-        else:
-            assert (
-                cu_seqlens is not None
-            ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
-            assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-            assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-            assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
+        assert (
+            cu_seqlens is not None
+        ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
+        assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+        assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+        assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
 
         if use_cache or past_key_values is not None:
             raise NotImplementedError("KV caching is not supported with padding_free transformer")
