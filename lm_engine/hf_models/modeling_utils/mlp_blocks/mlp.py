@@ -66,6 +66,7 @@ class MLP(nn.Module):
             hidden_states = _output_projection(hidden_states)
 
         hidden_states = self.dropout(hidden_states)
+
         return hidden_states
 
 
