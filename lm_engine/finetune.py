@@ -278,7 +278,7 @@ def main() -> None:
     experiments_tracker_state_dict = None
     if args.load_args is not None:
         starting_iteration, _, experiments_tracker_state_dict = load_checkpoint_for_training(
-            args, model_container, optimizer_container, lr_scheduler_container, train_dataloader
+            args, mode, model_container, optimizer_container, lr_scheduler_container, train_dataloader
         )
 
     experiments_tracker = ExperimentsTracker(
