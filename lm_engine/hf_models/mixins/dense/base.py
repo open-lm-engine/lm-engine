@@ -8,8 +8,6 @@ import torch
 import torch.nn as nn
 from transformers import PreTrainedModel
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import (
