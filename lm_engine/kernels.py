@@ -18,7 +18,7 @@ if is_cute_kernels_available():
 else:
     _ENABLE_ALL_KERNELS = False
 
-_KERNELS: dict[Kernel, bool] = {kernel: False for kernel in Kernel}
+_KERNELS = {kernel: False for kernel in Kernel}
 
 
 def is_kernel_allowed(kernel: Kernel) -> bool:
@@ -31,8 +31,8 @@ def enable_kernels(kernels: list[Kernel]):
 
     original_kernels = _KERNELS
 
-    for kernel in kernels:
-        _KERNELS[kernel] = True
+    for kernel in Kernel:
+        _KERNELS[kernel] = kernel in kernels
 
     yield
 
