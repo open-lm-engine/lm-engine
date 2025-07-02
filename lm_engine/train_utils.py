@@ -65,6 +65,7 @@ def get_torch_profiler(torch_profiler_trace_path: str) -> torch.profiler.profile
             ),
             on_trace_ready=torch.profiler.tensorboard_trace_handler(torch_profiler_trace_path),
             record_shapes=True,
+            profile_memory=True,
         )
 
     return torch_profiler
