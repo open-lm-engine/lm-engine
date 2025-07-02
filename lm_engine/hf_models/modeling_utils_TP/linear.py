@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 from torch.distributed._tensor.placement_types import Partial, Replicate, Shard
@@ -24,7 +26,7 @@ class ReplicatedLinear(ParameterizedLinear, DTensorModule):
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> ReplicatedLinear:
         super().__init__(in_features, out_features, bias, device, dtype, std)
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
@@ -68,7 +70,7 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> ColumnParallelLinear:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
@@ -129,7 +131,7 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> RowParallelLinear:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 

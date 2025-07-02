@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import logging
 
 import torch
@@ -11,6 +13,7 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM
 from ..enums import Kernel, Mode
 from ..hf_models import get_model_parallel_class, is_custom_model
 from ..kernels import is_kernel_allowed
+from ..tokenizers import get_tokenizer
 from ..utils import ProcessGroupManager, SafeTensorsWeightsManager, log_rank_0, string_to_torch_dtype
 
 
@@ -32,7 +35,7 @@ class ModelWrapper(nn.Module):
         trust_remote_code: bool = False,
         tokenizer_name: str | None = None,
         additional_special_tokens: list[str] | None = None,
-    ) -> None:
+    ) -> ModelWrapper:
         """initializes a model wrapper for a HuggingFace model
 
         Args:
@@ -117,9 +120,7 @@ class ModelWrapper(nn.Module):
             batch[i] = batch[i].to(torch.cuda.current_device())
 
         generated = self.model.generate(**batch, **generate_kwargs, eos_token_id=self.eos_token_id)
-
-        if not self.is_encoder_decoder:
-            generated = generated[:, batch["input_ids"].shape[1] :]
+        generated = generated[:, batch["input_ids"].shape[1] :]
 
         # add 1 since eos token to also count eos in generated tokens
         num_generated_tokens = ((generated != self.eos_token_id).sum(dim=-1) + 1).tolist()
@@ -147,8 +148,9 @@ class ModelWrapper(nn.Module):
             else AutoConfig.from_pretrained(self.model_name, trust_remote_code=self.trust_remote_code)
         )
 
+        assert not self.config.is_encoder_decoder, "we don't support encoder-decoder models"
+
         self.tie_word_embeddings = self.config.tie_word_embeddings
-        self.is_encoder_decoder = self.config.is_encoder_decoder
         self.router_aux_loss_coef = getattr(self.config, "router_aux_loss_coef", None)
 
         log_rank_0(logging.INFO, self.config)
@@ -156,7 +158,7 @@ class ModelWrapper(nn.Module):
     def _setup_tokenizer(self) -> None:
         assert self.tokenizer_name is not None, "pass a tokenizer"
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
+        self.tokenizer = get_tokenizer(AutoTokenizer.__name__, self.tokenizer_name)
         self.eos_token_id = self.tokenizer.eos_token_id
 
     def _get_model_kwargs(self) -> dict:

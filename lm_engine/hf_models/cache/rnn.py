@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 
 from ..config import CommonConfig
@@ -9,7 +11,7 @@ from .softmax_attention import _SoftmaxAttentionCache
 
 
 class _RNNCache(_SoftmaxAttentionCache):
-    def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> None:
+    def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> _RNNCache:
         self.seen_tokens = 0
         self.cache: torch.Tensor | None = None
 

@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 
 from ..config import CommonConfig
@@ -10,17 +12,17 @@ from .softmax_attention import _SoftmaxAttentionCache
 
 
 class _Mamba2Cache(_SoftmaxAttentionCache):
-    def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> None:
+    def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> _Mamba2Cache:
         self.seen_tokens = 0
         self.conv_cache = _RNNCache(config, layer_idx, **kwargs)
         self.ssm_cache = _RNNCache(config, layer_idx, **kwargs)
 
-    def get_cache(self) -> tuple[torch.Tensor | None]:
+    def get_cache(self) -> tuple[torch.Tensor | None, torch.Tensor | None]:
         return self.conv_cache.get_cache(), self.ssm_cache.get_cache()
 
     def update(
         self, conv_state: torch.Tensor | None = None, ssm_state: torch.Tensor | None = None, num_tokens_added: int = 0
-    ) -> tuple[torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         self.seen_tokens += num_tokens_added
         conv_cache = self.conv_cache.update(conv_state, num_tokens_added=num_tokens_added)
         ssm_cache = self.ssm_cache.update(ssm_state, num_tokens_added=num_tokens_added)

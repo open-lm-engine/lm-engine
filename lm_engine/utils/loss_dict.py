@@ -6,7 +6,7 @@ from __future__ import annotations
 
 
 class MetricsTrackingDict:
-    def __init__(self, data: dict) -> None:
+    def __init__(self, data: dict) -> MetricsTrackingDict:
         self.data = data
 
     def __add__(self, x: MetricsTrackingDict | dict | float | int) -> MetricsTrackingDict:

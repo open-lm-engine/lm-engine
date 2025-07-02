@@ -74,5 +74,3 @@ distributed_args:
   # use ZeRO-3 for model sharding, saves most memory but needs more communication. this is fine since we are doing training on 2 GPUs and they are connected via NVLink
   stage: 3
   torch_compile: true
-  # this will load dataset only on the first GPU and send part of the data to the other GPUs, not recommended unless the datasets are immensely large
-  dispatching_dataloader: false

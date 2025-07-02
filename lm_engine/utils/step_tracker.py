@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from .parallel import ProcessGroupManager
 
 
@@ -10,7 +12,7 @@ _GRADIENT_ACCUMULATION_STEPS: int | None = None
 
 
 class StepTracker:
-    def __init__(self, micro_batch_size: int, gradient_accumulation_steps: int) -> None:
+    def __init__(self, micro_batch_size: int, gradient_accumulation_steps: int) -> StepTracker:
         global _MICRO_BATCH_SIZE, _GRADIENT_ACCUMULATION_STEPS
 
         _MICRO_BATCH_SIZE = micro_batch_size

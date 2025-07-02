@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from copy import deepcopy
 from typing import Any, Callable
 
@@ -107,7 +109,7 @@ class CommonConfig(PretrainedConfig):
         tie_word_embeddings: bool = True,
         rope_dim: int | None = None,
         **kwargs,
-    ) -> None:
+    ) -> CommonConfig:
         self.vocab_size = vocab_size
         self.max_position_embeddings = max_position_embeddings
         self.hidden_size = hidden_size

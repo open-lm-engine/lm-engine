@@ -263,8 +263,6 @@ class DistributedArgs(BaseArgs):
     communication_dtype: str | None = None
     # whether to use torch.compile
     torch_compile: bool = False
-    # whether to use a dispatching dataloader
-    dispatching_dataloader: bool = False
     # tensor parallel world size
     tensor_parallel_world_size: int = 1
     # whether to use sequence parallel

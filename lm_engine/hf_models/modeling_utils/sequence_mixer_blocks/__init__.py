@@ -20,12 +20,24 @@ from .softmax_attention import (
 from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
 
 
+SEQUENCE_MIXER_TYPE = (
+    Attention
+    | CausalConvolution
+    | GRU
+    | Mamba2
+    | MultiHeadLatentAttention
+    | RNN
+    | SBAttention
+    | PaddingFreeSBAttention
+)
+
+
 def get_sequence_mixer(
     config: CommonConfig,
     causal: bool,
     use_padding_free_transformer: bool,
     layer_idx: int,
-) -> Attention | Mamba2:
+) -> SEQUENCE_MIXER_TYPE:
     block = config.sequence_mixer_blocks[layer_idx]
     sequence_mixer_type = block.sequence_mixer_type
 

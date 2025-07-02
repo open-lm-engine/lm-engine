@@ -5,15 +5,12 @@
 import logging
 from functools import partial
 
-import torch
-import torch.distributed
-from transformers import AutoTokenizer
-
 from ..arguments import DatasetArgs, InferenceArgs, TrainingArgs
 from ..enums import DatasetSplit, Mode
+from ..tokenizers import TOKENIZER_TYPE
 from ..utils import ProcessGroupManager, log_rank_0, run_rank_n
 from .base import BaseDataset, BlendedDatasets
-from .dataloader import DispatchingDataLoader, ResumableDataLoader
+from .dataloader import ResumableDataLoader
 from .debug import DebugDataset
 from .huggingface import HuggingFaceDataset
 from .ibm import get_ibm_dataloaders
@@ -35,11 +32,7 @@ _DATASETS_LIST = {
 
 
 def get_datasets_list(
-    dataset_args_list: list[DatasetArgs],
-    split: DatasetSplit,
-    mode: Mode,
-    tokenizer: AutoTokenizer,
-    is_encoder_decoder: bool,
+    dataset_args_list: list[DatasetArgs], split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
 ) -> tuple[list[BaseDataset], list[int]]:
     """get the list of datasets from their configs
 
@@ -47,8 +40,7 @@ def get_datasets_list(
         dataset_args_list (list[DatasetArgs]): list of DatasetArgs objects
         split (DatasetSplit): train / val / test split
         mode (Mode): training / inference mode for running the program
-        tokenizer (AutoTokenizer): tokenizer
-        is_encoder_decoder (bool): whether the model is an encoder-decoder or a decoder-only model
+        tokenizer (TOKENIZER_TYPE): tokenizer
 
     Raises:
         ValueError: if invalid class_name for dataset is found
@@ -68,7 +60,6 @@ def get_datasets_list(
             split=split,
             mode=mode,
             tokenizer=tokenizer,
-            is_encoder_decoder=is_encoder_decoder,
             data_name=data_args.data_name,
             input_format=data_args.input_format,
             output_format=data_args.output_format,
@@ -94,23 +85,18 @@ def get_datasets_list(
 
 
 def get_finetuning_dataloader(
-    args: TrainingArgs | InferenceArgs,
-    split: DatasetSplit,
-    mode: Mode,
-    tokenizer: AutoTokenizer,
-    is_encoder_decoder: bool,
-) -> tuple[ResumableDataLoader]:
+    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
+) -> ResumableDataLoader:
     """prepares datasets and sampler
 
     Args:
         args (TrainingArgs | InferenceArgs): arguments based on training / inference mode
         split (DatasetSplit): train / val / test split
         mode (Mode): training / inference mode
-        tokenizer (AutoTokenizer): tokenizer
-        is_encoder_decoder (bool): whether the model is an encoder-decoder or a decoder-only model
+        tokenizer (TOKENIZER_TYPE): tokenizer
 
     Returns:
-        tuple[ResumableDataLoader]: dataloader for a blended dataset
+        ResumableDataLoader: dataloader for a blended dataset
     """
 
     assert mode == Mode.training, "blended dataset is only supported in training mode"
@@ -118,136 +104,10 @@ def get_finetuning_dataloader(
     if ProcessGroupManager.get_tensor_parallel_rank() != 0:
         return
 
-    if args.distributed_args.dispatching_dataloader:
-        assert (
-            ProcessGroupManager.get_tensor_parallel_world_size() == 1
-        ), "tensor parallel doesn't support dispatching dataloader"
-
-        dataloader = _get_dispatching_dataloader(
-            args, split=split, mode=mode, tokenizer=tokenizer, is_encoder_decoder=is_encoder_decoder
-        )
-    else:
-        dataloader = _get_non_dispatching_dataloader(
-            args, split=split, mode=mode, tokenizer=tokenizer, is_encoder_decoder=is_encoder_decoder
-        )
-
-    return dataloader
-
-
-def get_pretraining_dataloaders(
-    args: TrainingArgs, tokenizer: AutoTokenizer, consumed_samples: int
-) -> tuple[ResumableDataLoader]:
-    if args.datasets[0].class_name == "MegatronDataset":
-        dataloaders = get_megatron_gpt_dataloaders(args, tokenizer, consumed_samples=consumed_samples)
-    elif args.datasets[0].class_name == "IBMDataset":
-        dataloaders = get_ibm_dataloaders(args, tokenizer)
-
-    return dataloaders
-
-
-def _get_dispatching_dataloader(
-    args: TrainingArgs | InferenceArgs,
-    split: DatasetSplit,
-    mode: Mode,
-    tokenizer: AutoTokenizer,
-    is_encoder_decoder: bool,
-) -> tuple[ResumableDataLoader]:
-    micro_batch_size = args.training_parameters.micro_batch_size
-
-    num_ranks_per_node = torch.cuda.device_count()
-    node_rank = ProcessGroupManager.get_global_rank() // num_ranks_per_node
-    num_nodes = ProcessGroupManager.get_world_size() // num_ranks_per_node
-
-    def _get_source_broadcast_mapping() -> dict:
-        result = {}
-        for i in range(num_nodes):
-            source = i * num_ranks_per_node
-            ranks = list(range(source, source + num_ranks_per_node))
-            result[source] = torch.distributed.new_group(ranks)
-        return result
-
-    source_broadcast_mapping = _get_source_broadcast_mapping()
-
-    # check if node's first rank
-    if ProcessGroupManager.get_global_rank() == node_rank * num_ranks_per_node:
-        datasets_list, data_sampling_ratios = get_datasets_list(
-            dataset_args_list=args.datasets,
-            split=split,
-            mode=Mode.training,
-            tokenizer=tokenizer,
-            is_encoder_decoder=is_encoder_decoder,
-        )
-
-        if len(datasets_list) == 0:
-            return None
-
-        blended_dataset = BlendedDatasets(datasets=datasets_list, split=split)
-        data_sampling_ratios = [1] if len(datasets_list) == 1 else data_sampling_ratios
-
-        # each node is given a data sampler
-        # TODO modify this when we add model parallelism
-
-        # sampler routes to the dispatching parent worker
-        sampler = BlendedDistributedSampler(
-            dataset=blended_dataset,
-            data_sampling_ratios=data_sampling_ratios,
-            num_replicas=num_nodes,
-            rank=node_rank,
-            ignore_sampling_proportion_for_validation=args.training_parameters.ignore_sampling_proportion_for_validation,
-            shuffle=split == DatasetSplit.train,
-            seed=args.random_args.seed,
-            drop_last=False,
-        )
-    else:
-        blended_dataset = None
-        data_sampling_ratios = None
-        sampler = None
-
-    # dataloader does local dispatching and thus needs source_rank and broadcast_ranks
-    dataloader = DispatchingDataLoader(
-        blended_dataset,
-        batch_size=micro_batch_size,
-        sampler=sampler,
-        collate_fn=partial(
-            collate_fn,
-            mode=mode,
-            loss_mask=args.training_parameters.loss_mask,
-            eos_token_id=tokenizer.eos_token_id,
-            is_encoder_decoder=is_encoder_decoder,
-            use_padding_free_transformer=args.model_args.use_padding_free_transformer,
-            pad_to_multiple_of=ProcessGroupManager.get_tensor_parallel_world_size(),
-        ),
-        source_broadcast_mapping=source_broadcast_mapping,
-        broadcast_world_size=num_ranks_per_node,
-    )
-
-    _log_dataset(
-        blended_dataset=blended_dataset,
-        sampler=sampler,
-        split=split,
-        num_training_steps=args.training_parameters.num_training_steps,
-        gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
-        micro_batch_size=args.training_parameters.micro_batch_size,
-    )
-
-    return dataloader
-
-
-def _get_non_dispatching_dataloader(
-    args: TrainingArgs | InferenceArgs,
-    split: DatasetSplit,
-    mode: Mode,
-    tokenizer: AutoTokenizer,
-    is_encoder_decoder: bool,
-) -> tuple[ResumableDataLoader]:
     micro_batch_size = args.training_parameters.micro_batch_size
 
     datasets_list, data_sampling_ratios = get_datasets_list(
-        dataset_args_list=args.datasets,
-        split=split,
-        mode=Mode.training,
-        tokenizer=tokenizer,
-        is_encoder_decoder=is_encoder_decoder,
+        dataset_args_list=args.datasets, split=split, mode=Mode.training, tokenizer=tokenizer
     )
 
     if len(datasets_list) == 0:
@@ -277,7 +137,6 @@ def _get_non_dispatching_dataloader(
             mode=mode,
             loss_mask=args.training_parameters.loss_mask,
             eos_token_id=tokenizer.eos_token_id,
-            is_encoder_decoder=is_encoder_decoder,
             use_padding_free_transformer=args.model_args.use_padding_free_transformer,
             pad_to_multiple_of=ProcessGroupManager.get_tensor_parallel_world_size(),
         ),
@@ -293,6 +152,17 @@ def _get_non_dispatching_dataloader(
     )
 
     return dataloader
+
+
+def get_pretraining_dataloaders(
+    args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
+) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
+    if args.datasets[0].class_name == "MegatronDataset":
+        dataloaders = get_megatron_gpt_dataloaders(args, tokenizer, consumed_samples=consumed_samples)
+    elif args.datasets[0].class_name == "IBMDataset":
+        dataloaders = get_ibm_dataloaders(args, tokenizer)
+
+    return dataloaders
 
 
 @run_rank_n

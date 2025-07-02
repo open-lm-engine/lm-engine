@@ -1,14 +1,16 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
+from __future__ import annotations
+
 import math
 from copy import deepcopy
-from typing import Any, List, Optional, Type, Union
+from typing import Any
 
-import numpy
+import numpy as np
 import torch
 import torch.distributed
-from transformers import AutoTokenizer
 
+from ...tokenizers import TOKENIZER_TYPE
 from ...utils import ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
@@ -17,10 +19,7 @@ from .megatron_dataset import MegatronDataset
 from .utils import Split, normalize
 
 
-DistributedDataset = Union[BlendedDataset, MegatronDataset, MMapIndexedDataset]
-
-
-class BlendedMegatronDatasetBuilder(object):
+class BlendedMegatronDatasetBuilder:
     """Builder class for the BlendedDataset and MegatronDataset classes
 
     Args:
@@ -35,14 +34,14 @@ class BlendedMegatronDatasetBuilder(object):
         cls: Type[MegatronDataset],
         sizes: List[int],
         config: BlendedMegatronDatasetConfig,
-        tokenizer: AutoTokenizer,
-    ):
+        tokenizer: TOKENIZER_TYPE,
+    ) -> BlendedMegatronDatasetBuilder:
         self.cls = cls
         self.sizes = sizes
         self.config = config
         self.tokenizer = tokenizer
 
-    def build(self) -> List[Optional[Union[BlendedDataset, MegatronDataset]]]:
+    def build(self) -> list[BlendedDataset | MegatronDataset | None]:
         """Build all dataset splits according to the provided blend(s)
 
         This method is distributed-aware and must be called on all ranks.
@@ -105,7 +104,6 @@ class BlendedMegatronDatasetBuilder(object):
                     )
 
             return blended_datasets
-
         else:
             blended_datasets = []
             for i in range(len(Split)):
@@ -181,7 +179,7 @@ class BlendedMegatronDatasetBuilder(object):
                 split_idx_bounds = _get_split_indices(split, indexed_dataset.document_indices.shape[0] - 1)
 
             split_indices = [
-                numpy.arange(
+                np.arange(
                     start=split_idx_bounds[i],
                     stop=split_idx_bounds[i + 1],
                     step=1,
@@ -287,7 +285,7 @@ class BlendedMegatronDatasetBuilder(object):
             start = int(start * num_elements)
             end = int(end * num_elements)
 
-            split_indices = numpy.arange(
+            split_indices = np.arange(
                 start=start,
                 stop=end,
                 step=1,
@@ -308,7 +306,9 @@ class BlendedMegatronDatasetBuilder(object):
 
         return megatron_dataset
 
-    def _build_generic_dataset(self, cls: type[DistributedDataset], **kwargs: Any) -> DistributedDataset | None:
+    def _build_generic_dataset(
+        self, cls: type[BlendedDataset | MegatronDataset | MMapIndexedDataset], **kwargs: Any
+    ) -> BlendedDataset | MegatronDataset | MMapIndexedDataset | None:
         """Build the DistributedDataset
 
         Return None if and only if the underlying MegatronDataset class is not built on the current
@@ -360,7 +360,7 @@ class BlendedMegatronDatasetBuilder(object):
         return indexed_dataset
 
 
-def _get_split_indices(split: list[float], num_elements: int) -> List[int]:
+def _get_split_indices(split: list[float], num_elements: int) -> list[int]:
     """Determine the document index bounds per split
 
     Args:
@@ -414,7 +414,7 @@ def _get_prefixes_weights_and_sizes_for_blend(
     return prefixes, weights, sizes_per_dataset
 
 
-def _parse_split(start_end: str) -> tuple[float]:
+def _parse_split(start_end: str) -> tuple[float, float]:
     start, end = start_end.split(":")
     start = float(start)
     end = float(end)
@@ -422,13 +422,13 @@ def _parse_split(start_end: str) -> tuple[float]:
     return start, end
 
 
-def _get_appropriate_dtype_for_range(split_idx_bounds: list[int]) -> numpy.dtype:
+def _get_appropriate_dtype_for_range(split_idx_bounds: list[int]) -> np.dtype:
     max_value = max(split_idx_bounds)
 
-    if max_value <= numpy.iinfo(numpy.int32).max:
-        dtype = numpy.int32
-    elif max_value <= numpy.iinfo(numpy.int64).max:
-        dtype = numpy.int64
+    if max_value <= np.iinfo(np.int32).max:
+        dtype = np.int32
+    elif max_value <= np.iinfo(np.int64).max:
+        dtype = np.int64
     else:
         raise ValueError("value for split idx is too large")
 

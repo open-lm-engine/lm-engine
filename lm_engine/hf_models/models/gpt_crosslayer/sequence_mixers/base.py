@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -36,7 +38,7 @@ class CrossLayerAttention(nn.Module):
         causal: bool,
         layer_idx: int,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> CrossLayerAttention:
         super().__init__()
 
         self.causal = causal
@@ -197,7 +199,7 @@ class KeyValueProjection(nn.Module):
         normalization_function: str,
         layer_norm_epsilon: float,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> KeyValueProjection:
         super().__init__()
 
         self.num_key_value_heads = num_key_value_heads

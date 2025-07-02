@@ -11,6 +11,7 @@ from transformers import (
     GraniteMoeSharedForCausalLM,
 )
 
+from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
 from ..modeling_utils import (
     get_attention_head_type,
@@ -183,7 +184,7 @@ def export_to_huggingface_granitemoeshared(pretrained_model_name_or_path: str, s
     original_generation_config.save_pretrained(save_path)
 
     try:
-        tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
         tokenizer.save_pretrained(save_path, legacy_format=False)
     except:
         pass

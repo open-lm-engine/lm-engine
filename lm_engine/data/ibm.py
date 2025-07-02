@@ -12,8 +12,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
 from torch.utils.data import IterableDataset, get_worker_info
-from transformers import AutoTokenizer
 
+from ..tokenizers import TOKENIZER_TYPE
 from ..utils import ProcessGroupManager, log_rank_0
 
 
@@ -379,7 +379,7 @@ class ParquetHandler(_ShardFileHandler):
     before getting/slicing. However, this is a standard and widely-used data format.
     """
 
-    def __init__(self, tokenizer: AutoTokenizer, col_name: str = "text"):
+    def __init__(self, tokenizer: TOKENIZER_TYPE, col_name: str = "text"):
         self.tokenizer = tokenizer
         self.col_name = col_name
 
@@ -1376,7 +1376,7 @@ _handler_map = {
 }
 
 
-def build_experimental_data_loader(cfg, tokenizer: AutoTokenizer):
+def build_experimental_data_loader(cfg, tokenizer: TOKENIZER_TYPE):
     """
     Pytorch dataloader for stateful, distributed, and rescalable causal language model (CLM) training.
     Assumes underlying data is sequences of integer values.
@@ -1385,7 +1385,7 @@ def build_experimental_data_loader(cfg, tokenizer: AutoTokenizer):
     ----
     cfg : dataclass
         Training config containing seq len, dataset, dataset weight, datapath, etc. arguments
-    tokenizer : AutoTokenizer
+    tokenizer : TOKENIZER_TYPE
         If performing tokenization dynamically, the tokenizer to use.
     """
 

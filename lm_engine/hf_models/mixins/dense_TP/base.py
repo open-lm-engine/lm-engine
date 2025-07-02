@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -20,7 +22,7 @@ class PreTrainedModelMixin_TP(PreTrainedModelMixin):
     layer_class = Block_TP
     _no_split_modules = ["Block_TP"]
 
-    def __init__(self, config: CommonConfig, *args, **kwargs) -> None:
+    def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin_TP:
         self.sequence_parallel = kwargs.get("sequence_parallel", False)
 
         self.num_pipeline_stages = kwargs.get("num_pipeline_stages", 1)

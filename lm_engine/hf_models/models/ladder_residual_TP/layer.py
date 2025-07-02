@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.distributed._functional_collectives as funcol
 import torch.nn.functional as F
@@ -337,7 +339,9 @@ if is_cute_kernels_available():
 
 
 class LadderResidualBlock_TP(Block_TP):
-    def __init__(self, config, use_padding_free_transformer, layer_idx=None, sequence_parallel=False):
+    def __init__(
+        self, config, use_padding_free_transformer, layer_idx=None, sequence_parallel=False
+    ) -> LadderResidualBlock_TP:
         super().__init__(config, use_padding_free_transformer, layer_idx, sequence_parallel)
 
         self.mlp0_block = get_mlp_block_TP(

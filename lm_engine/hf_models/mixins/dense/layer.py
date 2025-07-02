@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -11,7 +13,9 @@ from ...modeling_utils import get_mlp_block, get_normalization_function, get_seq
 
 
 class Block(nn.Module):
-    def __init__(self, config: CommonConfig, use_padding_free_transformer: bool, layer_idx: int | None = None) -> None:
+    def __init__(
+        self, config: CommonConfig, use_padding_free_transformer: bool, layer_idx: int | None = None
+    ) -> Block:
         super().__init__()
 
         hidden_size = config.hidden_size

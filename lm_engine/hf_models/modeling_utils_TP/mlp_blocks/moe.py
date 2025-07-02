@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -33,7 +35,7 @@ class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
-    ) -> None:
+    ) -> ReplicatedLinear_TP:
         super().__init__(
             in_features=in_features, out_features=out_features, bias=bias, device=device, dtype=dtype, std=std
         )
@@ -55,7 +57,7 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
-    ) -> None:
+    ) -> ColumnParallelExperts:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
 
         self.out_features_per_device = divide_if_divisible(
@@ -121,7 +123,7 @@ class RowParallelExperts(ColumnParallelExperts):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
-    ) -> None:
+    ) -> RowParallelExperts:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
 
         self.in_features_per_device = divide_if_divisible(
@@ -175,7 +177,7 @@ class MoE_TP(MoE, DTensorModule):
         num_layers: int,
         use_padding_free_transformer: bool,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> MoE_TP:
         nn.Module.__init__(self)
 
         self.num_experts = num_experts

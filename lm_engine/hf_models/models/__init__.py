@@ -2,7 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from .desync_residual import DesyncResidualConfig, DesyncResidualForCausalLM, DesyncResidualModel
 from .gpt_base import GPTBaseConfig, GPTBaseForCausalLM, GPTBaseModel
 from .gpt_base_TP import (
     GPTBaseForCausalLM_TP,
