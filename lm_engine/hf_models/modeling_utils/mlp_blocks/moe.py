@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
+from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -280,16 +281,26 @@ class MoE(nn.Module):
                 expert_offsets=expert_offsets,
                 grouped_out=True,
             )
-            hidden_states = self.act(hidden_states)
-            hidden_states = self.c_proj(
-                input=hidden_states,
-                num_experts_per_token=1,
-                sorted_expert_idxs=sorted_expert_idxs,
-                sorted_scattered_idxs=sorted_scattered_idxs,
-                expert_offsets=expert_offsets,
-                grouped_in=True,
-                gates=router_weights,
-            )
+
+            def _output_projection(x: torch.Tensor) -> torch.Tensor:
+                x = self.act(x)
+                x = self.c_proj(
+                    input=x,
+                    num_experts_per_token=1,
+                    sorted_expert_idxs=sorted_expert_idxs,
+                    sorted_scattered_idxs=sorted_scattered_idxs,
+                    expert_offsets=expert_offsets,
+                    grouped_in=True,
+                    gates=router_weights,
+                )
+
+                return x
+
+            if is_kernel_allowed(Kernel.checkpointed_mlp):
+                hidden_states = checkpoint(_output_projection, hidden_states)
+            else:
+                hidden_states = _output_projection(hidden_states)
+
             hidden_states = self.dropout(hidden_states)
         else:
             total_q = hidden_states.shape[0]
