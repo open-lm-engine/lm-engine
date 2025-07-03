@@ -77,8 +77,9 @@ class ParameterizedExperts(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        self.register_buffer("N_array", torch.empty((num_experts,), device=device, dtype=torch.uint32))
-        self.register_buffer("K_array", torch.empty((num_experts,), device=device, dtype=torch.uint32))
+        # can't keep this as uint32 since the save_pretrained fails
+        self.register_buffer("N_array", torch.empty((num_experts,), device=device, dtype=torch.int32))
+        self.register_buffer("K_array", torch.empty((num_experts,), device=device, dtype=torch.int32))
 
         self.reset_parameters()
 
