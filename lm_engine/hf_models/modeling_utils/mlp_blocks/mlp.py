@@ -61,7 +61,7 @@ class MLP(nn.Module):
             return x
 
         if is_kernel_allowed(Kernel.checkpointed_mlp):
-            hidden_states = checkpoint(_output_projection, hidden_states)
+            hidden_states = checkpoint(_output_projection, hidden_states, use_reentrant=False)
         else:
             hidden_states = _output_projection(hidden_states)
 
