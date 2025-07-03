@@ -31,6 +31,7 @@ def enable_kernels(kernels: list[Kernel]):
 
     original_kernels = _KERNELS
 
+    _KERNELS = {}
     for kernel in Kernel:
         _KERNELS[kernel] = kernel in kernels
 
