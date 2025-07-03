@@ -298,16 +298,28 @@ class MoE(nn.Module):
         T = hidden_states.size(0)
 
         if is_kernel_allowed(Kernel.grouped_gemm_cute):
-            hidden_states, padded_expert_frequency, expert_padding_offset = group_with_padding(
-                x=hidden_states,
-                expert_frequency=expert_frequency,
-                sorted_idxs=sorted_expert_idxs,
-                scattered_idxs=sorted_scattered_idxs,
-                top_k=self.top_k,
-                pad_to_multiple_of=8,
-            )
 
-            hidden_states = self.c_fc(input=hidden_states, expert_frequency=padded_expert_frequency)
+            def _input_projection(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                x, padded_expert_frequency, expert_padding_offset = group_with_padding(
+                    x=x,
+                    expert_frequency=expert_frequency,
+                    sorted_idxs=sorted_expert_idxs,
+                    scattered_idxs=sorted_scattered_idxs,
+                    top_k=self.top_k,
+                    pad_to_multiple_of=8,
+                )
+
+                x = self.c_fc(input=x, expert_frequency=padded_expert_frequency)
+
+                return x, padded_expert_frequency, expert_padding_offset
+
+            if is_kernel_allowed(Kernel.checkpointed_mlp):
+                hidden_states, padded_expert_frequency, expert_padding_offset = checkpoint(
+                    _input_projection, hidden_states
+                )
+            else:
+                hidden_states, padded_expert_frequency, expert_padding_offset = _input_projection(hidden_states)
+
             hidden_states = self.act(hidden_states)
             hidden_states = self.c_proj(input=hidden_states, expert_frequency=padded_expert_frequency)
 
