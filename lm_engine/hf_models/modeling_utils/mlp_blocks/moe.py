@@ -313,15 +313,22 @@ class MoE(nn.Module):
 
                 return x, padded_expert_frequency, expert_padding_offset
 
+            def _output_projection(x: torch.Tensor, padded_expert_frequency: torch.Tensor) -> torch.Tensor:
+                x = self.act(x)
+                x = self.c_proj(input=x, expert_frequency=padded_expert_frequency)
+                return x
+
             if is_kernel_allowed(Kernel.checkpointed_mlp):
                 hidden_states, padded_expert_frequency, expert_padding_offset = checkpoint(
                     _input_projection, hidden_states, use_reentrant=False
                 )
+
+                hidden_states = checkpoint(
+                    _output_projection, hidden_states, padded_expert_frequency, use_reentrant=False
+                )
             else:
                 hidden_states, padded_expert_frequency, expert_padding_offset = _input_projection(hidden_states)
-
-            hidden_states = self.act(hidden_states)
-            hidden_states = self.c_proj(input=hidden_states, expert_frequency=padded_expert_frequency)
+                hidden_states = _output_projection(hidden_states, padded_expert_frequency)
 
             hidden_states = ungroup_with_padding(
                 x=hidden_states,
