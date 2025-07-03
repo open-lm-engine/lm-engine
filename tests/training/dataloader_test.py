@@ -54,7 +54,6 @@ class DataLoaderTest(TestCommons):
                     mode=mode,
                     loss_mask=args.training_parameters.loss_mask,
                     eos_token_id=tokenizer.eos_token_id,
-                    use_padding_free_transformer=args.model_args.use_padding_free_transformer,
                     device="cpu",
                 ),
             )

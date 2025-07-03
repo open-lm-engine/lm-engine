@@ -13,7 +13,7 @@ from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
+from ...modeling_utils import AttentionMaskInfo, ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
@@ -58,55 +58,27 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
         past_key_values: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | list[list[int]] | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
         position_ids: torch.Tensor | list[list[int]] | None = None,
-        inputs_embeds: torch.Tensor | list[list[float]] | None = None,
         labels: torch.Tensor | list[list[int]] | None = None,
         use_cache: bool | None = None,
         return_dict: bool = True,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
         reduction: str = "mean",
     ) -> CausalLMOutputWithPast:
         assert return_dict
+        assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
 
-        input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
-            input_ids=input_ids,
-            inputs_embeds=inputs_embeds,
-            position_ids=position_ids,
-            token_type_ids=token_type_ids,
-            labels=labels,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            use_cache=use_cache,
-        )
-
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> None or (batch_size, key_length)
-        # ==========================================================================================
+        if use_cache or past_key_values is not None:
+            raise NotImplementedError("KV caching is not supported with padding_free transformer")
 
         clear_aux_loss()
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids,
             past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
+            attention_mask_info=attention_mask_info,
             position_ids=position_ids,
-            inputs_embeds=inputs_embeds,
             use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         hidden_states = transformer_outputs.last_hidden_state
@@ -138,8 +110,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
                 labels=labels,
                 hidden_states=None,
                 vocab_weight=None,
-                cu_seqlens=cu_seqlens,
-                use_padding_free_transformer=self.use_padding_free_transformer,
+                cu_seqlens=attention_mask_info.cu_seqlens,
                 reduction=reduction,
                 shift_logits_and_labels=True,
                 tensor_parallel_enabled=False,

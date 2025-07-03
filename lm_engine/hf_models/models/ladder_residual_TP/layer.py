@@ -339,17 +339,10 @@ if is_cute_kernels_available():
 
 
 class LadderResidualBlock_TP(Block_TP):
-    def __init__(
-        self, config, use_padding_free_transformer, layer_idx=None, sequence_parallel=False
-    ) -> LadderResidualBlock_TP:
-        super().__init__(config, use_padding_free_transformer, layer_idx, sequence_parallel)
+    def __init__(self, config, layer_idx=None, sequence_parallel=False) -> LadderResidualBlock_TP:
+        super().__init__(config, layer_idx, sequence_parallel)
 
-        self.mlp0_block = get_mlp_block_TP(
-            config,
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
-            layer_idx=layer_idx,
-        )
+        self.mlp0_block = get_mlp_block_TP(config, sequence_parallel=sequence_parallel, layer_idx=layer_idx)
 
     def forward(
         self,
