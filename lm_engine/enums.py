@@ -74,6 +74,7 @@ class Kernel(Enum):
     checkpointed_mlp = "checkpointed_mlp"
     cross_entropy_cute = "cross_entropy_cute"
     fused_linear_cross_entropy_cute = "fused_linear_cross_entropy_cute"
+    grouped_gemm_cute = "grouped_gemm_cute"
     gru_cute = "gru_cute"
     pack_sequence_cute = "pack_sequence_cute"
     rmsnorm_cute = "rmsnorm_cute"
