@@ -12,7 +12,7 @@ from torch.distributed._composable.fsdp import CPUOffloadPolicy
 from torch.distributed._composable.fsdp import MixedPrecisionPolicy as MixedPrecision2
 from torch.distributed._composable.fsdp import OffloadPolicy, fully_shard
 from torch.distributed._tensor import distribute_tensor
-from torch.distributed._tensor.placement_types import Replicate, Shard
+from torch.distributed._tensor.placement_types import Shard
 from torch.distributed.fsdp import CPUOffload
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision as MixedPrecision1
@@ -126,6 +126,7 @@ def _set_parameter_marker_maps(model_container: ModelContainer, marker_maps: lis
     for new_param_name, _ in model_container[0].named_parameters():
         break
 
+    # handle torch compile
     prefix = new_param_name.split(original_param_name)[0]
 
     for model, _marker_map in zip(model_container, marker_maps):
@@ -197,8 +198,6 @@ def wrap_model_container_for_distributed_training(
         get_module_class_from_name(model_container[0], name) for name in block_names + teacher_block_names
     ]
 
-    marker_maps = _get_parameter_marker_maps(model_container)
-
     if args.distributed_args.gradient_checkpointing_method is not None:
         assert len(block_names) == 1
 
@@ -209,6 +208,8 @@ def wrap_model_container_for_distributed_training(
                 block_name=block_names[0],
                 **args.distributed_args.gradient_checkpointing_args,
             )
+
+    marker_maps = _get_parameter_marker_maps(model_container)
 
     # for PP, we use FSDP-2 always
     use_ddp = (stage == 0 or data_parallel_sharding_world_size == 1) and num_pipeline_stages == 1

@@ -78,6 +78,7 @@ class _GRUArgs(BaseArgs):
     add_bias: bool = True
     normalization_function: str | None = None
     gradient_clipping: float | None = None
+    scaling_factor: float = 1
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gru"

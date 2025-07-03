@@ -2,11 +2,13 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
-from transformers import AutoTokenizer
 
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..enums import DatasetSplit, Mode
+from ..tokenizers import TOKENIZER_TYPE
 
 
 class BaseDataset(torch.utils.data.Dataset):
@@ -17,24 +19,19 @@ class BaseDataset(torch.utils.data.Dataset):
         class_args: dict,
         split: DatasetSplit,
         mode: Mode,
-        tokenizer: AutoTokenizer,
-        is_encoder_decoder: bool,
+        tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
         output_format: str,
         max_input_tokens: int,
         max_output_tokens: int,
-    ) -> None:
+    ) -> BaseDataset:
         super().__init__()
 
         self.split = split
         self.mode = mode
-
         self.class_args = class_args
-
         self.tokenizer = tokenizer
-        self.is_encoder_decoder = is_encoder_decoder
-
         self.data_name = data_name
         self.input_format = input_format
         self.output_format = output_format
@@ -44,14 +41,7 @@ class BaseDataset(torch.utils.data.Dataset):
         self.do_format_output = self.output_format != OUTPUT_FORMAT
 
         # length to use for trimming (excludes eos)
-        if max_input_tokens is None:
-            self.max_input_tokens = None
-        else:
-            self.max_input_tokens = max_input_tokens
-
-            if self.is_encoder_decoder:
-                self.max_input_tokens -= 1
-
+        self.max_input_tokens = max_input_tokens
         self.max_output_tokens = None if max_output_tokens is None else max_output_tokens - 1
 
         self.examples = []
@@ -96,26 +86,19 @@ class BaseDataset(torch.utils.data.Dataset):
         """
 
         eos_token_id: int = self.tokenizer.eos_token_id
-
         input: list[int] = self.tokenizer(input, add_special_tokens=False)["input_ids"]
 
-        if self.is_encoder_decoder:
-            if self.max_input_tokens is not None:
-                input = input[: self.max_input_tokens - 1]
-            input.append(eos_token_id)
-        else:
-            if self.max_input_tokens is not None:
-                input = input[: self.max_input_tokens]
+        if self.max_input_tokens is not None:
+            input = input[: self.max_input_tokens]
 
         if self.mode == Mode.training:
             output: list[int] = self.tokenizer(output, add_special_tokens=False)["input_ids"]
 
             if self.max_output_tokens is not None:
                 output = output[: self.max_output_tokens - 1]
-            output.append(eos_token_id)
 
-            if not self.is_encoder_decoder:
-                input.extend(output)
+            output.append(eos_token_id)
+            input.extend(output)
 
             result = {"input": input, "output": output}
         else:
@@ -139,7 +122,7 @@ class BaseDataset(torch.utils.data.Dataset):
 class BlendedDatasets(torch.utils.data.Dataset):
     """Concatenated list of datasets for training or inference"""
 
-    def __init__(self, datasets: list[BaseDataset], split: DatasetSplit) -> None:
+    def __init__(self, datasets: list[BaseDataset], split: DatasetSplit) -> BlendedDatasets:
         super().__init__()
 
         self.split = split

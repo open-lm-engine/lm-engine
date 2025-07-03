@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -38,7 +40,7 @@ class MultiHeadLatentAttention(nn.Module):
         use_padding_free_transformer: bool,
         normalization_function: str,
         layer_norm_epsilon: float = 1e-5,
-    ) -> None:
+    ) -> MultiHeadLatentAttention:
         super().__init__()
 
         self.causal = causal

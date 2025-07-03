@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -35,10 +37,11 @@ class RNN(nn.Module):
         m_width: float,
         init_method: str,
         normalization_function: str | None,
+        scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> RNN:
         super().__init__()
 
         self.input_size = input_size
@@ -72,7 +75,7 @@ class RNN(nn.Module):
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
 
-        self.factor = 1 / math.sqrt(self.input_size + self.state_head_dim)
+        self.scaling_factor = scaling_factor
         self.reset_parameters()
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
@@ -111,8 +114,11 @@ class RNN(nn.Module):
 
         input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
 
-        input = input * self.factor
-        weight = self.state_weight * self.factor
+        weight = self.state_weight
+
+        if self.scaling_factor != 1:
+            input = input * self.scaling_factor
+            weight = weight * self.scaling_factor
 
         input = rnn_cute(
             input=input,

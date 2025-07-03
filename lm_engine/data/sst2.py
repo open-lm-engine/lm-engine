@@ -2,10 +2,12 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from datasets import load_dataset
-from transformers import AutoTokenizer
 
 from ..enums import DatasetSplit, Mode
+from ..tokenizers import TOKENIZER_TYPE
 from .base import BaseDataset
 
 
@@ -17,20 +19,18 @@ class SST2Dataset(BaseDataset):
         class_args: dict,
         split: DatasetSplit,
         mode: Mode,
-        tokenizer: AutoTokenizer,
-        is_encoder_decoder: bool,
+        tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
         output_format: str,
         max_input_tokens: int,
         max_output_tokens: int,
-    ) -> None:
+    ) -> SST2Dataset:
         super().__init__(
             class_args=class_args,
             split=split,
             mode=mode,
             tokenizer=tokenizer,
-            is_encoder_decoder=is_encoder_decoder,
             data_name=data_name,
             input_format=input_format,
             output_format=output_format,

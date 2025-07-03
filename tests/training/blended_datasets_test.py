@@ -30,11 +30,7 @@ class BlendedDatasetsTest(TestCommons):
         tokenizer = AutoTokenizer.from_pretrained(args.model_args.model_name)
 
         datasets_list, _ = get_datasets_list(
-            dataset_args_list=args.datasets,
-            split=split,
-            mode=mode,
-            tokenizer=tokenizer,
-            is_encoder_decoder=False,
+            dataset_args_list=args.datasets, split=split, mode=mode, tokenizer=tokenizer
         )
 
         blended_dataset = BlendedDatasets(datasets=datasets_list, split=split)

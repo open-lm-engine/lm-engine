@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -29,7 +31,7 @@ _GLU_BASE_MAPPING = {
 
 
 class GLUActivation(nn.Module):
-    def __init__(self, base_activation: nn.Module) -> None:
+    def __init__(self, base_activation: nn.Module) -> GLUActivation:
         super().__init__()
         self.base_activation = base_activation
 
@@ -45,7 +47,7 @@ class GLUActivation(nn.Module):
         return x
 
 
-def get_glu_activation(name: str) -> nn.Module:
+def get_glu_activation(name: str) -> nn.GLU | GLUActivation:
     # for glu and sigmoid_glu, we directly return the pytorch's GLU
     if name in ["glu", "sigmoid_glu"]:
         activation_function = nn.GLU()

@@ -17,6 +17,8 @@
 # Note: Performance
 # Float8 experimental is intended to be ran under `torch.compile`` for competitive performance
 
+from __future__ import annotations
+
 from typing import Callable
 
 import torch
@@ -58,7 +60,7 @@ if is_torchao_available():
             scaling_type_input: ScalingType,
             scaling_type_weight: ScalingType,
             scaling_type_grad_output: ScalingType,
-        ) -> None:
+        ) -> FP8Manager:
             for model in model_container:
                 convert_to_float8_training(
                     model,

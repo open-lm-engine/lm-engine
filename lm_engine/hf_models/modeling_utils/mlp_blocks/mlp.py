@@ -2,11 +2,16 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
 import torch.nn as nn
+from torch.utils.checkpoint import checkpoint
 
+from ....enums import Kernel
+from ....kernels import is_kernel_allowed
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import get_activation_function, is_glu
 from ..linear import ParameterizedLinear
@@ -24,7 +29,7 @@ class MLP(nn.Module):
         initializer_range: float,
         m_width: float,
         num_layers: int,
-    ) -> None:
+    ) -> MLP:
         super().__init__()
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
@@ -49,9 +54,19 @@ class MLP(nn.Module):
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         hidden_states = self.c_fc(hidden_states)
-        hidden_states = self.act(hidden_states)
-        hidden_states = self.c_proj(hidden_states)
+
+        def _output_projection(x: torch.Tensor) -> torch.Tensor:
+            x = self.act(x)
+            x = self.c_proj(x)
+            return x
+
+        if is_kernel_allowed(Kernel.checkpointed_mlp):
+            hidden_states = checkpoint(_output_projection, hidden_states, use_reentrant=False)
+        else:
+            hidden_states = _output_projection(hidden_states)
+
         hidden_states = self.dropout(hidden_states)
+
         return hidden_states
 
 

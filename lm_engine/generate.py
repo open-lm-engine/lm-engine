@@ -48,7 +48,6 @@ def generate(args: InferenceArgs, model: ModelWrapper, datasets_list: list[BaseD
                     mode=mode,
                     loss_mask=None,
                     eos_token_id=model.eos_token_id,
-                    is_encoder_decoder=model.is_encoder_decoder,
                     use_padding_free_transformer=False,
                 )
 
@@ -114,10 +113,9 @@ def main() -> None:
             split=DatasetSplit.test,
             mode=mode,
             tokenizer=model.tokenizer,
-            is_encoder_decoder=model.is_encoder_decoder,
         )
     else:
-        model, args_from_checkpoint, _ = load_checkpoint_for_inference(args, mode)
+        model, args_from_checkpoint, _ = load_checkpoint_for_inference(args, mode, allowed_meta_device=False)
 
         tuning_method = args_from_checkpoint.tuning_args.tuning_method
 
@@ -127,7 +125,6 @@ def main() -> None:
             split=DatasetSplit.test,
             mode=mode,
             tokenizer=model.tokenizer,
-            is_encoder_decoder=model.is_encoder_decoder,
         )
 
     model = model.to(torch.cuda.current_device())

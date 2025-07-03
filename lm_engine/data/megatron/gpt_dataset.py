@@ -1,12 +1,14 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
+from __future__ import annotations
+
 import logging
 import os
 import time
 
-import numpy
-from transformers import AutoTokenizer
+import numpy as np
 
+from ...tokenizers import TOKENIZER_TYPE
 from ...utils import log_rank_0
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
@@ -27,7 +29,7 @@ class GPTDataset(MegatronDataset):
         indexed_dataset (MMapIndexedDataset): The MMapIndexedDataset around which to build the
         MegatronDataset
 
-        indexed_indices (numpy.ndarray): The set of the documents indices to expose
+        indexed_indices (np.ndarray): The set of the documents indices to expose
 
         num_samples (int): The number of samples to draw from the indexed dataset
 
@@ -39,25 +41,30 @@ class GPTDataset(MegatronDataset):
     def __init__(
         self,
         indexed_dataset: MMapIndexedDataset,
-        indexed_indices: numpy.ndarray,
+        indexed_indices: np.ndarray,
         num_samples: int,
         index_split: Split,
-        tokenizer: AutoTokenizer,
+        tokenizer: TOKENIZER_TYPE,
         config: GPTDatasetConfig,
         caching_allowed: bool,
-    ) -> None:
+    ) -> GPTDataset:
         super().__init__(indexed_dataset, indexed_indices, num_samples, index_split, config, caching_allowed)
 
         self.tokenizer = tokenizer
 
         self.fim_rate = config.fim_rate
         self.fim_spm_rate = config.fim_spm_rate
-        self.np_rng = numpy.random.RandomState(seed=config.random_seed)  # rng state for FIM
+        self.np_rng = np.random.RandomState(seed=config.random_seed)  # rng state for FIM
 
         if self.fim_rate != 0:
+            assert self.fim_rate <= 1 and self.fim_rate >= 0, "FIM rate must be a probability 0 <= rate <= 1"
+
             self.suffix_tok_id, self.prefix_tok_id, self.middle_tok_id, self.pad_tok_id = (
                 self.tokenizer.convert_tokens_to_ids(tok) for tok in [FIM_SUFFIX, FIM_PREFIX, FIM_MIDDLE, FIM_PAD]
             )
+
+            self.eos_token_id = self.tokenizer.eos_token_id
+            assert self.eos_token_id is not None
 
     def _finalize(self) -> None:
         """Abstract method implementation
@@ -80,14 +87,14 @@ class GPTDataset(MegatronDataset):
         """
         return self.sample_index.shape[0] - 1
 
-    def __getitem__(self, idx: int) -> dict[str, numpy.ndarray]:
+    def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
         """Abstract method implementation
 
         Args:
             idx (int): The index into the dataset
 
         Returns:
-            Dict[str, numpy.ndarray]: The text ids and (optionally) the document ids wrapped in a
+            Dict[str, np.ndarray]: The text ids and (optionally) the document ids wrapped in a
             dictionary
         """
         text, document_ids = self._query_document_sample_shuffle_indices(idx)
@@ -114,14 +121,14 @@ class GPTDataset(MegatronDataset):
         """
         return True
 
-    def _query_document_sample_shuffle_indices(self, idx: int) -> tuple[numpy.ndarray, numpy.ndarray]:
+    def _query_document_sample_shuffle_indices(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
         """Get the text (token ids) and document ids for a given index
 
         Args:
             idx (int): The index into the dataset
 
         Returns:
-            tuple[numpy.ndarray, numpy.ndarray]: The text ids and document ids
+            tuple[np.ndarray, np.ndarray]: The text ids and document ids
         """
         # Do the shuffle mapping
         idx = self.shuffle_index[idx]
@@ -157,7 +164,7 @@ class GPTDataset(MegatronDataset):
                 offset = 0 if i > doc_index_beg else doc_index_beg_offset
                 length = None if i < doc_index_end else doc_index_end_offset + 1
                 sample_parts.append(self.indexed_dataset.get(self.document_index[i], offset=offset, length=length))
-        sample = numpy.array(numpy.concatenate(sample_parts), dtype=numpy.int64)
+        sample = np.array(np.concatenate(sample_parts), dtype=np.int64)
 
         # Code from: https://github.com/EleutherAI/gpt-neox/blob/FIM-clean/megatron/data/gpt2_dataset.py#L109
         # TODO(Hailey): can merge the code below this line with code above this line.
@@ -169,16 +176,12 @@ class GPTDataset(MegatronDataset):
 
         if self.fim_rate != 0:
             sample_len = sample.shape[0]
-
-            assert self.fim_rate <= 1 and self.fim_rate >= 0, "FIM rate must be a probability 0 <= rate <= 1"
-
-            eod = self.tokenizer.eod
-            segment_breaks = numpy.argwhere(sample == eod)  # split sample by document
+            segment_breaks = np.argwhere(sample == self.eos_token_id)  # split sample by document
 
             if segment_breaks.shape != (0, 1):  # then there is an EOD token in this example
                 curr_start_position = 0
                 new_samples = []
-                for loc in numpy.nditer(segment_breaks):
+                for loc in np.nditer(segment_breaks):
                     # Only permute non-empty segments.
                     if loc - curr_start_position > 0:
                         # permute {prefix, suffix, middle} or {suffix, prefix, middle}
@@ -194,7 +197,7 @@ class GPTDataset(MegatronDataset):
                             middle_tok_id=self.middle_tok_id,
                             pad_tok_id=self.pad_tok_id,
                         )
-                        new_samples += [permuted, [eod]]
+                        new_samples += [permuted, [self.eos_token_id]]
 
                     curr_start_position = loc + 1  # jump over the EOD token
                 # Permute the segment after the last EOD
@@ -212,7 +215,7 @@ class GPTDataset(MegatronDataset):
                 )
                 new_samples.append(permuted)
 
-                sample = numpy.concatenate(new_samples)
+                sample = np.concatenate(new_samples)
             else:
                 sample, self.np_rng = permute(
                     sample,
@@ -232,15 +235,13 @@ class GPTDataset(MegatronDataset):
             if diff > 0:  # too long
                 sample = sample[:sample_len]
             elif diff < 0:  # too short
-                sample = numpy.concatenate([sample, numpy.full((-1 * diff), self.pad_tok_id)])
+                sample = np.concatenate([sample, np.full((-1 * diff), self.pad_tok_id)])
 
             assert sample.shape[0] == sample_len
 
-        return sample, numpy.array(document_ids, dtype=numpy.int64)
+        return sample, np.array(document_ids, dtype=np.int64)
 
-    def _build_document_sample_shuffle_indices(
-        self,
-    ) -> tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]:
+    def _build_document_sample_shuffle_indices(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Build the document index, the sample index, and the shuffle index
 
         The document index:
@@ -256,7 +257,7 @@ class GPTDataset(MegatronDataset):
             -- A random permutation of index range of the sample index
 
         Returns:
-            Tuple[numpy.ndarray, numpy.ndarray]: The document index, the sample index, and the
+            Tuple[np.ndarray, np.ndarray]: The document index, the sample index, and the
             shuffle index
 
         TODO: Explain the 80% threshold
@@ -321,7 +322,7 @@ class GPTDataset(MegatronDataset):
 
             log_rank_0(logging.DEBUG, f"> separate_final_epoch: {separate_final_epoch}")
 
-            numpy_random_state = numpy.random.RandomState(self.config.random_seed)
+            numpy_random_state = np.random.RandomState(self.config.random_seed)
 
             os.makedirs(path_to_cache, exist_ok=True)
 
@@ -337,7 +338,7 @@ class GPTDataset(MegatronDataset):
             document_index = _build_document_index(
                 self.indexed_indices, num_epochs, numpy_random_state, separate_final_epoch
             )
-            numpy.save(path_to_document_index, document_index, allow_pickle=True)
+            np.save(path_to_document_index, document_index, allow_pickle=True)
             t_end = time.time()
             log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
@@ -345,7 +346,7 @@ class GPTDataset(MegatronDataset):
             log_rank_0(logging.INFO, f"\tBuild and save the sample index to {os.path.basename(path_to_sample_index)}")
             t_beg = time.time()
 
-            assert self.indexed_dataset.sequence_lengths.dtype == numpy.int32
+            assert self.indexed_dataset.sequence_lengths.dtype == np.int32
             sample_index = build_sample_idx(
                 self.indexed_dataset.sequence_lengths,
                 document_index,
@@ -353,7 +354,7 @@ class GPTDataset(MegatronDataset):
                 num_epochs,
                 num_tokens_per_epoch,
             )
-            numpy.save(path_to_sample_index, sample_index, allow_pickle=True)
+            np.save(path_to_sample_index, sample_index, allow_pickle=True)
             t_end = time.time()
             log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
@@ -370,7 +371,7 @@ class GPTDataset(MegatronDataset):
                 shuffle_index = _build_shuffle_index(
                     sample_index.shape[0] - 1, sample_index.shape[0] - 1, numpy_random_state
                 )
-            numpy.save(path_to_shuffle_index, shuffle_index, allow_pickle=True)
+            np.save(path_to_shuffle_index, shuffle_index, allow_pickle=True)
             t_end = time.time()
             log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
@@ -378,19 +379,19 @@ class GPTDataset(MegatronDataset):
 
         log_rank_0(logging.INFO, f"\tLoad the document index from {os.path.basename(path_to_document_index)}")
         t_beg = time.time()
-        document_index = numpy.load(path_to_document_index, allow_pickle=True, mmap_mode="r")
+        document_index = np.load(path_to_document_index, allow_pickle=True, mmap_mode="r")
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
         log_rank_0(logging.INFO, f"\tLoad the sample index from {os.path.basename(path_to_sample_index)}")
         t_beg = time.time()
-        sample_index = numpy.load(path_to_sample_index, allow_pickle=True, mmap_mode="r")
+        sample_index = np.load(path_to_sample_index, allow_pickle=True, mmap_mode="r")
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
         log_rank_0(logging.INFO, f"\tLoad the shuffle index from {os.path.basename(path_to_shuffle_index)}")
         t_beg = time.time()
-        shuffle_index = numpy.load(path_to_shuffle_index, allow_pickle=True, mmap_mode="r")
+        shuffle_index = np.load(path_to_shuffle_index, allow_pickle=True, mmap_mode="r")
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
@@ -400,18 +401,18 @@ class GPTDataset(MegatronDataset):
         return document_index, sample_index, shuffle_index
 
 
-def _get_num_tokens_per_epoch(indexed_dataset: MMapIndexedDataset, indices: numpy.ndarray) -> int:
+def _get_num_tokens_per_epoch(indexed_dataset: MMapIndexedDataset, indices: np.ndarray) -> int:
     """Calculate the number of tokens in a single epoch
 
     Args:
         indexed_dataset (MMapIndexedDataset): The underlying MMapIndexedDataset
 
-        indices (numpy.ndarray): The subset of indices into the underlying MMapIndexedDataset
+        indices (np.ndarray): The subset of indices into the underlying MMapIndexedDataset
 
     Returns:
         int: The number of tokens in a single epoch
     """
-    return numpy.sum(indexed_dataset.sequence_lengths[indices])
+    return np.sum(indexed_dataset.sequence_lengths[indices])
 
 
 def _get_num_epochs(num_tokens_per_epoch: int, seq_length: int, num_samples: int) -> int:
@@ -440,30 +441,30 @@ def _get_num_epochs(num_tokens_per_epoch: int, seq_length: int, num_samples: int
 
 
 def _build_document_index(
-    documents: numpy.ndarray,
+    documents: np.ndarray,
     num_epochs: int,
-    numpy_random_state: numpy.random.RandomState,
+    numpy_random_state: np.random.RandomState,
     separate_final_epoch: bool,
-) -> numpy.ndarray:
+) -> np.ndarray:
     """Build an array with length = num epochs * num documents
 
     Args:
-        documents (numpy.ndarray): the subset of exposed document indices
+        documents (np.ndarray): the subset of exposed document indices
 
         num_epochs (int): The number of epochs
 
-        numpy_random_state (numpy.random.RandomState): The NumPy random state
+        numpy_random_state (np.random.RandomState): The NumPy random state
 
         separate_final_epoch (bool): Whether to exclude the last epoch from the global shuffle
 
     Returns:
-        numpy.ndarray: The document index
+        np.ndarray: The document index
 
     TODO: Explain separate_final_epoch
     """
 
     if not separate_final_epoch or num_epochs == 1:
-        document_index = numpy.mgrid[0:num_epochs, 0 : len(documents)][1]
+        document_index = np.mgrid[0:num_epochs, 0 : len(documents)][1]
         document_index[:] = documents
         document_index = document_index.reshape(-1)
         document_index = document_index.astype(documents.dtype)
@@ -472,12 +473,10 @@ def _build_document_index(
 
     doc_idx_first = _build_document_index(documents, num_epochs - 1, numpy_random_state, False)
     doc_idx_last = _build_document_index(documents, 1, numpy_random_state, False)
-    return numpy.concatenate((doc_idx_first, doc_idx_last))
+    return np.concatenate((doc_idx_first, doc_idx_last))
 
 
-def _build_shuffle_index(
-    num_samples: int, total_size: int, numpy_random_state: numpy.random.RandomState
-) -> numpy.ndarray:
+def _build_shuffle_index(num_samples: int, total_size: int, numpy_random_state: np.random.RandomState) -> np.ndarray:
     """Build the range [0, size) and shuffle
 
     Args:
@@ -487,48 +486,48 @@ def _build_shuffle_index(
 
         the second shuffle range [num_samples, total_size)
 
-        numpy_random_state (numpy.random.RandomState): The NumPy random state
+        numpy_random_state (np.random.RandomState): The NumPy random state
 
     Returns:
-        numpy.ndarray: The shuffle index
+        np.ndarray: The shuffle index
 
     TODO: Explain [0, num_samples) [num_samples, total_size) split
     """
-    dtype_ = numpy.uint32
-    if total_size >= (numpy.iinfo(numpy.uint32).max - 1):
-        dtype_ = numpy.int64
+    dtype_ = np.uint32
+    if total_size >= (np.iinfo(np.uint32).max - 1):
+        dtype_ = np.int64
 
-    shuffle_idx_first = numpy.arange(start=0, stop=num_samples, step=1, dtype=dtype_)
+    shuffle_idx_first = np.arange(start=0, stop=num_samples, step=1, dtype=dtype_)
     numpy_random_state.shuffle(shuffle_idx_first)
     if num_samples == total_size:
         return shuffle_idx_first
 
-    shuffle_idx_last = numpy.arange(start=num_samples, stop=total_size, step=1, dtype=dtype_)
+    shuffle_idx_last = np.arange(start=num_samples, stop=total_size, step=1, dtype=dtype_)
     numpy_random_state.shuffle(shuffle_idx_last)
 
-    return numpy.concatenate((shuffle_idx_first, shuffle_idx_last))
+    return np.concatenate((shuffle_idx_first, shuffle_idx_last))
 
 
 # From https://github.com/EleutherAI/gpt-neox/blob/FIM-clean/megatron/data/gpt2_dataset.py#L339
 def permute(
-    sample: numpy.ndarray,
-    np_rng: numpy.random.RandomState,
+    sample: np.ndarray,
+    np_rng: np.random.RandomState,
     fim_rate: float,
     fim_spm_rate: float,
-    tokenizer: AutoTokenizer,
+    tokenizer: TOKENIZER_TYPE,
     truncate_or_pad: bool = True,
     suffix_tok_id: int | None = None,
     prefix_tok_id: int | None = None,
     middle_tok_id: int | None = None,
     pad_tok_id: int | None = None,
-):
+) -> tuple[np.ndarray, int]:
     """
     Take in a sample (np array w/ size (0,chunklength)) and perform a FIM transformation on it.
     Maintain the same sample length (if transform creates a few extra tokens, drop them).
     """
 
     if np_rng.binomial(1, fim_rate):  # sample bernoulli dist
-        contents = tokenizer.detokenize(sample)
+        contents = tokenizer.decode(sample)
 
         try:
             # A boundary can be =0 (prefix will be empty)
@@ -545,9 +544,9 @@ def permute(
         middle = contents[boundaries[0] : boundaries[1]]
         suffix = contents[boundaries[1] :]
 
-        prefix = numpy.array([*tokenizer.tokenize(prefix)], dtype=numpy.int64)
-        middle = numpy.array([*tokenizer.tokenize(middle)], dtype=numpy.int64)
-        suffix = numpy.array([*tokenizer.tokenize(suffix)], dtype=numpy.int64)
+        prefix = np.array([*tokenizer.encode(prefix)], dtype=np.int64)
+        middle = np.array([*tokenizer.encode(middle)], dtype=np.int64)
+        suffix = np.array([*tokenizer.encode(suffix)], dtype=np.int64)
 
         # here we truncate each given segment to fit the same length as it was before
         # A consequence is that we never reach the end of a file?
@@ -563,14 +562,14 @@ def permute(
                     return sample, np_rng
                 suffix = suffix[: suffix.shape[0] - diff]
             elif diff < 0:  # too short
-                suffix = numpy.concatenate([suffix, numpy.full((-1 * diff), pad_tok_id)])
+                suffix = np.concatenate([suffix, np.full((-1 * diff), pad_tok_id)])
 
         if np_rng.binomial(1, fim_spm_rate):
             # SPM (variant 2 from FIM paper)
-            new_sample = numpy.concatenate([[prefix_tok_id, suffix_tok_id], suffix, [middle_tok_id], prefix, middle])
+            new_sample = np.concatenate([[prefix_tok_id, suffix_tok_id], suffix, [middle_tok_id], prefix, middle])
         else:
             # PSM
-            new_sample = numpy.concatenate([[prefix_tok_id], prefix, [suffix_tok_id], suffix, [middle_tok_id], middle])
+            new_sample = np.concatenate([[prefix_tok_id], prefix, [suffix_tok_id], suffix, [middle_tok_id], middle])
     else:
         # don't do FIM preproc
         new_sample = sample

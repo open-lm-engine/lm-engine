@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 from typing import Iterator
 
@@ -26,7 +28,7 @@ class BlendedDistributedSampler(DistributedSampler):
         shuffle: bool = True,
         seed: int = 0,
         drop_last: bool = False,
-    ) -> None:
+    ) -> BlendedDistributedSampler:
         super().__init__(dataset, num_replicas, rank, shuffle, seed, drop_last)
 
         self.dataset: BlendedDatasets
@@ -121,7 +123,7 @@ class BlendedDistributedSampler(DistributedSampler):
 
         return state_dict
 
-    def load_state_dict(self, state_dict: dict) -> dict:
+    def load_state_dict(self, state_dict: dict) -> None:
         self.set_epoch(state_dict["epoch"])
         if self.shuffle:
             self.generator.set_state(state_dict["generator"])
@@ -130,7 +132,7 @@ class BlendedDistributedSampler(DistributedSampler):
             if self.index == state_dict["index"]:
                 break
 
-    def __repr__(self) -> None:
+    def __repr__(self) -> str:
         x = ""
         for i, dataset in enumerate(self.dataset.datasets):
             x += f"number of samples of {dataset.__class__.__name__} ({dataset.data_name}) in 1 epoch of the entire dataset = {self.num_samples_by_dataset[i]}\n"

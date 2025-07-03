@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 from torch.distributed._tensor.placement_types import Replicate
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
@@ -41,7 +43,7 @@ class ModelWrapperForPretraining(ModelWrapper):
         additional_special_tokens: list[str] | None = None,
         reset_attention_mask: bool = False,
         reset_position_ids: bool = False,
-    ) -> None:
+    ) -> ModelWrapperForPretraining:
         """initializes a model wrapper for a HuggingFace model
 
         Args:
@@ -264,8 +266,6 @@ class ModelWrapperForPretraining(ModelWrapper):
         return batch
 
     def _setup_model(self) -> None:
-        assert not self.is_encoder_decoder, "currently encoder_decoder models are not supported for pretraining"
-
         super()._setup_model()
         self.reset_parameters()
 

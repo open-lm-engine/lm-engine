@@ -71,6 +71,7 @@ class Kernel(Enum):
     # cute kernels
     causal_conv1d = "causal_conv1d"
     continuous_count_cute = "continuous_count_cute"
+    checkpointed_mlp = "checkpointed_mlp"
     cross_entropy_cute = "cross_entropy_cute"
     fused_linear_cross_entropy_cute = "fused_linear_cross_entropy_cute"
     grouped_gemm_cute = "grouped_gemm_cute"

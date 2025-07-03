@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from ...mixins import BaseModelMixin, PreTrainedModelMixin
 from .config import PaLMConfig
 from .layer import PaLMBlock

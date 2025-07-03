@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import os
 
 from tqdm import tqdm
@@ -26,7 +28,7 @@ _JOB_ID = None if int(os.getenv("JOB_ID", -1)) == -1 else int(os.getenv("JOB_ID"
 class ProgressBar:
     """progress bar for training or validation"""
 
-    def __init__(self, start: int, end: int, desc: str | None = None) -> None:
+    def __init__(self, start: int, end: int, desc: str | None = None) -> ProgressBar:
         self.is_tracking_rank = is_tracking_rank()
         if not self.is_tracking_rank:
             return

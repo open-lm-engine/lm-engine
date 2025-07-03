@@ -2,9 +2,10 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoTokenizer
+from __future__ import annotations
 
 from ...enums import DatasetSplit, Mode
+from ...tokenizers import TOKENIZER_TYPE
 from ..base import BaseDataset
 
 
@@ -14,20 +15,18 @@ class BaseInstructionDataset(BaseDataset):
         class_args: dict,
         split: DatasetSplit,
         mode: Mode,
-        tokenizer: AutoTokenizer,
-        is_encoder_decoder: bool,
+        tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
         output_format: str,
         max_input_tokens: int,
         max_output_tokens: int,
-    ) -> None:
+    ) -> BaseInstructionDataset:
         super().__init__(
             class_args=class_args,
             split=split,
             mode=mode,
             tokenizer=tokenizer,
-            is_encoder_decoder=is_encoder_decoder,
             data_name=data_name,
             input_format=input_format,
             output_format=output_format,
@@ -40,7 +39,7 @@ class BaseInstructionDataset(BaseDataset):
 
         self.examples = self.prepare_examples()
 
-    def construct_input_from_format(self, instruction: str, input: str) -> list[int]:
+    def construct_input_from_format(self, instruction: str, input: str) -> str:
         input_text = instruction + "\n\n"
         if not (input is None or input == ""):
             input_text += f"input: {input}\n"

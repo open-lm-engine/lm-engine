@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -109,7 +111,7 @@ class Mamba2(nn.Module):
         init_method: str,
         num_layers: int,
         layer_idx: int,
-    ) -> None:
+    ) -> Mamba2:
         super().__init__()
 
         self.num_heads = ssm_num_heads

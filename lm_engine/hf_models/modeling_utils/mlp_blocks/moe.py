@@ -2,12 +2,15 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
+from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -59,7 +62,7 @@ class ParameterizedExperts(nn.Module):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
-    ) -> None:
+    ) -> ParameterizedExperts:
         super().__init__()
 
         self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features, device=device, dtype=dtype))
@@ -134,7 +137,7 @@ class ParameterizedExperts(nn.Module):
 
         return input
 
-    def extra_repr(self):
+    def extra_repr(self) -> str:
         return "num_experts={}, in_features={}, out_features={}".format(
             self.num_experts, self.in_features, self.out_features
         )
@@ -167,7 +170,7 @@ class MoE(nn.Module):
         m_width: float,
         num_layers: int,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> MoE:
         super().__init__()
 
         self.num_experts = num_experts
@@ -271,7 +274,7 @@ class MoE(nn.Module):
 
         return hidden_states
 
-    def _compute_routing_weights(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor]:
+    def _compute_routing_weights(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # hidden_states -> (total_q, hidden_size)
         router_logits = self.gate(hidden_states)
         # router_logits -> (total_q, num_experts)
@@ -351,16 +354,26 @@ class MoE(nn.Module):
                 expert_offsets=expert_offsets,
                 grouped_out=True,
             )
-            hidden_states = self.act(hidden_states)
-            hidden_states = self.c_proj(
-                input=hidden_states,
-                num_experts_per_token=1,
-                sorted_expert_idxs=sorted_expert_idxs,
-                sorted_scattered_idxs=sorted_scattered_idxs,
-                expert_offsets=expert_offsets,
-                grouped_in=True,
-                gates=router_weights,
-            )
+
+            def _output_projection(x: torch.Tensor) -> torch.Tensor:
+                x = self.act(x)
+                x = self.c_proj(
+                    input=x,
+                    num_experts_per_token=1,
+                    sorted_expert_idxs=sorted_expert_idxs,
+                    sorted_scattered_idxs=sorted_scattered_idxs,
+                    expert_offsets=expert_offsets,
+                    grouped_in=True,
+                    gates=router_weights,
+                )
+
+                return x
+
+            if is_kernel_allowed(Kernel.checkpointed_mlp):
+                hidden_states = checkpoint(_output_projection, hidden_states, use_reentrant=False)
+            else:
+                hidden_states = _output_projection(hidden_states)
+
             hidden_states = self.dropout(hidden_states)
         else:
             batch_index = sorted_scattered_idxs // self.top_k
@@ -386,6 +399,27 @@ class MoE(nn.Module):
         hidden_states = self.act(hidden_states)
         hidden_states = self.c_proj_shared(hidden_states)
         return hidden_states
+
+    def _compute_expert_assignment(
+        self, router_weights: torch.Tensor, selected_experts: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        selected_experts = selected_experts.flatten()
+
+        num_tokens_per_expert = compute_bincount(
+            x=selected_experts,
+            size=self.num_experts,
+            use_continuous_count=self.is_hopper_or_newer_gpu and is_kernel_allowed(Kernel.continuous_count_cute),
+        )
+
+        # sort and group input tokens according to expert assignment
+        _, index_sorted_experts = selected_experts.sort(0)  # [num_tokens * top_k]
+        batch_index = index_sorted_experts // self.top_k  # [num_tokens * top_k]
+
+        # gather the gate values for grouped input tokens
+        router_weights = router_weights.flatten()  # [num_tokens * top_k]
+        batch_gates = router_weights[index_sorted_experts]  # [num_tokens * top_k]
+
+        return batch_index, batch_gates, num_tokens_per_expert
 
     def _get_topk(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if self.top_k == 1:

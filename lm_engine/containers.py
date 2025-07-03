@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import logging
 
 import torch.nn as nn
@@ -10,7 +12,7 @@ from .utils import log_rank_0
 
 
 class _Container:
-    def __init__(self, model_list: list[nn.Module]) -> None:
+    def __init__(self, model_list: list[nn.Module]) -> _Container:
         self.model_list = model_list
 
     def __iter__(self):
@@ -26,16 +28,16 @@ class _Container:
     def __len__(self) -> int:
         return len(self.model_list)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.model_list)
 
 
 class ModelContainer(_Container):
-    def train(self) -> "ModelContainer":
+    def train(self) -> ModelContainer:
         for model in self:
             model.train()
 
-    def eval(self) -> "ModelContainer":
+    def eval(self) -> ModelContainer:
         for model in self:
             model.eval()
 

@@ -2,13 +2,15 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 
 from ..config import CommonConfig
 
 
 class _SoftmaxAttentionCache:
-    def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> None:
+    def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> _SoftmaxAttentionCache:
         self.seen_tokens = 0
         self.key_cache: torch.Tensor | None = None
         self.value_cache: torch.Tensor | None = None

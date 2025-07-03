@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 
 from ...cache import GenerationCache
@@ -15,7 +17,7 @@ class GPTCrossLayerPreTrainedModel(PreTrainedModelMixin):
     layer_class = GPTCrossLayerBlock
     _no_split_modules = ["GPTCrossLayerBlock"]
 
-    def __init__(self, config: GPTCrossLayerConfig, *args, **kwargs):
+    def __init__(self, config: GPTCrossLayerConfig, *args, **kwargs) -> GPTCrossLayerPreTrainedModel:
         self.sharing_pattern = config.sharing_pattern
         super().__init__(config, *args, **kwargs)
 

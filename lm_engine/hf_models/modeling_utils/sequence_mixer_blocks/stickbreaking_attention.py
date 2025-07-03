@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -47,7 +49,6 @@ class SBAttention(Attention):
         num_attention_heads: int,
         num_key_value_heads: int,
         attention_multiplier: float,
-        attention_head_type: str,
         position_embedding_type: str,
         add_bias: bool,
         dropout: float,
@@ -57,13 +58,13 @@ class SBAttention(Attention):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-    ) -> None:
+        use_padding_free_transformer: bool = False,
+    ) -> SBAttention:
         super().__init__(
             hidden_size=hidden_size,
             num_attention_heads=num_attention_heads,
             num_key_value_heads=num_key_value_heads,
             attention_multiplier=attention_multiplier,
-            attention_head_type=attention_head_type,
             position_embedding_type=position_embedding_type,
             add_bias=add_bias,
             softmax_dropout=0,
@@ -74,6 +75,7 @@ class SBAttention(Attention):
             num_layers=num_layers,
             causal=causal,
             layer_idx=layer_idx,
+            use_padding_free_transformer=use_padding_free_transformer,
         )
 
         self.head_bias = torch.nn.Parameter(torch.zeros(self.hidden_size // self.head_dim, self.head_dim))
@@ -146,6 +148,39 @@ class SBAttention(Attention):
 
 
 class PaddingFreeSBAttention(SBAttention):
+    def __init__(
+        self,
+        hidden_size: int,
+        num_attention_heads: int,
+        num_key_value_heads: int,
+        attention_multiplier: float,
+        position_embedding_type: str,
+        add_bias: bool,
+        dropout: float,
+        init_method: str,
+        initializer_range: float,
+        m_width: float,
+        num_layers: int,
+        causal: bool,
+        layer_idx: int,
+    ) -> PaddingFreeSBAttention:
+        super().__init__(
+            hidden_size=hidden_size,
+            num_attention_heads=num_attention_heads,
+            num_key_value_heads=num_key_value_heads,
+            attention_multiplier=attention_multiplier,
+            position_embedding_type=position_embedding_type,
+            add_bias=add_bias,
+            dropout=dropout,
+            init_method=init_method,
+            initializer_range=initializer_range,
+            m_width=m_width,
+            num_layers=num_layers,
+            causal=causal,
+            layer_idx=layer_idx,
+            use_padding_free_transformer=True,
+        )
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -157,7 +192,6 @@ class PaddingFreeSBAttention(SBAttention):
         sb_metadata=None,
     ) -> torch.Tensor:
         assert past_key_values is None
-
         query, key, value = self._prepare_qkv_for_forward(hidden_states)
 
         value = value.permute(1, 0, 2)

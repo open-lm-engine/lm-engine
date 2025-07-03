@@ -263,8 +263,6 @@ class DistributedArgs(BaseArgs):
     communication_dtype: str | None = None
     # whether to use torch.compile
     torch_compile: bool = False
-    # whether to use a dispatching dataloader
-    dispatching_dataloader: bool = False
     # tensor parallel world size
     tensor_parallel_world_size: int = 1
     # whether to use sequence parallel
@@ -332,7 +330,7 @@ class LoggingArgs(BaseArgs):
     # logging level
     logging_level: str = "INFO"
     # log interval
-    log_interval: int = 1
+    log_interval: int = 10
     # arguments if using aim
     aim_args: AimArgs | None = None
     # arguments if using wandb
@@ -533,6 +531,12 @@ _MODE_ARGS_MAP = {
 }
 
 
+def args_dict_to_pydantic_args(
+    mode: Mode, **config
+) -> TrainingArgs | InferenceArgs | UnshardingArgs | DistillationArgs:
+    return _MODE_ARGS_MAP[mode](**config)
+
+
 def get_args(mode: Mode) -> TrainingArgs | InferenceArgs | UnshardingArgs:
     """get args for training / inference
 
@@ -548,7 +552,7 @@ def get_args(mode: Mode) -> TrainingArgs | InferenceArgs | UnshardingArgs:
     args = parser.parse_args()
 
     config: dict = load_yaml(args.config)
-    args: TrainingArgs | InferenceArgs | UnshardingArgs = _MODE_ARGS_MAP[mode](**config)
+    args: TrainingArgs | InferenceArgs | UnshardingArgs = args_dict_to_pydantic_args(mode, **config)
 
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
     log_args(args)

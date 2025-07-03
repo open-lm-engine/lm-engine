@@ -26,15 +26,14 @@ def compute_cu_seqlens_and_max_seqlen_from_attention_mask(
 def pack_sequence(
     inputs: torch.Tensor | list[torch.Tensor], cu_seqlens: torch.Tensor
 ) -> torch.Tensor | list[torch.Tensor]:
-    if is_kernel_allowed(Kernel.pack_sequence_cute):
-        inputs = pack_sequence_cute(inputs=inputs, cu_seqlens=cu_seqlens)
-    else:
-        inputs = pack_sequence_cute(
-            inputs=inputs,
-            cu_seqlens=cu_seqlens,
-            kernel_backend_forward=KernelBackend.torch,
-            kernel_backend_backward=KernelBackend.torch,
-        )
+    kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence_cute) else KernelBackend.torch
+
+    inputs = pack_sequence_cute(
+        inputs=inputs,
+        cu_seqlens=cu_seqlens,
+        kernel_backend_forward=kernel_backend,
+        kernel_backend_backward=kernel_backend,
+    )
 
     return inputs
 
@@ -42,15 +41,14 @@ def pack_sequence(
 def unpack_sequence(
     inputs: torch.Tensor | list[torch.Tensor], cu_seqlens: torch.Tensor, desired_shape: tuple[int]
 ) -> torch.Tensor | list[torch.Tensor]:
-    if is_kernel_allowed(Kernel.pack_sequence_cute):
-        inputs = unpack_sequence_cute(inputs=inputs, cu_seqlens=cu_seqlens, desired_shape=desired_shape)
-    else:
-        inputs = unpack_sequence_cute(
-            inputs=inputs,
-            cu_seqlens=cu_seqlens,
-            desired_shape=desired_shape,
-            kernel_backend_forward=KernelBackend.torch,
-            kernel_backend_backward=KernelBackend.torch,
-        )
+    kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence_cute) else KernelBackend.torch
+
+    inputs = unpack_sequence_cute(
+        inputs=inputs,
+        cu_seqlens=cu_seqlens,
+        desired_shape=desired_shape,
+        kernel_backend_forward=kernel_backend,
+        kernel_backend_backward=kernel_backend,
+    )
 
     return inputs

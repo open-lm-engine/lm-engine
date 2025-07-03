@@ -4,7 +4,6 @@
 
 from .config import CommonConfig
 from .models import (
-    DesyncResidualConfig,
     GPTBaseConfig,
     LadderResidualConfig,
     fix_gpt_base_unsharded_state_dict,

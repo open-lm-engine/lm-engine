@@ -1,15 +1,18 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
+from __future__ import annotations
+
 import json
 import multiprocessing
 import tempfile
+from typing import Iterator
 
 import pyarrow as pa
 import torch
 from datasets import load_dataset
-from tqdm import tqdm
 from transformers import AutoTokenizer
 
+from ...tokenizers import TOKENIZER_TYPE, get_tokenizer
 from ...utils import is_zstandard_available
 from .indexed_dataset import DType, MMapIndexedDatasetBuilder
 
@@ -19,23 +22,23 @@ if is_zstandard_available():
 
 
 class ArrowIterator:
-    def __init__(self, filename: str) -> None:
+    def __init__(self, filename: str) -> ArrowIterator:
         self.fin = pa.ipc.open_file(filename)
         self.num_records = self.fin.num_record_batches
 
-    def __iter__(self) -> list[int]:
+    def __iter__(self) -> Iterator[int]:
         for i in range(self.num_records):
             doc = self.fin.get_batch(i)["tokens"].to_numpy().tolist()
             yield doc
 
 
 class Encoder:
-    def __init__(self, tokenizer: AutoTokenizer | str, json_keys: list[str], append_eod: bool) -> None:
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer) if isinstance(tokenizer, str) else tokenizer
+    def __init__(self, tokenizer: TOKENIZER_TYPE | str, json_keys: list[str], append_eod: bool) -> Encoder:
+        self.tokenizer = get_tokenizer(AutoTokenizer.__name__, tokenizer) if isinstance(tokenizer, str) else tokenizer
         self.json_keys = json_keys
         self.append_eod = append_eod
 
-    def _encode_data(self, data):
+    def _encode_data(self, data) -> dict:
         ids = {}
         for key in self.json_keys:
             text = data[key]
@@ -46,18 +49,18 @@ class Encoder:
                 ids[key] = document_ids
         return ids
 
-    def encode(self, json_line):
+    def encode(self, json_line) -> dict:
         data = json.loads(json_line)
         return self._encode_data(data)
 
-    def encode_jsonl_zstd(self, bytes_obj):
+    def encode_jsonl_zstd(self, bytes_obj) -> dict:
         json_str = bytes_obj.decode("utf-8")
         return self.encode(json_str)
 
-    def encode_hf(self, sample):
+    def encode_hf(self, sample) -> dict:
         return self._encode_data(sample)
 
-    def convert_fms_arrow_to_megatron(self, sample):
+    def convert_fms_arrow_to_megatron(self, sample) -> dict:
         if len(sample) > 0 and self.append_eod:
             sample.append(self.tokenizer.eos_token_id)
 
@@ -65,7 +68,7 @@ class Encoder:
 
 
 def convert_file(
-    tokenizer: AutoTokenizer | str,
+    tokenizer: TOKENIZER_TYPE | str,
     input_file: str,
     output_prefix: str,
     workers: int,

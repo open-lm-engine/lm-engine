@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
@@ -17,7 +19,7 @@ class Dropout_TP(nn.Dropout):
         inplace: bool = False,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> None:
+    ) -> Dropout_TP:
         super().__init__(p, inplace)
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()

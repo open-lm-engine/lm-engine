@@ -15,7 +15,7 @@ def main() -> None:
 
     args = get_args(mode)
 
-    model, _, state_dict = load_checkpoint_for_inference(args, mode, use_meta=True)
+    model, _, state_dict = load_checkpoint_for_inference(args, mode, allowed_meta_device=True)
     run_rank_n(model.save_pretrained, barrier=ProcessGroupManager.is_initialized())(
         args.unsharded_path, state_dict=state_dict
     )
