@@ -37,6 +37,9 @@ class _ParamsGroup(BaseArgs):
         param_names.sort()
         return param_names
 
+    def __len__(self) -> int:
+        return len(self.parameter_name_map)
+
 
 class _ParamsGroupsList(BaseArgs):
     params_groups: list[_ParamsGroup] = []
