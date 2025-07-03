@@ -315,7 +315,7 @@ class MoE(nn.Module):
 
             if is_kernel_allowed(Kernel.checkpointed_mlp):
                 hidden_states, padded_expert_frequency, expert_padding_offset = checkpoint(
-                    _input_projection, hidden_states
+                    _input_projection, hidden_states, use_reentrant=False
                 )
             else:
                 hidden_states, padded_expert_frequency, expert_padding_offset = _input_projection(hidden_states)
