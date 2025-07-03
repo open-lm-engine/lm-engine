@@ -45,9 +45,6 @@ class _ParamsGroupsList(BaseArgs):
         self.params_groups = list(filter(lambda group: len(group) > 0, self.params_groups))
         super().model_post_init(__context)
 
-    def __init__(self) -> _ParamsGroupsList:
-        self.params_groups = [group for group in self.params_groups]
-
     def add_params_group(self, params_group: _ParamsGroup) -> None:
         self.params_groups.append(params_group)
 
