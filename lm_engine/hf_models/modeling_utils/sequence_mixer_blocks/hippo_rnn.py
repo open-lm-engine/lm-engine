@@ -83,6 +83,14 @@ class HiPPO_RNN(nn.Module):
         self.register_buffer("B", torch.empty(hippo_size))
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
+        self.input_norm = get_normalization_function("rmsnorm", self.state_size)
+
+        self.state_weight_norm = get_normalization_function(
+            "p_norm", self.state_head_dim * self.state_head_dim, elementwise_affine=False, p=2
+        )
+        self.hippo_weight_norm = get_normalization_function(
+            "p_norm", self.hippo_size * self.state_head_dim, elementwise_affine=False, p=2
+        )
 
         self.scaling_factor = scaling_factor
         self.reset_parameters()
@@ -95,7 +103,6 @@ class HiPPO_RNN(nn.Module):
 
         mark_parameter_as_no_weight_decay(self.state_weight)
         mark_parameter_as_no_weight_decay(self.hippo_weight)
-        mark_parameter_as_no_weight_decay(self.compress_weight)
 
     def forward(
         self,
@@ -125,11 +132,15 @@ class HiPPO_RNN(nn.Module):
         if self.is_gated_normalization:
             input, gate = input.chunk(2, dim=-1)
 
+        input = self.input_norm(input)
         input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
 
         state_weight = self.state_weight
         hippo_weight = self.hippo_weight
         compress_weight = self.compress_weight
+
+        state_weight = self.state_weight_norm(state_weight.view(self.num_heads, -1)).view_as(self.state_weight)
+        hippo_weight = self.hippo_weight_norm(hippo_weight.view(self.num_heads, -1)).view_as(self.hippo_weight)
 
         if self.scaling_factor != 1:
             input = input * self.scaling_factor
