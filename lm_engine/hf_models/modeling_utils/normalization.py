@@ -94,7 +94,11 @@ _NORMALIZATION_FUNCTIONS = {
 
 
 def get_normalization_function(
-    normalization_function: str, normalized_shape: int, eps: float = 1e-5, p: int | None = None
+    normalization_function: str,
+    normalized_shape: int,
+    elementwise_affine: bool = True,
+    eps: float = 1e-5,
+    p: int | None = None,
 ) -> nn.LayerNorm | RMSNorm | PNorm | SiluGatedRMSNorm:
     if normalization_function is None:
         return nn.Identity()
@@ -102,10 +106,14 @@ def get_normalization_function(
     if normalization_function in _NORMALIZATION_FUNCTIONS:
         if normalization_function == "p_norm":
             assert p is not None
-            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](normalized_shape, eps=eps, p=p)
+            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](
+                normalized_shape, elementwise_affine=elementwise_affine, eps=eps, p=p
+            )
         else:
             assert p is None
-            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](normalized_shape, eps=eps)
+            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](
+                normalized_shape, elementwise_affine=elementwise_affine, eps=eps
+            )
     else:
         raise ValueError(f"unexpected `normalization_function` {normalization_function}")
 
