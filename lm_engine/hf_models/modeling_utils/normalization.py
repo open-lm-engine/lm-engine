@@ -52,12 +52,9 @@ class PNorm(RMSNorm):
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         dtype = hidden_states.dtype
+
         hidden_states = hidden_states.float()
-
-        if self.p == 2:
-            norm = torch.sqrt((hidden_states**2).sum(dim=-1, keepdim=True)) + self.eps
-            hidden_states = hidden_states / norm
-
+        hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
         hidden_states = hidden_states.to(dtype)
 
         if self.weight is not None:
