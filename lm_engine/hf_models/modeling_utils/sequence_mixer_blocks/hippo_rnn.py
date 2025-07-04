@@ -121,6 +121,7 @@ class HiPPO_RNN(nn.Module):
         self.scaling_factor = scaling_factor
         self.reset_parameters()
 
+        mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.hippo_weight)
