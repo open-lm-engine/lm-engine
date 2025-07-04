@@ -50,6 +50,7 @@ class PNorm(RMSNorm):
         self.p = p
         super().__init__(normalized_shape, eps, elementwise_affine, device, dtype)
 
+    @torch.compiler.disable
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         dtype = hidden_states.dtype
 
@@ -63,7 +64,7 @@ class PNorm(RMSNorm):
         return hidden_states
 
     def extra_repr(self) -> str:
-        return f"p = {self.p}"
+        return f"p={self.p}"
 
 
 class SiluGatedRMSNorm(RMSNorm):
