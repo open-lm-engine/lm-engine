@@ -15,7 +15,7 @@ from ..parameter import mark_parameter_as_no_weight_decay
 
 
 if is_cute_kernels_available():
-    from cute_kernels import rmsnorm_cute
+    from cute_kernels import p_norm_cute, rmsnorm_cute
 
 
 class RMSNorm(nn.RMSNorm):
@@ -52,14 +52,17 @@ class PNorm(RMSNorm):
 
     @torch.compiler.disable
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        dtype = hidden_states.dtype
+        if is_kernel_allowed(Kernel.p_norm_cute):
+            hidden_states = p_norm_cute(x=hidden_states, p=self.p, weight=self.weight, eps=self.eps)
+        else:
+            dtype = hidden_states.dtype
 
-        hidden_states = hidden_states.float()
-        hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
-        hidden_states = hidden_states.to(dtype)
+            hidden_states = hidden_states.float()
+            hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
+            hidden_states = hidden_states.to(dtype)
 
-        if self.weight is not None:
-            hidden_states = self.weight * hidden_states
+            if self.weight is not None:
+                hidden_states = self.weight * hidden_states
 
         return hidden_states
 
