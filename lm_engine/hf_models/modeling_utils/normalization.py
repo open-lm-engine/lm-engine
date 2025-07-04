@@ -62,6 +62,9 @@ class PNorm(RMSNorm):
 
         return hidden_states
 
+    def extra_repr(self) -> str:
+        return f"p={self.p}"
+
 
 class SiluGatedRMSNorm(RMSNorm):
     def forward(self, hidden_states: torch.Tensor, gate: torch.Tensor) -> torch.Tensor:
