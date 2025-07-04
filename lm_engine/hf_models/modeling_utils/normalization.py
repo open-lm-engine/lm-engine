@@ -55,7 +55,7 @@ class PNorm(RMSNorm):
         hidden_states = hidden_states.float()
 
         if self.p == 2:
-            norm = torch.sqrt((hidden_states**2).sum(dim=-1)) + self.eps
+            norm = torch.sqrt((hidden_states**2).sum(dim=-1, keepdim=True)) + self.eps
             hidden_states = hidden_states / norm
 
         hidden_states = hidden_states.to(dtype)
