@@ -16,7 +16,7 @@ from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
-from ..arguments import InferenceArgs, TrainingArgs, UnshardingArgs
+from ..arguments import InferenceArgs, TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
 from ..enums import Mode
@@ -165,6 +165,7 @@ def save_checkpoint(
 
 def load_checkpoint_for_training(
     args: TrainingArgs,
+    mode: Mode,
     model_container: ModelContainer,
     optimizer_container: OptimizerContainer,
     lr_scheduler_container: LRSchedulerContainer,
@@ -174,6 +175,7 @@ def load_checkpoint_for_training(
 
     Args:
         args (TrainingArgs): arguments for training
+        mode (Mode): training or inference mode
         model_container (ModelContainer): models to save
         optimizer_container (OptimizerContainer): optimizers to save
         lr_scheduler_container (LRSchedulerContainer): learning rate schedulers to save
@@ -205,7 +207,7 @@ def load_checkpoint_for_training(
 
     args_file = os.path.join(load_path, f"{_TRAINING_CONFIG_PREFIX}.yml")
     args_from_checkpoint = load_yaml(args_file)
-    args_from_checkpoint = TrainingArgs(**args_from_checkpoint)
+    args_from_checkpoint = args_dict_to_pydantic_args(mode, **args_from_checkpoint)
 
     log_rank_0(logging.INFO, f"loading checkpoint saved at {load_path}")
 
@@ -296,7 +298,7 @@ def load_checkpoint_for_inference(
         args_from_checkpoint["tuning_args"]["tuning_method"] = "pretraining"
         args_from_checkpoint.pop("teacher_args")
 
-    args_from_checkpoint = TrainingArgs(**args_from_checkpoint)
+    args_from_checkpoint = args_dict_to_pydantic_args(mode, **args_from_checkpoint)
 
     if args.mixed_precision_args is not None:
         log_rank_0(logging.INFO, "overriding mixed precision args")

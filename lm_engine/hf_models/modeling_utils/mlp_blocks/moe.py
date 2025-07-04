@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
+from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -23,7 +24,12 @@ from .mlp import _get_std_for_linear
 
 if is_cute_kernels_available():
     from cute_kernels import continuous_count_cute
-    from cute_kernels.modules.moe import scattered_experts
+    from cute_kernels.modules.moe import (
+        group_with_padding,
+        grouped_gemm_experts_cute,
+        scattered_experts,
+        ungroup_with_padding,
+    )
 
 
 # TODO add support for combileable bincount in PyTorch directly
@@ -71,6 +77,14 @@ class ParameterizedExperts(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
+        self.register_buffer(
+            "N_array", torch.empty((num_experts,), device=device, dtype=torch.uint32), persistent=False
+        )
+
+        self.register_buffer(
+            "K_array", torch.empty((num_experts,), device=device, dtype=torch.uint32), persistent=False
+        )
+
         self.reset_parameters()
 
         mark_parameter_as_no_weight_decay(self.bias)
@@ -79,7 +93,7 @@ class ParameterizedExperts(nn.Module):
         self,
         input: torch.Tensor,
         num_experts_per_token: int | None = None,
-        num_tokens_per_expert: torch.Tensor | None = None,
+        expert_frequency: torch.Tensor | None = None,
         sorted_expert_idxs: torch.Tensor | None = None,
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
@@ -87,7 +101,20 @@ class ParameterizedExperts(nn.Module):
         grouped_in: bool = False,
         grouped_out: bool = False,
     ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.scattermoe):
+        if is_kernel_allowed(Kernel.grouped_gemm_cute):
+            assert self.bias is None
+            assert num_experts_per_token is None
+            assert sorted_expert_idxs is None
+            assert sorted_scattered_idxs is None
+            assert expert_offsets is None
+            assert gates is None
+            assert not grouped_in
+            assert not grouped_out
+
+            input = grouped_gemm_experts_cute(
+                x=input, weight=self.weight, M_array=expert_frequency, N_array=self.N_array, K_array=self.K_array
+            )
+        elif is_kernel_allowed(Kernel.scattermoe):
             assert self.bias is None
 
             input = scattered_experts(
@@ -102,7 +129,7 @@ class ParameterizedExperts(nn.Module):
                 grouped_out=grouped_out,
             )
         else:
-            input = input.split(num_tokens_per_expert.tolist(), dim=0)
+            input = input.split(expert_frequency.tolist(), dim=0)
             input = [
                 F.linear(input[i], self.weight[i], None if self.bias is None else self.bias[i])
                 for i in range(self.num_experts)
@@ -121,6 +148,9 @@ class ParameterizedExperts(nn.Module):
         nn.init.normal_(self.weight, mean=0, std=self.std)
         if hasattr(self, "bias") and self.bias is not None:
             self.bias.zero_()
+
+        self.N_array.fill_(self.out_features)
+        self.K_array.fill_(self.in_features)
 
 
 class MoE(nn.Module):
@@ -219,7 +249,7 @@ class MoE(nn.Module):
 
         router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
 
-        moe_output = self._compute_experts(hidden_states, router_weights, selected_experts)
+        moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
 
         if self.shared_intermediate_size is None:
             hidden_states = moe_output
@@ -235,7 +265,7 @@ class MoE(nn.Module):
 
         aux_loss = (
             self._compute_switch_loss(
-                logits=router_logits, probs=torch.softmax(router_logits, dim=-1), topk_idxs=selected_experts
+                logits=router_logits, probs=torch.softmax(router_logits, dim=-1), expert_frequency=expert_frequency
             )
             if self.training
             else 0
@@ -260,17 +290,66 @@ class MoE(nn.Module):
 
     def _compute_experts(
         self, hidden_states: torch.Tensor, router_weights: torch.Tensor, selected_experts: torch.Tensor
-    ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.scattermoe):
-            with torch.no_grad():
-                sorted_expert_idxs, sorted_scattered_idxs = selected_experts.flatten().sort()
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        with torch.no_grad():
+            sorted_expert_idxs, sorted_scattered_idxs = selected_experts.flatten().sort()
 
-                expert_offsets = compute_bincount(
-                    x=sorted_expert_idxs,
-                    size=self.num_experts,
-                    use_continuous_count=self.is_hopper_or_newer_gpu
-                    and is_kernel_allowed(Kernel.continuous_count_cute),
-                ).cumsum(-1)
+            expert_frequency = compute_bincount(
+                x=sorted_expert_idxs,
+                size=self.num_experts,
+                use_continuous_count=self.is_hopper_or_newer_gpu and is_kernel_allowed(Kernel.continuous_count_cute),
+            )
+
+        T = hidden_states.size(0)
+
+        if is_kernel_allowed(Kernel.grouped_gemm_cute):
+
+            def _input_projection(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                x, padded_expert_frequency, expert_padding_offset = group_with_padding(
+                    x=x,
+                    expert_frequency=expert_frequency,
+                    sorted_idxs=sorted_expert_idxs,
+                    scattered_idxs=sorted_scattered_idxs,
+                    top_k=self.top_k,
+                    pad_to_multiple_of=8,
+                )
+
+                x = self.c_fc(input=x, expert_frequency=padded_expert_frequency)
+
+                return x, padded_expert_frequency, expert_padding_offset
+
+            def _output_projection(x: torch.Tensor, padded_expert_frequency: torch.Tensor) -> torch.Tensor:
+                x = self.act(x)
+                x = self.c_proj(input=x, expert_frequency=padded_expert_frequency)
+                return x
+
+            if is_kernel_allowed(Kernel.checkpointed_mlp):
+                hidden_states, padded_expert_frequency, expert_padding_offset = checkpoint(
+                    _input_projection, hidden_states, use_reentrant=False
+                )
+
+                hidden_states = checkpoint(
+                    _output_projection, hidden_states, padded_expert_frequency, use_reentrant=False
+                )
+            else:
+                hidden_states, padded_expert_frequency, expert_padding_offset = _input_projection(hidden_states)
+                hidden_states = _output_projection(hidden_states, padded_expert_frequency)
+
+            hidden_states = ungroup_with_padding(
+                x=hidden_states,
+                expert_padding_offset=expert_padding_offset,
+                sorted_idxs=sorted_expert_idxs,
+                scattered_idxs=sorted_scattered_idxs,
+                top_k=self.top_k,
+                num_tokens=T,
+                pad_to_multiple_of=8,
+            )
+
+            hidden_states = torch.bmm(router_weights.unsqueeze(1), hidden_states)
+            hidden_states = hidden_states.squeeze(1)
+        elif is_kernel_allowed(Kernel.scattermoe):
+            with torch.no_grad():
+                expert_offsets = expert_frequency.cumsum(-1)
 
             hidden_states = self.c_fc(
                 input=hidden_states,
@@ -280,35 +359,45 @@ class MoE(nn.Module):
                 expert_offsets=expert_offsets,
                 grouped_out=True,
             )
-            hidden_states = self.act(hidden_states)
-            hidden_states = self.c_proj(
-                input=hidden_states,
-                num_experts_per_token=1,
-                sorted_expert_idxs=sorted_expert_idxs,
-                sorted_scattered_idxs=sorted_scattered_idxs,
-                expert_offsets=expert_offsets,
-                grouped_in=True,
-                gates=router_weights,
-            )
+
+            def _output_projection(x: torch.Tensor) -> torch.Tensor:
+                x = self.act(x)
+                x = self.c_proj(
+                    input=x,
+                    num_experts_per_token=1,
+                    sorted_expert_idxs=sorted_expert_idxs,
+                    sorted_scattered_idxs=sorted_scattered_idxs,
+                    expert_offsets=expert_offsets,
+                    grouped_in=True,
+                    gates=router_weights,
+                )
+
+                return x
+
+            if is_kernel_allowed(Kernel.checkpointed_mlp):
+                hidden_states = checkpoint(_output_projection, hidden_states, use_reentrant=False)
+            else:
+                hidden_states = _output_projection(hidden_states)
+
             hidden_states = self.dropout(hidden_states)
         else:
-            total_q = hidden_states.shape[0]
+            batch_index = sorted_scattered_idxs // self.top_k
 
-            batch_index, batch_gates, num_tokens_per_expert = self._compute_expert_assignment(
-                router_weights, selected_experts
-            )
+            # gather the gate values for grouped input tokens
+            router_weights = router_weights.flatten()
+            batch_gates = router_weights[sorted_scattered_idxs]
 
             hidden_states = hidden_states[batch_index]
 
-            hidden_states = self.c_fc(input=hidden_states, num_tokens_per_expert=num_tokens_per_expert)
+            hidden_states = self.c_fc(input=hidden_states, expert_frequency=expert_frequency)
             hidden_states = self.act(hidden_states)
-            hidden_states = self.c_proj(input=hidden_states, num_tokens_per_expert=num_tokens_per_expert)
+            hidden_states = self.c_proj(input=hidden_states, expert_frequency=expert_frequency)
 
             hidden_states = hidden_states * batch_gates.unsqueeze(-1)  # [:, None]
-            zeros = torch.zeros((total_q, self.hidden_size), dtype=hidden_states.dtype, device=hidden_states.device)
+            zeros = torch.zeros((T, self.hidden_size), dtype=hidden_states.dtype, device=hidden_states.device)
             hidden_states = zeros.index_add(0, batch_index, hidden_states)
 
-        return hidden_states
+        return hidden_states, expert_frequency
 
     def _compute_shared_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
         hidden_states = self.c_fc_shared(hidden_states)
@@ -345,25 +434,25 @@ class MoE(nn.Module):
 
         return x, indices
 
-    def _compute_switch_loss(self, logits: torch.Tensor, probs: torch.Tensor, topk_idxs: torch.Tensor) -> torch.Tensor:
+    def _compute_switch_loss(
+        self, logits: torch.Tensor, probs: torch.Tensor, expert_frequency: torch.Tensor
+    ) -> torch.Tensor:
         logits = logits.view(-1, logits.size(-1))
         probs = probs.view(-1, probs.size(-1))
 
         num_experts = logits.size(1)
         acc_probs = probs.sum(0)
 
-        freq = compute_bincount(
-            x=topk_idxs.flatten(),
-            size=num_experts,
-            use_continuous_count=self.is_hopper_or_newer_gpu and is_kernel_allowed(Kernel.continuous_count_cute),
-        )
-
-        freq = freq.float()
+        expert_frequency = expert_frequency.float()
 
         if ProcessGroupManager.is_initialized() and ProcessGroupManager.get_data_parallel_world_size() > 1:
-            freq = all_reduce(freq, reduceOp="sum", group=ProcessGroupManager.get_data_parallel_group())
+            expert_frequency = all_reduce(
+                expert_frequency, reduceOp="sum", group=ProcessGroupManager.get_data_parallel_group()
+            )
 
-        switch_loss = num_experts * (F.normalize(acc_probs, p=1, dim=0) * F.normalize(freq, p=1, dim=0)).sum()
+        switch_loss = (
+            num_experts * (F.normalize(acc_probs, p=1, dim=0) * F.normalize(expert_frequency, p=1, dim=0)).sum()
+        )
         z_loss = (torch.logsumexp(logits, dim=-1) ** 2).mean()
 
         loss = switch_loss + 0.1 * z_loss
