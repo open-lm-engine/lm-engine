@@ -94,6 +94,9 @@ class _RNNArgs(_GRUArgs):
 class _HiPPO_RNNArgs(_GRUArgs):
     sequence_mixer_type: str = "hippo_rnn"
     hippo_size: int = 64
+    num_groups: int | None = None
+    kernel_size: int | None = None
+    activation_function: str | None = None
     hippo_measure: str = "legs"
 
     def model_post_init(self, __context: Any) -> None:

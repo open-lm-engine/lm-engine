@@ -13,8 +13,11 @@ from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_cute_kernels_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ..activations import is_glu
+from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
+from .causal_convolution import causal_convolution
 from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
@@ -30,6 +33,9 @@ class HiPPO_RNN(nn.Module):
         state_size: int,
         output_size: int,
         num_heads: int,
+        num_groups: int | None,
+        kernel_size: int | None,
+        activation_function: str | None,
         hippo_size: int,
         hippo_measure: str,
         add_bias: bool,
@@ -52,6 +58,9 @@ class HiPPO_RNN(nn.Module):
         self.state_size = state_size
         self.output_size = output_size
         self.num_heads = num_heads
+        self.num_groups = num_groups
+        self.kernel_size = kernel_size
+        self.activation_string = activation_function
         self.gradient_clipping = gradient_clipping
         self.hippo_size = hippo_size
         self.layer_idx = layer_idx
@@ -63,6 +72,22 @@ class HiPPO_RNN(nn.Module):
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.state_weight_std = std
+
+        if kernel_size is None:
+            assert num_groups is None
+            assert activation_function is None
+        else:
+            divide_if_divisible(input_size, num_groups, "")
+
+            self.conv1d = ParameterizedConv1d(
+                in_channels=input_size,
+                out_channels=input_size * 2 if is_glu(self.activation_string) else input_size,
+                kernel_size=kernel_size,
+                bias=add_bias,
+                padding=kernel_size - 1,
+                groups=num_groups,
+                std=std,
+            )
 
         self.input_projection = ParameterizedLinear(
             self.input_size,
@@ -127,6 +152,21 @@ class HiPPO_RNN(nn.Module):
                 input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
 
         input_state, hippo_state = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
+        conv_state = None
+
+        if self.kernel_size is not None:
+            input, conv_state = causal_convolution(
+                hidden_states=input,
+                input_state=conv_state,
+                attention_mask=attention_mask,
+                conv1d_weight=self.conv1d.weight,
+                conv1d_bias=self.conv1d.bias,
+                conv1d_num_groups=self.num_groups,
+                return_cache_state=cache_params is not None,
+                activation_string=self.activation_string,
+                conv1d_padding=self.kernel_size - 1,
+                conv1d_stride=1,
+            )
 
         input = self.input_projection(input)
 

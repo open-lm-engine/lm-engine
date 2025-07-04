@@ -23,6 +23,7 @@ from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
 SEQUENCE_MIXER_TYPE = (
     Attention
     | CausalConvolution
+    | HiPPO_RNN
     | GRU
     | Mamba2
     | MultiHeadLatentAttention
@@ -63,6 +64,9 @@ def get_sequence_mixer(
             state_size=block.state_size,
             output_size=config.hidden_size,
             num_heads=block.num_heads,
+            num_groups=block.num_groups,
+            kernel_size=block.kernel_size,
+            activation_function=block.activation_function,
             hippo_size=block.hippo_size,
             hippo_measure=block.hippo_measure,
             add_bias=block.add_bias,

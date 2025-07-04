@@ -111,7 +111,7 @@ def causal_convolution(
             )
 
             # removes padding on the right side of the sequence
-            hidden_states = hidden_states[..., : -(kernel_size - 1)]
+            hidden_states = hidden_states[..., : 1 - kernel_size]
             hidden_states = hidden_states.transpose(-1, -2)
         else:
             assert sequence_length == 1
