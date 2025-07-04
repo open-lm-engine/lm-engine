@@ -76,6 +76,7 @@ class Kernel(Enum):
     fused_linear_cross_entropy_cute = "fused_linear_cross_entropy_cute"
     grouped_gemm_cute = "grouped_gemm_cute"
     gru_cute = "gru_cute"
+    p_norm_cute = "p_norm_cute"
     pack_sequence_cute = "pack_sequence_cute"
     rmsnorm_cute = "rmsnorm_cute"
     rmsnorm_memory_efficient_cute = "rmsnorm_memory_efficient_cute"
