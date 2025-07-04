@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -34,6 +36,28 @@ class RMSNorm(nn.RMSNorm):
         return hidden_states
 
 
+class PNorm(RMSNorm):
+    def __init__(
+        self,
+        normalized_shape: int,
+        p: int,
+        eps: float | None = None,
+        elementwise_affine=True,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ) -> PNorm:
+        self.p = p
+        super().__init__(normalized_shape, eps, elementwise_affine, device, dtype)
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps)
+
+        if self.weight is not None:
+            hidden_states = self.weight * hidden_states
+
+        return hidden_states
+
+
 class SiluGatedRMSNorm(RMSNorm):
     def forward(self, hidden_states: torch.Tensor, gate: torch.Tensor) -> torch.Tensor:
         input_dtype = hidden_states.dtype
@@ -52,17 +76,27 @@ class SiluGatedRMSNorm(RMSNorm):
         return hidden_states
 
 
-_NORMALIZATION_FUNCTIONS = {"layernorm": nn.LayerNorm, "rmsnorm": RMSNorm, "silu_gated_rmsnorm": SiluGatedRMSNorm}
+_NORMALIZATION_FUNCTIONS = {
+    "layernorm": nn.LayerNorm,
+    "p_norm": PNorm,
+    "rmsnorm": RMSNorm,
+    "silu_gated_rmsnorm": SiluGatedRMSNorm,
+}
 
 
 def get_normalization_function(
-    normalization_function: str, normalized_shape: int, eps: float = 1e-5
-) -> nn.LayerNorm | RMSNorm:
+    normalization_function: str, normalized_shape: int, eps: float = 1e-5, p: int | None = None
+) -> nn.LayerNorm | RMSNorm | PNorm | SiluGatedRMSNorm:
     if normalization_function is None:
         return nn.Identity()
 
     if normalization_function in _NORMALIZATION_FUNCTIONS:
-        normalization = _NORMALIZATION_FUNCTIONS[normalization_function](normalized_shape, eps=eps)
+        if normalization_function == "p_norm":
+            assert p is not None
+            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](normalized_shape, eps=eps, p=p)
+        else:
+            assert p is None
+            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](normalized_shape, eps=eps)
     else:
         raise ValueError(f"unexpected `normalization_function` {normalization_function}")
 
