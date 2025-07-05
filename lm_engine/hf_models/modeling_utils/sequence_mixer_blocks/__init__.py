@@ -75,7 +75,6 @@ def get_sequence_mixer(
             m_width=config.m_width,
             init_method=config.init_method,
             normalization_function=block.normalization_function,
-            scaling_factor=block.scaling_factor,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
             use_padding_free_transformer=use_padding_free_transformer,

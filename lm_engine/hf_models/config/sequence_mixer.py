@@ -91,8 +91,13 @@ class _RNNArgs(_GRUArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
-class _HiPPO_RNNArgs(_GRUArgs):
+class _HiPPO_RNNArgs(BaseArgs):
     sequence_mixer_type: str = "hippo_rnn"
+    state_size: int = 2048
+    num_heads: int = 128
+    add_bias: bool = True
+    normalization_function: str | None = None
+    gradient_clipping: float | None = None
     hippo_size: int = 64
     num_groups: int | None = None
     kernel_size: int | None = None

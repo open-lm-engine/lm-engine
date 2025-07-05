@@ -44,7 +44,6 @@ class HiPPO_RNN(nn.Module):
         m_width: float,
         init_method: str,
         normalization_function: str | None,
-        scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
@@ -118,9 +117,6 @@ class HiPPO_RNN(nn.Module):
             "p_norm", self.hippo_size * self.state_head_dim, elementwise_affine=False, p=2
         )
 
-        self.scaling_factor = scaling_factor
-        self.reset_parameters()
-
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
@@ -130,6 +126,8 @@ class HiPPO_RNN(nn.Module):
 
         mark_parameter_as_no_weight_decay(self.state_weight)
         mark_parameter_as_no_weight_decay(self.hippo_weight)
+
+        self.reset_parameters()
 
     def forward(
         self,
@@ -177,18 +175,9 @@ class HiPPO_RNN(nn.Module):
         input = self.input_norm(input)
         input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
 
-        state_weight = self.state_weight
-        hippo_weight = self.hippo_weight
+        state_weight = self.state_weight_norm(self.state_weight.view(self.num_heads, -1)).view_as(self.state_weight)
+        hippo_weight = self.hippo_weight_norm(self.hippo_weight.view(self.num_heads, -1)).view_as(self.hippo_weight)
         compress_weight = self.compress_weight
-
-        state_weight = self.state_weight_norm(state_weight.view(self.num_heads, -1)).view_as(self.state_weight)
-        hippo_weight = self.hippo_weight_norm(hippo_weight.view(self.num_heads, -1)).view_as(self.hippo_weight)
-
-        if self.scaling_factor != 1:
-            input = input * self.scaling_factor
-            state_weight = state_weight * self.scaling_factor
-            hippo_weight = hippo_weight * self.scaling_factor
-            compress_weight = compress_weight * self.scaling_factor
 
         input = hippo_rnn_cute(
             input=input,
