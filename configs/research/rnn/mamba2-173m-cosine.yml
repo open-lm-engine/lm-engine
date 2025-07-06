@@ -1,0 +1,434 @@
+datasets:
+  # class_name - data_name & data_sampling_ratio are not used but need to be passed to avoid errors
+  - class_name: MegatronDataset
+    data_name: Megatron
+    data_sampling_ratio: 1
+    class_args:
+      eval_steps: 2
+      data_cache_path: /mnt/vast/proj/checkpoints/granite-4-models-carina/data-cache
+      # Option 1: data loading using --data-path with single file
+      data_path:
+        - /mnt/vast/proj/datasets/starcoder-tokenized-fineweb/fineweb-edu
+      split: 99.5,0.5,0
+      # split: 1,0,0
+      sequence_length: 4096
+
+tokenizer_args:
+  tokenizer_name: bigcode/starcoder
+
+kernel_args:
+  kernels:
+    - rmsnorm_cute
+    - rnn_cute
+    - gru_cute
+    - scattermoe
+    - mamba2_ssm
+    - flash_attention_2
+
+model_args:
+  model_class: AutoModelForCausalLM
+  pretrained_config:
+    initializer_range: 0.1
+    layer_norm_epsilon: 1e-05
+    model_type: gpt_base
+    normalization_function: rmsnorm
+    position_embedding_type: nope
+    hidden_size: 768
+    # m_width: 3
+    # m_emb: 12
+    # m_residual: 0.2840187787
+    num_layers: 24
+    # init_method: mup
+    router_aux_loss_coef: 0.0001
+    bos_token_id: 0
+    eos_token_id: 0
+    pad_token_id: 0
+    max_position_embeddings: 4096
+    sequence_mixer_blocks:
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 48
+        state_size: 128
+        intermediate_size: 912
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+    mlp_blocks:
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1408
+  efficient_initialization: true
+
+tuning_args:
+  tuning_method: pretraining
+
+save_args:
+  save_path: /mnt/vast/proj/checkpoints/mayank/mamba2-173m-cosine
+  save_interval: 5000
+
+# load_args:
+#   load_path: /mnt/vast/proj/checkpoints/mayank/mamba2-173m-cosine
+
+logging_args:
+  log_interval: 10
+  # torch_profiler_trace_path: tmp
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: model-architectures
+    name: mamba2-173m-cosine
+
+training_parameters:
+  num_training_steps: 25000
+  eval_interval: 2500
+  micro_batch_size: 48
+  gradient_accumulation_steps: 3
+  eval_during_training: true
+
+optimizer_args:
+  # params_group_method: mup
+  class_name: TorchAdamW
+  class_args:
+    lr: 1e-4
+    weight_decay: 0.1
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1e-10
+
+lr_scheduler_args:
+  lr_decay_style: cosine
+  num_warmup_steps: 2500
+  num_constant_steps: 0
+  num_decay_steps: 22500
+
+mixed_precision_args:
+  dtype: bf16
+
+distributed_args:
+  stage: 0
+  torch_compile: true
