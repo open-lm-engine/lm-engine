@@ -18,6 +18,7 @@ tokenizer_args:
 
 kernel_args:
   kernels:
+    - causal_conv1d
     - rmsnorm_cute
     - gru_cute
     - rnn_cute
