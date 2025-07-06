@@ -79,6 +79,9 @@ class _GRUArgs(BaseArgs):
     normalization_function: str | None = None
     gradient_clipping: float | None = None
     scaling_factor: float = 1
+    num_groups: int | None = None
+    kernel_size: int | None = None
+    activation_function: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gru"
@@ -86,9 +89,6 @@ class _GRUArgs(BaseArgs):
 
 class _RNNArgs(_GRUArgs):
     sequence_mixer_type: str = "rnn"
-    num_groups: int | None = None
-    kernel_size: int | None = None
-    activation_function: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rnn"
