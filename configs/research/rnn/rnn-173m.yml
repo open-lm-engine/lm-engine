@@ -46,7 +46,7 @@ model_args:
     max_position_embeddings: 4096
     sequence_mixer_blocks:
       - sequence_mixer_type: rnn
-        state_size: 2396160/4/(3*768+66)
+        state_size: 1536
         num_heads: 64
         add_bias: false
         gradient_clipping: 1

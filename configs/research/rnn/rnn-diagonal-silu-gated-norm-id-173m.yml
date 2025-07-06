@@ -30,7 +30,7 @@ model_args:
   pretrained_config:
     initializer_range: 0.1
     layer_norm_epsilon: 1e-05
-    model_type: gpt_dolomite
+    model_type: gpt_base
     normalization_function: rmsnorm
     position_embedding_type: nope
     hidden_size: 768
