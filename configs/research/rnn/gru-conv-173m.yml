@@ -25,7 +25,6 @@ kernel_args:
     - scattermoe
     - mamba2_ssm
     - flash_attention_2
-    - checkpointed_mlp
 
 model_args:
   model_class: AutoModelForCausalLM
@@ -383,7 +382,7 @@ logging_args:
 training_parameters:
   num_training_steps: 25000
   eval_interval: 2500
-  micro_batch_size: 48
+  micro_batch_size: 32
   gradient_accumulation_steps: 3
   eval_during_training: true
 
