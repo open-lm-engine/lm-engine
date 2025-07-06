@@ -364,19 +364,19 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /mnt/vast/proj/checkpoints/mayank/rnn-173m
+  save_path: /mnt/vast/proj/checkpoints/mayank/rnn-conv-173m
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/rnn-173m
+#   load_path: /mnt/vast/proj/checkpoints/mayank/rnn-conv-173m
 
 logging_args:
   log_interval: 10
   # torch_profiler_trace_path: tmp
-  # experiments_tracker_name: wandb
-  # wandb_args:
-  #   project: model-architectures
-  #   name: rnn-173m
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: model-architectures
+    name: rnn-conv-173m
 
 training_parameters:
   num_training_steps: 25000
