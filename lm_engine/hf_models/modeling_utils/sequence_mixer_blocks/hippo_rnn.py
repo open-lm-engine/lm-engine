@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import numpy as np
@@ -47,7 +49,7 @@ class HiPPO_RNN(nn.Module):
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
-    ) -> None:
+    ) -> HiPPO_RNN:
         super().__init__()
 
         assert hippo_measure == "legs"
