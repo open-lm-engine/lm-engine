@@ -116,9 +116,6 @@ class HiPPO_RNN(nn.Module):
         self.hippo_weight_norm = get_normalization_function(
             "p_norm", self.hippo_size * self.state_head_dim, elementwise_affine=False, p=2
         )
-        self.compress_weight_norm = get_normalization_function(
-            "p_norm", self.state_head_dim, elementwise_affine=False, p=2
-        )
 
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
@@ -180,13 +177,12 @@ class HiPPO_RNN(nn.Module):
 
         state_weight = self.state_weight_norm(self.state_weight.view(self.num_heads, -1)).view_as(self.state_weight)
         hippo_weight = self.hippo_weight_norm(self.hippo_weight.view(self.num_heads, -1)).view_as(self.hippo_weight)
-        compress_weight = self.compress_weight_norm(self.compress_weight)
 
         input = hippo_rnn_cute(
             input=input,
             weight=state_weight,
             hippo_weight=hippo_weight,
-            compress_weight=compress_weight,
+            compress_weight=self.compress_weight,
             hippo_A=self.A.type_as(input),
             hippo_B=self.B.type_as(input),
             input_state=input_state,
