@@ -14,8 +14,11 @@ from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_cute_kernels_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ..activations import is_glu
+from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
+from .causal_convolution import causal_convolution
 from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
@@ -31,13 +34,15 @@ class GRU(nn.Module):
         state_size: int,
         output_size: int,
         num_heads: int,
+        num_groups: int | None,
+        kernel_size: int | None,
+        activation_function: str | None,
         add_bias: bool,
         gradient_clipping: float | None,
         initializer_range: float,
         m_width: float,
         init_method: str,
         normalization_function: str | None,
-        scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
@@ -48,6 +53,9 @@ class GRU(nn.Module):
         self.state_size = state_size
         self.output_size = output_size
         self.num_heads = num_heads
+        self.num_groups = num_groups
+        self.kernel_size = kernel_size
+        self.activation_string = activation_function
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
@@ -58,6 +66,22 @@ class GRU(nn.Module):
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.state_weight_std = std
+
+        if kernel_size is None:
+            assert num_groups is None
+            assert activation_function is None
+        else:
+            divide_if_divisible(input_size, num_groups, "")
+
+            self.conv1d = ParameterizedConv1d(
+                in_channels=input_size,
+                out_channels=input_size * 2 if is_glu(self.activation_string) else input_size,
+                kernel_size=kernel_size,
+                bias=add_bias,
+                padding=kernel_size - 1,
+                groups=num_groups,
+                std=std,
+            )
 
         self.input_projection = ParameterizedLinear(
             self.input_size,
@@ -74,15 +98,22 @@ class GRU(nn.Module):
         self.output_projection = ParameterizedLinear(self.state_size, self.output_size, bias=False, std=std)
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
+        self.input_norm = get_normalization_function("rmsnorm", self.state_size)
+        self.forget_norm = get_normalization_function("rmsnorm", self.state_size)
+        self.reset_norm = get_normalization_function("rmsnorm", self.state_size)
 
-        self.scaling_factor = scaling_factor
-        self.reset_parameters()
+        self.state_weight_norm = get_normalization_function(
+            "p_norm", self.state_head_dim * self.state_head_dim, elementwise_affine=False, p=2
+        )
 
+        mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
 
         mark_parameter_as_no_weight_decay(self.state_weight)
+
+        self.reset_parameters()
 
     def forward(
         self,
@@ -106,24 +137,41 @@ class GRU(nn.Module):
                 input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
 
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
+        conv_state = None
+
+        if self.kernel_size is not None:
+            input, conv_state = causal_convolution(
+                hidden_states=input,
+                input_state=conv_state,
+                attention_mask=attention_mask,
+                conv1d_weight=self.conv1d.weight,
+                conv1d_bias=self.conv1d.bias,
+                conv1d_num_groups=self.num_groups,
+                return_cache_state=cache_params is not None,
+                activation_string=self.activation_string,
+                conv1d_padding=self.kernel_size - 1,
+                conv1d_stride=1,
+            )
 
         input = self.input_projection(input)
 
         if self.is_gated_normalization:
             input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
 
-        weight = self.state_weight
-
-        if self.scaling_factor != 1:
-            input = input * self.scaling_factor
-            weight = weight * self.scaling_factor
-
         input, forget_input, reset_input = input.chunk(3, dim=-1)
-        weight, forget_weight, reset_weight = weight.chunk(3, dim=0)
+
+        input = self.input_norm(input)
+        forget_input = self.forget_norm(forget_input)
+        reset_input = self.reset_norm(reset_input)
 
         input, forget_input, reset_input = [
             i.view(*input.size()[:-1], self.num_heads, self.state_head_dim) for i in (input, forget_input, reset_input)
         ]
+
+        state_weight = self.state_weight_norm(self.state_weight.view(3 * self.num_heads, -1)).view_as(
+            self.state_weight
+        )
+        weight, forget_weight, reset_weight = state_weight.chunk(3, dim=0)
 
         input = gru_cute(
             input=input,
