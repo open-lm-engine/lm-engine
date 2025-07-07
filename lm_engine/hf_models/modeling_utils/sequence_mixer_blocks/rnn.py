@@ -67,28 +67,29 @@ class RNN(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        if kernel_size is None:
-            assert num_groups is None
-            assert activation_function is None
-        else:
-            divide_if_divisible(input_size, num_groups, "")
-
-            self.conv1d = ParameterizedConv1d(
-                in_channels=input_size,
-                out_channels=input_size * 2 if is_glu(self.activation_string) else input_size,
-                kernel_size=kernel_size,
-                bias=add_bias,
-                padding=kernel_size - 1,
-                groups=num_groups,
-                std=std,
-            )
-
         self.input_projection = ParameterizedLinear(
             self.input_size,
             self.state_size + (self.state_size if self.is_gated_normalization else 0),
             bias=add_bias,
             std=std,
         )
+
+        if kernel_size is None:
+            assert num_groups is None
+            assert activation_function is None
+        else:
+            is_glu_activation = is_glu(self.activation_string)
+            divide_if_divisible((2 if is_glu_activation else 1) * self.state_size, num_groups, "")
+
+            self.conv1d = ParameterizedConv1d(
+                in_channels=self.state_size,
+                out_channels=(2 if is_glu_activation else 1) * self.state_size,
+                kernel_size=kernel_size,
+                bias=add_bias,
+                padding=kernel_size - 1,
+                groups=num_groups,
+                std=std,
+            )
 
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
@@ -137,6 +138,11 @@ class RNN(nn.Module):
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
         conv_state = None
 
+        input = self.input_projection(input)
+
+        if self.is_gated_normalization:
+            input, gate = input.chunk(2, dim=-1)
+
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
                 hidden_states=input,
@@ -150,11 +156,6 @@ class RNN(nn.Module):
                 conv1d_padding=self.kernel_size - 1,
                 conv1d_stride=1,
             )
-
-        input = self.input_projection(input)
-
-        if self.is_gated_normalization:
-            input, gate = input.chunk(2, dim=-1)
 
         input = self.input_norm(input)
         input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
