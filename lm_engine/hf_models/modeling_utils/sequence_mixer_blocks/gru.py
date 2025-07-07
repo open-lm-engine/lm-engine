@@ -67,28 +67,29 @@ class GRU(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        if kernel_size is None:
-            assert num_groups is None
-            assert activation_function is None
-        else:
-            divide_if_divisible(input_size, num_groups, "")
-
-            self.conv1d = ParameterizedConv1d(
-                in_channels=input_size,
-                out_channels=input_size * 2 if is_glu(self.activation_string) else input_size,
-                kernel_size=kernel_size,
-                bias=add_bias,
-                padding=kernel_size - 1,
-                groups=num_groups,
-                std=std,
-            )
-
         self.input_projection = ParameterizedLinear(
             self.input_size,
             3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
             bias=add_bias,
             std=std,
         )
+
+        if kernel_size is None:
+            assert num_groups is None
+            assert activation_function is None
+        else:
+            is_glu_activation = is_glu(self.activation_string)
+            divide_if_divisible((6 if is_glu_activation else 3) * self.state_size, num_groups, "")
+
+            self.conv1d = ParameterizedConv1d(
+                in_channels=3 * self.state_size,
+                out_channels=(6 if is_glu_activation else 3) * self.state_size,
+                kernel_size=kernel_size,
+                bias=add_bias,
+                padding=kernel_size - 1,
+                groups=num_groups,
+                std=std,
+            )
 
         self.state_weight = nn.Parameter(torch.empty(3 * self.num_heads, self.state_head_dim, self.state_head_dim))
 
@@ -139,6 +140,11 @@ class GRU(nn.Module):
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
         conv_state = None
 
+        input = self.input_projection(input)
+
+        if self.is_gated_normalization:
+            input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
+
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
                 hidden_states=input,
@@ -152,11 +158,6 @@ class GRU(nn.Module):
                 conv1d_padding=self.kernel_size - 1,
                 conv1d_stride=1,
             )
-
-        input = self.input_projection(input)
-
-        if self.is_gated_normalization:
-            input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
 
         input, forget_input, reset_input = input.chunk(3, dim=-1)
 
