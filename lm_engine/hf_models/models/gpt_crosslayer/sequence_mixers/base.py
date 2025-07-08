@@ -114,7 +114,7 @@ class CrossLayerAttention(nn.Module):
                     use_padding_free_transformer=self.use_padding_free_transformer,
                     causal=self.causal,
                     dropout=self.softmax_dropout_p if self.training else 0,
-                    softmax_scale=self._get_softmax_scale(),
+                    softmax_scale=self.attention_multiplier,
                 )
 
                 del query, key, value
@@ -142,7 +142,7 @@ class CrossLayerAttention(nn.Module):
                     use_padding_free_transformer=self.use_padding_free_transformer,
                     causal=self.causal,
                     dropout=self.softmax_dropout_p if self.training else 0,
-                    softmax_scale=self._get_softmax_scale(),
+                    softmax_scale=self.attention_multiplier,
                 )
 
                 del query, key, value
@@ -165,7 +165,7 @@ class CrossLayerAttention(nn.Module):
                 attn_mask=attention_mask,
                 dropout_p=self.softmax_dropout_p if self.training else 0,
                 is_causal=self.causal if attention_mask is None else False,
-                scale=self._get_softmax_scale(),
+                scale=self.attention_multiplier,
                 enable_gqa=True,
             )
 
@@ -178,14 +178,6 @@ class CrossLayerAttention(nn.Module):
         hidden_states = self.dropout(hidden_states)
 
         return hidden_states
-
-    def _get_softmax_scale(self) -> float:
-        if self.attention_multiplier is None:
-            softmax_scale = None
-        else:
-            softmax_scale = self.attention_multiplier
-
-        return softmax_scale
 
 
 class KeyValueProjection(nn.Module):
