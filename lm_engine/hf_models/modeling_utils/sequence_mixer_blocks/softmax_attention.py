@@ -404,9 +404,7 @@ class Attention(nn.Module):
             del query, key, value
 
             hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = pack_sequence(
-                hidden_states, cu_seqlens=cu_seqlens, desired_shape=(T, *hidden_states.size()[2:])
-            )
+            hidden_states = pack_sequence(hidden_states, cu_seqlens=cu_seqlens)
 
             hidden_states = hidden_states.view(T, -1)
 
