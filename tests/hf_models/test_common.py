@@ -16,9 +16,6 @@ from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingfa
 from ..test_common import BaseTestCommons
 
 
-_RUN_SLOW = True if os.getenv("RUN_SLOW", "False").lower() in ["1", "true"] else False
-
-
 class TestCommons(BaseTestCommons):
     @staticmethod
     def get_attention_head_types() -> list[str]:
