@@ -89,7 +89,7 @@ labels = [[-100, -100, -100, 4, 5, 0], [-100, -100, 8, 0]]
 
 # this will throw a warning saying that the model is of gpt_bigcode class
 # ignore the warning
-model = GPTBaseForCausalLM.from_pretrained(<model_path>, use_padding_free_transformer=True).cuda()
+model = GPTBaseForCausalLM.from_pretrained(<model_path>).cuda()
 
 with enable_kernels([Kernel.flash_attention_2]):
     loss = model(input_ids=input_ids, labels=labels).loss
