@@ -16,18 +16,11 @@ from .softmax_attention import (
     repeat_key_value,
     split_query_key_value_tensor_for_attention,
 )
-from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
+from .stickbreaking_attention import PaddingFreeSBAttention
 
 
 SEQUENCE_MIXER_TYPE = (
-    Attention
-    | CausalConvolution
-    | GRU
-    | Mamba2
-    | MultiHeadLatentAttention
-    | RNN
-    | SBAttention
-    | PaddingFreeSBAttention
+    Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN | PaddingFreeSBAttention
 )
 
 
