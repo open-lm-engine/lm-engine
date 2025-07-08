@@ -7,9 +7,7 @@ from parameterized import parameterized
 from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM, set_seed
 
-from lm_engine.enums import Kernel
 from lm_engine.hf_models import convert_gpt_base_to_gpt_crosslayer
-from lm_engine.kernels import enable_kernels
 
 from ..test_common import TestCommons
 
