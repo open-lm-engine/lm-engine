@@ -23,7 +23,6 @@ parser.add_argument("--position-embedding-type", type=str)
 parser.add_argument("--attention-implementation", type=str)
 parser.add_argument("--torch-dtype", type=str)
 parser.add_argument("--tmp-path", type=str)
-parser.add_argument("--use-padding-free-transformer", action="store_true")
 parser.add_argument("--sequence-parallel", action="store_true")
 parser.add_argument("--model-type", type=str)
 args = parser.parse_args()
@@ -114,9 +113,7 @@ with torch.device("meta"):
     # try sharding vocab matrices if really struggling for memory
 
     model_tp = get_model_parallel_class(config.model_type)._from_config(
-        config,
-        use_padding_free_transformer=args.use_padding_free_transformer,
-        sequence_parallel=args.sequence_parallel,
+        config, sequence_parallel=args.sequence_parallel
     )
 
 # copy to device without copying storage
@@ -142,7 +139,7 @@ labels = torch.randint(
     0, 50255, (batch_size, sequence_length), device=torch.cuda.current_device(), requires_grad=False
 )
 
-if args.use_padding_free_transformer:
+if args.attention_implementation == "flash_attention_2":
     cu_seqlens = torch.arange(
         0, input_ids.numel() + 1, sequence_length, dtype=torch.int32, device=torch.cuda.current_device()
     )
@@ -169,7 +166,7 @@ if torch.distributed.get_rank() == 0:
     loss = output.loss
     logits = output.logits
 
-    if args.use_padding_free_transformer:
+    if args.attention_implementation == "flash_attention_2":
         logits_tp = logits_tp.reshape(batch_size, sequence_length, -1)
 
     error = (logits - logits_tp).abs().max()
