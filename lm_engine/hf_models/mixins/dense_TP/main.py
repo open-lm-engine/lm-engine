@@ -44,7 +44,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
                     self.vocab_size,
                     config.hidden_size,
                     std=config.initializer_range,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
                     sequence_parallel=self.sequence_parallel,
                 )
 
@@ -60,9 +59,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
         input_ids: torch.Tensor | list[list[int]] | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | list[list[int]] | None = None,
         position_ids: torch.Tensor | list[list[int]] | None = None,
-        inputs_embeds: torch.Tensor | list[list[float]] | None = None,
         labels: torch.Tensor | list[list[int]] | None = None,
         use_cache: bool | None = None,
         return_dict: bool = True,
@@ -81,18 +78,15 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
         if self.is_first_stage:
             assert pipeline_parallel_input is None, "first stage should not get pipeline_parallel_input"
-            input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
-                input_ids=input_ids,
-                inputs_embeds=inputs_embeds,
-                position_ids=position_ids,
-                token_type_ids=token_type_ids,
-                labels=labels,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-                past_key_values=past_key_values,
-                attention_mask=attention_mask,
-                use_cache=use_cache,
-            )
+            assert (
+                cu_seqlens is not None
+            ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
+            assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+            assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+            assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
+
+            if use_cache or past_key_values is not None:
+                raise NotImplementedError("KV caching is not supported with padding_free transformer")
         else:
             assert input_ids is None
             add_aux_loss(pipeline_parallel_input.aux_loss)
@@ -101,9 +95,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
             position_ids=position_ids,
-            inputs_embeds=inputs_embeds,
             use_cache=use_cache,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
@@ -144,7 +136,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
                     hidden_states=None,
                     vocab_weight=None,
                     cu_seqlens=cu_seqlens,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
                     reduction=reduction,
                     shift_logits_and_labels=True,
                     tensor_parallel_enabled=ProcessGroupManager.is_tensor_parallel_enabled(),
@@ -175,7 +166,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             LMHead_TP.compute_with_weight(
                 hidden_states,
                 weight=self.transformer.wte.weight,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 sequence_parallel=self.sequence_parallel,
                 tp_mesh=self.tp_mesh,
             )
@@ -249,21 +239,12 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             if output_parallel_lm_logits_if_possible:
                 vocab_size = divide_if_divisible(vocab_size, ProcessGroupManager.get_tensor_parallel_world_size(), "")
 
-            if self.use_padding_free_transformer:
-                tensor = torch.empty(
-                    micro_batch_size * sequence_length,
-                    vocab_size,
-                    device=torch.cuda.current_device(),
-                    dtype=intermediate_dtype,
-                )
-            else:
-                tensor = torch.empty(
-                    micro_batch_size,
-                    sequence_length,
-                    vocab_size,
-                    device=torch.cuda.current_device(),
-                    dtype=intermediate_dtype,
-                )
+            tensor = torch.empty(
+                micro_batch_size * sequence_length,
+                vocab_size,
+                device=torch.cuda.current_device(),
+                dtype=intermediate_dtype,
+            )
         else:
             tensor = self._get_dummy_intermediate_tensor(
                 micro_batch_size, sequence_length, intermediate_dtype=intermediate_dtype
@@ -284,20 +265,11 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
         hidden_size = self.config.hidden_size
 
-        if self.use_padding_free_transformer:
-            tensor = torch.empty(
-                micro_batch_size * sharded_sequence_length,
-                hidden_size,
-                device=torch.cuda.current_device(),
-                dtype=intermediate_dtype,
-            )
-        else:
-            tensor = torch.empty(
-                micro_batch_size,
-                sharded_sequence_length,
-                hidden_size,
-                device=torch.cuda.current_device(),
-                dtype=intermediate_dtype,
-            )
+        tensor = torch.empty(
+            micro_batch_size * sharded_sequence_length,
+            hidden_size,
+            device=torch.cuda.current_device(),
+            dtype=intermediate_dtype,
+        )
 
         return tensor

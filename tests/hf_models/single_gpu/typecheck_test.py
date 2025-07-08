@@ -19,7 +19,7 @@ class TypeCheckTest(TestCommons):
         config = self.get_dense_test_config(
             attention_head_type="mha", position_embedding_type="learned_absolute", num_layers=8, num_attention_heads=32
         )
-        model = self.from_config(config, use_padding_free_transformer=True).to(device)
+        model = self.from_config(config).to(device)
         model.eval()
 
         input_ids, _, labels = self.get_dummy_inputs(device, return_list=True)

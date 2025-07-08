@@ -9,9 +9,7 @@ import torch
 
 def convert_padding_free_lists_to_tensors(
     input_ids: list[list[int]] | None = None,
-    inputs_embeds: list[list[float]] | None = None,
     position_ids: list[list[int]] | None = None,
-    token_type_ids: list[list[int]] | None = None,
     labels: list[list[int]] | None = None,
     device: torch.device = None,
 ) -> tuple[torch.Tensor | int]:
@@ -19,9 +17,7 @@ def convert_padding_free_lists_to_tensors(
     # check input types are correct
     error_message = "{variable} should be of type List[List[{dtype}]]"
     _check_list_type(input_ids, error_message.format(variable="input_ids", dtype="int"))
-    _check_list_type(inputs_embeds, error_message.format(variable="inputs_embeds", dtype="float"))
     _check_list_type(position_ids, error_message.format(variable="position_ids", dtype="int"))
-    _check_list_type(token_type_ids, error_message.format(variable="token_type_ids", dtype="int"))
     _check_list_type(labels, error_message.format(variable="labels", dtype="int"))
 
     # prepare inputs for the model
@@ -35,17 +31,10 @@ def convert_padding_free_lists_to_tensors(
 
     input_ids = _flatten_and_convert_to_tensors(input_ids, device)
 
-    # TODO drop inputs_embeds
-    if inputs_embeds is not None:
-        inputs_embeds = _flatten_and_convert_to_tensors(inputs_embeds, device)
-
-    if token_type_ids is not None:
-        token_type_ids = _flatten_and_convert_to_tensors(token_type_ids, device)
-
     if labels is not None:
         labels = _flatten_and_convert_to_tensors(labels, device)
 
-    return input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen
+    return input_ids, position_ids, labels, cu_seqlens, max_seqlen
 
 
 def _check_list_type(list_of_list: list[list[int | float]] | None, error_message: str) -> None:

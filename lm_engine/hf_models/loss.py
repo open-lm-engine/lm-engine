@@ -26,7 +26,6 @@ def get_autoregressive_language_modeling_loss(
     hidden_states: torch.Tensor | None = None,
     vocab_weight: torch.Tensor | None = None,
     cu_seqlens: torch.Tensor | None = None,
-    use_padding_free_transformer: bool = False,
     reduction: str = "mean",
     shift_logits_and_labels: bool = True,
     tensor_parallel_enabled: bool = False,
@@ -40,15 +39,12 @@ def get_autoregressive_language_modeling_loss(
 
         labels = labels[..., 1:]
 
-    if use_padding_free_transformer:
-        if shift_logits_and_labels:
-            assert cu_seqlens is not None
+    if shift_logits_and_labels:
+        assert cu_seqlens is not None
 
-            # this is needed so that the last token of current example doesn't predict first token of next example
-            drop_loss_positions = cu_seqlens[1:-1] - 1
-            labels[drop_loss_positions] = -100
-    else:
-        assert cu_seqlens is None
+        # this is needed so that the last token of current example doesn't predict first token of next example
+        drop_loss_positions = cu_seqlens[1:-1] - 1
+        labels[drop_loss_positions] = -100
 
     if is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute):
         assert lm_logits is None

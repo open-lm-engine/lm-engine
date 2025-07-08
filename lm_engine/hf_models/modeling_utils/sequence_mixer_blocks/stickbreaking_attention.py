@@ -58,7 +58,6 @@ class SBAttention(Attention):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool = False,
     ) -> SBAttention:
         super().__init__(
             hidden_size=hidden_size,
@@ -75,7 +74,6 @@ class SBAttention(Attention):
             num_layers=num_layers,
             causal=causal,
             layer_idx=layer_idx,
-            use_padding_free_transformer=use_padding_free_transformer,
         )
 
         self.head_bias = torch.nn.Parameter(torch.zeros(self.hidden_size // self.head_dim, self.head_dim))
@@ -94,7 +92,6 @@ class SBAttention(Attention):
         # assert past_key_values is None
 
         query, key, value = self._prepare_qkv_for_forward(hidden_states)
-        softmax_scale = self._get_softmax_scale()
         # key, value = past_key_values.update(key, value, self.layer_idx)
         bsz_, _, length_, _ = query.size()
 
@@ -103,10 +100,10 @@ class SBAttention(Attention):
                 q=query,
                 k=key,
                 v=value,
-                inv_temp=softmax_scale,
+                inv_temp=self.attention_multiplier,
             )
         else:
-            hidden_states, rem = decoding_stickbreaking(q=query, k=key, v=value, scale=softmax_scale)
+            hidden_states, rem = decoding_stickbreaking(q=query, k=key, v=value, scale=self.attention_multiplier)
 
         hidden_states = hidden_states + rem[..., None] * self.head_bias[None, :, None, :]
 
@@ -178,7 +175,6 @@ class PaddingFreeSBAttention(SBAttention):
             num_layers=num_layers,
             causal=causal,
             layer_idx=layer_idx,
-            use_padding_free_transformer=True,
         )
 
     def forward(
@@ -199,7 +195,7 @@ class PaddingFreeSBAttention(SBAttention):
             q=query.permute(1, 0, 2),
             k=key.permute(1, 0, 2),
             v=value,
-            inv_temp=self._get_softmax_scale(),
+            inv_temp=self.attention_multiplier,
             cu_seqlens=cu_seqlens,
             max_seqlens=max_seqlen,
         )

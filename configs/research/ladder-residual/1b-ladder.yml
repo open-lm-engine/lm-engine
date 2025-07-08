@@ -318,7 +318,6 @@ model_args:
         activation_function: swiglu
         intermediate_size: 4096
   efficient_initialization: false
-  use_padding_free_transformer: false
 
 tuning_args:
   tuning_method: pretraining
