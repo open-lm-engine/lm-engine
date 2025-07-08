@@ -140,7 +140,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
 
         lm_loss = lm_loss * lm_loss_multiplier
 
-        with torch.inference_mode():
+        with torch.no_grad():
             output: CausalLMOutputWithPast | PipelineParallelOutput = self.teacher_model(**batch, return_dict=True)
             teacher_logits = output.logits
             teacher_logits = teacher_logits.float()

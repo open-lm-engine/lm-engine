@@ -529,6 +529,12 @@ _MODE_ARGS_MAP = {
 }
 
 
+def args_dict_to_pydantic_args(
+    mode: Mode, **config
+) -> TrainingArgs | InferenceArgs | UnshardingArgs | DistillationArgs:
+    return _MODE_ARGS_MAP[mode](**config)
+
+
 def get_args(mode: Mode) -> TrainingArgs | InferenceArgs | UnshardingArgs:
     """get args for training / inference
 
@@ -544,7 +550,7 @@ def get_args(mode: Mode) -> TrainingArgs | InferenceArgs | UnshardingArgs:
     args = parser.parse_args()
 
     config: dict = load_yaml(args.config)
-    args: TrainingArgs | InferenceArgs | UnshardingArgs = _MODE_ARGS_MAP[mode](**config)
+    args: TrainingArgs | InferenceArgs | UnshardingArgs = args_dict_to_pydantic_args(mode, **config)
 
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
     log_args(args)

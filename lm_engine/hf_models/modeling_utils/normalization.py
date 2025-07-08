@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,7 +15,7 @@ from ..parameter import mark_parameter_as_no_weight_decay
 
 
 if is_cute_kernels_available():
-    from cute_kernels import rmsnorm_cute
+    from cute_kernels import p_norm_cute, rmsnorm_cute
 
 
 class RMSNorm(nn.RMSNorm):
@@ -30,6 +32,35 @@ class RMSNorm(nn.RMSNorm):
             )
         else:
             hidden_states = super().forward(hidden_states)
+
+        return hidden_states
+
+
+class PNorm(RMSNorm):
+    def __init__(
+        self,
+        normalized_shape: int,
+        p: int,
+        eps: float | None = None,
+        elementwise_affine=True,
+        device: torch.device = None,
+        dtype: torch.dtype = None,
+    ) -> PNorm:
+        self.p = p
+        super().__init__(normalized_shape, eps, elementwise_affine, device, dtype)
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        if is_kernel_allowed(Kernel.p_norm_cute):
+            hidden_states = p_norm_cute(x=hidden_states, p=self.p, weight=self.weight, eps=self.eps)
+        else:
+            dtype = hidden_states.dtype
+
+            hidden_states = hidden_states.float()
+            hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
+            hidden_states = hidden_states.to(dtype)
+
+            if self.weight is not None:
+                hidden_states = self.weight * hidden_states
 
         return hidden_states
 
@@ -52,17 +83,27 @@ class SiluGatedRMSNorm(RMSNorm):
         return hidden_states
 
 
-_NORMALIZATION_FUNCTIONS = {"layernorm": nn.LayerNorm, "rmsnorm": RMSNorm, "silu_gated_rmsnorm": SiluGatedRMSNorm}
+_NORMALIZATION_FUNCTIONS = {
+    "layernorm": nn.LayerNorm,
+    "p_norm": PNorm,
+    "rmsnorm": RMSNorm,
+    "silu_gated_rmsnorm": SiluGatedRMSNorm,
+}
 
 
 def get_normalization_function(
-    normalization_function: str, normalized_shape: int, eps: float = 1e-5
-) -> nn.LayerNorm | RMSNorm:
+    normalization_function: str, normalized_shape: int, eps: float = 1e-5, p: int | None = None
+) -> nn.LayerNorm | RMSNorm | PNorm | SiluGatedRMSNorm:
     if normalization_function is None:
         return nn.Identity()
 
     if normalization_function in _NORMALIZATION_FUNCTIONS:
-        normalization = _NORMALIZATION_FUNCTIONS[normalization_function](normalized_shape, eps=eps)
+        if normalization_function == "p_norm":
+            assert p is not None
+            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](normalized_shape, eps=eps, p=p)
+        else:
+            assert p is None
+            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](normalized_shape, eps=eps)
     else:
         raise ValueError(f"unexpected `normalization_function` {normalization_function}")
 

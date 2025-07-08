@@ -2,9 +2,10 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-import logging
+from __future__ import annotations
 
-import torch.nn as nn
+import logging
+from typing import Any
 
 from ..containers import ModelContainer
 from ..enums import ParamsGroupMethod
@@ -36,9 +37,16 @@ class _ParamsGroup(BaseArgs):
         param_names.sort()
         return param_names
 
+    def __len__(self) -> int:
+        return len(self.parameter_name_map)
+
 
 class _ParamsGroupsList(BaseArgs):
     params_groups: list[_ParamsGroup] = []
+
+    def model_post_init(self, __context: Any) -> None:
+        self.params_groups = list(filter(lambda group: len(group) > 0, self.params_groups))
+        super().model_post_init(__context)
 
     def add_params_group(self, params_group: _ParamsGroup) -> None:
         self.params_groups.append(params_group)
