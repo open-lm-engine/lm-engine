@@ -388,7 +388,7 @@ class Attention(nn.Module):
                 unpack_sequence(i, cu_seqlens=cu_seqlens, desired_shape=(B, S, *i.size()[1:]))
                 for i in (query, key, value)
             ]
-            query, key, value = [i.transpose(-1, -2) for i in (query, key, value)]
+            query, key, value = [i.transpose(1, 2) for i in (query, key, value)]
 
             hidden_states = F.scaled_dot_product_attention(
                 query,
