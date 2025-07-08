@@ -60,7 +60,7 @@ class PaddingFreeSBAttention(Attention):
             q=query.permute(1, 0, 2),
             k=key.permute(1, 0, 2),
             v=value,
-            inv_temp=self._get_softmax_scale(),
+            inv_temp=self.attention_multiplier,
             cu_seqlens=cu_seqlens,
             max_seqlens=max_seqlen,
         )
