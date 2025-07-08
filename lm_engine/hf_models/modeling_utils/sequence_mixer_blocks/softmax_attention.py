@@ -405,7 +405,6 @@ class Attention(nn.Module):
 
             hidden_states = hidden_states.transpose(1, 2)
             hidden_states = pack_sequence(hidden_states, cu_seqlens=cu_seqlens)
-
             hidden_states = hidden_states.view(T, -1)
 
         hidden_states = self.c_proj(hidden_states)
