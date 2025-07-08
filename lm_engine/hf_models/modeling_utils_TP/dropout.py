@@ -13,17 +13,11 @@ from .TP import get_module_placements
 
 
 class Dropout_TP(nn.Dropout):
-    def __init__(
-        self,
-        p: float = 0.5,
-        inplace: bool = False,
-        use_padding_free_transformer: bool = False,
-        sequence_parallel: bool = False,
-    ) -> Dropout_TP:
+    def __init__(self, p: float = 0.5, inplace: bool = False, sequence_parallel: bool = False) -> Dropout_TP:
         super().__init__(p, inplace)
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
-        self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+        self.placement = get_module_placements(sequence_parallel)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         if self.training:

@@ -40,7 +40,6 @@ class GRU(nn.Module):
         scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> GRU:
         super().__init__()
 
@@ -50,7 +49,6 @@ class GRU(nn.Module):
         self.num_heads = num_heads
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
         self.is_gated_normalization = normalization_function == "silu_gated_rmsnorm"
 

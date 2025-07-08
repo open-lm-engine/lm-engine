@@ -37,7 +37,6 @@ class MultiHeadLatentAttention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
         normalization_function: str,
         layer_norm_epsilon: float = 1e-5,
     ) -> MultiHeadLatentAttention:
@@ -48,7 +47,6 @@ class MultiHeadLatentAttention(nn.Module):
         self.num_heads = num_attention_heads
         self.head_dim = head_dim
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.query_compression_size = query_compression_size
         self.key_value_compression_size = key_value_compression_size
         self.position_embedding_type = position_embedding_type
@@ -117,9 +115,8 @@ class MultiHeadLatentAttention(nn.Module):
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
-        if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
-            assert past_key_values is None
+        assert use_flash_attention_2 or use_flash_attention_3
+        assert past_key_values is None
 
         query = self.query_down_projection(hidden_states)
         query = self.query_ln(query)
@@ -145,23 +142,13 @@ class MultiHeadLatentAttention(nn.Module):
             value = self.value_up_projection(value)
 
         if use_flash_attention_2 or use_flash_attention_3:
-            if self.use_padding_free_transformer:
-                total_q = query.shape[0]
+            T = query.size(0)
 
-                query = query.view(total_q, self.num_heads, -1)
-                key = key.view(total_q, self.num_heads, -1)
-                value = value.view(total_q, self.num_heads, -1)
+            query = query.view(T, self.num_heads, -1)
+            key = key.view(T, self.num_heads, -1)
+            value = value.view(T, self.num_heads, -1)
 
-                output_shape = (-1, self.hidden_size)
-            else:
-                batch_size, query_length = query.shape[:-1]
-                key_length = key.shape[1]
-
-                query = query.view(batch_size, query_length, self.num_heads, -1)
-                key = key.view(batch_size, key_length, self.num_heads, -1)
-                value = value.view(batch_size, key_length, self.num_heads, -1)
-
-                output_shape = (batch_size, query_length, -1)
+            output_shape = (-1, self.hidden_size)
 
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
@@ -174,7 +161,6 @@ class MultiHeadLatentAttention(nn.Module):
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 attention_mask=attention_mask,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self._get_softmax_scale(),

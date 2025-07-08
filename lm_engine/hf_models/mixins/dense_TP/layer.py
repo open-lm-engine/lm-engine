@@ -13,11 +13,7 @@ from ..dense import Block
 
 class Block_TP(Block):
     def __init__(
-        self,
-        config: CommonConfig,
-        use_padding_free_transformer: bool,
-        layer_idx: int | None = None,
-        sequence_parallel: bool = False,
+        self, config: CommonConfig, layer_idx: int | None = None, sequence_parallel: bool = False
     ) -> Block_TP:
         nn.Module.__init__(self)
 
@@ -29,26 +25,15 @@ class Block_TP(Block):
             config.normalization_function,
             hidden_size,
             eps=config.layer_norm_epsilon,
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
         self.sequence_mixer = get_sequence_mixer_TP(
-            config,
-            True,
-            use_padding_free_transformer=use_padding_free_transformer,
-            layer_idx=layer_idx,
-            sequence_parallel=sequence_parallel,
+            config, True, layer_idx=layer_idx, sequence_parallel=sequence_parallel
         )
         self.ln_2 = get_normalization_function_TP(
             config.normalization_function,
             hidden_size,
             eps=config.layer_norm_epsilon,
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
-        self.mlp_block = get_mlp_block_TP(
-            config,
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
-            layer_idx=layer_idx,
-        )
+        self.mlp_block = get_mlp_block_TP(config, sequence_parallel=sequence_parallel, layer_idx=layer_idx)

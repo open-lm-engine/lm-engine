@@ -58,23 +58,16 @@ def flash_attention(
     attention_mask: torch.Tensor | None,
     cu_seqlens: torch.Tensor | None,
     max_seqlen: int | None,
-    use_padding_free_transformer: bool,
     causal: bool,
     dropout: float = 0,
     softmax_scale: float | None = None,
     sliding_window: int | None = None,
     softcap: float = 0,
 ) -> torch.Tensor:
-    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
     use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
     if use_flash_attention_3:
         assert dropout == 0
-
-    assert use_flash_attention_3 or use_flash_attention_2, "enable flash_attention_2 or flash_attention_3"
-
-    if use_padding_free_transformer:
-        assert use_flash_attention_3 or use_flash_attention_2
 
     window_size = (-1, -1)
     if sliding_window is not None and key.size(1) > sliding_window:

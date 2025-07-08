@@ -7,9 +7,7 @@ from .mlp import MLP_TP
 from .moe import MoE_TP
 
 
-def get_mlp_block_TP(
-    config: CommonConfig, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
-) -> MLP_TP | MoE_TP:
+def get_mlp_block_TP(config: CommonConfig, sequence_parallel: bool, layer_idx: int) -> MLP_TP | MoE_TP:
     block = config.mlp_blocks[layer_idx]
     mlp_type = block.mlp_type
 
@@ -23,7 +21,6 @@ def get_mlp_block_TP(
         initializer_range=config.initializer_range,
         m_width=config.m_width,
         num_layers=config.num_layers,
-        use_padding_free_transformer=use_padding_free_transformer,
         sequence_parallel=sequence_parallel,
     )
 

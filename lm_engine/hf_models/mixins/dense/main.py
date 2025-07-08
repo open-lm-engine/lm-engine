@@ -84,17 +84,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             use_cache=use_cache,
         )
 
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> None or (batch_size, key_length)
-        # ==========================================================================================
-
         clear_aux_loss()
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
@@ -139,7 +128,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
                 hidden_states=None,
                 vocab_weight=None,
                 cu_seqlens=cu_seqlens,
-                use_padding_free_transformer=self.use_padding_free_transformer,
+                use_padding_free_transformer=True,
                 reduction=reduction,
                 shift_logits_and_labels=True,
                 tensor_parallel_enabled=False,

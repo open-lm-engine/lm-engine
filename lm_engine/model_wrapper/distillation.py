@@ -32,7 +32,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
         dtype: torch.dtype,
         efficient_initialization: bool,
-        use_padding_free_transformer: bool,
         sequence_parallel: bool,
         micro_batch_size: int,
         sequence_length: int,
@@ -58,7 +57,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
             dtype (torch.dtype): dtype for the model
             efficient_initialization (bool): whether to use efficient initialization for the model initialization, saves CPU memory
-            use_padding_free_transformer (bool): whether to use padding free transformer
             sequence_parallel (bool): whether to use sequence parallel
             micro_batch_size (int): micro batch size for pretraining
             sequence_length (int): sequence length for pretraining
@@ -84,7 +82,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             model_class=model_class,
             dtype=dtype,
             efficient_initialization=efficient_initialization,
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
             micro_batch_size=micro_batch_size,
             sequence_length=sequence_length,
@@ -136,7 +133,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             hidden_states=None,
             vocab_weight=None,
             cu_seqlens=None,
-            use_padding_free_transformer=self.use_padding_free_transformer,
+            use_padding_free_transformer=self.is_custom_model,
             reduction="sum",
             shift_logits_and_labels=False,
             tensor_parallel_enabled=False,
