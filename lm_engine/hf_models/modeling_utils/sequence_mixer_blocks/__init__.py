@@ -133,11 +133,7 @@ def get_sequence_mixer(
         )
 
         if sequence_mixer_type == "softmax_attention":
-            return Attention(
-                **sequence_mixer_kwargs,
-                softmax_dropout=block.softmax_dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-            )
+            return Attention(**sequence_mixer_kwargs, softmax_dropout=block.softmax_dropout)
         elif sequence_mixer_type == "stickbreaking_attention":
             if use_padding_free_transformer:
                 return PaddingFreeSBAttention(**sequence_mixer_kwargs)
