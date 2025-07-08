@@ -6,7 +6,7 @@ import itertools
 
 import torch
 from parameterized import parameterized
-from transformers import set_seed
+from transformers import AutoModelForCausalLM, set_seed
 
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
@@ -39,8 +39,10 @@ class GPTBaseAttentionTest(TestCommons):
 
         config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
 
-        sdpa_model = self.from_config(config, torch_dtype=torch_dtype).to(device)
-        flash_model = self.from_config(config, torch_dtype=torch_dtype, use_padding_free_transformer=True).to(device)
+        sdpa_model = AutoModelForCausalLM.from_config(config, torch_dtype=torch_dtype).to(device)
+        flash_model = AutoModelForCausalLM.from_config(
+            config, torch_dtype=torch_dtype, use_padding_free_transformer=True
+        ).to(device)
 
         sdpa_model.eval()
         flash_model.eval()
@@ -93,7 +95,7 @@ class GPTBaseAttentionTest(TestCommons):
         input_ids, attention_mask, labels = self.get_dummy_inputs(device)
         config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = AutoModelForCausalLM.from_config(config, torch_dtype=torch_dtype).to(device)
         model.eval()
 
         sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
@@ -141,7 +143,9 @@ class GPTBaseAttentionTest(TestCommons):
 
         config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype, use_padding_free_transformer=True).to(device)
+        model = AutoModelForCausalLM.from_config(
+            config, torch_dtype=torch_dtype, use_padding_free_transformer=True
+        ).to(device)
         model.eval()
 
         with enable_kernels([Kernel.flash_attention_2]):
@@ -193,7 +197,7 @@ class GPTBaseAttentionTest(TestCommons):
 
         config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = AutoModelForCausalLM.from_config(config, torch_dtype=torch_dtype).to(device)
         model.eval()
 
         input_ids, _, labels = self.get_dummy_inputs(device)
@@ -242,7 +246,7 @@ class GPTBaseAttentionTest(TestCommons):
 
         attention_mask = torch.ones_like(input_ids)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = AutoModelForCausalLM.from_config(config, torch_dtype=torch_dtype).to(device)
         model.eval()
 
         with enable_kernels([Kernel.flash_attention_2]):

@@ -4,7 +4,7 @@
 
 import torch
 from parameterized import parameterized
-from transformers import set_seed
+from transformers import AutoModelForCausalLM, set_seed
 
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
@@ -27,7 +27,7 @@ class ScatterMoETest(TestCommons):
 
         config = self.get_moe_test_config("mha", "rope", num_layers=1, add_bias=False)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = AutoModelForCausalLM.from_config(config, torch_dtype=torch_dtype).to(device)
         model.eval()
 
         naive_output = model(input_ids=input_ids, attention_mask=attention_mask)

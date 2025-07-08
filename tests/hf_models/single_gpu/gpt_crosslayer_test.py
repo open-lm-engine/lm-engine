@@ -109,17 +109,3 @@ class GPTCrossLayerAttentionTest(TestCommons):
 
         for original_scores, scores in zip(original_output.scores, output.scores):
             assert_close(original_scores, scores, atol=2e-7, rtol=0)
-
-    def from_config(self, config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
-        model = AutoModelForCausalLM.from_config(config, **kwargs)
-
-        kwargs.pop("torch_dtype")
-        _, model = convert_gpt_base_to_gpt_crosslayer(config, model, **kwargs)
-
-        use_padding_free_transformer = kwargs.pop("use_padding_free_transformer", False)
-        if use_padding_free_transformer:
-            assert model.use_padding_free_transformer
-
-        assert len(kwargs) == 0
-
-        return model
