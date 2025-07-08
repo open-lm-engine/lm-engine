@@ -23,7 +23,6 @@ from .models import (
     PaLMConfig,
     PaLMForCausalLM,
     PaLMModel,
-    convert_gpt_base_to_gpt_crosslayer,
 )
 from .parameter import (
     is_parameter_with_mup_learning_rate,
