@@ -19,6 +19,7 @@ from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .flash_attention_utils import flash_attention
+from .packing import pack_sequence, unpack_sequence
 
 
 def _interleave_query_key_value_tensor_for_mha(
@@ -343,10 +344,6 @@ class Attention(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
-        use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-
-        assert use_flash_attention_2 or use_flash_attention_3
         assert past_key_values is None
 
         query, key, value = self._prepare_qkv_for_forward(hidden_states)
@@ -358,7 +355,7 @@ class Attention(nn.Module):
         if past_key_values is not None:
             key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
 
-        if use_flash_attention_2 or use_flash_attention_3:
+        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
@@ -383,6 +380,14 @@ class Attention(nn.Module):
             key = repeat_key_value(key, self.num_heads, self.num_key_value_heads)
             value = repeat_key_value(value, self.num_heads, self.num_key_value_heads)
 
+            T = query.size(0)
+            B = cu_seqlens.size(0) - 1
+            S = max_seqlen
+
+            query, key, value = unpack_sequence(
+                (query, key, value), cu_seqlens=cu_seqlens, desired_shape=(B, S, *query.size()[1:])
+            )
+
             hidden_states = F.scaled_dot_product_attention(
                 query,
                 key,
@@ -396,9 +401,12 @@ class Attention(nn.Module):
 
             del query, key, value
 
-            batch_size = hidden_states.shape[0]
+            hidden_states = unpack_sequence(
+                hidden_states, cu_seqlens=cu_seqlens, desired_shape=(T, *hidden_states.size()[2:])
+            )
+
             hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = hidden_states.reshape(batch_size, -1, self.num_heads * self.head_dim)
+            hidden_states = hidden_states.reshape(B, -1, self.num_heads * self.head_dim)
 
         hidden_states = self.c_proj(hidden_states)
         hidden_states = self.dropout(hidden_states)
