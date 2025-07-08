@@ -265,16 +265,7 @@ class TestCommons(BaseTestCommons):
         return False
 
     def from_config(self, config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
-        use_padding_free_transformer = kwargs.pop("use_padding_free_transformer", False)
-
-        model = AutoModelForCausalLM.from_config(
-            config,
-            use_padding_free_transformer=use_padding_free_transformer,
-            torch_dtype=kwargs.pop("torch_dtype", None),
-        )
-
-        if use_padding_free_transformer:
-            assert model.use_padding_free_transformer
+        model = AutoModelForCausalLM.from_config(config, torch_dtype=kwargs.pop("torch_dtype", None))
 
         assert len(kwargs) == 0
 
