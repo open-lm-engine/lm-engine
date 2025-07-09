@@ -338,7 +338,7 @@ class Attention(nn.Module):
             S = max_seqlen
 
             query, key, value = [
-                unpack_sequence(i, cu_seqlens=cu_seqlens, desired_shape=(B, S, *i.size()[1:]))
+                unpack_sequence(i, cu_seqlens=cu_seqlens, output_shape=(B, S, *i.size()[1:]))
                 for i in (query, key, value)
             ]
             query, key, value = [i.transpose(1, 2) for i in (query, key, value)]
@@ -357,7 +357,10 @@ class Attention(nn.Module):
             del query, key, value
 
             hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = pack_sequence(hidden_states, cu_seqlens=cu_seqlens)
+            hidden_states = pack_sequence(
+                hidden_states, cu_seqlens=cu_seqlens, output_shape=(T, self.num_heads, self.head_dim)
+            )
+
             hidden_states = hidden_states.view(T, -1)
 
         hidden_states = self.c_proj(hidden_states)
