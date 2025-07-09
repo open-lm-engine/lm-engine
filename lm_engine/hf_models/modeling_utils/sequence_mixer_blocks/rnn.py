@@ -97,7 +97,8 @@ class RNN(nn.Module):
         if self.is_gated_normalization:
             input, gate = input.chunk(2, dim=-1)
 
-        input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
+        T = input.size(0)
+        input = input.view(T, self.num_heads, self.state_head_dim)
 
         weight = self.state_weight
 
@@ -116,9 +117,11 @@ class RNN(nn.Module):
         )
 
         if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+            cache_params.update(
+                state=input[cu_seqlens[1:] - 1], num_tokens_added=input.size(1), layer_idx=self.layer_idx
+            )
 
-        input = input.view(*input.size()[:-2], -1)
+        input = input.view(T, -1)
 
         if self.is_gated_normalization:
             input = self.norm(input, gate)
