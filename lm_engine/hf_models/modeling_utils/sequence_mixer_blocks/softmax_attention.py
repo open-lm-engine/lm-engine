@@ -265,21 +265,6 @@ class Attention(nn.Module):
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
-    def _prepare_qkv_for_forward_gqa(
-        self, hidden_states: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        T = hidden_states.size(0)
-
-        hidden_states = hidden_states.view(T, self.num_key_value_heads, -1)
-
-        query, key, value = hidden_states.split(
-            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
-        )
-
-        query = query.reshape(T, -1, self.head_dim)
-
-        return query, key, value
-
     def forward(
         self,
         hidden_states: torch.Tensor,
