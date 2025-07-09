@@ -333,7 +333,6 @@ class Attention(nn.Module):
             key = repeat_key_value(key, self.num_heads, self.num_key_value_heads)
             value = repeat_key_value(value, self.num_heads, self.num_key_value_heads)
 
-            T = query.size(0)
             B = cu_seqlens.size(0) - 1
             S = max_seqlen
 
