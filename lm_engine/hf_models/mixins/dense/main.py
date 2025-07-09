@@ -69,10 +69,10 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         reduction: str = "mean",
     ) -> CausalLMOutputWithPast:
         assert return_dict
+        assert inputs_embeds is None
 
         input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
             input_ids=input_ids,
-            inputs_embeds=inputs_embeds,
             position_ids=position_ids,
             labels=labels,
             cu_seqlens=cu_seqlens,
@@ -100,7 +100,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             position_ids=position_ids,
-            inputs_embeds=inputs_embeds,
             use_cache=use_cache,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
