@@ -175,14 +175,12 @@ class MoE_TP(MoE, DTensorModule):
         initializer_range: float,
         m_width: float,
         num_layers: int,
-        use_padding_free_transformer: bool,
         sequence_parallel: bool = False,
     ) -> MoE_TP:
         nn.Module.__init__(self)
 
         self.num_experts = num_experts
         self.top_k = num_experts_per_tok
-        self.use_padding_free_transformer = use_padding_free_transformer
 
         self.hidden_size = hidden_size
         self.intermediate_size = intermediate_size
@@ -261,9 +259,6 @@ class MoE_TP(MoE, DTensorModule):
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         assert is_kernel_allowed(Kernel.scattermoe)
 
-        if not self.use_padding_free_transformer:
-            batch_size, sequence_length, _ = hidden_states.shape
-
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
         hidden_states = tensor_to_dtensor(hidden_states, device_mesh=self.tp_mesh, current_placement=self.placement)
@@ -287,9 +282,6 @@ class MoE_TP(MoE, DTensorModule):
         hidden_states = dtensor_to_tensor(
             hidden_states, device_mesh=self.tp_mesh, desired_placement=self.placement, grad_placement=self.placement
         )
-
-        if not self.use_padding_free_transformer:
-            hidden_states = hidden_states.reshape(batch_size, sequence_length, self.hidden_size)
 
         hidden_states = self.dropout(hidden_states)
 
