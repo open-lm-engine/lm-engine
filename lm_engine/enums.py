@@ -33,7 +33,6 @@ class Mode(Enum):
     """training / inference mode"""
 
     training = "training"
-    inference = "inference"
     unsharding = "unsharding"
     distillation = "distillation"
 

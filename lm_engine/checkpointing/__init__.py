@@ -16,7 +16,7 @@ from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
-from ..arguments import InferenceArgs, TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
+from ..arguments import TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
 from ..enums import Mode
@@ -270,13 +270,13 @@ def load_checkpoint_for_training(
     return iteration, metadata, experiments_tracker_json
 
 
-def load_checkpoint_for_inference(
-    args: InferenceArgs | UnshardingArgs, mode: Mode, allowed_meta_device: bool = False
+def load_checkpoint_and_unshard(
+    args: UnshardingArgs, mode: Mode, allowed_meta_device: bool = False
 ) -> tuple[ModelWrapper, TrainingArgs, dict]:
     """load checkpoint for inference
 
     Args:
-        args (Union[InferenceArgs, UnshardingArgs]): arguments
+        args (UnshardingArgs): arguments
         mode (Mode): training/inference mode
         allowed_meta_device (bool): whether to use meta device
     """
@@ -359,11 +359,11 @@ def load_checkpoint_for_inference(
 
 
 @run_rank_n
-def save_args(args: TrainingArgs | InferenceArgs, save_path: str, mode: Mode) -> None:
+def save_args(args: TrainingArgs, save_path: str, mode: Mode) -> None:
     """saves training args as a json
 
     Args:
-        args (TrainingArgs | InferenceArgs): arguments for training or inference
+        args (TrainingArgs): arguments for training or inference
         save_path (str): save location on disk
     """
 

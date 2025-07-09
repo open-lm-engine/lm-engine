@@ -9,7 +9,7 @@ import torch
 import torch.distributed
 
 from lm_engine.arguments import TrainingArgs, UnshardingArgs
-from lm_engine.checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_inference, save_checkpoint
+from lm_engine.checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_and_unshard, save_checkpoint
 from lm_engine.distributed import wrap_model_container_for_distributed_training
 from lm_engine.enums import Mode
 from lm_engine.model_wrapper import get_model_container
@@ -99,7 +99,7 @@ ensure_last_checkpoint_is_saved()
 
 torch.distributed.barrier()
 
-_, _, consolidated_state_dict = load_checkpoint_for_inference(
+_, _, consolidated_state_dict = load_checkpoint_and_unshard(
     unshard_config, mode=Mode.unsharding, allowed_meta_device=False
 )
 

@@ -5,7 +5,7 @@
 import logging
 from functools import partial
 
-from ..arguments import DatasetArgs, InferenceArgs, TrainingArgs
+from ..arguments import DatasetArgs, TrainingArgs
 from ..enums import DatasetSplit, Mode
 from ..tokenizers import TOKENIZER_TYPE
 from ..utils import ProcessGroupManager, log_rank_0, run_rank_n
@@ -85,12 +85,12 @@ def get_datasets_list(
 
 
 def get_finetuning_dataloader(
-    args: TrainingArgs | InferenceArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
+    args: TrainingArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
 ) -> ResumableDataLoader:
     """prepares datasets and sampler
 
     Args:
-        args (TrainingArgs | InferenceArgs): arguments based on training / inference mode
+        args (TrainingArgs): arguments based on training / inference mode
         split (DatasetSplit): train / val / test split
         mode (Mode): training / inference mode
         tokenizer (TOKENIZER_TYPE): tokenizer
