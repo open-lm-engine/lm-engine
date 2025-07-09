@@ -46,11 +46,8 @@ class PaddingFreeSBAttention(Attention):
         self,
         hidden_states: torch.Tensor,
         past_key_values: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
-        sb_metadata=None,
     ) -> torch.Tensor:
         assert past_key_values is None
         query, key, value = self._prepare_qkv_for_forward(hidden_states)

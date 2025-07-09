@@ -76,7 +76,7 @@ class Block(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        if self.sequence_mixer_type in ["softmax_attention", "stickbreaking_attention", "multihead_latent_attention"]:
+        if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
             hidden_states = self.sequence_mixer(
                 hidden_states,
                 past_key_values=past_key_values,
@@ -84,6 +84,10 @@ class Block(nn.Module):
                 rope_cos_sin=rope_cos_sin,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
+            )
+        elif self.sequence_mixer_type == "stickbreaking_attention":
+            hidden_states = self.sequence_mixer(
+                hidden_states, past_key_values=past_key_values, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
             )
         elif self.sequence_mixer_type in ["causal_convolution", "mamba2"]:
             hidden_states = self.sequence_mixer(
