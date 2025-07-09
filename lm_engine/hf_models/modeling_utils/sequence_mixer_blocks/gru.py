@@ -86,12 +86,10 @@ class GRU(nn.Module):
         self,
         input: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
         assert cache_params is None
-        assert attention_mask is None
 
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
 
