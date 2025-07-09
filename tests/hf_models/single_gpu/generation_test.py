@@ -38,7 +38,7 @@ class GenerationTest(TestCommons):
         lm_engine_config = self.get_dense_test_config(attention_head_type, position_embedding_type)
         lm_engine_config.use_cache = use_cache
 
-        lm_engine_model = self.from_config(lm_engine_config, torch_dtype=torch_dtype).to(device)
+        lm_engine_model = AutoModelForCausalLM.from_config(lm_engine_config, torch_dtype=torch_dtype).to(device)
         lm_engine_model.eval()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -105,7 +105,7 @@ class GenerationTest(TestCommons):
             self.get_dense_test_config(attention_head_type, position_embedding_type),
             self.get_moe_test_config(attention_head_type, position_embedding_type),
         ]:
-            model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+            model = AutoModelForCausalLM.from_config(config, torch_dtype=torch_dtype).to(device)
             model.eval()
 
             input_ids, attention_mask, _ = self.get_dummy_inputs(device)

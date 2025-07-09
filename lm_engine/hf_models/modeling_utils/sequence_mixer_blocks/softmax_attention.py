@@ -19,6 +19,7 @@ from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .flash_attention_utils import flash_attention
+from .packing import pack_sequence, unpack_sequence
 
 
 def _interleave_query_key_value_tensor_for_mha(
@@ -210,7 +211,6 @@ class Attention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> Attention:
         super().__init__()
 
@@ -219,7 +219,6 @@ class Attention(nn.Module):
         self.num_heads = num_attention_heads
         self.num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
 
         self.head_dim = divide_if_divisible(
             self.hidden_size,
@@ -227,35 +226,19 @@ class Attention(nn.Module):
             f"`hidden_size` ({self.hidden_size}) must be divisible by `num_heads` ({self.num_heads})",
         )
 
-        self.attention_head_type = get_attention_head_type(num_attention_heads, num_key_value_heads)
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
         self.layer_idx = layer_idx
 
-        if self.attention_head_type == "mha":
-            if self.num_key_value_heads is None:
-                self.num_key_value_heads = self.num_heads
+        assert (
+            self.num_key_value_heads is not None
+        ), "`num_key_value_heads` needs to be specified with GroupedQueryAttention"
 
-            assert (
-                self.num_heads == self.num_key_value_heads
-            ), f"{self.__class__.__name__} should have same number of heads for query, keys and values"
-        elif self.attention_head_type == "gqa":
-            assert (
-                self.num_key_value_heads is not None
-            ), "`num_key_value_heads` needs to be specified with GroupedQueryAttention"
-
-            divide_if_divisible(
-                self.num_heads,
-                self.num_key_value_heads,
-                f"`num_heads` ({self.num_heads}) should be a multiple of `num_key_value_heads` ({self.num_key_value_heads})",
-            )
-        elif self.attention_head_type == "mqa":
-            if self.num_key_value_heads is None:
-                self.num_key_value_heads = 1
-
-            assert self.num_key_value_heads == 1, f"{self.__class__.__name__} should have 1 head for keys and values"
-        else:
-            raise ValueError(f"unexpected attention_head_type ({self.attention_head_type})")
+        divide_if_divisible(
+            self.num_heads,
+            self.num_key_value_heads,
+            f"`num_heads` ({self.num_heads}) should be a multiple of `num_key_value_heads` ({self.num_key_value_heads})",
+        )
 
         # note that the actual layout is different for the output and depends on whether we are using MHA, MQA or GQA
         # (self.hidden_size + 2 * self.num_key_value_heads * self.head_dim) is just the actual number output features
@@ -282,87 +265,6 @@ class Attention(nn.Module):
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
-    def _prepare_qkv_for_forward(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        # the output of following is a tuple if using MQA with tensor parallel
-        hidden_states = self.c_attn(hidden_states)
-
-        # for MHA, we can get away with doing just 1 transpose which is not true for GQA
-        if self.attention_head_type == "mha":
-            query, key, value = self._prepare_qkv_for_forward_mha(hidden_states)
-        elif self.attention_head_type == "gqa":
-            query, key, value = self._prepare_qkv_for_forward_gqa(hidden_states)
-        elif self.attention_head_type == "mqa":
-            query, key, value = self._prepare_qkv_for_forward_mqa(hidden_states)
-        else:
-            raise ValueError(f"unexpected attention_head_type ({self.attention_head_type})")
-
-        return query, key, value
-
-    def _prepare_qkv_for_forward_mha(
-        self, hidden_states: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-            hidden_states = hidden_states.view(total_q, self.num_key_value_heads, -1)
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-            hidden_states = hidden_states.view(batch_size, query_length, self.num_heads, -1)
-            hidden_states = hidden_states.transpose(1, 2)
-
-        query, key, value = hidden_states.chunk(3, dim=-1)
-
-        return query, key, value
-
-    def _prepare_qkv_for_forward_gqa(
-        self, hidden_states: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-            input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
-            output_shape = (total_q, -1, self.head_dim)
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-            input_shape = (*hidden_states.shape[:-1], self.num_key_value_heads, -1)
-            output_shape = (batch_size, query_length, -1, self.head_dim)
-
-        hidden_states = hidden_states.view(*input_shape)
-
-        query, key, value = hidden_states.split(
-            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
-        )
-
-        query = query.reshape(*output_shape)
-
-        if not self.use_padding_free_transformer:
-            query = query.transpose(1, 2)
-            key = key.transpose(1, 2)
-            value = value.transpose(1, 2)
-
-        return query, key, value
-
-    def _prepare_qkv_for_forward_mqa(
-        self, hidden_states: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-
-        query, key, value = hidden_states.split((self.hidden_size, self.head_dim, self.head_dim), dim=-1)
-
-        if self.use_padding_free_transformer:
-            query = query.view(total_q, self.num_heads, -1)
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
-        else:
-            query = query.view(batch_size, query_length, self.num_heads, -1)
-
-            query = query.transpose(1, 2)
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
-
-        return query, key, value
-
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -372,14 +274,17 @@ class Attention(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
-        use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
+        assert past_key_values is None
 
-        if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
-            assert past_key_values is None
+        T = hidden_states.size(0)
+        hidden_states = self.c_attn(hidden_states)
 
-        query, key, value = self._prepare_qkv_for_forward(hidden_states)
+        hidden_states = hidden_states.view(T, self.num_key_value_heads, -1)
+        query, key, value = hidden_states.split(
+            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
+        )
+
+        query = query.reshape(T, -1, self.head_dim)
 
         if self.position_embedding_type == "rope":
             query = apply_rotary_pos_emb(query, rope_cos_sin)
@@ -388,22 +293,7 @@ class Attention(nn.Module):
         if past_key_values is not None:
             key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
 
-        if use_flash_attention_2 or use_flash_attention_3:
-            if self.use_padding_free_transformer:
-                output_shape = (-1, self.hidden_size)
-            else:
-                # TODO avoid this extra transpose
-                query = query.transpose(1, 2)
-                if self.attention_head_type == "mqa":
-                    key = key.squeeze(1).unsqueeze(2)
-                    value = value.squeeze(1).unsqueeze(2)
-                else:
-                    key = key.transpose(1, 2)
-                    value = value.transpose(1, 2)
-
-                batch_size, query_length = query.shape[:2]
-                output_shape = (batch_size, query_length, -1)
-
+        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
@@ -415,7 +305,6 @@ class Attention(nn.Module):
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 attention_mask=attention_mask,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,
@@ -424,10 +313,19 @@ class Attention(nn.Module):
             del query, key, value
 
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(*output_shape)
+            hidden_states = hidden_states.view(-1, self.hidden_size)
         else:
             key = repeat_key_value(key, self.num_heads, self.num_key_value_heads)
             value = repeat_key_value(value, self.num_heads, self.num_key_value_heads)
+
+            B = cu_seqlens.size(0) - 1
+            S = max_seqlen
+
+            query, key, value = [
+                unpack_sequence(i, cu_seqlens=cu_seqlens, output_shape=(B, S, *i.size()[1:]))
+                for i in (query, key, value)
+            ]
+            query, key, value = [i.transpose(1, 2) for i in (query, key, value)]
 
             hidden_states = F.scaled_dot_product_attention(
                 query,
@@ -442,9 +340,12 @@ class Attention(nn.Module):
 
             del query, key, value
 
-            batch_size = hidden_states.shape[0]
             hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = hidden_states.reshape(batch_size, -1, self.num_heads * self.head_dim)
+            hidden_states = pack_sequence(
+                hidden_states, cu_seqlens=cu_seqlens, output_shape=(T, self.num_heads, self.head_dim)
+            )
+
+            hidden_states = hidden_states.view(T, -1)
 
         hidden_states = self.c_proj(hidden_states)
         hidden_states = self.dropout(hidden_states)

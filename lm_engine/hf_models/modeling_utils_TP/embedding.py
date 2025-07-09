@@ -19,16 +19,9 @@ from .TP import get_module_placements
 
 class Embedding_TP(ParameterizedEmbedding, DTensorModule):
     def __init__(
-        self,
-        num_embeddings: int,
-        embedding_dim: int,
-        std: float | None = None,
-        use_padding_free_transformer: bool = False,
-        sequence_parallel: bool = False,
+        self, num_embeddings: int, embedding_dim: int, std: float | None = None, sequence_parallel: bool = False
     ) -> Embedding_TP:
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
-
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
 
         self.vocab_start_index, self.vocab_end_index, num_embeddings_per_tp_rank = get_tensor_parallel_vocab_info(
@@ -43,7 +36,7 @@ class Embedding_TP(ParameterizedEmbedding, DTensorModule):
             )
         )
 
-        self.output_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+        self.output_placement = get_module_placements(sequence_parallel)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         input = tensor_to_dtensor(input, device_mesh=self.tp_mesh, current_placement=Replicate())

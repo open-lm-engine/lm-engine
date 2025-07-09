@@ -13,9 +13,7 @@ from ...modeling_utils import get_mlp_block, get_normalization_function, get_seq
 
 
 class Block(nn.Module):
-    def __init__(
-        self, config: CommonConfig, use_padding_free_transformer: bool, layer_idx: int | None = None
-    ) -> Block:
+    def __init__(self, config: CommonConfig, layer_idx: int | None = None) -> Block:
         super().__init__()
 
         hidden_size = config.hidden_size
@@ -25,13 +23,11 @@ class Block(nn.Module):
         self.ln_1 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
-        self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
+        self.sequence_mixer = get_sequence_mixer(config, True, layer_idx)
         self.ln_2 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
-        self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
-        )
+        self.mlp_block = get_mlp_block(config, layer_idx=layer_idx)
 
     def forward(
         self,
@@ -80,7 +76,7 @@ class Block(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        if self.sequence_mixer_type in ["softmax_attention", "stickbreaking_attention", "multihead_latent_attention"]:
+        if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
             hidden_states = self.sequence_mixer(
                 hidden_states,
                 past_key_values=past_key_values,
@@ -89,17 +85,17 @@ class Block(nn.Module):
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
+        elif self.sequence_mixer_type == "stickbreaking_attention":
+            hidden_states = self.sequence_mixer(
+                hidden_states, past_key_values=past_key_values, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+            )
         elif self.sequence_mixer_type in ["causal_convolution", "mamba2"]:
             hidden_states = self.sequence_mixer(
                 hidden_states, cache_params=past_key_values, attention_mask=attention_mask
             )
         elif self.sequence_mixer_type in ["gru", "rnn"]:
             hidden_states = self.sequence_mixer(
-                hidden_states,
-                cache_params=past_key_values,
-                attention_mask=attention_mask,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
+                hidden_states, cache_params=past_key_values, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")

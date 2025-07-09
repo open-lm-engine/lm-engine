@@ -21,13 +21,7 @@ if is_cute_kernels_available():
 
 
 class LayerNorm_TP(nn.LayerNorm, DTensorModule):
-    def __init__(
-        self,
-        normalized_shape: int,
-        eps: float = 1e-6,
-        use_padding_free_transformer: bool = False,
-        sequence_parallel: bool = False,
-    ) -> LayerNorm_TP:
+    def __init__(self, normalized_shape: int, eps: float = 1e-6, sequence_parallel: bool = False) -> LayerNorm_TP:
         super().__init__(normalized_shape, eps=eps)
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
@@ -45,7 +39,7 @@ class LayerNorm_TP(nn.LayerNorm, DTensorModule):
             )
         )
 
-        self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+        self.placement = get_module_placements(sequence_parallel)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         input = tensor_to_dtensor(input, device_mesh=self.tp_mesh, current_placement=self.placement)
@@ -55,13 +49,7 @@ class LayerNorm_TP(nn.LayerNorm, DTensorModule):
 
 
 class RMSNorm_TP(nn.RMSNorm, DTensorModule):
-    def __init__(
-        self,
-        normalized_shape: int,
-        eps: float = 1e-6,
-        use_padding_free_transformer: bool = False,
-        sequence_parallel: bool = False,
-    ) -> RMSNorm_TP:
+    def __init__(self, normalized_shape: int, eps: float = 1e-6, sequence_parallel: bool = False) -> RMSNorm_TP:
         super().__init__(normalized_shape, eps=eps)
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
@@ -73,7 +61,7 @@ class RMSNorm_TP(nn.RMSNorm, DTensorModule):
         )
 
         self.sequence_parallel = sequence_parallel
-        self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+        self.placement = get_module_placements(sequence_parallel)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         rmsnorm_cute_allowed = is_kernel_allowed(Kernel.rmsnorm_cute)
@@ -105,18 +93,11 @@ _NORMALIZATION_FUNCTIONS = {
 
 
 def get_normalization_function_TP(
-    normalization_function: str,
-    normalized_shape: int,
-    eps: float = 1e-5,
-    use_padding_free_transformer: bool = False,
-    sequence_parallel: bool = False,
+    normalization_function: str, normalized_shape: int, eps: float = 1e-5, sequence_parallel: bool = False
 ) -> LayerNorm_TP | RMSNorm_TP:
     if normalization_function in _NORMALIZATION_FUNCTIONS:
         normalization = _NORMALIZATION_FUNCTIONS[normalization_function](
-            normalized_shape,
-            eps=eps,
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
+            normalized_shape, eps=eps, sequence_parallel=sequence_parallel
         )
     else:
         raise ValueError(f"unexpected `normalization_function` {normalization_function}")
