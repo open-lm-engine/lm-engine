@@ -9,7 +9,6 @@ import torch
 
 def convert_padding_free_lists_to_tensors(
     input_ids: list[list[int]] | None = None,
-    inputs_embeds: list[list[float]] | None = None,
     position_ids: list[list[int]] | None = None,
     labels: list[list[int]] | None = None,
     device: torch.device = None,
@@ -18,7 +17,6 @@ def convert_padding_free_lists_to_tensors(
     # check input types are correct
     error_message = "{variable} should be of type List[List[{dtype}]]"
     _check_list_type(input_ids, error_message.format(variable="input_ids", dtype="int"))
-    _check_list_type(inputs_embeds, error_message.format(variable="inputs_embeds", dtype="float"))
     _check_list_type(position_ids, error_message.format(variable="position_ids", dtype="int"))
     _check_list_type(labels, error_message.format(variable="labels", dtype="int"))
 
@@ -32,10 +30,6 @@ def convert_padding_free_lists_to_tensors(
     position_ids = _flatten_and_convert_to_tensors(position_ids, device)
 
     input_ids = _flatten_and_convert_to_tensors(input_ids, device)
-
-    # TODO drop inputs_embeds
-    if inputs_embeds is not None:
-        inputs_embeds = _flatten_and_convert_to_tensors(inputs_embeds, device)
 
     if labels is not None:
         labels = _flatten_and_convert_to_tensors(labels, device)

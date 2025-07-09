@@ -72,6 +72,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
         pipeline_parallel_input: PipelineParallelInput | None = None,
     ) -> CausalLMOutputWithPast | PipelineParallelOutput:
         assert return_dict
+        assert inputs_embeds is None
 
         if self.is_pipeline_parallel_enabled:
             past_key_values = None
@@ -82,7 +83,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             assert pipeline_parallel_input is None, "first stage should not get pipeline_parallel_input"
             input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
                 input_ids=input_ids,
-                inputs_embeds=inputs_embeds,
                 position_ids=position_ids,
                 labels=labels,
                 cu_seqlens=cu_seqlens,
@@ -100,7 +100,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             position_ids=position_ids,
-            inputs_embeds=inputs_embeds,
             use_cache=use_cache,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
