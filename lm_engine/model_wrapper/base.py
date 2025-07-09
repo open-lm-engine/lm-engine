@@ -96,31 +96,6 @@ class ModelWrapper(nn.Module):
             if len(self.tokenizer) != original_vocab_size:
                 self.model.resize_token_embeddings(len(self.tokenizer))
 
-    def generate(self, batch: dict, generate_kwargs: dict) -> list[str]:
-        """generate function for a batch
-
-        Args:
-            batch (dict): a dict of key, value pairs for a batch
-            generate_kwargs (dict): generate kwargs for the batch
-
-        Returns:
-            List[str]: list of generated text. input is trimmed from the generated text
-        """
-
-        raise NotImplementedError("padding free transformer and tensor parallel doesn't support generation")
-
-        for i in batch:
-            batch[i] = batch[i].to(torch.cuda.current_device())
-
-        generated = self.model.generate(**batch, **generate_kwargs, eos_token_id=self.eos_token_id)
-        generated = generated[:, batch["input_ids"].shape[1] :]
-
-        # add 1 since eos token to also count eos in generated tokens
-        num_generated_tokens = ((generated != self.eos_token_id).sum(dim=-1) + 1).tolist()
-        generated_text = self.tokenizer.batch_decode(generated, skip_special_tokens=True)
-
-        return generated_text, num_generated_tokens
-
     def save_pretrained(self, save_path: str, state_dict: dict | None = None) -> None:
         self.tokenizer.save_pretrained(save_path, legacy_format=False)
 

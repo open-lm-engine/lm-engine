@@ -102,21 +102,16 @@ The typical training workflow looks like:
 1. [Pretraining](scripts/pretrain.sh) or [Finetuning](scripts/finetune.sh): This is the actual training process
 ```shell
 # for finetuning
-sh scripts/finetune.sh configs/sst2/training.yml
+sh scripts/common/finetune.sh configs/sst2/training.yml
 ```
 ```shell
 # for pretraining
-sh scripts/pretrain.sh configs/pretraining-examples/pretrain-1.yml
+sh scripts/common/pretrain.sh configs/pretraining-examples/pretrain-1.yml
 ```
 
-2. [Inference](scripts/generate.sh): Run inference on the trained models or the un-trained model
+2. [Unshard the checkpoint](scripts/unshard.sh): This is used to unshard the model to a safetensors checkpoint since lm-engine saves a sharded model during training
 ```shell
-sh scripts/generate.sh configs/sst2/inference.yml
-```
-
-3. [Unshard the checkpoint](scripts/unshard.sh): This is used to unshard the model to a safetensors checkpoint since lm-engine saves a sharded model during training
-```shell
-sh scripts/unshard.sh configs/sst2/unshard.yml
+sh scripts/common/unshard.sh configs/sst2/unshard.yml
 ```
 
 ## Running basic inference

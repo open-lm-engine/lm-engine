@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from ..arguments import DistillationArgs, InferenceArgs, TrainingArgs, UnshardingArgs
+from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import ModelContainer
 from ..enums import Mode, TuningMethod
 from ..kernels import enable_kernels
@@ -21,9 +21,7 @@ _MODEL_CLASS_MAPPING = {
 }
 
 
-def get_model_container(
-    args: TrainingArgs | InferenceArgs | UnshardingArgs | DistillationArgs, mode: Mode
-) -> ModelContainer:
+def get_model_container(args: TrainingArgs | UnshardingArgs | DistillationArgs, mode: Mode) -> ModelContainer:
     tuning_method = args.tuning_args.tuning_method
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
 
