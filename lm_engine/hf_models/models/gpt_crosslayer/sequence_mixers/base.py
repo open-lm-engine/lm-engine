@@ -13,13 +13,7 @@ import torch.nn.functional as F
 from .....enums import Kernel
 from .....kernels import is_kernel_allowed
 from .....utils import divide_if_divisible
-from ....modeling_utils import (
-    ParameterizedLinear,
-    apply_rotary_pos_emb,
-    flash_attention,
-    get_attention_head_type,
-    get_normalization_function,
-)
+from ....modeling_utils import ParameterizedLinear, apply_rotary_pos_emb, flash_attention, get_normalization_function
 
 
 class CrossLayerAttention(nn.Module):
@@ -52,7 +46,6 @@ class CrossLayerAttention(nn.Module):
         ), f"`hidden_size` ({self.hidden_size}) must be divisible by `num_heads` ({self.num_heads})"
 
         self.head_dim = self.hidden_size // self.num_heads
-        self.attention_head_type = get_attention_head_type(num_attention_heads, num_key_value_heads)
 
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
