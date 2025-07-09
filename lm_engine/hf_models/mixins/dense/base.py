@@ -51,7 +51,6 @@ class PreTrainedModelMixin(PreTrainedModel):
         input_ids: torch.Tensor | list[list[int]] | None,
         inputs_embeds: torch.Tensor | list[list[float]] | None,
         position_ids: torch.Tensor | list[list[int]] | None,
-        token_type_ids: torch.Tensor | list[list[int]] | None,
         labels: torch.Tensor | list[list[int]] | None,
         cu_seqlens: torch.Tensor | None,
         max_seqlen: int | None,
@@ -70,15 +69,12 @@ class PreTrainedModelMixin(PreTrainedModel):
                 assert max_seqlen is None, error_message.format(variable="max_seqlen")
                 assert attention_mask is None, error_message.format(variable="attention_mask")
 
-                input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = (
-                    convert_padding_free_lists_to_tensors(
-                        input_ids=input_ids,
-                        inputs_embeds=inputs_embeds,
-                        position_ids=position_ids,
-                        token_type_ids=token_type_ids,
-                        labels=labels,
-                        device=torch.cuda.current_device(),
-                    )
+                input_ids, position_ids, labels, cu_seqlens, max_seqlen = convert_padding_free_lists_to_tensors(
+                    input_ids=input_ids,
+                    inputs_embeds=inputs_embeds,
+                    position_ids=position_ids,
+                    labels=labels,
+                    device=torch.cuda.current_device(),
                 )
             else:
                 assert (
@@ -91,7 +87,7 @@ class PreTrainedModelMixin(PreTrainedModel):
             if use_cache or past_key_values is not None:
                 raise NotImplementedError("KV caching is not supported with padding_free transformer")
 
-        return input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen
+        return input_ids, position_ids, labels, cu_seqlens, max_seqlen
 
 
 class BaseModelMixin(PreTrainedModelMixin):
@@ -143,7 +139,6 @@ class BaseModelMixin(PreTrainedModelMixin):
         input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         inputs_embeds: torch.Tensor | None = None,
         use_cache: bool | None = None,
@@ -161,7 +156,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             input_ids=input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
             position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
@@ -284,20 +278,13 @@ class BaseModelMixin(PreTrainedModelMixin):
         return causal_mask
 
     def _get_initial_hidden_state(
-        self,
-        input_ids: torch.Tensor,
-        inputs_embeds: torch.Tensor | None,
-        position_ids: torch.Tensor | None,
-        token_type_ids: torch.Tensor | None,
+        self, input_ids: torch.Tensor, inputs_embeds: torch.Tensor | None, position_ids: torch.Tensor | None
     ) -> torch.Tensor:
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
 
         if self.position_embedding_type == "learned_absolute":
             inputs_embeds = inputs_embeds + self.wpe(position_ids)
-
-        if token_type_ids is not None:
-            inputs_embeds = inputs_embeds + self.wte(token_type_ids)
 
         inputs_embeds = self.embedding_dropout(inputs_embeds)
 
@@ -311,7 +298,6 @@ class BaseModelMixin(PreTrainedModelMixin):
         input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         inputs_embeds: torch.Tensor | None = None,
         use_cache: bool | None = None,
@@ -350,9 +336,6 @@ class BaseModelMixin(PreTrainedModelMixin):
                 "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] "
                 "inputs"
             )
-        else:
-            if token_type_ids is not None:
-                token_type_ids = token_type_ids.view(-1, input_shape[-1])
 
         # ==========================================================================================
         # padding_free:
@@ -389,7 +372,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         #     position_ids -> (batch_size, query_length)
         # ==========================================================================================
 
-        hidden_states = self._get_initial_hidden_state(input_ids, inputs_embeds, position_ids, token_type_ids)
+        hidden_states = self._get_initial_hidden_state(input_ids, inputs_embeds, position_ids)
 
         # ==========================================================================================
         # padding_free:
