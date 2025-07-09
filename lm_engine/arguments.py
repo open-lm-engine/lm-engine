@@ -437,64 +437,6 @@ class TrainingArgs(BaseArgs):
             )
 
 
-class GenerationParameters(BaseArgs):
-    # batch size
-    batch_size: int = None
-    # sample or greedy
-    do_sample: bool | None = None
-    # max new tokens to generate
-    max_new_tokens: int = None
-    # temperature
-    temperature: float | None = None
-    # top k
-    top_k: int | None = None
-    # top p
-    top_p: float | None = None
-
-    def model_post_init(self, __context: Any) -> None:
-        _check_not_None([(self.batch_size, "batch_size"), (self.max_new_tokens, "max_new_tokens")])
-
-
-class InferenceArgs(BaseArgs):
-    # randomization related arguments
-    random_args: RandomArgs = RandomArgs()
-    # tokenizer related arguments
-    tokenizer_args: TokenizerArgs = TokenizerArgs()
-    # model related arguments
-    model_args: ModelArgs | None = None
-    # list of datasets to use
-    datasets: list[DatasetArgs] = []
-    # load related arguments
-    load_args: LoadArgs | None = None
-    # generation parameters
-    generation_parameters: GenerationParameters = None
-    # mixed precision related arguments
-    mixed_precision_args: MixedPrecisionArgs = MixedPrecisionArgs()
-    # logging related arguments
-    logging_args: LoggingArgs = LoggingArgs()
-    # output dir
-    output_dir: str = None
-    # kernel args
-    kernel_args: KernelArgs = KernelArgs()
-
-    def model_post_init(self, __context: Any) -> None:
-        _check_not_None(
-            [
-                (self.datasets, "datasets"),
-                (self.generation_parameters, "generation_parameters"),
-                (self.output_dir, "output_dir"),
-            ]
-        )
-
-        if self.load_args is None:
-            assert self.model_args is not None, "model_args need to be specified if load_args are not specified"
-        else:
-            assert self.model_args is None, "model_args can't be specified with load_args"
-
-        # datasets
-        _check_datasets(self.datasets)
-
-
 class UnshardingArgs(BaseArgs):
     # load related arguments
     load_args: LoadArgs = None
@@ -525,26 +467,23 @@ class DistillationArgs(TrainingArgs):
 
 _MODE_ARGS_MAP = {
     Mode.training: TrainingArgs,
-    Mode.inference: InferenceArgs,
     Mode.unsharding: UnshardingArgs,
     Mode.distillation: DistillationArgs,
 }
 
 
-def args_dict_to_pydantic_args(
-    mode: Mode, **config
-) -> TrainingArgs | InferenceArgs | UnshardingArgs | DistillationArgs:
+def args_dict_to_pydantic_args(mode: Mode, **config) -> TrainingArgs | UnshardingArgs | DistillationArgs:
     return _MODE_ARGS_MAP[mode](**config)
 
 
-def get_args(mode: Mode) -> TrainingArgs | InferenceArgs | UnshardingArgs:
+def get_args(mode: Mode) -> TrainingArgs | UnshardingArgs:
     """get args for training / inference
 
     Args:
         mode (Mode): training / inference mode for running the program
 
     Returns:
-        TrainingArgs | InferenceArgs | UnshardingArgs: args for training / inference
+        TrainingArgs | UnshardingArgs: args for training / inference
     """
 
     parser = ArgumentParser()
@@ -552,7 +491,7 @@ def get_args(mode: Mode) -> TrainingArgs | InferenceArgs | UnshardingArgs:
     args = parser.parse_args()
 
     config: dict = load_yaml(args.config)
-    args: TrainingArgs | InferenceArgs | UnshardingArgs = args_dict_to_pydantic_args(mode, **config)
+    args: TrainingArgs | UnshardingArgs = args_dict_to_pydantic_args(mode, **config)
 
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
     log_args(args)
@@ -562,16 +501,14 @@ def get_args(mode: Mode) -> TrainingArgs | InferenceArgs | UnshardingArgs:
 
 
 @run_rank_n
-def log_args(args: TrainingArgs | InferenceArgs | UnshardingArgs) -> None:
+def log_args(args: TrainingArgs | UnshardingArgs) -> None:
     """log args
 
     Args:
-        args (Union[TrainingArgs, InferenceArgs, UnshardingArgs]): args for training / inference
+        args (Union[TrainingArgs, UnshardingArgs]): args for training / inference
     """
 
-    def _iterate_args_recursively(
-        args: TrainingArgs | InferenceArgs | UnshardingArgs | dict | BaseArgs, prefix: str = ""
-    ) -> None:
+    def _iterate_args_recursively(args: TrainingArgs | UnshardingArgs | dict | BaseArgs, prefix: str = "") -> None:
         result = []
 
         if isinstance(args, BaseArgs):
