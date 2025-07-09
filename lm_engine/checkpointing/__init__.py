@@ -270,7 +270,7 @@ def load_checkpoint_for_training(
     return iteration, metadata, experiments_tracker_json
 
 
-def load_checkpoint_for_inference(
+def load_checkpoint_and_unshard(
     args: UnshardingArgs, mode: Mode, allowed_meta_device: bool = False
 ) -> tuple[ModelWrapper, TrainingArgs, dict]:
     """load checkpoint for inference
