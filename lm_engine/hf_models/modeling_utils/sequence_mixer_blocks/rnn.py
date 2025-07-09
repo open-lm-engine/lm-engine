@@ -93,14 +93,14 @@ class RNN(nn.Module):
         if self.is_gated_normalization:
             input, gate = input.chunk(2, dim=-1)
 
-        T = input.size(0)
-        input = input.view(T, self.num_heads, self.state_head_dim)
-
         weight = self.state_weight
 
         if self.scaling_factor != 1:
             input = input * self.scaling_factor
             weight = weight * self.scaling_factor
+
+        T = input.size(0)
+        input = input.view(T, self.num_heads, self.state_head_dim)
 
         input = rnn_cute(
             input=input,

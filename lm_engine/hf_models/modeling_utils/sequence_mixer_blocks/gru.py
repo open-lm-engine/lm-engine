@@ -88,10 +88,6 @@ class GRU(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        assert cache_params is None
-
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-
         input = self.input_projection(input)
 
         if self.is_gated_normalization:
@@ -106,8 +102,9 @@ class GRU(nn.Module):
         input, forget_input, reset_input = input.chunk(3, dim=-1)
         weight, forget_weight, reset_weight = weight.chunk(3, dim=0)
 
+        T = input.size(0)
         input, forget_input, reset_input = [
-            i.view(*input.size()[:-1], self.num_heads, self.state_head_dim) for i in (input, forget_input, reset_input)
+            i.view(T, self.num_heads, self.state_head_dim) for i in (input, forget_input, reset_input)
         ]
 
         input = gru_cute(
@@ -117,7 +114,7 @@ class GRU(nn.Module):
             forget_weight=forget_weight,
             reset_input=reset_input,
             reset_weight=reset_weight,
-            input_state=input_state,
+            input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
@@ -125,9 +122,11 @@ class GRU(nn.Module):
         )
 
         if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+            cache_params.update(
+                state=input[cu_seqlens[1:] - 1], num_tokens_added=input.size(1), layer_idx=self.layer_idx
+            )
 
-        input = input.view(*input.size()[:-2], -1)
+        input = input.view(T, -1)
 
         if self.is_gated_normalization:
             input = self.norm(input, gate)
