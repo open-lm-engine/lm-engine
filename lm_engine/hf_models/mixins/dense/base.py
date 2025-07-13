@@ -49,9 +49,7 @@ class PreTrainedModelMixin(PreTrainedModel):
     def prepare_inputs_for_model(
         self,
         input_ids: torch.Tensor | list[list[int]] | None,
-        inputs_embeds: torch.Tensor | list[list[float]] | None,
         position_ids: torch.Tensor | list[list[int]] | None,
-        token_type_ids: torch.Tensor | list[list[int]] | None,
         labels: torch.Tensor | list[list[int]] | None,
         cu_seqlens: torch.Tensor | None,
         max_seqlen: int | None,
@@ -60,7 +58,7 @@ class PreTrainedModelMixin(PreTrainedModel):
         use_cache: bool,
     ) -> tuple[torch.Tensor]:
         if self.use_padding_free_transformer:
-            if isinstance(input_ids, list) or isinstance(inputs_embeds, list):
+            if isinstance(input_ids, list):
                 # this is managed internally
                 error_message = (
                     "{variable} should not be passed for flash attention when using List[List[int]] "
@@ -70,15 +68,8 @@ class PreTrainedModelMixin(PreTrainedModel):
                 assert max_seqlen is None, error_message.format(variable="max_seqlen")
                 assert attention_mask is None, error_message.format(variable="attention_mask")
 
-                input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = (
-                    convert_padding_free_lists_to_tensors(
-                        input_ids=input_ids,
-                        inputs_embeds=inputs_embeds,
-                        position_ids=position_ids,
-                        token_type_ids=token_type_ids,
-                        labels=labels,
-                        device=torch.cuda.current_device(),
-                    )
+                input_ids, position_ids, labels, cu_seqlens, max_seqlen = convert_padding_free_lists_to_tensors(
+                    input_ids=input_ids, position_ids=position_ids, labels=labels, device=torch.cuda.current_device()
                 )
             else:
                 assert (
@@ -91,7 +82,7 @@ class PreTrainedModelMixin(PreTrainedModel):
             if use_cache or past_key_values is not None:
                 raise NotImplementedError("KV caching is not supported with padding_free transformer")
 
-        return input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen
+        return input_ids, position_ids, labels, cu_seqlens, max_seqlen
 
 
 class BaseModelMixin(PreTrainedModelMixin):
@@ -143,9 +134,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
-        inputs_embeds: torch.Tensor | None = None,
         use_cache: bool | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
@@ -161,9 +150,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             input_ids=input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
             position_ids=position_ids,
-            inputs_embeds=inputs_embeds,
             use_cache=use_cache,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
@@ -283,37 +270,25 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         return causal_mask
 
-    def _get_initial_hidden_state(
-        self,
-        input_ids: torch.Tensor,
-        inputs_embeds: torch.Tensor | None,
-        position_ids: torch.Tensor | None,
-        token_type_ids: torch.Tensor | None,
-    ) -> torch.Tensor:
-        if inputs_embeds is None:
-            inputs_embeds = self.wte(input_ids)
+    def _get_initial_hidden_state(self, input_ids: torch.Tensor, position_ids: torch.Tensor | None) -> torch.Tensor:
+        hidden_state = self.wte(input_ids)
 
         if self.position_embedding_type == "learned_absolute":
-            inputs_embeds = inputs_embeds + self.wpe(position_ids)
+            hidden_state = hidden_state + self.wpe(position_ids)
 
-        if token_type_ids is not None:
-            inputs_embeds = inputs_embeds + self.wte(token_type_ids)
-
-        inputs_embeds = self.embedding_dropout(inputs_embeds)
+        hidden_state = self.embedding_dropout(hidden_state)
 
         if self.m_emb is not None:
-            inputs_embeds = inputs_embeds * self.m_emb
+            hidden_state = hidden_state * self.m_emb
 
-        return inputs_embeds
+        return hidden_state
 
     def _prepare_a_bunch_of_stuff(
         self,
         input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
-        inputs_embeds: torch.Tensor | None = None,
         use_cache: bool | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
@@ -321,38 +296,21 @@ class BaseModelMixin(PreTrainedModelMixin):
         if use_cache is None:
             use_cache = False if self.use_padding_free_transformer else self.config.use_cache
 
-        if input_ids is not None and inputs_embeds is not None:
-            raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
-        elif input_ids is not None:
-            input_shape = input_ids.size()
+        input_shape = input_ids.size()
 
-            # special handling for padding free transformer with list inputs
-            if self.use_padding_free_transformer:
-                # for flash attention, there is no padding and we do packing
-                # so, input_ids is of shape (s1 + s2 + ... + sb)
-                batch_size = cu_seqlens.shape[0] - 1
-            else:
-                batch_size = input_shape[0]
-        elif inputs_embeds is not None:
-            # TODO special handling for padding free transformer needed here if we support inputs_embeds argument
-            input_shape = inputs_embeds.size()[:-1]
-            batch_size = input_shape[0]
+        # special handling for padding free transformer with list inputs
+        if self.use_padding_free_transformer:
+            # for flash attention, there is no padding and we do packing
+            # so, input_ids is of shape (s1 + s2 + ... + sb)
+            batch_size = cu_seqlens.shape[0] - 1
         else:
-            raise ValueError("You have to specify either input_ids or inputs_embeds")
-
-        if batch_size <= 0:
-            raise ValueError("batch_size has to be defined and > 0")
-
-        device = input_ids.device if input_ids is not None else inputs_embeds.device
+            batch_size = input_shape[0]
 
         if self.use_padding_free_transformer:
             assert position_ids is not None, (
                 "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] "
                 "inputs"
             )
-        else:
-            if token_type_ids is not None:
-                token_type_ids = token_type_ids.view(-1, input_shape[-1])
 
         # ==========================================================================================
         # padding_free:
@@ -376,7 +334,9 @@ class BaseModelMixin(PreTrainedModelMixin):
             key_length = past_length + query_length
 
         if position_ids is None:
-            position_ids = self._get_position_ids(attention_mask, past_length, query_length, key_length, device)
+            position_ids = self._get_position_ids(
+                attention_mask, past_length, query_length, key_length, input_ids.device
+            )
 
         # ==========================================================================================
         # padding_free:
@@ -389,7 +349,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         #     position_ids -> (batch_size, query_length)
         # ==========================================================================================
 
-        hidden_states = self._get_initial_hidden_state(input_ids, inputs_embeds, position_ids, token_type_ids)
+        hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
 
         # ==========================================================================================
         # padding_free:
@@ -408,7 +368,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         # ==========================================================================================
 
         attention_mask = self._get_maybe_causal_mask(
-            attention_mask, batch_size, query_length, key_length, hidden_states.dtype, device
+            attention_mask, batch_size, query_length, key_length, hidden_states.dtype, input_ids.device
         )
 
         return (

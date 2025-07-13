@@ -59,7 +59,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         input_ids: torch.Tensor | list[list[int]] | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        token_type_ids: torch.Tensor | list[list[int]] | None = None,
         position_ids: torch.Tensor | list[list[int]] | None = None,
         inputs_embeds: torch.Tensor | list[list[float]] | None = None,
         labels: torch.Tensor | list[list[int]] | None = None,
@@ -70,12 +69,11 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         reduction: str = "mean",
     ) -> CausalLMOutputWithPast:
         assert return_dict
+        assert inputs_embeds is None
 
-        input_ids, position_ids, token_type_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
+        input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
             input_ids=input_ids,
-            inputs_embeds=inputs_embeds,
             position_ids=position_ids,
-            token_type_ids=token_type_ids,
             labels=labels,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
@@ -101,9 +99,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
             position_ids=position_ids,
-            inputs_embeds=inputs_embeds,
             use_cache=use_cache,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
