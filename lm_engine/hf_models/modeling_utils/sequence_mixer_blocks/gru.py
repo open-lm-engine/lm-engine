@@ -53,6 +53,7 @@ class GRU(nn.Module):
         self.input_size = input_size
         self.state_size = state_size
         self.output_size = output_size
+        self.low_rank = low_rank
         self.num_heads = num_heads
         self.num_groups = num_groups
         self.kernel_size = kernel_size
@@ -68,7 +69,7 @@ class GRU(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        if low_rank is None:
+        if self.low_rank is None:
             self.input_projection = ParameterizedLinear(
                 self.input_size,
                 3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
@@ -79,7 +80,7 @@ class GRU(nn.Module):
             self.input_projection = ParameterizedLowRankLinear(
                 self.input_size,
                 3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
-                rank=low_rank,
+                rank=self.low_rank,
                 bias=add_bias,
                 std=std,
             )
@@ -118,7 +119,13 @@ class GRU(nn.Module):
         )
 
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
-        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
+
+        if self.low_rank is None:
+            mark_parameter_as_mup_learning_rate(self.input_projection.weight)
+        else:
+            mark_parameter_as_mup_learning_rate(self.input_projection.l1.weight)
+            mark_parameter_as_mup_learning_rate(self.input_projection.l2.weight)
+
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
 
