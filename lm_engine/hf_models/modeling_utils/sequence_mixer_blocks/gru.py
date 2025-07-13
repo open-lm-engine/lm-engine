@@ -34,6 +34,7 @@ class GRU(nn.Module):
         state_size: int,
         output_size: int,
         low_rank: int | None,
+        low_rank_norm: bool,
         num_heads: int,
         num_groups: int | None,
         kernel_size: int | None,
@@ -82,6 +83,7 @@ class GRU(nn.Module):
                 self.state_size,
                 rank=self.low_rank,
                 bias=add_bias,
+                norm=low_rank_norm,
                 std=std,
             )
 
@@ -90,6 +92,7 @@ class GRU(nn.Module):
                 self.state_size,
                 rank=self.low_rank,
                 bias=add_bias,
+                norm=low_rank_norm,
                 std=std,
             )
 
@@ -98,6 +101,7 @@ class GRU(nn.Module):
                 self.state_size,
                 rank=self.low_rank,
                 bias=add_bias,
+                norm=low_rank_norm,
                 std=std,
             )
 
@@ -107,6 +111,7 @@ class GRU(nn.Module):
                     self.state_size,
                     rank=self.low_rank,
                     bias=add_bias,
+                    norm=low_rank_norm,
                     std=std,
                 )
 
