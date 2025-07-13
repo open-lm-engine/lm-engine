@@ -82,6 +82,7 @@ class _GRUArgs(BaseArgs):
     num_groups: int | None = None
     kernel_size: int | None = None
     activation_function: str | None = None
+    low_rank: int | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gru"

@@ -16,7 +16,7 @@ from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
 from ..convolution import ParameterizedConv1d
-from ..linear import ParameterizedLinear
+from ..linear import ParameterizedLinear, ParameterizedLowRankLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
@@ -33,6 +33,7 @@ class GRU(nn.Module):
         input_size: int,
         state_size: int,
         output_size: int,
+        low_rank: int | None,
         num_heads: int,
         num_groups: int | None,
         kernel_size: int | None,
@@ -67,12 +68,21 @@ class GRU(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.input_projection = ParameterizedLinear(
-            self.input_size,
-            3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
-            bias=add_bias,
-            std=std,
-        )
+        if low_rank is None:
+            self.input_projection = ParameterizedLinear(
+                self.input_size,
+                3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
+                bias=add_bias,
+                std=std,
+            )
+        else:
+            self.input_projection = ParameterizedLowRankLinear(
+                self.input_size,
+                3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
+                rank=low_rank,
+                bias=add_bias,
+                std=std,
+            )
 
         if kernel_size is None:
             assert num_groups is None
