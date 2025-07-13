@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from ..parameter import mark_parameter_as_no_weight_decay
+from .normalization import get_normalization_function
 
 
 class ParameterizedLinear(nn.Linear):
@@ -29,16 +30,24 @@ class ParameterizedLinear(nn.Linear):
 
 class ParameterizedLowRankLinear(nn.Module):
     def __init__(
-        self, in_features: int, out_features: int, rank: int, bias: bool = True, std: float | None = None
+        self,
+        in_features: int,
+        out_features: int,
+        rank: int,
+        bias: bool = True,
+        has_norm: bool = False,
+        std: float | None = None,
     ) -> None:
         super().__init__()
 
         std = math.sqrt(std / math.sqrt(rank))
 
         self.l1 = ParameterizedLinear(in_features, rank, bias=bias, std=std)
+        self.norm = get_normalization_function("rmsnorm", rank)
         self.l2 = ParameterizedLinear(rank, out_features, bias=bias, std=std)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.l1(x)
+        x = self.norm(x)
         x = self.l2(x)
         return x
