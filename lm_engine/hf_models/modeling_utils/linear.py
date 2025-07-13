@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import math
 
 import torch
@@ -12,7 +14,9 @@ from .normalization import get_normalization_function
 
 
 class ParameterizedLinear(nn.Linear):
-    def __init__(self, in_features: int, out_features: int, bias: bool = True, std: float | None = None) -> None:
+    def __init__(
+        self, in_features: int, out_features: int, bias: bool = True, std: float | None = None
+    ) -> ParameterizedLinear:
         self.std = std
         super().__init__(in_features, out_features, bias)
 
@@ -37,7 +41,7 @@ class ParameterizedLowRankLinear(nn.Module):
         bias: bool = True,
         norm: bool = False,
         std: float | None = None,
-    ) -> None:
+    ) -> ParameterizedLowRankLinear:
         super().__init__()
 
         if not norm:
