@@ -79,11 +79,36 @@ class GRU(nn.Module):
         else:
             self.input_projection = ParameterizedLowRankLinear(
                 self.input_size,
-                3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
+                self.state_size,
                 rank=self.low_rank,
                 bias=add_bias,
                 std=std,
             )
+
+            self.forget_projection = ParameterizedLowRankLinear(
+                self.input_size,
+                self.state_size,
+                rank=self.low_rank,
+                bias=add_bias,
+                std=std,
+            )
+
+            self.reset_projection = ParameterizedLowRankLinear(
+                self.input_size,
+                self.state_size,
+                rank=self.low_rank,
+                bias=add_bias,
+                std=std,
+            )
+
+            if self.is_gated_normalization:
+                self.gate_projection = ParameterizedLowRankLinear(
+                    self.input_size,
+                    self.state_size,
+                    rank=self.low_rank,
+                    bias=add_bias,
+                    std=std,
+                )
 
         if kernel_size is None:
             assert num_groups is None
@@ -157,10 +182,20 @@ class GRU(nn.Module):
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
         conv_state = None
 
-        input = self.input_projection(input)
+        if self.low_rank is None:
+            input = self.input_projection(input)
 
-        if self.is_gated_normalization:
-            input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
+            if self.is_gated_normalization:
+                input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
+        else:
+            if self.is_gated_normalization:
+                gate = self.gate_projection(input)
+
+            forget_input = self.forget_projection(input)
+            reset_input = self.reset_projection(input)
+            input = self.input_projection(input)
+
+            input = torch.cat([input, forget_input, reset_input], dim=-1)
 
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
