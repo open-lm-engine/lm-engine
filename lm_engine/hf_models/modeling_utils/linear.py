@@ -43,7 +43,7 @@ class ParameterizedLowRankLinear(nn.Module):
         std = math.sqrt(std / math.sqrt(rank))
 
         self.l1 = ParameterizedLinear(in_features, rank, bias=bias, std=std)
-        self.norm = get_normalization_function("rmsnorm", rank)
+        self.norm = get_normalization_function("rmsnorm" if has_norm else None, rank)
         self.l2 = ParameterizedLinear(rank, out_features, bias=bias, std=std)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
