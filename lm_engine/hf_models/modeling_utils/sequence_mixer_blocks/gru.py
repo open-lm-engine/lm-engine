@@ -123,7 +123,9 @@ class GRU(nn.Module):
 
         if cache_params is not None:
             cache_params.update(
-                state=input[cu_seqlens[1:] - 1], num_tokens_added=input.size(1), layer_idx=self.layer_idx
+                state=input[cu_seqlens[1:] - 1],
+                num_tokens_added=cu_seqlens[1:] - cu_seqlens[:-1],
+                layer_idx=self.layer_idx,
             )
 
         input = input.view(T, -1)
