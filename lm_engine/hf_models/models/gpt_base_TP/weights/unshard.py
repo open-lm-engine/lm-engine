@@ -5,7 +5,7 @@
 import torch
 from tqdm import trange
 
-from ....modeling_utils import get_attention_head_type, is_glu
+from ....modeling_utils import is_glu
 from ...gpt_base import GPTBaseConfig
 
 
@@ -48,7 +48,8 @@ def unshard_gpt_base_tensor_parallel_state_dicts(
         output_state_dict.update(
             _get_attention(
                 tensor_parallel_state_dicts,
-                attention_head_type=get_attention_head_type(block.num_attention_heads, block.num_key_value_heads),
+                num_attention_heads=block.num_attention_heads,
+                num_key_value_heads=block.num_key_value_heads,
                 add_bias=block.add_bias,
                 prefix=prefix + f"transformer.h.{layer_idx}.sequence_mixer.",
                 check_correctness=check_correctness,
@@ -140,7 +141,8 @@ def _get_layernorm(
 
 def _get_attention(
     tensor_parallel_state_dicts: list[dict],
-    attention_head_type: str,
+    num_attention_heads: int,
+    num_key_value_heads: int,
     add_bias: bool,
     prefix: str,
     check_correctness: bool,
@@ -156,7 +158,7 @@ def _get_attention(
             tensor_parallel_state_dicts, key=prefix + "c_proj.bias", check_correctness=check_correctness
         )
 
-    if attention_head_type == "mqa":
+    if num_key_value_heads == 1:
         q_weight = _concatenate_tensors_from_state_dicts(
             tensor_parallel_state_dicts, key=prefix + "c_attn.q_attn.weight", dim=0
         )

@@ -5,7 +5,7 @@
 import torch
 
 from .....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
-from ....modeling_utils import get_attention_head_type, is_glu
+from ....modeling_utils import is_glu
 from ....modeling_utils_TP import get_tensor_parallel_vocab_info, tensor_parallel_split_safetensor_slice
 from ...gpt_base import GPTBaseConfig
 
@@ -55,9 +55,6 @@ def get_gpt_base_model_parallel_state_dict(
             _get_attention(
                 hidden_size=config.hidden_size,
                 num_attention_heads=num_attention_heads,
-                attention_head_type=get_attention_head_type(
-                    num_attention_heads, config.sequence_mixer_blocks[layer_idx].num_key_value_heads
-                ),
                 add_bias=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "add_bias"),
                 safetensors_weights_manager=safetensors_weights_manager,
                 prefix=prefix + "sequence_mixer.",
@@ -140,9 +137,6 @@ def _get_layernorm(safetensors_weights_manager: SafeTensorsWeightsManager, prefi
 
 
 def _get_attention(
-    hidden_size: int,
-    num_attention_heads: int,
-    attention_head_type: str,
     add_bias: bool,
     safetensors_weights_manager: SafeTensorsWeightsManager,
     prefix: str,
@@ -151,35 +145,14 @@ def _get_attention(
 ) -> None:
     state_dict = {}
 
-    if attention_head_type == "mqa":
-        tp_rank = ProcessGroupManager.get_tensor_parallel_rank()
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
-
-        head_dim = divide_if_divisible(hidden_size, num_attention_heads, "")
-
-        hidden_size_per_rank = divide_if_divisible(hidden_size, tp_world_size, "")
-        start_index = tp_rank * hidden_size_per_rank
-        end_index = (tp_rank + 1) * hidden_size_per_rank
-
-        weight = safetensors_weights_manager.get_slice(prefix + "c_attn.weight")
-        state_dict[prefix + "c_attn.q_attn.weight"] = weight[start_index:end_index, :]
-        state_dict[prefix + "c_attn.kv_attn.weight"] = weight[hidden_size : hidden_size + 2 * head_dim, :]
-
-        if add_bias:
-            bias = safetensors_weights_manager.get_slice(prefix + "c_attn.bias")
-            state_dict[prefix + "c_attn.q_attn.bias"] = bias[start_index:end_index]
-            state_dict[prefix + "c_attn.kv_attn.bias"] = bias[hidden_size : hidden_size + 2 * head_dim]
-    elif attention_head_type in ["mha", "gqa"]:
-        state_dict.update(
-            _get_column_parallel(
-                add_bias=add_bias,
-                safetensors_weights_manager=safetensors_weights_manager,
-                prefix=prefix + "c_attn.",
-                shard_dim=column_parallel_shard_dim,
-            )
+    state_dict.update(
+        _get_column_parallel(
+            add_bias=add_bias,
+            safetensors_weights_manager=safetensors_weights_manager,
+            prefix=prefix + "c_attn.",
+            shard_dim=column_parallel_shard_dim,
         )
-    else:
-        raise ValueError(f"unexpected attention_head_type ({attention_head_type})")
+    )
 
     state_dict.update(
         _get_row_parallel(

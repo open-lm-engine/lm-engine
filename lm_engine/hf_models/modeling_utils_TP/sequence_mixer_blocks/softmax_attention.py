@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 from ....utils import ProcessGroupManager, divide_if_divisible
-from ...modeling_utils import Attention, get_attention_head_type
+from ...modeling_utils import Attention
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
 from ..dropout import Dropout_TP
 from ..linear import ColumnParallelLinear, ReplicatedLinear, RowParallelLinear
@@ -62,32 +62,13 @@ class Attention_TP(Attention):
         )
 
         self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "")
-        self.attention_head_type = get_attention_head_type(self.global_num_heads, self.global_num_key_value_heads)
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
         self.layer_idx = layer_idx
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
-        if self.attention_head_type == "mha":
-            if self.global_num_key_value_heads is None:
-                self.global_num_key_value_heads = self.global_num_heads
-
-            assert (
-                self.global_num_heads == self.global_num_key_value_heads
-            ), f"{self.__class__.__name__} should have same number of heads for query, keys and values"
-
-            self.num_key_value_heads = self.num_heads
-
-            self.c_attn = ColumnParallelLinear(
-                self.global_hidden_size,
-                self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
-                bias=self.add_bias,
-                std=std,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
-        elif self.attention_head_type == "gqa":
+        if self.global_num_key_value_heads != 1 or self.global_num_heads == self.global_num_key_value_heads:
             assert (
                 self.global_num_key_value_heads is not None
             ), "`num_key_value_heads` needs to be specified with GroupedQueryAttention"
@@ -117,7 +98,7 @@ class Attention_TP(Attention):
                 use_padding_free_transformer=use_padding_free_transformer,
                 sequence_parallel=sequence_parallel,
             )
-        elif self.attention_head_type == "mqa":
+        else:
             if self.global_num_key_value_heads is None:
                 self.global_num_key_value_heads = 1
 
@@ -138,8 +119,6 @@ class Attention_TP(Attention):
                 use_padding_free_transformer=use_padding_free_transformer,
                 sequence_parallel=sequence_parallel,
             )
-        else:
-            raise ValueError(f"unexpected attention_head_type ({self.attention_head_type})")
 
         self.c_proj = RowParallelLinear(
             self.global_hidden_size,

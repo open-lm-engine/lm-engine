@@ -5,7 +5,6 @@
 from ...config import CommonConfig
 from .attention import (
     Attention,
-    get_attention_head_type,
     interleave_query_key_value_tensor_for_attention,
     repeat_key_value,
     split_query_key_value_tensor_for_attention,
