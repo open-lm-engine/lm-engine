@@ -32,7 +32,9 @@ class JSONLinesTest(TestCommons):
             args.datasets[0].class_args["data_path"] = tmpdir
 
             tokenizer = AutoTokenizer.from_pretrained(args.model_args.model_name)
-            datasets_list, _ = get_datasets_list(dataset_args_list=args.datasets, split=split, tokenizer=tokenizer)
+            datasets_list, _ = get_datasets_list(
+                dataset_args_list=args.datasets, split=split, use_output=True, tokenizer=tokenizer
+            )
 
         assert len(datasets_list) == 1
         assert len(datasets_list[0]) == 15
