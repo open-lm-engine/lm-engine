@@ -128,7 +128,7 @@ def get_sequence_mixer(
             initializer_range=config.initializer_range,
             m_width=config.m_width,
             num_layers=config.num_layers,
-            causal=causal,
+            causal=causal if not hasattr(block, "causal") else block.causal,
             layer_idx=layer_idx,
         )
 

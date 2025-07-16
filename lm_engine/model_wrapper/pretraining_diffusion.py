@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import torch
 from torch.distributed._tensor.placement_types import Replicate
+from torch.nn import functional as F
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
 from ..dtensors import tensor_to_dtensor
@@ -20,8 +21,11 @@ from ..hf_models import (
 from ..kernels import is_kernel_allowed
 from ..utils import MetricsTrackingDict, ProcessGroupManager
 from .base import ModelWrapper
+from .pretraining import _F, ModelWrapperForPretraining
 from .utils import broadcast_tensor_parallel_input
-from .pretraining import ModelWrapperForPretraining
+
+
+FIM_MIDDLE = "<fim_middle>"
 
 
 class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
@@ -87,19 +91,30 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         self, model_outputs: CausalLMOutputWithPast, labels: torch.Tensor, lm_loss_multiplier: float = 1
     ) -> torch.Tensor | dict:
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
-
-        lm_loss = get_autoregressive_language_modeling_loss(
-            lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
-            labels=labels,
-            hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
-            vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
-            cu_seqlens=None,
-            use_padding_free_transformer=self.use_padding_free_transformer,
-            reduction="sum",
-            shift_logits_and_labels=False,
-            tensor_parallel_enabled=tensor_parallel_enabled,
+        # use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+        flat_logits = model_outputs.logits.flatten(0, -2)
+        flat_labels = labels.flatten()
+        # print(flat_logits.size(), flat_labels.size())
+        lm_loss = (
+            F.cross_entropy(
+                input=flat_logits,
+                target=flat_labels,
+                ignore_index=self.mask_token_id,
+                reduction="mean",
+            )
+            * flat_labels.numel()
         )
+        # lm_loss = get_autoregressive_language_modeling_loss(
+        #     lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
+        #     labels=labels,
+        #     hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
+        #     vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
+        #     cu_seqlens=None,
+        #     use_padding_free_transformer=self.use_padding_free_transformer,
+        #     reduction="sum",
+        #     shift_logits_and_labels=False,
+        #     tensor_parallel_enabled=tensor_parallel_enabled,
+        # )
 
         lm_loss = lm_loss * lm_loss_multiplier
         aux_loss = getattr(model_outputs, "aux_loss", 0)
@@ -119,24 +134,43 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
 
         return output
 
+    def _setup_tokenizer(self) -> None:
+        super()._setup_tokenizer()
+        # self.mask_token_id = self.tokenizer.mask_token_id
+        self.mask_token_id = self.tokenizer.convert_tokens_to_ids(FIM_MIDDLE)
+        assert self.mask_token_id is not None
+
+    def _forward_process(self, input_ids, eps=1e-3):
+        b, l = input_ids.shape
+        t = torch.rand(b, device=input_ids.device)
+        p_mask = (1 - eps) * t + eps
+        p_mask = p_mask[:, None].repeat(1, l)
+
+        masked_indices = torch.rand((b, l), device=input_ids.device) < p_mask
+        print(masked_indices.int().sum() / masked_indices.numel())
+        noisy_batch = torch.where(masked_indices, self.mask_token_id, input_ids)
+        labels = torch.where(~masked_indices, self.mask_token_id, input_ids)
+        return noisy_batch, labels, p_mask
+
     def _prepare_model_inputs(self, batch: dict) -> dict:
         if self.is_pipeline_parallel_enabled:
-            # when using pipeline parallel, we broadcast the input outside the model function
-            tokens = batch["text"]
-            aux_loss_from_pipeline_parallel = batch["aux_loss_from_pipeline_parallel"]
+            raise NotImplementedError("No pipeline for diffusion yet.")
+        #     # when using pipeline parallel, we broadcast the input outside the model function
+        #     tokens = batch["text"]
+        #     aux_loss_from_pipeline_parallel = batch["aux_loss_from_pipeline_parallel"]
 
-            tokens = tokens.to(torch.cuda.current_device())
+        #     tokens = tokens.to(torch.cuda.current_device())
 
-            if self.is_first_stage:
-                input_ids = tokens[:, :-1]
-                pipeline_parallel_input = None
-            else:
-                input_ids = None
-                pipeline_parallel_input = PipelineParallelInput(
-                    hidden_states=tokens, aux_loss=aux_loss_from_pipeline_parallel
-                )
+        #     if self.is_first_stage:
+        #         input_ids = tokens
+        #         pipeline_parallel_input = None
+        #     else:
+        #         input_ids = None
+        #         pipeline_parallel_input = PipelineParallelInput(
+        #             hidden_states=tokens, aux_loss=aux_loss_from_pipeline_parallel
+        #         )
 
-            batch = {"labels": None, "pipeline_parallel_input": pipeline_parallel_input}
+        #     batch = {"labels": None, "pipeline_parallel_input": pipeline_parallel_input}
         else:
             if ProcessGroupManager.is_tensor_parallel_enabled():
                 tokens = broadcast_tensor_parallel_input(
@@ -146,8 +180,9 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
                 tokens = batch["text"]
                 tokens = tokens.to(torch.cuda.current_device())
 
-            input_ids = tokens[:, :-1]
-            batch = {"labels": tokens[:, 1:]}
+            unnoised_input_ids = tokens[:, :-1]
+            input_ids, labels, p_mask = self._forward_process(unnoised_input_ids)
+            batch = {"labels": labels}
 
         if self.use_padding_free_transformer:
             batch_size, sequence_length = input_ids.shape

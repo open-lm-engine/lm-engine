@@ -282,6 +282,12 @@ class Attention(nn.Module):
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
+    def extra_repr(self):
+        return (
+            f"attn_head_type={self.attention_head_type}, causal={self.causal}\n"
+            + f"num_heads={self.num_heads}, num_key_value_heads={self.num_key_value_heads},"
+        )
+
     def _prepare_qkv_for_forward(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # the output of following is a tuple if using MQA with tensor parallel
         hidden_states = self.c_attn(hidden_states)
