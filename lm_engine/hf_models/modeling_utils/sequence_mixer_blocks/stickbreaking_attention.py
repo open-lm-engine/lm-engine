@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 from ....utils import is_stickbreaking_available
 from ...cache import GenerationCache
-from .softmax_attention import Attention
+from .attention import Attention
 
 
 if is_stickbreaking_available():

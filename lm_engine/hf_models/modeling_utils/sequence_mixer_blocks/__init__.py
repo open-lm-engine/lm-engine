@@ -3,19 +3,19 @@
 # **************************************************
 
 from ...config import CommonConfig
-from .causal_convolution import CausalConvolution
-from .flash_attention_utils import flash_attention
-from .gru import GRU
-from .mamba2 import Mamba2
-from .multihead_latent_attention import MultiHeadLatentAttention
-from .rnn import RNN
-from .softmax_attention import (
+from .attention import (
     Attention,
     get_attention_head_type,
     interleave_query_key_value_tensor_for_attention,
     repeat_key_value,
     split_query_key_value_tensor_for_attention,
 )
+from .causal_convolution import CausalConvolution
+from .flash_attention_utils import flash_attention
+from .gru import GRU
+from .mamba2 import Mamba2
+from .multihead_latent_attention import MultiHeadLatentAttention
+from .rnn import RNN
 from .stickbreaking_attention import StickBreakingAttention
 
 
