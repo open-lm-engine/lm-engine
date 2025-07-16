@@ -576,7 +576,8 @@ def main(mode: Mode = Mode.training) -> None:
 
     if mode == Mode.training:
         assert (
-            args.tuning_args.tuning_method == TuningMethod.pretraining
+            args.tuning_args.tuning_method == TuningMethod.pretraining or
+            args.tuning_args.tuning_method == TuningMethod.pretraining_diffusion
         ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
     elif mode == Mode.distillation:
         assert args.distributed_args.fsdp_algorithm == 2, "Distillation is only supported with FSDP-2"
