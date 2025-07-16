@@ -18,8 +18,7 @@ from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
-from .flash_attention_utils import flash_attention
-from .packing import pack_sequence, unpack_sequence
+from .utils import flash_attention, pack_sequence, unpack_sequence
 
 
 def _interleave_query_key_value_tensor_for_mha(

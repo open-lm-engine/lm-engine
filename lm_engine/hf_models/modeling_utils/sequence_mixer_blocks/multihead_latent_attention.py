@@ -15,7 +15,7 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ...cache import GenerationCache
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
-from .flash_attention_utils import flash_attention
+from .utils import flash_attention
 
 
 class MultiHeadLatentAttention(nn.Module):
