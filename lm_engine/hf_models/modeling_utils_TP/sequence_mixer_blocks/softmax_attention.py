@@ -156,7 +156,7 @@ class Attention_TP(Attention):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         query, key, value = query_key_value
 
-        T = query.shape[0]
+        T = query.size(0)
 
         query = query.view(T, self.num_heads, -1)
         key = key.unsqueeze(1)

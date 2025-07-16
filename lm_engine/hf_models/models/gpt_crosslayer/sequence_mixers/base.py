@@ -172,7 +172,7 @@ class KeyValueProjection(nn.Module):
         if self.num_key_value_heads == 1:
             hidden_states = hidden_states.unsqueeze(1)
         else:
-            T = hidden_states.shape[0]
+            T = hidden_states.size(0)
             hidden_states = hidden_states.view(T, self.num_key_value_heads, -1)
 
         key, value = hidden_states.chunk(2, -1)

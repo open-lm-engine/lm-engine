@@ -86,10 +86,7 @@ class RMSNorm_TP(nn.RMSNorm, DTensorModule):
         return input
 
 
-_NORMALIZATION_FUNCTIONS = {
-    "layernorm": LayerNorm_TP,
-    "rmsnorm": RMSNorm_TP,
-}
+_NORMALIZATION_FUNCTIONS = {"layernorm": LayerNorm_TP, "rmsnorm": RMSNorm_TP}
 
 
 def get_normalization_function_TP(

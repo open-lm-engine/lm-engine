@@ -252,11 +252,10 @@ class ModelWrapperForPretraining(ModelWrapper):
             max_seqlen = self.sequence_length
             position_ids = self.position_ids
 
+        batch["input_ids"] = input_ids
+        batch["position_ids"] = position_ids
         batch["cu_seqlens"] = cu_seqlens
         batch["max_seqlen"] = max_seqlen
-        batch["position_ids"] = position_ids
-
-        batch["input_ids"] = input_ids
 
         if ProcessGroupManager.is_tensor_parallel_enabled():
             batch["output_parallel_lm_logits"] = True
