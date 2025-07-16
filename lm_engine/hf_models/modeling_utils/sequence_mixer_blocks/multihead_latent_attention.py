@@ -106,7 +106,7 @@ class MultiHeadLatentAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -116,7 +116,7 @@ class MultiHeadLatentAttention(nn.Module):
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
         assert use_flash_attention_2 or use_flash_attention_3
-        assert past_key_values is None
+        assert cache_params is None
 
         query = self.query_down_projection(hidden_states)
         query = self.query_ln(query)
@@ -130,8 +130,8 @@ class MultiHeadLatentAttention(nn.Module):
         if self.position_embedding_type == "rope":
             raise NotImplementedError()
         else:
-            if past_key_values is not None:
-                key, value = past_key_values.update(
+            if cache_params is not None:
+                key, value = cache_params.update(
                     key_states=key.unsqueeze(1), value_states=value.unsqueeze(1), layer_idx=self.layer_idx
                 )
                 key = key.squeeze(1)

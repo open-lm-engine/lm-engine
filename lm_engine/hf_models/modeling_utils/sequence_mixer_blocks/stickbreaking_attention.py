@@ -45,11 +45,11 @@ class StickBreakingAttention(Attention):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        assert past_key_values is None
+        assert cache_params is None
         query, key, value = self._prepare_qkv_for_forward(hidden_states)
 
         value = value.permute(1, 0, 2)

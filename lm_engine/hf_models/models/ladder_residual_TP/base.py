@@ -32,7 +32,7 @@ class LadderResidualModel_TP(LadderResidualPreTrainedModel_TP, BaseModelMixin_TP
     def forward(
         self,
         input_ids: torch.Tensor | None = None,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
@@ -45,10 +45,10 @@ class LadderResidualModel_TP(LadderResidualPreTrainedModel_TP, BaseModelMixin_TP
             attention_mask,
             position_ids,
             rope_cos_sin,
-            past_key_values,
+            cache_params,
         ) = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             position_ids=position_ids,
             use_cache=use_cache,
@@ -60,16 +60,14 @@ class LadderResidualModel_TP(LadderResidualPreTrainedModel_TP, BaseModelMixin_TP
         current_mlp_out = None
 
         if is_generation_cache_enabled():
-            past_key_values = (
-                GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
-            )
+            cache_params = GenerationCache(self.config) if use_cache and cache_params is None else cache_params
 
         for layer_idx in range(self.layer_start_id, self.layer_end_id):
             current_attention_out, current_mlp_out, hidden_states = self.h[str(layer_idx)](
                 current_attention_out=current_attention_out,
                 current_mlp_out=current_mlp_out,
                 residual=hidden_states,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 rope_cos_sin=rope_cos_sin,
                 cu_seqlens=cu_seqlens,
@@ -89,4 +87,4 @@ class LadderResidualModel_TP(LadderResidualPreTrainedModel_TP, BaseModelMixin_TP
         hidden_states = hidden_states + current_attention_out + current_mlp_out
         hidden_states = self.ln_f(hidden_states)
 
-        return BaseModelOutputWithPast(last_hidden_state=hidden_states, past_key_values=past_key_values)
+        return BaseModelOutputWithPast(last_hidden_state=hidden_states, cache_params=cache_params)
