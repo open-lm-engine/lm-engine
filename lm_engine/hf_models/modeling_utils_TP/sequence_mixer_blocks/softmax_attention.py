@@ -68,7 +68,22 @@ class Attention_TP(Attention):
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
-        if self.global_num_key_value_heads != 1 or self.global_num_heads == self.global_num_key_value_heads:
+        if self.global_num_heads > 1 and self.global_num_key_value_heads == 1:
+            # MQA
+            self.num_key_value_heads = 1
+
+            self.c_attn = _MQA_QueryKeyValueProjection(
+                hidden_size=hidden_size,
+                num_attention_heads=num_attention_heads,
+                add_bias=add_bias,
+                m_width=m_width,
+                num_layers=num_layers,
+                init_method=init_method,
+                initializer_range=initializer_range,
+                use_padding_free_transformer=use_padding_free_transformer,
+                sequence_parallel=sequence_parallel,
+            )
+        else:
             assert (
                 self.global_num_key_value_heads is not None
             ), "`num_key_value_heads` needs to be specified with GroupedQueryAttention"
@@ -95,27 +110,6 @@ class Attention_TP(Attention):
                 self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
                 bias=self.add_bias,
                 std=std,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
-        else:
-            if self.global_num_key_value_heads is None:
-                self.global_num_key_value_heads = 1
-
-            assert (
-                self.global_num_key_value_heads == 1
-            ), f"{self.__class__.__name__} should have 1 head for keys and values"
-
-            self.num_key_value_heads = 1
-
-            self.c_attn = _MQA_QueryKeyValueProjection(
-                hidden_size=hidden_size,
-                num_attention_heads=num_attention_heads,
-                add_bias=add_bias,
-                m_width=m_width,
-                num_layers=num_layers,
-                init_method=init_method,
-                initializer_range=initializer_range,
                 use_padding_free_transformer=use_padding_free_transformer,
                 sequence_parallel=sequence_parallel,
             )
