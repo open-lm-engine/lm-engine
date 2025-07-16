@@ -7,7 +7,7 @@ from copy import deepcopy
 from transformers import AutoTokenizer
 
 from lm_engine.data import BlendedDatasets, get_datasets_list
-from lm_engine.enums import DatasetSplit, Mode
+from lm_engine.enums import DatasetSplit
 
 from .test_commons import TestCommons
 
@@ -16,7 +16,6 @@ class BlendedDatasetsTest(TestCommons):
     def test_dataloader(self) -> None:
         args = TestCommons.load_training_args_for_unit_tests("data_config.yml")
         split = DatasetSplit.train
-        mode = Mode.training
 
         for i in range(1, 4):
             dataset = deepcopy(args.datasets[0])
@@ -30,7 +29,7 @@ class BlendedDatasetsTest(TestCommons):
         tokenizer = AutoTokenizer.from_pretrained(args.model_args.model_name)
 
         datasets_list, _ = get_datasets_list(
-            dataset_args_list=args.datasets, split=split, mode=mode, tokenizer=tokenizer
+            dataset_args_list=args.datasets, split=split, use_output=True, tokenizer=tokenizer
         )
 
         blended_dataset = BlendedDatasets(datasets=datasets_list, split=split)

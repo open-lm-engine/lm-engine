@@ -204,11 +204,9 @@ def evaluate(
 def main() -> None:
     """main program"""
 
-    mode = Mode.training
-
     setup_tf32()
 
-    args: TrainingArgs = get_args(mode)
+    args: TrainingArgs = get_args(TrainingArgs)
 
     assert (
         args.tuning_args.tuning_method == TuningMethod.full_finetuning

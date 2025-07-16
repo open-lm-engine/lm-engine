@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
 
-from ..enums import Kernel, Mode
+from ..enums import Kernel
 from ..hf_models import get_model_parallel_class, is_custom_model
 from ..kernels import is_kernel_allowed
 from ..tokenizers import get_tokenizer
@@ -22,7 +22,6 @@ class ModelWrapper(nn.Module):
 
     def __init__(
         self,
-        mode: Mode,
         model_name: str | None,
         pretrained_config: dict | None,
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
@@ -39,7 +38,6 @@ class ModelWrapper(nn.Module):
         """initializes a model wrapper for a HuggingFace model
 
         Args:
-            mode (Mode): training / inference mode
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
@@ -56,7 +54,6 @@ class ModelWrapper(nn.Module):
 
         super().__init__()
 
-        self.mode = mode
         self.model_name = model_name
         self.pretrained_config = pretrained_config
         self.model_class = model_class

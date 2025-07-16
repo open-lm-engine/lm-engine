@@ -104,7 +104,7 @@ def save_checkpoint(
     if metadata is not None:
         run_rank_n(json.dump)(metadata, run_rank_n(open)(_get_metadata_path(save_path), "w"), indent=4)
 
-    save_args(args, save_path, mode=Mode.training)
+    save_args(args, save_path)
 
     if args.save_args.save_optimizer:
         if optimizer_container is None:
@@ -359,7 +359,7 @@ def load_checkpoint_and_unshard(
 
 
 @run_rank_n
-def save_args(args: TrainingArgs, save_path: str, mode: Mode) -> None:
+def save_args(args: TrainingArgs, save_path: str) -> None:
     """saves training args as a json
 
     Args:
@@ -367,8 +367,7 @@ def save_args(args: TrainingArgs, save_path: str, mode: Mode) -> None:
         save_path (str): save location on disk
     """
 
-    file_prefix = _TRAINING_CONFIG_PREFIX if mode == Mode.training else _INFERENCE_CONFIG_PREFIX
-    save_path = os.path.join(save_path, f"{file_prefix}.yml")
+    save_path = os.path.join(save_path, f"{_TRAINING_CONFIG_PREFIX}.yml")
     yaml.dump(args.to_dict(), open(save_path, "w"), indent=2)
 
 

@@ -29,14 +29,6 @@ class DatasetSplit(Enum):
     test = "test"
 
 
-class Mode(Enum):
-    """training / inference mode"""
-
-    training = "training"
-    unsharding = "unsharding"
-    distillation = "distillation"
-
-
 class TuningMethod(Enum):
     """training method"""
 

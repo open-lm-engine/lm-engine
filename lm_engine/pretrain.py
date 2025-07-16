@@ -14,7 +14,7 @@ from torch.distributed.tensor.parallel import loss_parallel
 from torch.utils.data import DataLoader
 from transformers import set_seed
 
-from .arguments import TrainingArgs, get_args
+from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
 from .communication import Communication
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
@@ -567,18 +567,18 @@ def evaluate(
     return metrics_tracker
 
 
-def main(mode: Mode = Mode.training) -> None:
+def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> None:
     """main program"""
 
     setup_tf32()
 
-    args: TrainingArgs = get_args(mode)
+    args: TrainingArgs | DistillationArgs = get_args(args_class)
 
-    if mode == Mode.training:
+    if args_class == TrainingArgs:
         assert (
             args.tuning_args.tuning_method == TuningMethod.pretraining
         ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
-    elif mode == Mode.distillation:
+    elif args_class == DistillationArgs:
         assert args.distributed_args.fsdp_algorithm == 2, "Distillation is only supported with FSDP-2"
 
         assert (
@@ -603,7 +603,7 @@ def main(mode: Mode = Mode.training) -> None:
 
     set_seed(args.random_args.seed)
 
-    if mode == Mode.distillation:
+    if args_class == DistillationArgs:
         assert args.distributed_args.num_pipeline_stages == 1, "pipeline parallel is not supported with distillation"
 
     model_container = get_model_container(args, mode)

@@ -9,7 +9,7 @@ import torch
 from parameterized import parameterized
 
 from lm_engine.distributed import _get_parameter_marker_maps, _set_parameter_marker_maps
-from lm_engine.enums import Mode, ParamsGroupMethod
+from lm_engine.enums import ParamsGroupMethod
 from lm_engine.model_wrapper import get_model_container
 from lm_engine.optimization.params_group import get_param_groups_list
 from lm_engine.utils import ProcessGroupManager
@@ -32,7 +32,7 @@ class ParamsGroupTest(TestCommons):
             ProcessGroupManager.set_dummy_pipeline_parallel_world_size(1),
             ProcessGroupManager.set_dummy_pipeline_parallel_rank(0),
         ):
-            model_container = get_model_container(args, Mode.training)
+            model_container = get_model_container(args)
 
             if use_fsdp:
                 marker_maps = _get_parameter_marker_maps(model_container)

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from ..enums import DatasetSplit, Mode
+from ..enums import DatasetSplit
 from ..tokenizers import TOKENIZER_TYPE
 from .base import BaseDataset
 
@@ -16,7 +16,7 @@ class DebugDataset(BaseDataset):
         self,
         class_args: dict,
         split: DatasetSplit,
-        mode: Mode,
+        use_output: bool,
         tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
@@ -27,7 +27,7 @@ class DebugDataset(BaseDataset):
         super().__init__(
             class_args=class_args,
             split=split,
-            mode=mode,
+            use_output=use_output,
             tokenizer=tokenizer,
             data_name=data_name,
             input_format=input_format,
@@ -51,13 +51,10 @@ class DebugDataset(BaseDataset):
             self._example = self._get_example(self._token_id)
 
     def _get_example(self, token_id: int) -> dict:
-        if self.mode == Mode.training:
-            example = {
-                "input": [token_id] * self.max_input_tokens,
-                "output": [token_id] * (self.max_output_tokens + 1),
-            }
-        else:
-            example = {"output": [token_id] * self.max_input_tokens}
+        example = {"input": [token_id] * self.max_input_tokens}
+
+        if self.use_output:
+            example["output"] = [token_id] * (self.max_output_tokens + 1)
 
         return example
 

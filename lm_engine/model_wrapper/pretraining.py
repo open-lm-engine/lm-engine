@@ -9,7 +9,7 @@ from torch.distributed._tensor.placement_types import Replicate
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
 from ..dtensors import tensor_to_dtensor
-from ..enums import Kernel, Mode
+from ..enums import Kernel
 from ..hf_models import (
     CausalLMOutputWithPast,
     PipelineParallelInput,
@@ -26,7 +26,6 @@ from .utils import broadcast_tensor_parallel_input
 class ModelWrapperForPretraining(ModelWrapper):
     def __init__(
         self,
-        mode: Mode,
         model_name: str | None,
         pretrained_config: dict | None,
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
@@ -47,7 +46,6 @@ class ModelWrapperForPretraining(ModelWrapper):
         """initializes a model wrapper for a HuggingFace model
 
         Args:
-            mode (Mode): training / inference mode
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
@@ -72,7 +70,6 @@ class ModelWrapperForPretraining(ModelWrapper):
         self.reset_position_ids = reset_position_ids
 
         super().__init__(
-            mode=mode,
             model_name=model_name,
             pretrained_config=pretrained_config,
             model_class=model_class,

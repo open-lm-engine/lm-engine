@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
 from ..dtensors import tensor_to_dtensor
-from ..enums import Kernel, KLDivergenceMethod, Mode
+from ..enums import Kernel, KLDivergenceMethod
 from ..hf_models import (
     CausalLMOutputWithPast,
     PipelineParallelOutput,
@@ -52,7 +52,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         """initializes a model wrapper for a HuggingFace model
 
         Args:
-            mode (Mode): training / inference mode
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading

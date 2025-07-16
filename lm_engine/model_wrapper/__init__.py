@@ -4,7 +4,7 @@
 
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import ModelContainer
-from ..enums import Mode, TuningMethod
+from ..enums import TuningMethod
 from ..kernels import enable_kernels
 from ..utils import get_pipeline_stage_ids_on_current_rank
 from .base import ModelWrapper
@@ -21,7 +21,7 @@ _MODEL_CLASS_MAPPING = {
 }
 
 
-def get_model_container(args: TrainingArgs | UnshardingArgs | DistillationArgs, mode: Mode) -> ModelContainer:
+def get_model_container(args: TrainingArgs | UnshardingArgs | DistillationArgs) -> ModelContainer:
     tuning_method = args.tuning_args.tuning_method
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
 
@@ -32,7 +32,6 @@ def get_model_container(args: TrainingArgs | UnshardingArgs | DistillationArgs, 
         raise ValueError(f"unexpected tuning_method ({tuning_method})")
 
     kwargs = {
-        "mode": mode,
         "model_name": args.model_args.model_name,
         "pretrained_config": args.model_args.pretrained_config,
         "model_class": args.model_args.model_class,

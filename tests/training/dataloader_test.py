@@ -13,7 +13,7 @@ from lm_engine.data import (
     collate_fn,
     get_datasets_list,
 )
-from lm_engine.enums import DatasetSplit, Mode
+from lm_engine.enums import DatasetSplit
 
 from .test_commons import TestCommons
 
@@ -22,7 +22,6 @@ class DataLoaderTest(TestCommons):
     def test_dataloader_has_correct_order(self) -> None:
         args = TestCommons.load_training_args_for_unit_tests("data_config.yml")
         split = DatasetSplit.train
-        mode = Mode.training
 
         args.datasets[0].class_args["static_examples"] = False
         num_examples = 1000
