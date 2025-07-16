@@ -16,11 +16,11 @@ from .softmax_attention import (
     repeat_key_value,
     split_query_key_value_tensor_for_attention,
 )
-from .stickbreaking_attention import PaddingFreeSBAttention
+from .stickbreaking_attention import StickBreakingAttention
 
 
 SEQUENCE_MIXER_TYPE = (
-    Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN | PaddingFreeSBAttention
+    Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN | StickBreakingAttention
 )
 
 
@@ -120,6 +120,6 @@ def get_sequence_mixer(config: CommonConfig, causal: bool, layer_idx: int) -> SE
         if sequence_mixer_type == "softmax_attention":
             return Attention(**sequence_mixer_kwargs, softmax_dropout=block.softmax_dropout)
         elif sequence_mixer_type == "stickbreaking_attention":
-            return PaddingFreeSBAttention(**sequence_mixer_kwargs)
+            return StickBreakingAttention(**sequence_mixer_kwargs)
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")

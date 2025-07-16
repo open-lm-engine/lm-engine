@@ -41,7 +41,7 @@ def decoding_stickbreaking(q, k, v, scale=None):
     return out, 1 - att.sum(dim=-1)
 
 
-class PaddingFreeSBAttention(Attention):
+class StickBreakingAttention(Attention):
     def forward(
         self,
         hidden_states: torch.Tensor,
