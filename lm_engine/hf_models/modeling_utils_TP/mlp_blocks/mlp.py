@@ -26,7 +26,6 @@ class MLP_TP(MLP):
         initializer_range: float,
         m_width: float,
         num_layers: int,
-        use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> MLP_TP:
         nn.Module.__init__(self)
@@ -38,7 +37,6 @@ class MLP_TP(MLP):
             2 * intermediate_size if is_glu(activation_function) else intermediate_size,
             bias=add_bias,
             std=std,
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
 
@@ -49,16 +47,7 @@ class MLP_TP(MLP):
             hidden_size,
             bias=add_bias,
             std=std / math.sqrt(2 * num_layers),
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
 
-        self.dropout = (
-            nn.Identity()
-            if dropout == 0
-            else Dropout_TP(
-                dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
-        )
+        self.dropout = nn.Identity() if dropout == 0 else Dropout_TP(dropout, sequence_parallel=sequence_parallel)

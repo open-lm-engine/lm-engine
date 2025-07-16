@@ -55,31 +55,18 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
 
         if self.is_first_stage:
             self.wte = Embedding_TP(
-                config.vocab_size,
-                self.embed_dim,
-                std=self.initializer_range,
-                use_padding_free_transformer=self.use_padding_free_transformer,
-                sequence_parallel=self.sequence_parallel,
+                config.vocab_size, self.embed_dim, std=self.initializer_range, sequence_parallel=self.sequence_parallel
             )
 
             self.embedding_dropout = (
                 nn.Identity()
                 if config.embedding_dropout == 0
-                else Dropout_TP(
-                    config.embedding_dropout,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
-                    sequence_parallel=self.sequence_parallel,
-                )
+                else Dropout_TP(config.embedding_dropout, sequence_parallel=self.sequence_parallel)
             )
 
         self.h = nn.ModuleDict(
             {
-                str(i): self.layer_class(
-                    config,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
-                    layer_idx=i,
-                    sequence_parallel=self.sequence_parallel,
-                )
+                str(i): self.layer_class(config, layer_idx=i, sequence_parallel=self.sequence_parallel)
                 for i in range(self.layer_start_id, self.layer_end_id)
             }
         )
@@ -89,7 +76,6 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
                 config.normalization_function,
                 self.embed_dim,
                 eps=config.layer_norm_epsilon,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 sequence_parallel=self.sequence_parallel,
             )
 
@@ -102,7 +88,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
     def forward(
         self,
         input_ids: torch.Tensor | None = None,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
@@ -116,10 +102,10 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
                 attention_mask,
                 position_ids,
                 rope_cos_sin,
-                past_key_values,
+                cache_params,
             ) = self._prepare_a_bunch_of_stuff(
                 input_ids=input_ids,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 position_ids=position_ids,
                 use_cache=use_cache,
@@ -127,23 +113,15 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
                 max_seqlen=max_seqlen,
             )
         else:
-            assert past_key_values is None
+            assert cache_params is None
             assert attention_mask is None
 
             hidden_states = input_ids
             past_length = 0
 
-            if self.use_padding_free_transformer:
-                key_length = max_seqlen
-                # query length will change if past_key_values is not None
-                query_length = key_length - past_length
-            else:
-                key_length = (
-                    hidden_states.size(1) * ProcessGroupManager.get_tensor_parallel_world_size()
-                    if self.sequence_parallel
-                    else hidden_states.size(1)
-                )
-                query_length = key_length - past_length
+            key_length = max_seqlen
+            # query length will change if cache_params is not None
+            query_length = key_length - past_length
 
             position_ids = torch.arange(past_length, key_length, dtype=torch.long, device=hidden_states.device)
             position_ids = position_ids.unsqueeze(0).view(-1, query_length)
@@ -151,14 +129,12 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
             rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
         if is_generation_cache_enabled():
-            past_key_values = (
-                GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
-            )
+            cache_params = GenerationCache(self.config) if use_cache and cache_params is None else cache_params
 
         for layer_idx in range(self.layer_start_id, self.layer_end_id):
             hidden_states = self.h[str(layer_idx)](
                 hidden_states,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 rope_cos_sin=rope_cos_sin,
                 cu_seqlens=cu_seqlens,
@@ -168,7 +144,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
         if self.is_last_stage:
             hidden_states = self.ln_f(hidden_states)
 
-        return BaseModelOutputWithPast(last_hidden_state=hidden_states, past_key_values=past_key_values)
+        return BaseModelOutputWithPast(last_hidden_state=hidden_states, cache_params=cache_params)
 
     def _setup_positional_encoding(self) -> None:
         max_position_embeddings = self.config.max_position_embeddings
@@ -179,7 +155,6 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
                     max_position_embeddings,
                     self.embed_dim,
                     std=self.initializer_range,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
                     sequence_parallel=self.sequence_parallel,
                 )
         elif self.position_embedding_type == "rope":

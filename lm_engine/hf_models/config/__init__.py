@@ -78,7 +78,7 @@ _MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
 
 
 class CommonConfig(PretrainedConfig):
-    keys_to_ignore_at_inference = ["past_key_values"]
+    keys_to_ignore_at_inference = ["cache_params"]
 
     def __init__(
         self,

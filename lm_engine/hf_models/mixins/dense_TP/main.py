@@ -44,7 +44,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
                     self.vocab_size,
                     config.hidden_size,
                     std=config.initializer_range,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
                     sequence_parallel=self.sequence_parallel,
                 )
 
@@ -58,7 +57,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | list[list[int]] | None = None,
         inputs_embeds: torch.Tensor | list[list[float]] | None = None,
@@ -75,7 +74,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
         assert inputs_embeds is None
 
         if self.is_pipeline_parallel_enabled:
-            past_key_values = None
+            cache_params = None
 
         clear_aux_loss()
 
@@ -87,7 +86,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
                 labels=labels,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 use_cache=use_cache,
             )
@@ -97,7 +96,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             position_ids=position_ids,
             use_cache=use_cache,
@@ -106,7 +105,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
         )
 
         hidden_states = transformer_outputs.last_hidden_state
-        past_key_values = transformer_outputs.past_key_values
+        cache_params = transformer_outputs.cache_params
 
         del pipeline_parallel_input
         del transformer_outputs
@@ -140,7 +139,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
                     hidden_states=None,
                     vocab_weight=None,
                     cu_seqlens=cu_seqlens,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    use_padding_free_transformer=True,
                     reduction=reduction,
                     shift_logits_and_labels=True,
                     tensor_parallel_enabled=ProcessGroupManager.is_tensor_parallel_enabled(),
@@ -158,7 +157,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
                 loss=loss,
                 aux_loss=aux_loss,
                 logits=lm_logits,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 last_hidden_state=hidden_states,
             )
         else:
@@ -171,7 +170,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             LMHead_TP.compute_with_weight(
                 hidden_states,
                 weight=self.transformer.wte.weight,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 sequence_parallel=self.sequence_parallel,
                 tp_mesh=self.tp_mesh,
             )
@@ -245,21 +243,12 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             if output_parallel_lm_logits_if_possible:
                 vocab_size = divide_if_divisible(vocab_size, ProcessGroupManager.get_tensor_parallel_world_size(), "")
 
-            if self.use_padding_free_transformer:
-                tensor = torch.empty(
-                    micro_batch_size * sequence_length,
-                    vocab_size,
-                    device=torch.cuda.current_device(),
-                    dtype=intermediate_dtype,
-                )
-            else:
-                tensor = torch.empty(
-                    micro_batch_size,
-                    sequence_length,
-                    vocab_size,
-                    device=torch.cuda.current_device(),
-                    dtype=intermediate_dtype,
-                )
+            tensor = torch.empty(
+                micro_batch_size * sequence_length,
+                vocab_size,
+                device=torch.cuda.current_device(),
+                dtype=intermediate_dtype,
+            )
         else:
             tensor = self._get_dummy_intermediate_tensor(
                 micro_batch_size, sequence_length, intermediate_dtype=intermediate_dtype
@@ -280,20 +269,11 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
         hidden_size = self.config.hidden_size
 
-        if self.use_padding_free_transformer:
-            tensor = torch.empty(
-                micro_batch_size * sharded_sequence_length,
-                hidden_size,
-                device=torch.cuda.current_device(),
-                dtype=intermediate_dtype,
-            )
-        else:
-            tensor = torch.empty(
-                micro_batch_size,
-                sharded_sequence_length,
-                hidden_size,
-                device=torch.cuda.current_device(),
-                dtype=intermediate_dtype,
-            )
+        tensor = torch.empty(
+            micro_batch_size * sharded_sequence_length,
+            hidden_size,
+            device=torch.cuda.current_device(),
+            dtype=intermediate_dtype,
+        )
 
         return tensor
