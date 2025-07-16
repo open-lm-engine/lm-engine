@@ -25,7 +25,9 @@ class Block(nn.Module):
         self.ln_1 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
+
         self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
+
         self.ln_2 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
