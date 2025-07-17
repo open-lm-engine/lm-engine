@@ -136,7 +136,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
 
     def _setup_tokenizer(self) -> None:
         super()._setup_tokenizer()
-        # self.mask_token_id = self.tokenizer.mask_token_id
+        # TODO (shawntan) Use FIM token for now. Figure out if there is a way to have actual mask token.
         self.mask_token_id = self.tokenizer.convert_tokens_to_ids(FIM_MIDDLE)
         assert self.mask_token_id is not None
 
@@ -147,7 +147,6 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         p_mask = p_mask[:, None].repeat(1, l)
 
         masked_indices = torch.rand((b, l), device=input_ids.device) < p_mask
-        print(masked_indices.int().sum() / masked_indices.numel())
         noisy_batch = torch.where(masked_indices, self.mask_token_id, input_ids)
         labels = torch.where(~masked_indices, self.mask_token_id, input_ids)
         return noisy_batch, labels, p_mask
@@ -180,7 +179,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
                 tokens = batch["text"]
                 tokens = tokens.to(torch.cuda.current_device())
 
-            unnoised_input_ids = tokens[:, :-1]
+            unnoised_input_ids = tokens[:, 1:]
             input_ids, labels, p_mask = self._forward_process(unnoised_input_ids)
             batch = {"labels": labels}
 

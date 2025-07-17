@@ -284,7 +284,7 @@ class Attention(nn.Module):
 
     def extra_repr(self):
         return (
-            f"attn_head_type={self.attention_head_type}, causal={self.causal}\n"
+            f"attn_head_type={self.attention_head_type}, causal={self.causal},\n"
             + f"num_heads={self.num_heads}, num_key_value_heads={self.num_key_value_heads},"
         )
 
