@@ -42,6 +42,7 @@ class ModelWrapperForPretraining(ModelWrapper):
         additional_special_tokens: list[str] | None = None,
         reset_attention_mask: bool = False,
         reset_position_ids: bool = False,
+        keep_in_fp32: bool = True,
     ) -> ModelWrapperForPretraining:
         """initializes a model wrapper for a HuggingFace model
 
@@ -62,6 +63,7 @@ class ModelWrapperForPretraining(ModelWrapper):
             additional_special_tokens (list[str] | None, optional): additional special tokens to use for expanding tokenizer. Defaults to None.
             reset_attention_mask (bool, optional): whether to reset attention mask during pretraining. Defaults to False.
             reset_position_ids (bool, optional): whether to reset position ids during pretraining. Defaults to False.
+            keep_in_fp32 (bool, optional): whether to keep model in fp32 right now. Defaults to True.
         """
 
         self.micro_batch_size = micro_batch_size
@@ -82,6 +84,7 @@ class ModelWrapperForPretraining(ModelWrapper):
             trust_remote_code=trust_remote_code,
             tokenizer_name=tokenizer_name,
             additional_special_tokens=additional_special_tokens,
+            keep_in_fp32=keep_in_fp32,
         )
 
         if self.is_pipeline_parallel_enabled:

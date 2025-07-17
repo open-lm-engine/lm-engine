@@ -30,7 +30,6 @@ from .optimizer import _get_optimizer_path, _OptimizerSaver
 
 
 _TRAINING_CONFIG_PREFIX = "training_config"
-_INFERENCE_CONFIG_PREFIX = "inference_config"
 _KILLSWITCH = "KILLSWITCH"
 _FUTURE = None
 
@@ -317,7 +316,11 @@ def load_checkpoint_and_unshard(
         original_num_stages = args_from_checkpoint.distributed_args.num_pipeline_stages
         args_from_checkpoint.distributed_args.num_pipeline_stages = 1
 
-        model = get_model_container(args_from_checkpoint, args_from_checkpoint.model_args.efficient_initialization)[0]
+        model = get_model_container(
+            args_from_checkpoint,
+            efficient_initialization=args_from_checkpoint.model_args.efficient_initialization,
+            keep_in_fp32=False,
+        )[0]
 
         args_from_checkpoint.distributed_args.num_pipeline_stages = original_num_stages
 

@@ -22,7 +22,7 @@ _MODEL_CLASS_MAPPING = {
 
 
 def get_model_container(
-    args: TrainingArgs | UnshardingArgs | DistillationArgs, efficient_initialization: bool
+    args: TrainingArgs | UnshardingArgs | DistillationArgs, efficient_initialization: bool, keep_in_fp32: bool
 ) -> ModelContainer:
     tuning_method = args.tuning_args.tuning_method
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
@@ -45,6 +45,7 @@ def get_model_container(
         "trust_remote_code": args.model_args.trust_remote_code,
         "tokenizer_name": args.tokenizer_args.tokenizer_name,
         "additional_special_tokens": args.tokenizer_args.additional_special_tokens,
+        "keep_in_fp32": keep_in_fp32,
     }
 
     # pretraining model wrapper needs some extra arguments for initialization

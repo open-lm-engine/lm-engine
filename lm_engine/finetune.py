@@ -232,7 +232,9 @@ def main() -> None:
 
     assert args.distributed_args.num_pipeline_stages == 1, "pipeline parallel is not supported with finetuning"
 
-    model_container = get_model_container(args, args.model_args.efficient_initialization)
+    model_container = get_model_container(
+        args, efficient_initialization=args.model_args.efficient_initialization, keep_in_fp32=True
+    )
 
     train_dataloader = get_finetuning_dataloader(
         args, split=DatasetSplit.train, tokenizer=model_container[0].tokenizer

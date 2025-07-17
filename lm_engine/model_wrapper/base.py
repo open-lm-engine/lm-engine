@@ -34,6 +34,7 @@ class ModelWrapper(nn.Module):
         trust_remote_code: bool = False,
         tokenizer_name: str | None = None,
         additional_special_tokens: list[str] | None = None,
+        keep_in_fp32: bool = True,
     ) -> ModelWrapper:
         """initializes a model wrapper for a HuggingFace model
 
@@ -50,6 +51,7 @@ class ModelWrapper(nn.Module):
             trust_remote_code (bool, optional): whether the model has remote code in the HF bucket. Defaults to False.
             tokenizer_name (str | None, optional): path of the model on disk or HF hub. Defaults to None. If None, the `model_name` is used for tokenizer.
             additional_special_tokens (list[str] | None, optional): additional special tokens to use for expanding tokenizer. Defaults to None.
+            keep_in_fp32 (bool, optional): whether to keep model in fp32 right now. Defaults to True.
         """
 
         super().__init__()
@@ -63,6 +65,7 @@ class ModelWrapper(nn.Module):
         self.sequence_parallel = sequence_parallel
         self.tokenizer_name = self.model_name if tokenizer_name is None else tokenizer_name
         self.trust_remote_code = trust_remote_code
+        self.keep_in_fp32 = keep_in_fp32
 
         self.num_pipeline_stages = num_pipeline_stages
         self.pipeline_stage_id = pipeline_stage_id
@@ -181,7 +184,7 @@ class ModelWrapper(nn.Module):
 
             return model
 
-        if self.mode == Mode.training:
+        if self.keep_in_fp32:
             if self.efficient_initialization:
                 if self.model_name is None:
                     with torch.device("meta"):

@@ -26,7 +26,6 @@ from .pretraining import ModelWrapperForPretraining
 class ModelWrapperForDistillation(ModelWrapperForPretraining):
     def __init__(
         self,
-        mode: Mode,
         model_name: str | None,
         pretrained_config: dict | None,
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
@@ -48,6 +47,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         additional_special_tokens: list[str] | None = None,
         reset_attention_mask: bool = False,
         reset_position_ids: bool = False,
+        keep_in_fp32: bool = True,
     ) -> ModelWrapperForDistillation:
         """initializes a model wrapper for a HuggingFace model
 
@@ -68,6 +68,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             additional_special_tokens (list[str] | None, optional): additional special tokens to use for expanding tokenizer. Defaults to None.
             reset_attention_mask (bool, optional): whether to reset attention mask during pretraining. Defaults to False.
             reset_position_ids (bool, optional): whether to reset position ids during pretraining. Defaults to False.
+            keep_in_fp32 (bool, optional): whether to keep model in fp32 right now. Defaults to True.
         """
 
         self.teacher_model_class = teacher_model_class
@@ -77,7 +78,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         self.kl_divergence_weight = kl_divergence_weight
 
         super().__init__(
-            mode=mode,
             model_name=model_name,
             pretrained_config=pretrained_config,
             model_class=model_class,
@@ -94,6 +94,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             additional_special_tokens=additional_special_tokens,
             reset_attention_mask=reset_attention_mask,
             reset_position_ids=reset_position_ids,
+            keep_in_fp32=keep_in_fp32,
         )
 
         if ProcessGroupManager.is_tensor_parallel_enabled() or num_pipeline_stages > 1:
