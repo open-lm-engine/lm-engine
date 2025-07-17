@@ -232,16 +232,16 @@ def main() -> None:
 
     assert args.distributed_args.num_pipeline_stages == 1, "pipeline parallel is not supported with finetuning"
 
-    model_container = get_model_container(args, mode)
+    model_container = get_model_container(args, args.model_args.efficient_initialization)
 
     train_dataloader = get_finetuning_dataloader(
-        args, split=DatasetSplit.train, mode=mode, tokenizer=model_container[0].tokenizer
+        args, split=DatasetSplit.train, tokenizer=model_container[0].tokenizer
     )
 
     val_dataloader = None
     if args.training_parameters.eval_during_training:
         val_dataloader = get_finetuning_dataloader(
-            args, split=DatasetSplit.val, mode=mode, tokenizer=model_container[0].tokenizer
+            args, split=DatasetSplit.val, tokenizer=model_container[0].tokenizer
         )
 
     model_container, _ = wrap_model_container_for_distributed_training(args, model_container)

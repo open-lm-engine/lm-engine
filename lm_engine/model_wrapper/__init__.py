@@ -21,7 +21,9 @@ _MODEL_CLASS_MAPPING = {
 }
 
 
-def get_model_container(args: TrainingArgs | UnshardingArgs | DistillationArgs) -> ModelContainer:
+def get_model_container(
+    args: TrainingArgs | UnshardingArgs | DistillationArgs, efficient_initialization: bool
+) -> ModelContainer:
     tuning_method = args.tuning_args.tuning_method
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
 
@@ -36,7 +38,7 @@ def get_model_container(args: TrainingArgs | UnshardingArgs | DistillationArgs) 
         "pretrained_config": args.model_args.pretrained_config,
         "model_class": args.model_args.model_class,
         "dtype": args.mixed_precision_args.dtype,
-        "efficient_initialization": args.model_args.efficient_initialization,
+        "efficient_initialization": efficient_initialization,
         "use_padding_free_transformer": args.model_args.use_padding_free_transformer,
         "sequence_parallel": args.distributed_args.sequence_parallel,
         "num_pipeline_stages": num_pipeline_stages,

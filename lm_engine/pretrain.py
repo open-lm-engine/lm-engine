@@ -606,7 +606,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     if args_class == DistillationArgs:
         assert args.distributed_args.num_pipeline_stages == 1, "pipeline parallel is not supported with distillation"
 
-    model_container = get_model_container(args, mode)
+    model_container = get_model_container(args, args.model_args.efficient_initialization)
     model_container, pipeline_schedule = wrap_model_container_for_distributed_training(args, model_container)
 
     optimizer_container = get_optimizer_container(

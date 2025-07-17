@@ -32,7 +32,7 @@ class ParamsGroupTest(TestCommons):
             ProcessGroupManager.set_dummy_pipeline_parallel_world_size(1),
             ProcessGroupManager.set_dummy_pipeline_parallel_rank(0),
         ):
-            model_container = get_model_container(args)
+            model_container = get_model_container(args, False)
 
             if use_fsdp:
                 marker_maps = _get_parameter_marker_maps(model_container)

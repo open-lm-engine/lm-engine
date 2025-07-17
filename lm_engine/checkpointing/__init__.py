@@ -271,13 +271,12 @@ def load_checkpoint_for_training(
 
 
 def load_checkpoint_and_unshard(
-    args: UnshardingArgs, mode: Mode, allowed_meta_device: bool = False
+    args: UnshardingArgs, allowed_meta_device: bool = False
 ) -> tuple[ModelWrapper, TrainingArgs, dict]:
     """load checkpoint for inference
 
     Args:
         args (UnshardingArgs): arguments
-        mode (Mode): training/inference mode
         allowed_meta_device (bool): whether to use meta device
     """
 
@@ -294,11 +293,12 @@ def load_checkpoint_and_unshard(
     args_file = os.path.join(_get_base_path(load_path, iteration), f"{_TRAINING_CONFIG_PREFIX}.yml")
     args_from_checkpoint = load_yaml(args_file)
 
+    # turn off distillation for unsharding
     if "teacher_args" in args_from_checkpoint:
         args_from_checkpoint["tuning_args"]["tuning_method"] = "pretraining"
         args_from_checkpoint.pop("teacher_args")
 
-    args_from_checkpoint = args_dict_to_pydantic_args(mode, **args_from_checkpoint)
+    args_from_checkpoint = args_dict_to_pydantic_args(TrainingArgs, **args_from_checkpoint)
 
     if args.mixed_precision_args is not None:
         log_rank_0(logging.INFO, "overriding mixed precision args")
@@ -317,7 +317,7 @@ def load_checkpoint_and_unshard(
         original_num_stages = args_from_checkpoint.distributed_args.num_pipeline_stages
         args_from_checkpoint.distributed_args.num_pipeline_stages = 1
 
-        model = get_model_container(args_from_checkpoint, mode)[0]
+        model = get_model_container(args_from_checkpoint, args_from_checkpoint.model_args.efficient_initialization)[0]
 
         args_from_checkpoint.distributed_args.num_pipeline_stages = original_num_stages
 
