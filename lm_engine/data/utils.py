@@ -7,13 +7,13 @@ from typing import Iterable
 
 import torch
 
-from ..enums import LossMask, Mode
+from ..enums import LossMask
 from ..hf_models import convert_padding_free_lists_to_tensors
 
 
 def collate_fn(
     batch: list[dict],
-    mode: Mode,
+    use_output: bool,
     loss_mask: LossMask,
     eos_token_id: int,
     use_padding_free_transformer: bool,
@@ -31,7 +31,7 @@ def collate_fn(
     """
 
     inputs = [i["input"] for i in batch]
-    outputs = [i["output"] for i in batch] if mode == Mode.training else None
+    outputs = [i["output"] for i in batch] if use_output else None
 
     # labels is None when outputs is None
     labels = None

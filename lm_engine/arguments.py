@@ -17,7 +17,6 @@ from .enums import (
     KLDivergenceMethod,
     LossMask,
     LRDecaySchedule,
-    Mode,
     ParamsGroupMethod,
     TuningMethod,
 )
@@ -465,33 +464,21 @@ class DistillationArgs(TrainingArgs):
         super().model_post_init(__context)
 
 
-_MODE_ARGS_MAP = {
-    Mode.training: TrainingArgs,
-    Mode.unsharding: UnshardingArgs,
-    Mode.distillation: DistillationArgs,
-}
+def args_dict_to_pydantic_args(
+    args_class: type[TrainingArgs | DistillationArgs | UnshardingArgs], **config
+) -> TrainingArgs | UnshardingArgs | DistillationArgs:
+    return args_class(**config)
 
 
-def args_dict_to_pydantic_args(mode: Mode, **config) -> TrainingArgs | UnshardingArgs | DistillationArgs:
-    return _MODE_ARGS_MAP[mode](**config)
-
-
-def get_args(mode: Mode) -> TrainingArgs | UnshardingArgs:
-    """get args for training / inference
-
-    Args:
-        mode (Mode): training / inference mode for running the program
-
-    Returns:
-        TrainingArgs | UnshardingArgs: args for training / inference
-    """
-
+def get_args(
+    args_class: type[TrainingArgs | DistillationArgs | UnshardingArgs],
+) -> TrainingArgs | DistillationArgs | UnshardingArgs:
     parser = ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="path for the config")
     args = parser.parse_args()
 
     config: dict = load_yaml(args.config)
-    args: TrainingArgs | UnshardingArgs = args_dict_to_pydantic_args(mode, **config)
+    args: TrainingArgs | UnshardingArgs = args_dict_to_pydantic_args(args_class, **config)
 
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
     log_args(args)

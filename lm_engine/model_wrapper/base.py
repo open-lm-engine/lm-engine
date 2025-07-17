@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
 
-from ..enums import Kernel, Mode
+from ..enums import Kernel
 from ..hf_models import get_model_parallel_class, is_custom_model
 from ..kernels import is_kernel_allowed
 from ..tokenizers import get_tokenizer
@@ -22,7 +22,6 @@ class ModelWrapper(nn.Module):
 
     def __init__(
         self,
-        mode: Mode,
         model_name: str | None,
         pretrained_config: dict | None,
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
@@ -35,11 +34,11 @@ class ModelWrapper(nn.Module):
         trust_remote_code: bool = False,
         tokenizer_name: str | None = None,
         additional_special_tokens: list[str] | None = None,
+        keep_in_fp32: bool = True,
     ) -> ModelWrapper:
         """initializes a model wrapper for a HuggingFace model
 
         Args:
-            mode (Mode): training / inference mode
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
@@ -52,11 +51,11 @@ class ModelWrapper(nn.Module):
             trust_remote_code (bool, optional): whether the model has remote code in the HF bucket. Defaults to False.
             tokenizer_name (str | None, optional): path of the model on disk or HF hub. Defaults to None. If None, the `model_name` is used for tokenizer.
             additional_special_tokens (list[str] | None, optional): additional special tokens to use for expanding tokenizer. Defaults to None.
+            keep_in_fp32 (bool, optional): whether to keep model in fp32 right now. Defaults to True.
         """
 
         super().__init__()
 
-        self.mode = mode
         self.model_name = model_name
         self.pretrained_config = pretrained_config
         self.model_class = model_class
@@ -66,6 +65,7 @@ class ModelWrapper(nn.Module):
         self.sequence_parallel = sequence_parallel
         self.tokenizer_name = self.model_name if tokenizer_name is None else tokenizer_name
         self.trust_remote_code = trust_remote_code
+        self.keep_in_fp32 = keep_in_fp32
 
         self.num_pipeline_stages = num_pipeline_stages
         self.pipeline_stage_id = pipeline_stage_id
@@ -184,7 +184,7 @@ class ModelWrapper(nn.Module):
 
             return model
 
-        if self.mode == Mode.training:
+        if self.keep_in_fp32:
             if self.efficient_initialization:
                 if self.model_name is None:
                     with torch.device("meta"):

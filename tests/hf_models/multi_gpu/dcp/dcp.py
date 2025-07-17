@@ -11,7 +11,6 @@ import torch.distributed
 from lm_engine.arguments import TrainingArgs, UnshardingArgs
 from lm_engine.checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_and_unshard, save_checkpoint
 from lm_engine.distributed import wrap_model_container_for_distributed_training
-from lm_engine.enums import Mode
 from lm_engine.model_wrapper import get_model_container
 from lm_engine.utils import ProcessGroupManager, load_yaml
 
@@ -63,7 +62,10 @@ if global_rank == 0:
         original_num_stages = train_config.distributed_args.num_pipeline_stages
         train_config.distributed_args.num_pipeline_stages = 1
 
-        model_container = get_model_container(train_config, Mode.training)
+        model_container = get_model_container(
+            train_config, efficient_initialization=train_config.model_args.efficient_initialization, keep_in_fp32=False
+        )
+
         model_container[0].save_pretrained(os.path.join(args.tmp_path, "single_rank"))
 
         train_config.distributed_args.num_pipeline_stages = original_num_stages
@@ -81,7 +83,10 @@ unshard_config.load_args.load_path = train_config.save_args.save_path
 unshard_config.load_args.iteration = iteration
 unshard_config.unsharded_path = os.path.join(args.tmp_path, "unsharded_path")
 
-parallel_model_container = get_model_container(train_config, Mode.training)
+parallel_model_container = get_model_container(
+    train_config, efficient_initialization=train_config.model_args.efficient_initialization, keep_in_fp32=False
+)
+
 parallel_model_container, _ = wrap_model_container_for_distributed_training(train_config, parallel_model_container)
 
 save_checkpoint(
@@ -99,9 +104,7 @@ ensure_last_checkpoint_is_saved()
 
 torch.distributed.barrier()
 
-_, _, consolidated_state_dict = load_checkpoint_and_unshard(
-    unshard_config, mode=Mode.unsharding, allowed_meta_device=False
-)
+_, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config, allowed_meta_device=False)
 
 if global_rank == 0:
     original_state_dict = model_container[0].state_dict()

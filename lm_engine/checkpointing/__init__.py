@@ -16,10 +16,9 @@ from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
-from ..arguments import TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
+from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
-from ..enums import Mode
 from ..hf_models import fix_unsharded_state_dict
 from ..model_wrapper import ModelWrapper, get_model_container
 from ..utils import ExperimentsTracker, ProcessGroupManager, load_yaml, log_rank_0, run_rank_n, string_to_torch_dtype
@@ -30,7 +29,6 @@ from .optimizer import _get_optimizer_path, _OptimizerSaver
 
 
 _TRAINING_CONFIG_PREFIX = "training_config"
-_INFERENCE_CONFIG_PREFIX = "inference_config"
 _KILLSWITCH = "KILLSWITCH"
 _FUTURE = None
 
@@ -104,7 +102,7 @@ def save_checkpoint(
     if metadata is not None:
         run_rank_n(json.dump)(metadata, run_rank_n(open)(_get_metadata_path(save_path), "w"), indent=4)
 
-    save_args(args, save_path, mode=Mode.training)
+    save_args(args, save_path)
 
     if args.save_args.save_optimizer:
         if optimizer_container is None:
@@ -165,7 +163,7 @@ def save_checkpoint(
 
 def load_checkpoint_for_training(
     args: TrainingArgs,
-    mode: Mode,
+    args_class: type[TrainingArgs | DistillationArgs],
     model_container: ModelContainer,
     optimizer_container: OptimizerContainer,
     lr_scheduler_container: LRSchedulerContainer,
@@ -175,7 +173,7 @@ def load_checkpoint_for_training(
 
     Args:
         args (TrainingArgs): arguments for training
-        mode (Mode): training or inference mode
+        args_class (type[TrainingArgs | DistillationArgs]): class for arguments
         model_container (ModelContainer): models to save
         optimizer_container (OptimizerContainer): optimizers to save
         lr_scheduler_container (LRSchedulerContainer): learning rate schedulers to save
@@ -207,7 +205,7 @@ def load_checkpoint_for_training(
 
     args_file = os.path.join(load_path, f"{_TRAINING_CONFIG_PREFIX}.yml")
     args_from_checkpoint = load_yaml(args_file)
-    args_from_checkpoint = args_dict_to_pydantic_args(mode, **args_from_checkpoint)
+    args_from_checkpoint = args_dict_to_pydantic_args(args_class, **args_from_checkpoint)
 
     log_rank_0(logging.INFO, f"loading checkpoint saved at {load_path}")
 
@@ -271,13 +269,12 @@ def load_checkpoint_for_training(
 
 
 def load_checkpoint_and_unshard(
-    args: UnshardingArgs, mode: Mode, allowed_meta_device: bool = False
+    args: UnshardingArgs, allowed_meta_device: bool = False
 ) -> tuple[ModelWrapper, TrainingArgs, dict]:
     """load checkpoint for inference
 
     Args:
         args (UnshardingArgs): arguments
-        mode (Mode): training/inference mode
         allowed_meta_device (bool): whether to use meta device
     """
 
@@ -294,11 +291,12 @@ def load_checkpoint_and_unshard(
     args_file = os.path.join(_get_base_path(load_path, iteration), f"{_TRAINING_CONFIG_PREFIX}.yml")
     args_from_checkpoint = load_yaml(args_file)
 
+    # turn off distillation for unsharding
     if "teacher_args" in args_from_checkpoint:
         args_from_checkpoint["tuning_args"]["tuning_method"] = "pretraining"
         args_from_checkpoint.pop("teacher_args")
 
-    args_from_checkpoint = args_dict_to_pydantic_args(mode, **args_from_checkpoint)
+    args_from_checkpoint = args_dict_to_pydantic_args(TrainingArgs, **args_from_checkpoint)
 
     if args.mixed_precision_args is not None:
         log_rank_0(logging.INFO, "overriding mixed precision args")
@@ -317,7 +315,11 @@ def load_checkpoint_and_unshard(
         original_num_stages = args_from_checkpoint.distributed_args.num_pipeline_stages
         args_from_checkpoint.distributed_args.num_pipeline_stages = 1
 
-        model = get_model_container(args_from_checkpoint, mode)[0]
+        model = get_model_container(
+            args_from_checkpoint,
+            efficient_initialization=args_from_checkpoint.model_args.efficient_initialization,
+            keep_in_fp32=False,
+        )[0]
 
         args_from_checkpoint.distributed_args.num_pipeline_stages = original_num_stages
 
@@ -359,7 +361,7 @@ def load_checkpoint_and_unshard(
 
 
 @run_rank_n
-def save_args(args: TrainingArgs, save_path: str, mode: Mode) -> None:
+def save_args(args: TrainingArgs, save_path: str) -> None:
     """saves training args as a json
 
     Args:
@@ -367,8 +369,7 @@ def save_args(args: TrainingArgs, save_path: str, mode: Mode) -> None:
         save_path (str): save location on disk
     """
 
-    file_prefix = _TRAINING_CONFIG_PREFIX if mode == Mode.training else _INFERENCE_CONFIG_PREFIX
-    save_path = os.path.join(save_path, f"{file_prefix}.yml")
+    save_path = os.path.join(save_path, f"{_TRAINING_CONFIG_PREFIX}.yml")
     yaml.dump(args.to_dict(), open(save_path, "w"), indent=2)
 
 
