@@ -643,7 +643,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     experiments_tracker_state_dict = None
     if args.load_args is not None:
         starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
-            args, mode, model_container, optimizer_container, lr_scheduler_container, None
+            args, args_class, model_container, optimizer_container, lr_scheduler_container, None
         )
 
         # metadata field contains the dataloader state so we need to reset it here
