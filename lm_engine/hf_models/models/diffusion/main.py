@@ -2,10 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from ...mixins import CausalLMModelMixin
-from .base import DiffusionModel, DiffusionPreTrainedModel
-from .config import DiffusionConfig
-
 import torch
 import torch.nn.functional as F
 from transformers import GenerationMixin
@@ -15,10 +11,14 @@ from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
+from ...mixins import CausalLMModelMixin
 from ...mixins.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
-# from .base import PreTrainedModelMixin
+from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
+from .base import DiffusionModel, DiffusionPreTrainedModel
+from .config import DiffusionConfig
 
+
+# from .base import PreTrainedModelMixin
 
 
 class DiffusionMaskedLM(DiffusionPreTrainedModel):
@@ -81,12 +81,6 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
             attention_mask=attention_mask,
             use_cache=use_cache,
         )
-
-        if labels is not None:
-            print(input_ids[:10])
-            print(labels[:10])
-            exit()
-
         # ==========================================================================================
         # padding_free:
         #     input_ids -> (total_q)
