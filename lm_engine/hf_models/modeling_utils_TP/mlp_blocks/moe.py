@@ -242,22 +242,6 @@ class MoE_TP(MoE, DTensorModule):
             torch.cuda.current_device()
         ) >= (9, 0)
 
-    def _compute_routing_weights(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor]:
-        # hidden_states -> (total_q, hidden_size)
-        router_logits = self.gate(hidden_states)
-        router_logits = dtensor_to_tensor(
-            router_logits, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
-        )
-        # router_logits -> (total_q, num_experts)
-
-        router_weights, selected_experts = self._get_topk(router_logits)
-        router_weights = F.softmax(router_weights.float(), dim=-1)
-
-        # we cast back to the input dtype
-        router_weights = router_weights.type_as(hidden_states)
-
-        return router_logits, router_weights, selected_experts
-
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         assert is_kernel_allowed(Kernel.scattermoe)
 
@@ -274,7 +258,7 @@ class MoE_TP(MoE, DTensorModule):
             hidden_states, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
         )
 
-        moe_output = self._compute_experts(hidden_states, router_weights, selected_experts)
+        moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
 
         if self.shared_intermediate_size is None:
             hidden_states = moe_output
@@ -295,7 +279,7 @@ class MoE_TP(MoE, DTensorModule):
 
         aux_loss = (
             self._compute_switch_loss(
-                logits=router_logits, probs=torch.softmax(router_logits, dim=-1), topk_idxs=selected_experts
+                logits=router_logits, probs=torch.softmax(router_logits, dim=-1), expert_frequency=expert_frequency
             )
             if self.training
             else 0
@@ -304,3 +288,19 @@ class MoE_TP(MoE, DTensorModule):
         add_aux_loss(aux_loss)
 
         return hidden_states
+
+    def _compute_routing_weights(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor]:
+        # hidden_states -> (total_q, hidden_size)
+        router_logits = self.gate(hidden_states)
+        router_logits = dtensor_to_tensor(
+            router_logits, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
+        )
+        # router_logits -> (total_q, num_experts)
+
+        router_weights, selected_experts = self._get_topk(router_logits)
+        router_weights = F.softmax(router_weights.float(), dim=-1)
+
+        # we cast back to the input dtype
+        router_weights = router_weights.type_as(hidden_states)
+
+        return router_logits, router_weights, selected_experts
