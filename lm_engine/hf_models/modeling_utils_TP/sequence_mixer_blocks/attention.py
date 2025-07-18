@@ -201,7 +201,7 @@ class Attention_TP(Attention):
                 ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
             )
 
-        query = query.reshape(*output_shape)
+            query = query.reshape(*output_shape)
 
         if not self.use_padding_free_transformer:
             query = query.transpose(1, 2)
