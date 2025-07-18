@@ -91,7 +91,6 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
         #     attention_mask -> None or (batch_size, key_length)
         #     position_ids -> None or (batch_size, key_length)
         # ==========================================================================================
-
         clear_aux_loss()
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
@@ -139,7 +138,6 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
                 shift_logits_and_labels=True,
                 tensor_parallel_enabled=False,
             )
-
         aux_loss = get_aux_loss()
 
         if loss is not None and not is_aux_loss_zero(aux_loss):
