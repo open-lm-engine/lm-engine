@@ -75,6 +75,7 @@ class Attention_TP(Attention):
         if self.global_num_heads > 1 and self.global_num_key_value_heads == 1:
             # MQA
             self.num_key_value_heads = 1
+            self.is_mqa = True
 
             self.c_attn = _MQA_QueryKeyValueProjection(
                 hidden_size=hidden_size,
@@ -88,6 +89,8 @@ class Attention_TP(Attention):
                 sequence_parallel=sequence_parallel,
             )
         else:
+            self.is_mqa = False
+
             assert (
                 self.global_num_key_value_heads is not None
             ), "`num_key_value_heads` needs to be specified with GroupedQueryAttention"
@@ -164,22 +167,25 @@ class Attention_TP(Attention):
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
 
-        hidden_states = self.c_attn(hidden_states)
-
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-            input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
-            output_shape = (total_q, -1, self.head_dim)
+        if self.is_mqa:
+            query, key, value = self.c_attn(hidden_states)
         else:
-            batch_size, query_length = hidden_states.shape[:-1]
-            input_shape = (*hidden_states.shape[:-1], self.num_key_value_heads, -1)
-            output_shape = (batch_size, query_length, -1, self.head_dim)
+            hidden_states = self.c_attn(hidden_states)
 
-        hidden_states = hidden_states.view(*input_shape)
+            if self.use_padding_free_transformer:
+                total_q = hidden_states.shape[0]
+                input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
+                output_shape = (total_q, -1, self.head_dim)
+            else:
+                batch_size, query_length = hidden_states.shape[:-1]
+                input_shape = (*hidden_states.shape[:-1], self.num_key_value_heads, -1)
+                output_shape = (batch_size, query_length, -1, self.head_dim)
 
-        query, key, value = hidden_states.split(
-            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
-        )
+            hidden_states = hidden_states.view(*input_shape)
+
+            query, key, value = hidden_states.split(
+                ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
+            )
 
         query = query.reshape(*output_shape)
 
