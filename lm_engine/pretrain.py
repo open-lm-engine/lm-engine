@@ -21,7 +21,7 @@ from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from .data import ResumableDataLoader, get_next_batch, get_pretraining_dataloaders
 from .distributed import wrap_model_container_for_distributed_training
 from .dtensors import dtensor_to_tensor
-from .enums import Mode, TuningMethod
+from .enums import TuningMethod
 from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
 from .model_wrapper import broadcast_tensor_parallel_input, get_model_container

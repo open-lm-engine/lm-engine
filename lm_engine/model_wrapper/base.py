@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
@@ -172,43 +173,35 @@ class ModelWrapper(nn.Module):
             if self.tokenizer.pad_token_id is not None:
                 assert self.tokenizer.pad_token_id == self.config.pad_token_id
 
-        def _get_model(**extras):
-            if self.model_name is None:
-                if self.is_pipeline_parallel_enabled or ProcessGroupManager.is_tensor_parallel_enabled():
-                    # avoid inferring the model class so use _from_config instead of from_config
-                    model = self.model_class._from_config(**model_kwargs, **extras)
-                else:
-                    model = self.model_class.from_config(**model_kwargs, **extras)
-            else:
-                model = self.model_class.from_pretrained(**model_kwargs, **extras)
-
-            return model
+        context = nullcontext()
+        kwargs = {}
 
         if self.keep_in_fp32:
             if self.efficient_initialization:
                 if self.model_name is None:
-                    with torch.device("meta"):
-                        self.model = _get_model()
+                    context = torch.device("meta")
                 else:
                     assert (
                         not ProcessGroupManager.is_tensor_parallel_enabled()
                     ), "tensor parallel models don't support efficient init with model name"
 
-                    if ProcessGroupManager.get_data_parallel_rank() == 0:
-                        self.model = _get_model()
-                    else:
-                        with torch.device("meta"):
-                            self.model = _get_model()
-            else:
-                self.model = _get_model()
+                    if ProcessGroupManager.get_data_parallel_rank() != 0:
+                        context = torch.device("meta")
+        elif self.dtype == "fp8":
+            log_rank_0(logging.WARN, "dtype fp8 was passed but loading model in fp16")
+            kwargs = {"torch_dtype": torch.float16}
         else:
-            if self.dtype == "fp8":
-                log_rank_0(logging.WARN, "dtype fp8 was passed but loading model in fp16")
-                torch_dtype = torch.float16
-            else:
-                torch_dtype = string_to_torch_dtype(self.dtype)
+            kwargs = {"torch_dtype": string_to_torch_dtype(self.dtype)}
 
-            self.model = _get_model(torch_dtype=torch_dtype)
+        with context:
+            if self.model_name is None:
+                if self.is_pipeline_parallel_enabled or ProcessGroupManager.is_tensor_parallel_enabled():
+                    # avoid inferring the model class so use _from_config instead of from_config
+                    self.model = self.model_class._from_config(**model_kwargs, **kwargs)
+                else:
+                    self.model = self.model_class.from_config(**model_kwargs, **kwargs)
+            else:
+                self.model = self.model_class.from_pretrained(**model_kwargs, **kwargs)
 
     def calculate_num_parameters(self) -> tuple[int, int]:
         model_kwargs = self._get_model_kwargs()
