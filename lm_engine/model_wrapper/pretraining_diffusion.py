@@ -63,6 +63,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
 
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
+        p_mask = batch.pop("p_mask")
         output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)
 
         if self.is_pipeline_parallel_enabled:
@@ -83,12 +84,16 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             if use_aux_loss:
                 output = (output, aux_loss)
         else:
-            output = self.get_loss(output, labels, lm_loss_multiplier=lm_loss_multiplier)
+            output = self.get_loss(output, labels, p_mask, lm_loss_multiplier=lm_loss_multiplier)
 
         return output
 
     def get_loss(
-        self, model_outputs: CausalLMOutputWithPast, labels: torch.Tensor, lm_loss_multiplier: float = 1
+        self,
+        model_outputs: CausalLMOutputWithPast,
+        labels: torch.Tensor,
+        p_mask: torch.Tensor,
+        lm_loss_multiplier: float = 1,
     ) -> torch.Tensor | dict:
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         # use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
@@ -100,10 +105,11 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
                 input=flat_logits,
                 target=flat_labels,
                 ignore_index=self.mask_token_id,
-                reduction="mean",
+                reduction="none",
             )
-            * flat_labels.numel()
-        )
+            / p_mask.flatten()
+        ).sum()
+
         # lm_loss = get_autoregressive_language_modeling_loss(
         #     lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
         #     labels=labels,
@@ -181,7 +187,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
 
             unnoised_input_ids = tokens[:, 1:]
             input_ids, labels, p_mask = self._forward_process(unnoised_input_ids)
-            batch = {"labels": labels}
+            batch = {"labels": labels, "p_mask": p_mask}
 
         if self.use_padding_free_transformer:
             batch_size, sequence_length = input_ids.shape
