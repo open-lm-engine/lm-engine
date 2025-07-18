@@ -11,11 +11,13 @@ from .base import ModelWrapper
 from .distillation import ModelWrapperForDistillation
 from .finetuning import ModelWrapperForFinetuning
 from .pretraining import ModelWrapperForPretraining
+from .pretraining_diffusion import ModelWrapperForPretrainingDiffusion
 from .utils import broadcast_tensor_parallel_input
 
 
 _MODEL_CLASS_MAPPING = {
     TuningMethod.pretraining: ModelWrapperForPretraining,
+    TuningMethod.pretraining_diffusion: ModelWrapperForPretrainingDiffusion,
     TuningMethod.full_finetuning: ModelWrapperForFinetuning,
     TuningMethod.distillation: ModelWrapperForDistillation,
 }
@@ -49,11 +51,14 @@ def get_model_container(
     }
 
     # pretraining model wrapper needs some extra arguments for initialization
-    if tuning_method in [TuningMethod.pretraining, TuningMethod.distillation]:
+    if tuning_method in [TuningMethod.pretraining, TuningMethod.distillation, TuningMethod.pretraining_diffusion]:
         kwargs["micro_batch_size"] = args.training_parameters.micro_batch_size
         kwargs["sequence_length"] = args.datasets[0].class_args.get("sequence_length")
         kwargs["reset_attention_mask"] = args.model_args.reset_attention_mask
         kwargs["reset_position_ids"] = args.model_args.reset_position_ids
+
+    if tuning_method == TuningMethod.pretraining_diffusion:
+        print(args.model_args)
 
     if tuning_method == TuningMethod.distillation:
         kwargs["teacher_model_name"] = args.teacher_args.model_name

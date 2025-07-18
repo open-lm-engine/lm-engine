@@ -13,3 +13,4 @@ from .gpt_crosslayer import GPTCrossLayerConfig, GPTCrossLayerForCausalLM, GPTCr
 from .ladder_residual import LadderResidualConfig, LadderResidualForCausalLM, LadderResidualModel
 from .ladder_residual_TP import LadderResidualForCausalLM_TP, LadderResidualModel_TP
 from .palm import PaLMConfig, PaLMForCausalLM, PaLMModel
+from .diffusion import DiffusionConfig, DiffusionMaskedLM, DiffusionModel
