@@ -173,7 +173,7 @@ class ModelWrapper(nn.Module):
             if self.tokenizer.pad_token_id is not None:
                 assert self.tokenizer.pad_token_id == self.config.pad_token_id
 
-        context = nullcontext
+        context = nullcontext()
         kwargs = {}
 
         if self.keep_in_fp32:
