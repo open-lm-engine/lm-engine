@@ -172,18 +172,6 @@ def split_query_key_value_tensor_for_attention(
     raise ValueError(f"unexpected `attention_head_type` {attention_head_type}")
 
 
-def repeat_key_value(x: torch.Tensor, num_heads: int, num_key_value_heads: int) -> torch.Tensor:
-    num_groups = num_heads // num_key_value_heads
-
-    if num_groups == 1:
-        return x
-
-    if num_key_value_heads == 1:
-        return x.expand(-1, num_heads, -1, -1)
-
-    return x.repeat_interleave(num_groups, dim=1)
-
-
 def get_attention_head_type(num_attention_heads: int, num_key_value_heads: int) -> str:
     if num_attention_heads == num_key_value_heads:
         return "mha"
@@ -426,9 +414,6 @@ class Attention(nn.Module):
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
             hidden_states = hidden_states.view(*output_shape)
         else:
-            key = repeat_key_value(key, self.num_heads, self.num_key_value_heads)
-            value = repeat_key_value(value, self.num_heads, self.num_key_value_heads)
-
             hidden_states = F.scaled_dot_product_attention(
                 query,
                 key,
