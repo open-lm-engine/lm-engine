@@ -132,7 +132,7 @@ class RNN(nn.Module):
 
         if not self.use_padding_free_transformer and attention_mask is not None:
             input = unpack_sequence(
-                inputs=input, cu_seqlens=cu_seqlens, desired_shape=(batch_size, sequence_length, *input.size()[1:])
+                inputs=input, cu_seqlens=cu_seqlens, output_shape=(batch_size, sequence_length, *input.size()[1:])
             )
 
         if cache_params is not None:

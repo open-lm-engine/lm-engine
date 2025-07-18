@@ -169,7 +169,7 @@ def flash_attention(
             attn_output = unpack_sequence(
                 inputs=attn_output,
                 cu_seqlens=cu_seqlens_q,
-                desired_shape=(batch_size, query_length, num_heads, head_dim),
+                output_shape=(batch_size, query_length, num_heads, head_dim),
             )
 
     return attn_output

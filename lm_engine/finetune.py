@@ -204,11 +204,9 @@ def evaluate(
 def main() -> None:
     """main program"""
 
-    mode = Mode.training
-
     setup_tf32()
 
-    args: TrainingArgs = get_args(mode)
+    args: TrainingArgs = get_args(TrainingArgs)
 
     assert (
         args.tuning_args.tuning_method == TuningMethod.full_finetuning
@@ -234,16 +232,18 @@ def main() -> None:
 
     assert args.distributed_args.num_pipeline_stages == 1, "pipeline parallel is not supported with finetuning"
 
-    model_container = get_model_container(args, mode)
+    model_container = get_model_container(
+        args, efficient_initialization=args.model_args.efficient_initialization, keep_in_fp32=True
+    )
 
     train_dataloader = get_finetuning_dataloader(
-        args, split=DatasetSplit.train, mode=mode, tokenizer=model_container[0].tokenizer
+        args, split=DatasetSplit.train, tokenizer=model_container[0].tokenizer
     )
 
     val_dataloader = None
     if args.training_parameters.eval_during_training:
         val_dataloader = get_finetuning_dataloader(
-            args, split=DatasetSplit.val, mode=mode, tokenizer=model_container[0].tokenizer
+            args, split=DatasetSplit.val, tokenizer=model_container[0].tokenizer
         )
 
     model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
@@ -278,7 +278,7 @@ def main() -> None:
     experiments_tracker_state_dict = None
     if args.load_args is not None:
         starting_iteration, _, experiments_tracker_state_dict = load_checkpoint_for_training(
-            args, mode, model_container, optimizer_container, lr_scheduler_container, train_dataloader
+            args, TrainingArgs, model_container, optimizer_container, lr_scheduler_container, train_dataloader
         )
 
     experiments_tracker = ExperimentsTracker(
