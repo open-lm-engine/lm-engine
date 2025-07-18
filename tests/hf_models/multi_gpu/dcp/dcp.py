@@ -104,7 +104,7 @@ ensure_last_checkpoint_is_saved()
 
 torch.distributed.barrier()
 
-_, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config, allowed_meta_device=False)
+_, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config)
 
 if global_rank == 0:
     original_state_dict = model_container[0].state_dict()

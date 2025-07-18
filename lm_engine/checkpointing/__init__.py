@@ -268,14 +268,11 @@ def load_checkpoint_for_training(
     return iteration, metadata, experiments_tracker_json
 
 
-def load_checkpoint_and_unshard(
-    args: UnshardingArgs, allowed_meta_device: bool = False
-) -> tuple[ModelWrapper, TrainingArgs, dict]:
+def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, TrainingArgs, dict]:
     """load checkpoint for inference
 
     Args:
         args (UnshardingArgs): arguments
-        allowed_meta_device (bool): whether to use meta device
     """
 
     load_path = args.load_args.load_path
@@ -303,7 +300,7 @@ def load_checkpoint_and_unshard(
         args_from_checkpoint.mixed_precision_args = args.mixed_precision_args
 
     checkpoint_tp_world_size = args_from_checkpoint.distributed_args.tensor_parallel_world_size
-    use_meta = args_from_checkpoint.model_args.model_name is None if allowed_meta_device else False
+    use_meta = args_from_checkpoint.model_args.model_name is None
 
     with (
         torch.device("meta") if use_meta else torch.device(torch.cuda.current_device()),
