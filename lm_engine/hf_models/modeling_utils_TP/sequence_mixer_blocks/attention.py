@@ -8,9 +8,13 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+from ....enums import Kernel
+from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import ProcessGroupManager, divide_if_divisible
-from ...modeling_utils import Attention
+from ...cache import GenerationCache
+from ...modeling_utils import Attention, apply_rotary_pos_emb, flash_attention, repeat_key_value
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
 from ..dropout import Dropout_TP
 from ..linear import ColumnParallelLinear, ReplicatedLinear, RowParallelLinear
@@ -144,26 +148,110 @@ class Attention_TP(Attention):
             )
         )
 
-    def _prepare_qkv_for_forward_mqa(
-        self, query_key_value: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        query, key, value = query_key_value
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        past_key_values: GenerationCache | None = None,
+        attention_mask: torch.Tensor | None = None,
+        rope_cos_sin: torch.Tensor | None = None,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
+    ) -> torch.Tensor:
+        use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
+        use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
         if self.use_padding_free_transformer:
-            total_q = query.shape[0]
+            assert use_flash_attention_2 or use_flash_attention_3
+            assert past_key_values is None
 
-            query = query.view(total_q, self.num_heads, -1)
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
+        hidden_states = self.c_attn(hidden_states)
+
+        if self.use_padding_free_transformer:
+            total_q = hidden_states.shape[0]
+            input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
+            output_shape = (total_q, -1, self.head_dim)
         else:
-            batch_size, query_length = query.shape[:-1]
-            query = query.view(batch_size, query_length, self.num_heads, -1)
+            batch_size, query_length = hidden_states.shape[:-1]
+            input_shape = (*hidden_states.shape[:-1], self.num_key_value_heads, -1)
+            output_shape = (batch_size, query_length, -1, self.head_dim)
 
+        hidden_states = hidden_states.view(*input_shape)
+
+        query, key, value = hidden_states.split(
+            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
+        )
+
+        query = query.reshape(*output_shape)
+
+        if not self.use_padding_free_transformer:
             query = query.transpose(1, 2)
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
+            key = key.transpose(1, 2)
+            value = value.transpose(1, 2)
 
-        return query, key, value
+        if self.position_embedding_type == "rope":
+            query = apply_rotary_pos_emb(query, rope_cos_sin)
+            key = apply_rotary_pos_emb(key, rope_cos_sin)
+
+        if past_key_values is not None:
+            key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
+
+        if use_flash_attention_2 or use_flash_attention_3:
+            if self.use_padding_free_transformer:
+                output_shape = (-1, self.hidden_size)
+            else:
+                query = query.transpose(1, 2)
+                key = key.transpose(1, 2)
+                value = value.transpose(1, 2)
+
+                batch_size, query_length = query.shape[:2]
+                output_shape = (batch_size, query_length, -1)
+
+            query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
+            key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
+            value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
+
+            hidden_states = flash_attention(
+                query=query,
+                key=key,
+                value=value,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+                attention_mask=attention_mask,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                causal=self.causal,
+                dropout=self.softmax_dropout_p if self.training else 0,
+                softmax_scale=self.attention_multiplier,
+            )
+
+            del query, key, value
+
+            hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
+            hidden_states = hidden_states.view(*output_shape)
+        else:
+            key = repeat_key_value(key, self.num_heads, self.num_key_value_heads)
+            value = repeat_key_value(value, self.num_heads, self.num_key_value_heads)
+
+            hidden_states = F.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=attention_mask,
+                dropout_p=self.softmax_dropout_p if self.training else 0,
+                is_causal=self.causal if attention_mask is None else False,
+                scale=self.attention_multiplier,
+                enable_gqa=True,
+            )
+
+            del query, key, value
+
+            batch_size = hidden_states.shape[0]
+            hidden_states = hidden_states.transpose(1, 2)
+            hidden_states = hidden_states.reshape(batch_size, -1, self.num_heads * self.head_dim)
+
+        hidden_states = self.c_proj(hidden_states)
+        hidden_states = self.dropout(hidden_states)
+
+        return hidden_states
 
 
 class _MQA_QueryKeyValueProjection(nn.Module):
