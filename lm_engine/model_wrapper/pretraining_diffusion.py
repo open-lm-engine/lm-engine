@@ -160,22 +160,22 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
     def _prepare_model_inputs(self, batch: dict) -> dict:
         if self.is_pipeline_parallel_enabled:
             raise NotImplementedError("No pipeline for diffusion yet.")
-        #     # when using pipeline parallel, we broadcast the input outside the model function
-        #     tokens = batch["text"]
-        #     aux_loss_from_pipeline_parallel = batch["aux_loss_from_pipeline_parallel"]
+            # when using pipeline parallel, we broadcast the input outside the model function
+            # tokens = batch["text"]
+            # aux_loss_from_pipeline_parallel = batch["aux_loss_from_pipeline_parallel"]
 
-        #     tokens = tokens.to(torch.cuda.current_device())
+            # tokens = tokens.to(torch.cuda.current_device())
 
-        #     if self.is_first_stage:
-        #         input_ids = tokens
-        #         pipeline_parallel_input = None
-        #     else:
-        #         input_ids = None
-        #         pipeline_parallel_input = PipelineParallelInput(
-        #             hidden_states=tokens, aux_loss=aux_loss_from_pipeline_parallel
-        #         )
+            # if self.is_first_stage:
+            #     input_ids = tokens
+            #     pipeline_parallel_input = None
+            # else:
+            #     input_ids = None
+            #     pipeline_parallel_input = PipelineParallelInput(
+            #         hidden_states=tokens, aux_loss=aux_loss_from_pipeline_parallel
+            #     )
 
-        #     batch = {"labels": None, "pipeline_parallel_input": pipeline_parallel_input}
+            # batch = {"labels": None, "pipeline_parallel_input": pipeline_parallel_input}
         else:
             if ProcessGroupManager.is_tensor_parallel_enabled():
                 tokens = broadcast_tensor_parallel_input(
@@ -190,13 +190,12 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             batch = {"labels": labels, "p_mask": p_mask}
 
         if self.use_padding_free_transformer:
-            batch_size, sequence_length = input_ids.shape
-            input_ids = input_ids.reshape(-1)
-
+            batch_size, sequence_length = unnoised_input_ids.shape
+            input_ids = input_ids.flatten()
             if self.reset_attention_mask:
+                unnoised_input_ids = unnoised_input_ids.flatten()
                 num_tokens_in_batch = batch_size * sequence_length
-
-                document_end_positions = input_ids == self.eos_token_id
+                document_end_positions = unnoised_input_ids == self.eos_token_id
                 for i in range(sequence_length - 1, num_tokens_in_batch, sequence_length):
                     document_end_positions[i] = 1
                 cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
@@ -221,6 +220,23 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             batch["cu_seqlens"] = cu_seqlens
             batch["max_seqlen"] = max_seqlen
             batch["position_ids"] = position_ids
+            # if cu_seqlens.size(0) > 5:
+            #     from transformers import PreTrainedTokenizer
+            #     tokenizer: PreTrainedTokenizer = self.tokenizer
+            #     for i in range(cu_seqlens.size(0) - 1):
+            #         seq_in = input_ids.flatten()[cu_seqlens[i]:cu_seqlens[i+1]]
+            #         print(' '.join([
+            #             c if idx != self.mask_token_id else "_"
+            #             for idx, c in zip(seq_in, tokenizer.convert_ids_to_tokens(seq_in))
+            #         ]))
+            #         seq_out = labels.flatten()[cu_seqlens[i]:cu_seqlens[i+1]]
+            #         print(' '.join([
+            #             c if idx != self.mask_token_id else "_"
+            #             for idx, c in zip(seq_out, tokenizer.convert_ids_to_tokens(seq_out))
+            #         ]))
+            #     print(cu_seqlens.size())
+            #     print((unnoised_input_ids == self.eos_token_id).int().sum())
+            #     exit()
 
         batch["input_ids"] = input_ids
 
