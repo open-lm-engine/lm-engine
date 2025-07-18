@@ -10,7 +10,7 @@ from torch.nn import functional as F
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
 from ..dtensors import tensor_to_dtensor
-from ..enums import Kernel, Mode
+from ..enums import Kernel
 from ..hf_models import (
     CausalLMOutputWithPast,
     PipelineParallelInput,
