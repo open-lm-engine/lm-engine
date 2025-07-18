@@ -311,17 +311,9 @@ def load_checkpoint_and_unshard(
         ProcessGroupManager.set_dummy_tensor_parallel_world_size(1),
         ProcessGroupManager.set_dummy_pipeline_parallel_rank(0),
         ProcessGroupManager.set_dummy_pipeline_parallel_world_size(1),
+        args_from_checkpoint.distributed_args.temporary_argument_value("num_pipeline_stages", 1),
     ):
-        original_num_stages = args_from_checkpoint.distributed_args.num_pipeline_stages
-        args_from_checkpoint.distributed_args.num_pipeline_stages = 1
-
-        model = get_model_container(
-            args_from_checkpoint,
-            efficient_initialization=args_from_checkpoint.model_args.efficient_initialization,
-            keep_in_fp32=False,
-        )[0]
-
-        args_from_checkpoint.distributed_args.num_pipeline_stages = original_num_stages
+        model = get_model_container(args_from_checkpoint, efficient_initialization=False, keep_in_fp32=False)[0]
 
     if use_meta:
         model = model.to_empty(device="cpu")
