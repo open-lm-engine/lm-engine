@@ -167,11 +167,25 @@ class Attention_TP(Attention):
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
 
-        if self.is_mqa:
-            query, key, value = self.c_attn(hidden_states)
-        else:
-            hidden_states = self.c_attn(hidden_states)
+        hidden_states = self.c_attn(hidden_states)
 
+        if self.is_mqa:
+            query, key, value = hidden_states
+
+            if self.use_padding_free_transformer:
+                total_q = query.shape[0]
+
+                query = query.view(total_q, self.num_heads, -1)
+                key = key.unsqueeze(1)
+                value = value.unsqueeze(1)
+            else:
+                batch_size, query_length = query.shape[:-1]
+                query = query.view(batch_size, query_length, self.num_heads, -1)
+
+                query = query.transpose(1, 2)
+                key = key.unsqueeze(1)
+                value = value.unsqueeze(1)
+        else:
             if self.use_padding_free_transformer:
                 total_q = hidden_states.shape[0]
                 input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
