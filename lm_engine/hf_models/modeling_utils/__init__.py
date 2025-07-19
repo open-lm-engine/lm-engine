@@ -22,6 +22,5 @@ from .sequence_mixer_blocks import (
     get_attention_head_type,
     get_sequence_mixer,
     interleave_query_key_value_tensor_for_attention,
-    repeat_key_value,
     split_query_key_value_tensor_for_attention,
 )

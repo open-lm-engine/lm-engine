@@ -11,13 +11,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible
 from ...cache import GenerationCache
-from ...modeling_utils import (
-    apply_rotary_pos_emb,
-    get_attention_head_type,
-    get_mlp_block,
-    get_normalization_function,
-    repeat_key_value,
-)
+from ...modeling_utils import apply_rotary_pos_emb, get_attention_head_type, get_mlp_block, get_normalization_function
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer
 
@@ -94,9 +88,6 @@ class GPTCrossLayerBlock(nn.Module):
                     else:
                         key = key.transpose(1, 2)
                         value = value.transpose(1, 2)
-            else:
-                key = repeat_key_value(key, self.num_heads, self.num_key_value_heads)
-                value = repeat_key_value(value, self.num_heads, self.num_key_value_heads)
 
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
