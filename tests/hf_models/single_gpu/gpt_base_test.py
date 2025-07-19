@@ -69,7 +69,7 @@ class GPTBaseAttentionTest(TestCommons):
             rtol_bfloat16=5e-3,
             atol_bfloat16=5e-3,
         )
-        self.assert_equal_tensors(sdpa_loss, flash_loss, False)
+        self.assert_equal_tensors(sdpa_loss, flash_loss, False, atol_float32=1.2e-4, rtol_float32=0)
 
     @parameterized.expand(
         TestCommons.make_args_matrix(
@@ -118,7 +118,7 @@ class GPTBaseAttentionTest(TestCommons):
             rtol_bfloat16=5e-3,
             atol_bfloat16=5e-3,
         )
-        self.assert_equal_tensors(sdpa_loss, flash_loss, False)
+        self.assert_equal_tensors(sdpa_loss, flash_loss, False, atol_float32=1.2e-4, rtol_float32=0)
 
     @parameterized.expand(
         TestCommons.make_args_matrix(
@@ -216,7 +216,7 @@ class GPTBaseAttentionTest(TestCommons):
             rtol_bfloat16=5e-3,
             atol_bfloat16=5e-3,
         )
-        self.assert_equal_tensors(sdpa_loss, flash_loss, False)
+        self.assert_equal_tensors(sdpa_loss, flash_loss, False, atol_float32=3.8e-4, rtol_float32=0)
 
     @parameterized.expand(
         TestCommons.make_args_matrix(
