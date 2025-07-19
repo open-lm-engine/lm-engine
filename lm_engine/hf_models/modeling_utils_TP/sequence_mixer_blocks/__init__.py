@@ -3,7 +3,7 @@
 # **************************************************
 
 from ...config import CommonConfig
-from .softmax_attention import Attention_TP
+from .attention import Attention_TP
 
 
 def get_sequence_mixer_TP(

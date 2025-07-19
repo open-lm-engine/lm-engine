@@ -19,7 +19,6 @@ from .position_embedding import RoPE, YaRNScaledRoPE, apply_rotary_pos_emb
 from .sequence_mixer_blocks import (
     Attention,
     flash_attention,
-    get_attention_head_type,
     get_sequence_mixer,
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,

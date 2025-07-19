@@ -43,122 +43,98 @@ model_args:
     router_aux_loss_coef: 0.01
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: gqa
         num_attention_heads: 16
         num_key_value_heads: 8
         add_bias: false

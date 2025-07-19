@@ -48,51 +48,39 @@ model_args:
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
-        attention_head_type: mqa
         num_key_value_heads: 1
     mlp_blocks:
       - mlp_type: MLP

@@ -6,7 +6,6 @@ from transformers import AutoConfig, AutoTokenizer, GenerationConfig, GPTBigCode
 
 from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
-from ..modeling_utils import get_attention_head_type
 from ..models import GPTBaseConfig
 
 
@@ -141,9 +140,8 @@ def _export_config_to_huggingface(config: GPTBaseConfig) -> GPTBigCodeConfig:
 
     num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
     num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
-    attention_head_type = get_attention_head_type(num_attention_heads, num_key_value_heads)
 
-    assert attention_head_type in ["mha", "mqa"]
+    assert num_attention_heads == num_key_value_heads or num_key_value_heads == 1
     assert config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "attention_multiplier") is None
 
     original_config = GPTBigCodeConfig(
@@ -161,7 +159,7 @@ def _export_config_to_huggingface(config: GPTBaseConfig) -> GPTBigCodeConfig:
         layer_norm_epsilon=config.layer_norm_epsilon,
         initializer_range=config.initializer_range,
         use_cache=config.use_cache,
-        multi_query=attention_head_type == "mqa",
+        multi_query=num_key_value_heads == 1,
         tie_word_embeddings=config.tie_word_embeddings,
         bos_token_id=config.bos_token_id,
         eos_token_id=config.eos_token_id,

@@ -3,19 +3,18 @@
 # **************************************************
 
 from ...config import CommonConfig
+from .attention import (
+    Attention,
+    interleave_query_key_value_tensor_for_attention,
+    split_query_key_value_tensor_for_attention,
+)
 from .causal_convolution import CausalConvolution
-from .flash_attention_utils import flash_attention
 from .gru import GRU
 from .mamba2 import Mamba2
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
-from .softmax_attention import (
-    Attention,
-    get_attention_head_type,
-    interleave_query_key_value_tensor_for_attention,
-    split_query_key_value_tensor_for_attention,
-)
 from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
+from .utils import flash_attention
 
 
 SEQUENCE_MIXER_TYPE = (

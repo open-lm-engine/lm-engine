@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 
 from ..config import CommonConfig
-from .softmax_attention import _SoftmaxAttentionCache
+from .attention import _SoftmaxAttentionCache
 
 
 class _RNNCache(_SoftmaxAttentionCache):

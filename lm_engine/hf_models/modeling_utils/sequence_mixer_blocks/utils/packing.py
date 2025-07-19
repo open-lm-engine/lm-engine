@@ -5,9 +5,9 @@
 import torch
 import torch.nn.functional as F
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
-from ....utils import is_cute_kernels_available
+from .....enums import Kernel
+from .....kernels import is_kernel_allowed
+from .....utils import is_cute_kernels_available
 
 
 if is_cute_kernels_available():
