@@ -6,7 +6,6 @@ from ...config import CommonConfig
 from .attention import (
     Attention,
     interleave_query_key_value_tensor_for_attention,
-    repeat_key_value,
     split_query_key_value_tensor_for_attention,
 )
 from .causal_convolution import CausalConvolution

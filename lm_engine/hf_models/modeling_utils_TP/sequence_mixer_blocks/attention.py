@@ -14,7 +14,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
-from ...modeling_utils import Attention, apply_rotary_pos_emb, flash_attention, repeat_key_value
+from ...modeling_utils import Attention, apply_rotary_pos_emb, flash_attention
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
 from ..dropout import Dropout_TP
 from ..linear import ColumnParallelLinear, ReplicatedLinear, RowParallelLinear
@@ -247,9 +247,6 @@ class Attention_TP(Attention):
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
             hidden_states = hidden_states.view(*output_shape)
         else:
-            key = repeat_key_value(key, self.num_heads, self.num_key_value_heads)
-            value = repeat_key_value(value, self.num_heads, self.num_key_value_heads)
-
             hidden_states = F.scaled_dot_product_attention(
                 query,
                 key,
