@@ -145,6 +145,8 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         # TODO (shawntan) Use FIM token for now. Figure out if there is a way to have actual mask token.
         self.mask_token_id = self.tokenizer.convert_tokens_to_ids(FIM_MIDDLE)
         assert self.mask_token_id is not None
+        self.pad_token_id = self.tokenizer.pad_token_id
+        assert self.pad_token_id is not None
 
     def _forward_process(self, input_ids, eps=1e-3):
         b, l = input_ids.shape
@@ -184,21 +186,42 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             else:
                 tokens = batch["text"]
                 tokens = tokens.to(torch.cuda.current_device())
-
             unnoised_input_ids = tokens[:, 1:]
             input_ids, labels, p_mask = self._forward_process(unnoised_input_ids)
             batch = {"labels": labels, "p_mask": p_mask}
 
         if self.use_padding_free_transformer:
+
             batch_size, sequence_length = unnoised_input_ids.shape
             input_ids = input_ids.flatten()
+            flat_labels = labels.view(-1)
             if self.reset_attention_mask:
                 unnoised_input_ids = unnoised_input_ids.flatten()
-                num_tokens_in_batch = batch_size * sequence_length
+                batch_size * sequence_length
                 document_end_positions = unnoised_input_ids == self.eos_token_id
-                for i in range(sequence_length - 1, num_tokens_in_batch, sequence_length):
-                    document_end_positions[i] = 1
+                # Add the end token for the end of sample also
+                document_end_positions[sequence_length - 1 :: sequence_length] = 1
                 cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
+
+                # Randomly delete shorter sequences 1% of the time to train <pad>
+                deleted = False
+                for i in range(cu_seqlens.size(0) - 1):
+                    start_idx = cu_seqlens[i]
+                    end_idx = cu_seqlens[i + 1]
+                    if start_idx % sequence_length != 0:  # make sure not start of sample
+                        if torch.rand(1) < 0.01:
+                            deleted = True
+                            document_end_positions[start_idx - 1] = 0
+                            token_mask = input_ids[start_idx:end_idx] == self.mask_token_id
+                            input_ids[start_idx:end_idx] = torch.where(
+                                token_mask, input_ids[start_idx:end_idx], self.pad_token_id
+                            )
+                            flat_labels[start_idx:end_idx] = torch.where(
+                                ~token_mask, flat_labels[start_idx:end_idx], self.pad_token_id
+                            )
+                if deleted:
+                    cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
+
                 cu_seqlens = torch.cat([torch.tensor([0], device=input_ids.device), cu_seqlens])
                 cu_seqlens = cu_seqlens.to(torch.int32)
 
@@ -220,7 +243,8 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             batch["cu_seqlens"] = cu_seqlens
             batch["max_seqlen"] = max_seqlen
             batch["position_ids"] = position_ids
-            # if cu_seqlens.size(0) > 5:
+
+            # if deleted:
             #     from transformers import PreTrainedTokenizer
             #     tokenizer: PreTrainedTokenizer = self.tokenizer
             #     for i in range(cu_seqlens.size(0) - 1):
@@ -235,7 +259,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             #             for idx, c in zip(seq_out, tokenizer.convert_ids_to_tokens(seq_out))
             #         ]))
             #     print(cu_seqlens.size())
-            #     print((unnoised_input_ids == self.eos_token_id).int().sum())
+            #     # print((unnoised_input_ids == self.eos_token_id).int().sum())
             #     exit()
 
         batch["input_ids"] = input_ids
