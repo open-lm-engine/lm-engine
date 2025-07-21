@@ -7,8 +7,8 @@ from argparse import ArgumentParser, Namespace
 
 from tqdm import tqdm
 
-from dolomite_engine.data.megatron.indexed_dataset import MMapIndexedDataset
-from dolomite_engine.utils import log_rank_0, set_logger
+from lm_engine.data.megatron.indexed_dataset import MMapIndexedDataset
+from lm_engine.utils import log_rank_0, set_logger
 
 
 set_logger()

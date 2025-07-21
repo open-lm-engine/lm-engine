@@ -6,14 +6,14 @@ from functools import partial
 
 from transformers import AutoTokenizer
 
-from dolomite_engine.data import (
+from lm_engine.data import (
     BlendedDatasets,
     BlendedDistributedSampler,
     ResumableDataLoader,
     collate_fn,
     get_datasets_list,
 )
-from dolomite_engine.enums import DatasetSplit, Mode
+from lm_engine.enums import DatasetSplit
 
 from .test_commons import TestCommons
 
@@ -22,7 +22,6 @@ class DataLoaderTest(TestCommons):
     def test_dataloader_has_correct_order(self) -> None:
         args = TestCommons.load_training_args_for_unit_tests("data_config.yml")
         split = DatasetSplit.train
-        mode = Mode.training
 
         args.datasets[0].class_args["static_examples"] = False
         num_examples = 1000
@@ -30,11 +29,7 @@ class DataLoaderTest(TestCommons):
 
         tokenizer = AutoTokenizer.from_pretrained(args.model_args.model_name)
         datasets_list, _ = get_datasets_list(
-            dataset_args_list=args.datasets,
-            split=split,
-            mode=mode,
-            tokenizer=tokenizer,
-            is_encoder_decoder=False,
+            dataset_args_list=args.datasets, split=split, use_output=True, tokenizer=tokenizer
         )
         blended_dataset = BlendedDatasets(datasets=datasets_list, split=split)
 
@@ -55,10 +50,9 @@ class DataLoaderTest(TestCommons):
                 sampler=sampler,
                 collate_fn=partial(
                     collate_fn,
-                    mode=mode,
+                    use_output=True,
                     loss_mask=args.training_parameters.loss_mask,
                     eos_token_id=tokenizer.eos_token_id,
-                    is_encoder_decoder=False,
                     use_padding_free_transformer=args.model_args.use_padding_free_transformer,
                     device="cpu",
                 ),

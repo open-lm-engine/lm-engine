@@ -5,7 +5,8 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from dolomite_engine.hf_models import register_model_classes
+from lm_engine.hf_models import register_model_classes
+from lm_engine.tokenizers import get_tokenizer
 
 
 # register new model classes since the source models that you wish to convert to
@@ -31,5 +32,5 @@ model.save_pretrained(safetensors_destination_path)
 
 # to move tokenizer
 # simply load from the source and save it to the destination path
-tokenizer = AutoTokenizer.from_pretrained(checkpoint_to_be_converted)
+tokenizer = get_tokenizer(AutoTokenizer.__name__, checkpoint_to_be_converted)
 tokenizer.save_pretrained(safetensors_destination_path, legacy_format=False)

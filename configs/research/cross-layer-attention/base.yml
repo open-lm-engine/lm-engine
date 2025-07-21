@@ -46,7 +46,7 @@ model_args:
     pad_token_id: 0
     initializer_range: 0.02
     layer_norm_epsilon: 1e-05
-    model_type: gpt_dolomite
+    model_type: gpt_base
     hidden_size: 3072
     num_layers: 32
     max_position_embeddings: 2048
@@ -58,131 +58,99 @@ model_args:
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
-        attention_head_type: mqa
     mlp_blocks:
       - mlp_type: MLP
         activation_function: swiglu

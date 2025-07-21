@@ -4,8 +4,8 @@
 
 import os
 
-from dolomite_engine.arguments import TrainingArgs
-from dolomite_engine.utils import load_yaml
+from lm_engine.arguments import TrainingArgs
+from lm_engine.utils import load_yaml
 
 from ..test_common import BaseTestCommons
 

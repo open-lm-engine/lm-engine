@@ -6,9 +6,9 @@ import torch
 from parameterized import parameterized
 from transformers import set_seed
 
-from dolomite_engine.enums import Kernel
-from dolomite_engine.hf_models import GPTDolomiteConfig
-from dolomite_engine.kernels import enable_kernels
+from lm_engine.enums import Kernel
+from lm_engine.hf_models import GPTBaseConfig
+from lm_engine.kernels import enable_kernels
 
 from ..test_common import TestCommons
 
@@ -103,8 +103,8 @@ class MultiHeadLatentAttentionTest(TestCommons):
         m_width: float = None,
         m_residual: float = None,
         attention_multiplier: float = None,
-    ) -> GPTDolomiteConfig:
-        return GPTDolomiteConfig(
+    ) -> GPTBaseConfig:
+        return GPTBaseConfig(
             vocab_size=2048,
             max_position_embeddings=1024,
             hidden_size=32,

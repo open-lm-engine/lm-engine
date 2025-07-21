@@ -5,7 +5,7 @@
 import torch
 from parameterized import parameterized
 
-from dolomite_engine.hf_models.modeling_utils import (
+from lm_engine.hf_models.modeling_utils import (
     get_sequence_mixer,
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,
@@ -28,21 +28,13 @@ class WeightTest(TestCommons):
 
         c_attn_weight = state_dict["c_attn.weight"]
         query_key_value_weight = self._split_and_interleave(
-            c_attn_weight,
-            num_attention_heads,
-            num_key_value_heads,
-            config.hidden_size // num_attention_heads,
-            attention_head_type,
+            c_attn_weight, num_attention_heads, num_key_value_heads, config.hidden_size // num_attention_heads
         )
         assert (c_attn_weight == query_key_value_weight).all()
 
         c_attn_bias = state_dict["c_attn.bias"]
         query_key_value_bias = self._split_and_interleave(
-            c_attn_bias,
-            num_attention_heads,
-            num_key_value_heads,
-            config.hidden_size // num_attention_heads,
-            attention_head_type,
+            c_attn_bias, num_attention_heads, num_key_value_heads, config.hidden_size // num_attention_heads
         )
         assert (c_attn_bias == query_key_value_bias).all()
 
@@ -52,24 +44,13 @@ class WeightTest(TestCommons):
         num_heads: int,
         num_key_value_heads: int,
         head_dim: int,
-        attention_head_type: str,
     ) -> torch.Tensor:
         query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
-            c_attn_tensor,
-            num_heads,
-            num_key_value_heads,
-            head_dim,
-            attention_head_type,
+            c_attn_tensor, num_heads, num_key_value_heads
         )
 
         query_key_value_weight = interleave_query_key_value_tensor_for_attention(
-            query_weight,
-            key_weight,
-            value_weight,
-            num_heads,
-            num_key_value_heads,
-            head_dim,
-            attention_head_type,
+            query_weight, key_weight, value_weight, num_heads, num_key_value_heads, head_dim
         )
 
         return query_key_value_weight

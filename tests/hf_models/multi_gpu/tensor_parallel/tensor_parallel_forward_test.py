@@ -8,8 +8,8 @@ import tempfile
 import torch
 from parameterized import parameterized
 
-from dolomite_engine.hf_models import GPTDolomiteConfig, LadderResidualConfig
-from dolomite_engine.utils import torch_dtype_to_string
+from lm_engine.hf_models import GPTBaseConfig, LadderResidualConfig
+from lm_engine.utils import torch_dtype_to_string
 
 from ...test_common import TestCommons
 
@@ -17,13 +17,13 @@ from ...test_common import TestCommons
 class TensorParallelTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            TestCommons.get_attention_head_types(),
+            ["mqa", "gqa"],
             TestCommons.get_position_embedding_types(),
             TestCommons.get_attention_implementations(),
             TestCommons.get_dtypes(),
             [False, True],
             [False, True],
-            [GPTDolomiteConfig.model_type],
+            [GPTBaseConfig.model_type],
         )
         + TestCommons.make_args_matrix(
             ["gqa"],

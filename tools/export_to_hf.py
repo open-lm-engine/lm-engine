@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from dolomite_engine.hf_models import export_to_huggingface
+from lm_engine.hf_models import export_to_huggingface
 
 
 load_path = "load/"
