@@ -170,25 +170,15 @@ class Attention_TP(Attention):
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
 
-            total_q = hidden_states.shape[0]
-            input_shape = (total_q * (tp_world_size if self.sequence_parallel else 1), self.num_key_value_heads, -1)
-            output_shape = (total_q * (tp_world_size if self.sequence_parallel else 1), -1, self.head_dim)
+            total_q = hidden_states.shape[0] * (tp_world_size if self.sequence_parallel else 1)
+            input_shape = (total_q, self.num_key_value_heads, -1)
+            output_shape = (total_q, -1, self.head_dim)
         else:
             batch_size, query_length = hidden_states.shape[:-1]
+            query_length *= tp_world_size if self.sequence_parallel else 1
 
-            input_shape = (
-                batch_size,
-                query_length * (tp_world_size if self.sequence_parallel else 1),
-                self.num_key_value_heads,
-                -1,
-            )
-
-            output_shape = (
-                batch_size,
-                query_length * (tp_world_size if self.sequence_parallel else 1),
-                -1,
-                self.head_dim,
-            )
+            input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
+            output_shape = (batch_size, query_length, -1, self.head_dim)
 
         hidden_states = self.c_attn(hidden_states)
 
@@ -231,7 +221,6 @@ class Attention_TP(Attention):
                 key = key.transpose(1, 2)
                 value = value.transpose(1, 2)
 
-                batch_size, query_length = query.shape[:2]
                 output_shape = (batch_size, query_length, -1)
 
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
