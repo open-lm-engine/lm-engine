@@ -92,13 +92,8 @@ def _import_config_from_huggingface(original_config: GraniteMoeHybridConfig) -> 
     for _ in range(original_config.num_hidden_layers):
         if original_config.num_local_experts == 0:
             mlp_block = {
-                "mlp_type": "None",
-                "intermediate_size": original_config.intermediate_size,
-                "shared_intermediate_size": (
-                    None if original_config.shared_intermediate_size == 0 else original_config.shared_intermediate_size
-                ),
-                "num_experts": 0,
-                "num_experts_per_tok": 0,
+                "mlp_type": "MLP",
+                "intermediate_size": original_config.shared_intermediate_size,
                 "activation_function": "swiglu",
                 "add_bias": False,
             }
@@ -166,17 +161,26 @@ def _import_state_dict_from_huggingface(
             f"model.layers.{layer_idx}.post_attention_layernorm.weight"
         )
 
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.gate.weight"] = safetensors_weights_manager.get_tensor(
-            f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"
-        )
+        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"):
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.gate.weight"] = safetensors_weights_manager.get_tensor(
+                f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"
+            )
 
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
-            safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"),
-            dim=1,
-        )
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
-            f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"
-        )
+        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"):
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
+                safetensors_weights_manager.get_tensor(
+                    f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"
+                ),
+                dim=1,
+            )
+
+            assert safetensors_weights_manager.has_tensor(
+                f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"
+            )
+
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"
+            )
 
         if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"):
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = _split_and_reorder_for_glu(
