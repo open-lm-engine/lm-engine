@@ -105,7 +105,7 @@ class ModelConversionTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(TestCommons.get_all_devices(), TestCommons.get_attention_head_types())
     )
-    def test_granitemoesharedhybrid_model_conversion(self, device: torch.device, attention_head_type: str) -> None:
+    def test_granitemoehybrid_model_conversion(self, device: torch.device, attention_head_type: str) -> None:
         for lm_engine_config in [
             self.get_moe_test_config(
                 attention_head_type,
