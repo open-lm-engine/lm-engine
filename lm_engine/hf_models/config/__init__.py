@@ -41,6 +41,7 @@ def _update_with_key_value(block: dict, kwargs: dict, key: str) -> None:
         kwargs[key] = block.pop(key)
 
 
+# for erroring out on legacy configs
 _NAKED_DISALLOWED_ARGS = [
     "activation_function",
     "attn_pdrop",

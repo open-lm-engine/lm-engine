@@ -10,9 +10,9 @@ import torch
 from transformers import Cache
 
 from ..config import CommonConfig
+from .attention import _SoftmaxAttentionCache
 from .mamba2 import _Mamba2Cache
 from .rnn import _RNNCache
-from .softmax_attention import _SoftmaxAttentionCache
 
 
 _CACHE_CLASSES = {

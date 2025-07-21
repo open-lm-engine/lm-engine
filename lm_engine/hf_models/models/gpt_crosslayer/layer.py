@@ -11,7 +11,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible
 from ...cache import GenerationCache
-from ...modeling_utils import apply_rotary_pos_emb, get_attention_head_type, get_mlp_block, get_normalization_function
+from ...modeling_utils import apply_rotary_pos_emb, get_mlp_block, get_normalization_function
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer
 
@@ -26,10 +26,6 @@ class GPTCrossLayerBlock(nn.Module):
         self.m_residual = config.m_residual
         self.layer_idx = layer_idx
         self.position_embedding_type = config.position_embedding_type
-        self.attention_head_type = get_attention_head_type(
-            config.sequence_mixer_blocks[layer_idx].num_attention_heads,
-            config.sequence_mixer_blocks[layer_idx].num_key_value_heads,
-        )
         self.num_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
         self.head_dim = divide_if_divisible(hidden_size, self.num_heads, "")
         self.num_key_value_heads = config.sequence_mixer_blocks[layer_idx].num_key_value_heads
@@ -82,12 +78,8 @@ class GPTCrossLayerBlock(nn.Module):
 
             if is_kernel_allowed(Kernel.flash_attention_3) or is_kernel_allowed(Kernel.flash_attention_2):
                 if not self.use_padding_free_transformer:
-                    if self.attention_head_type == "mqa":
-                        key = key.squeeze(1).unsqueeze(2)
-                        value = value.squeeze(1).unsqueeze(2)
-                    else:
-                        key = key.transpose(1, 2)
-                        value = value.transpose(1, 2)
+                    key = key.transpose(1, 2)
+                    value = value.transpose(1, 2)
 
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)

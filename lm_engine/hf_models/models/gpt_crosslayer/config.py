@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from os import PathLike
-
 from ...config import CommonConfig
 
 
@@ -37,14 +35,3 @@ class GPTCrossLayerConfig(CommonConfig):
                     assert self.mlp_blocks[i] == self.mlp_blocks[j]
 
         assert self.init_method == "normal"
-
-    def save_pretrained(self, save_directory: str | PathLike, push_to_hub: bool = False, **kwargs) -> None:
-        # we don't want to exporet attention_head_type in this config, not sure if there is a better way to do this
-        attention_head_type = self.attention_head_type
-        del self.attention_head_type
-
-        output = super().save_pretrained(save_directory, push_to_hub, **kwargs)
-
-        self.attention_head_type = attention_head_type
-
-        return output
