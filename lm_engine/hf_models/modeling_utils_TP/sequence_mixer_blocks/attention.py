@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import ProcessGroupManager, divide_if_divisible
+from ....utils import ProcessGroupManager, divide_if_divisible, print_ranks_all
 from ...cache import GenerationCache
 from ...modeling_utils import Attention, apply_rotary_pos_emb, flash_attention
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
@@ -50,6 +50,7 @@ class Attention_TP(Attention):
         self.global_num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
         self.use_padding_free_transformer = use_padding_free_transformer
+        self.sequence_parallel = sequence_parallel
 
         divide_if_divisible(
             self.global_hidden_size,
@@ -163,9 +164,31 @@ class Attention_TP(Attention):
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
+        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+
         if self.use_padding_free_transformer:
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
+
+            total_q = hidden_states.shape[0]
+            input_shape = (total_q * (tp_world_size if self.sequence_parallel else 1), self.num_key_value_heads, -1)
+            output_shape = (total_q * (tp_world_size if self.sequence_parallel else 1), -1, self.head_dim)
+        else:
+            batch_size, query_length = hidden_states.shape[:-1]
+
+            input_shape = (
+                batch_size,
+                query_length * (tp_world_size if self.sequence_parallel else 1),
+                self.num_key_value_heads,
+                -1,
+            )
+
+            output_shape = (
+                batch_size,
+                query_length * (tp_world_size if self.sequence_parallel else 1),
+                -1,
+                self.head_dim,
+            )
 
         hidden_states = self.c_attn(hidden_states)
 
@@ -173,27 +196,13 @@ class Attention_TP(Attention):
             query, key, value = hidden_states
 
             if self.use_padding_free_transformer:
-                total_q = query.shape[0]
-
-                query = query.view(total_q, self.num_heads, -1)
+                query = query.view(total_q, -1, self.head_dim)
             else:
-                batch_size, query_length = query.shape[:-1]
-                query = query.view(batch_size, query_length, self.num_heads, -1)
+                query = query.view(batch_size, query_length, -1, self.head_dim)
 
-                query = query.transpose(1, 2)
-
-            key = key.unsqueeze(1)
-            value = value.unsqueeze(1)
+            key = key.unsqueeze(-2)
+            value = value.unsqueeze(-2)
         else:
-            if self.use_padding_free_transformer:
-                total_q = hidden_states.shape[0]
-                input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
-                output_shape = (total_q, -1, self.head_dim)
-            else:
-                batch_size, query_length = hidden_states.shape[:-1]
-                input_shape = (*hidden_states.shape[:-1], self.num_key_value_heads, -1)
-                output_shape = (batch_size, query_length, -1, self.head_dim)
-
             hidden_states = hidden_states.view(*input_shape)
 
             query, key, value = hidden_states.split(
