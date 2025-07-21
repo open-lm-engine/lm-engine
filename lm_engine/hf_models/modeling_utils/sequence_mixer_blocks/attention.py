@@ -144,16 +144,17 @@ class Attention(nn.Module):
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
 
-        hidden_states = self.c_attn(hidden_states)
-
         if self.use_padding_free_transformer:
             total_q = hidden_states.shape[0]
-            input_shape = (hidden_states.shape[0], self.num_key_value_heads, -1)
+            input_shape = (total_q, self.num_key_value_heads, -1)
             output_shape = (total_q, -1, self.head_dim)
         else:
             batch_size, query_length = hidden_states.shape[:-1]
-            input_shape = (*hidden_states.shape[:-1], self.num_key_value_heads, -1)
+
+            input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
             output_shape = (batch_size, query_length, -1, self.head_dim)
+
+        hidden_states = self.c_attn(hidden_states)
 
         hidden_states = hidden_states.view(*input_shape)
 
@@ -183,7 +184,6 @@ class Attention(nn.Module):
                 key = key.transpose(1, 2)
                 value = value.transpose(1, 2)
 
-                batch_size, query_length = query.shape[:2]
                 output_shape = (batch_size, query_length, -1)
 
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
