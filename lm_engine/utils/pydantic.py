@@ -2,8 +2,10 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from contextlib import contextmanager
 from copy import deepcopy
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -32,3 +34,12 @@ class BaseArgs(BaseModel):
             setattr(copied, key, result)
 
         return vars(copied)
+
+    @contextmanager
+    def temporary_argument_value(self, name: str, value: Any):
+        original_value = getattr(self, name)
+        setattr(self, name, value)
+
+        yield
+
+        setattr(self, name, original_value)

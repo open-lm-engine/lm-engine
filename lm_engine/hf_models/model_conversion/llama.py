@@ -7,7 +7,6 @@ from transformers import AutoConfig, AutoTokenizer, GenerationConfig, LlamaConfi
 from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
 from ..modeling_utils import (
-    get_attention_head_type,
     interleave_query_key_value_tensor_for_attention,
     interleave_up_gate_tensor_for_mlp,
     split_query_key_value_tensor_for_attention,
@@ -91,8 +90,6 @@ def _import_state_dict_from_huggingface(
     num_key_value_heads: int,
     head_dim: int,
 ) -> None:
-    attention_head_type = get_attention_head_type(num_heads, num_key_value_heads)
-
     state_dict = {
         "transformer.wte.weight": safetensors_weights_manager.get_tensor("model.embed_tokens.weight"),
         "transformer.ln_f.weight": safetensors_weights_manager.get_tensor("model.norm.weight"),
@@ -135,7 +132,6 @@ def _import_state_dict_from_huggingface(
                 num_heads,
                 num_key_value_heads,
                 head_dim,
-                attention_head_type,
             )
         )
         if f"model.layers.{layer_idx}.self_attn.q_proj.bias" in safetensors_weights_manager:
@@ -147,7 +143,6 @@ def _import_state_dict_from_huggingface(
                     num_heads,
                     num_key_value_heads,
                     head_dim,
-                    attention_head_type,
                 )
             )
 
@@ -234,8 +229,6 @@ def _export_state_dict_to_huggingface(
     num_key_value_heads: int,
     head_dim: int,
 ) -> None:
-    attention_head_type = get_attention_head_type(num_heads, num_key_value_heads)
-
     state_dict = {
         "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
         "model.norm.weight": safetensors_weights_manager.get_tensor("transformer.ln_f.weight"),
@@ -277,8 +270,6 @@ def _export_state_dict_to_huggingface(
             safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"),
             num_heads,
             num_key_value_heads,
-            head_dim,
-            attention_head_type,
         )
         state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.weight"] = query_weight
         state_dict[f"model.layers.{layer_idx}.self_attn.k_proj.weight"] = key_weight
@@ -289,8 +280,6 @@ def _export_state_dict_to_huggingface(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.bias"),
                 num_heads,
                 num_key_value_heads,
-                head_dim,
-                attention_head_type,
             )
             state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.bias"] = query_bias
             state_dict[f"model.layers.{layer_idx}.self_attn.k_proj.bias"] = key_bias

@@ -103,19 +103,34 @@ class ModelConversionTest(TestCommons):
         )
 
     @parameterized.expand(
-        TestCommons.make_args_matrix(TestCommons.get_all_devices(), TestCommons.get_attention_head_types())
-    )
-    def test_granitemoehybrid_model_conversion(self, device: torch.device, attention_head_type: str) -> None:
-        lm_engine_config = self.get_moe_test_config(
-            attention_head_type,
-            "nope",
-            add_bias=False,
-            shared_n_inner=64,
-            activation_function="swiglu",
-            normalization_function="rmsnorm",
-            m_emb=2,
-            m_width=2,
+        TestCommons.make_args_matrix(
+            TestCommons.get_all_devices(), TestCommons.get_attention_head_types(), [True, False]
         )
+    )
+    def test_granitemoehybrid_model_conversion(
+        self, device: torch.device, attention_head_type: str, is_moe: bool
+    ) -> None:
+        if is_moe:
+            lm_engine_config = self.get_moe_test_config(
+                attention_head_type,
+                "nope",
+                add_bias=False,
+                shared_n_inner=64,
+                activation_function="swiglu",
+                normalization_function="rmsnorm",
+                m_emb=2,
+                m_width=2,
+            )
+        else:
+            lm_engine_config = self.get_dense_test_config(
+                attention_head_type,
+                "nope",
+                add_bias=False,
+                activation_function="swiglu",
+                normalization_function="rmsnorm",
+                m_emb=2,
+                m_width=2,
+            )
 
         for layer in range(lm_engine_config.num_layers):
             if layer % 2 == 0:

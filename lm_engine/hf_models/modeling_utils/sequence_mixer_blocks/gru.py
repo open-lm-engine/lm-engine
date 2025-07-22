@@ -19,7 +19,7 @@ from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear, ParameterizedLowRankLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
-from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
 if is_cute_kernels_available():
@@ -246,7 +246,7 @@ class GRU(nn.Module):
         )
 
         if not self.use_padding_free_transformer and attention_mask is not None:
-            input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, desired_shape=(B, S, *input.size()[1:]))
+            input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, output_shape=(B, S, *input.size()[1:]))
 
         if cache_params is not None:
             cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)

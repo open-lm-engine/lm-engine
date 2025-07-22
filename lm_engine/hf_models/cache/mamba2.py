@@ -7,8 +7,8 @@ from __future__ import annotations
 import torch
 
 from ..config import CommonConfig
+from .attention import _SoftmaxAttentionCache
 from .rnn import _RNNCache
-from .softmax_attention import _SoftmaxAttentionCache
 
 
 class _Mamba2Cache(_SoftmaxAttentionCache):

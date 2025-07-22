@@ -4,7 +4,7 @@
 
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import ModelContainer
-from ..enums import Mode, TuningMethod
+from ..enums import TuningMethod
 from ..kernels import enable_kernels
 from ..utils import get_pipeline_stage_ids_on_current_rank
 from .base import ModelWrapper
@@ -21,7 +21,9 @@ _MODEL_CLASS_MAPPING = {
 }
 
 
-def get_model_container(args: TrainingArgs | UnshardingArgs | DistillationArgs, mode: Mode) -> ModelContainer:
+def get_model_container(
+    args: TrainingArgs | UnshardingArgs | DistillationArgs, efficient_initialization: bool, keep_in_fp32: bool
+) -> ModelContainer:
     tuning_method = args.tuning_args.tuning_method
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
 
@@ -32,18 +34,18 @@ def get_model_container(args: TrainingArgs | UnshardingArgs | DistillationArgs, 
         raise ValueError(f"unexpected tuning_method ({tuning_method})")
 
     kwargs = {
-        "mode": mode,
         "model_name": args.model_args.model_name,
         "pretrained_config": args.model_args.pretrained_config,
         "model_class": args.model_args.model_class,
         "dtype": args.mixed_precision_args.dtype,
-        "efficient_initialization": args.model_args.efficient_initialization,
+        "efficient_initialization": efficient_initialization,
         "use_padding_free_transformer": args.model_args.use_padding_free_transformer,
         "sequence_parallel": args.distributed_args.sequence_parallel,
         "num_pipeline_stages": num_pipeline_stages,
         "trust_remote_code": args.model_args.trust_remote_code,
         "tokenizer_name": args.tokenizer_args.tokenizer_name,
         "additional_special_tokens": args.tokenizer_args.additional_special_tokens,
+        "keep_in_fp32": keep_in_fp32,
     }
 
     # pretraining model wrapper needs some extra arguments for initialization

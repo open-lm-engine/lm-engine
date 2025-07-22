@@ -196,7 +196,7 @@ class HiPPO_RNN(nn.Module):
         )
 
         if not self.use_padding_free_transformer and attention_mask is not None:
-            input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, desired_shape=(B, S, *input.size()[1:]))
+            input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, output_shape=(B, S, *input.size()[1:]))
 
         if cache_params is not None:
             cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)

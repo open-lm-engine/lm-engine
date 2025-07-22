@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
-from ..enums import DatasetSplit, Mode
+from ..enums import DatasetSplit
 from ..tokenizers import TOKENIZER_TYPE
 
 
@@ -18,7 +18,7 @@ class BaseDataset(torch.utils.data.Dataset):
         self,
         class_args: dict,
         split: DatasetSplit,
-        mode: Mode,
+        use_output: bool,
         tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
@@ -29,7 +29,7 @@ class BaseDataset(torch.utils.data.Dataset):
         super().__init__()
 
         self.split = split
-        self.mode = mode
+        self.use_output = use_output
         self.class_args = class_args
         self.tokenizer = tokenizer
         self.data_name = data_name
@@ -91,7 +91,7 @@ class BaseDataset(torch.utils.data.Dataset):
         if self.max_input_tokens is not None:
             input = input[: self.max_input_tokens]
 
-        if self.mode == Mode.training:
+        if self.use_output:
             output: list[int] = self.tokenizer(output, add_special_tokens=False)["input_ids"]
 
             if self.max_output_tokens is not None:

@@ -10,7 +10,7 @@ from parameterized import parameterized
 from transformers import AutoTokenizer
 
 from lm_engine.data import get_datasets_list
-from lm_engine.enums import DatasetSplit, Mode
+from lm_engine.enums import DatasetSplit
 
 from .test_commons import TestCommons
 
@@ -19,7 +19,6 @@ class JSONLinesTest(TestCommons):
     @parameterized.expand([DatasetSplit.train, DatasetSplit.val, DatasetSplit.test])
     def test_jsonlines_loads(self, split: DatasetSplit) -> None:
         args = TestCommons.load_training_args_for_unit_tests("data_config.yml")
-        mode = Mode.training
 
         with tempfile.TemporaryDirectory() as tmpdir:
             split_dir = os.path.join(tmpdir, split.value)
@@ -34,7 +33,7 @@ class JSONLinesTest(TestCommons):
 
             tokenizer = AutoTokenizer.from_pretrained(args.model_args.model_name)
             datasets_list, _ = get_datasets_list(
-                dataset_args_list=args.datasets, split=split, mode=mode, tokenizer=tokenizer
+                dataset_args_list=args.datasets, split=split, use_output=True, tokenizer=tokenizer
             )
 
         assert len(datasets_list) == 1

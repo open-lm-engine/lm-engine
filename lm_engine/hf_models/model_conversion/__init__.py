@@ -7,8 +7,8 @@ from transformers import AutoConfig
 from .bigcode import export_to_huggingface_bigcode, import_from_huggingface_bigcode
 from .granite import export_to_huggingface_granite, import_from_huggingface_granite
 from .granitemoe import export_to_huggingface_granitemoe, import_from_huggingface_granitemoe
+from .granitemoehybrid import export_to_huggingface_granitemoehybrid, import_from_huggingface_granitemoehybrid
 from .granitemoeshared import export_to_huggingface_granitemoeshared, import_from_huggingface_granitemoeshared
-from .granitemoesharedhybrid import export_to_huggingface_granitemoehybrid, import_from_huggingface_granitemoehybrid
 from .llama import export_to_huggingface_llama, import_from_huggingface_llama
 
 

@@ -4,9 +4,9 @@
 
 import torch
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
-from ....utils import is_flash_attention_2_available, is_flash_attention_3_available
+from .....enums import Kernel
+from .....kernels import is_kernel_allowed
+from .....utils import is_flash_attention_2_available, is_flash_attention_3_available
 from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
@@ -169,7 +169,7 @@ def flash_attention(
             attn_output = unpack_sequence(
                 inputs=attn_output,
                 cu_seqlens=cu_seqlens_q,
-                desired_shape=(batch_size, query_length, num_heads, head_dim),
+                output_shape=(batch_size, query_length, num_heads, head_dim),
             )
 
     return attn_output

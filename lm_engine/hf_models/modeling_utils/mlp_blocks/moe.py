@@ -405,27 +405,6 @@ class MoE(nn.Module):
         hidden_states = self.c_proj_shared(hidden_states)
         return hidden_states
 
-    def _compute_expert_assignment(
-        self, router_weights: torch.Tensor, selected_experts: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        selected_experts = selected_experts.flatten()
-
-        num_tokens_per_expert = compute_bincount(
-            x=selected_experts,
-            size=self.num_experts,
-            use_continuous_count=self.is_hopper_or_newer_gpu and is_kernel_allowed(Kernel.continuous_count_cute),
-        )
-
-        # sort and group input tokens according to expert assignment
-        _, index_sorted_experts = selected_experts.sort(0)  # [num_tokens * top_k]
-        batch_index = index_sorted_experts // self.top_k  # [num_tokens * top_k]
-
-        # gather the gate values for grouped input tokens
-        router_weights = router_weights.flatten()  # [num_tokens * top_k]
-        batch_gates = router_weights[index_sorted_experts]  # [num_tokens * top_k]
-
-        return batch_index, batch_gates, num_tokens_per_expert
-
     def _get_topk(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if self.top_k == 1:
             x, indices = x.max(dim=-1, keepdim=True)

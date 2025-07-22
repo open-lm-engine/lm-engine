@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from ...enums import DatasetSplit, Mode
+from ...enums import DatasetSplit
 from ...tokenizers import TOKENIZER_TYPE
 from ..base import BaseDataset
 
@@ -14,7 +14,7 @@ class BaseInstructionDataset(BaseDataset):
         self,
         class_args: dict,
         split: DatasetSplit,
-        mode: Mode,
+        use_output: bool,
         tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
@@ -25,7 +25,7 @@ class BaseInstructionDataset(BaseDataset):
         super().__init__(
             class_args=class_args,
             split=split,
-            mode=mode,
+            use_output=use_output,
             tokenizer=tokenizer,
             data_name=data_name,
             input_format=input_format,
