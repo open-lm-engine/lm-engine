@@ -24,13 +24,16 @@ def compute_cu_seqlens_and_max_seqlen_from_attention_mask(
 
 
 def pack_sequence(
-    inputs: torch.Tensor | list[torch.Tensor], cu_seqlens: torch.Tensor
+    inputs: torch.Tensor | list[torch.Tensor],
+    cu_seqlens: torch.Tensor,
+    output_shape: tuple[int],
 ) -> torch.Tensor | list[torch.Tensor]:
     kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence_cute) else KernelBackend.torch
 
     inputs = pack_sequence_cute(
         inputs=inputs,
         cu_seqlens=cu_seqlens,
+        output_shape=output_shape,
         kernel_backend_forward=kernel_backend,
         kernel_backend_backward=kernel_backend,
     )

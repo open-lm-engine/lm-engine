@@ -13,9 +13,7 @@ from .config import PaLMConfig
 
 
 class PaLMBlock(nn.Module):
-    def __init__(
-        self, config: PaLMConfig, use_padding_free_transformer: bool, layer_idx: int | None = None
-    ) -> PaLMBlock:
+    def __init__(self, config: PaLMConfig, layer_idx: int | None = None) -> PaLMBlock:
         super().__init__()
 
         self.m_residual = config.m_residual
@@ -23,15 +21,13 @@ class PaLMBlock(nn.Module):
         self.ln = get_normalization_function(
             config.normalization_function, config.hidden_size, eps=config.layer_norm_epsilon
         )
-        self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
-        self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
-        )
+        self.sequence_mixer = get_sequence_mixer(config, True, layer_idx)
+        self.mlp_block = get_mlp_block(config, layer_idx=layer_idx)
 
     def forward(
         self,
         hidden_states: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -44,7 +40,7 @@ class PaLMBlock(nn.Module):
         # but right now we avoid it since this code is only used for accuracy benchmarking at small scale
         attention_out = self.sequence_mixer(
             hidden_states,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             rope_cos_sin=rope_cos_sin,
             cu_seqlens=cu_seqlens,

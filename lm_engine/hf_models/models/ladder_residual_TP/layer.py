@@ -339,24 +339,17 @@ if is_cute_kernels_available():
 
 
 class LadderResidualBlock_TP(Block_TP):
-    def __init__(
-        self, config, use_padding_free_transformer, layer_idx=None, sequence_parallel=False
-    ) -> LadderResidualBlock_TP:
-        super().__init__(config, use_padding_free_transformer, layer_idx, sequence_parallel)
+    def __init__(self, config, layer_idx=None, sequence_parallel=False) -> LadderResidualBlock_TP:
+        super().__init__(config, layer_idx, sequence_parallel)
 
-        self.mlp0_block = get_mlp_block_TP(
-            config,
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
-            layer_idx=layer_idx,
-        )
+        self.mlp0_block = get_mlp_block_TP(config, sequence_parallel=sequence_parallel, layer_idx=layer_idx)
 
     def forward(
         self,
         current_attention_out: torch.Tensor,
         current_mlp_out: torch.Tensor,
         residual: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -384,7 +377,7 @@ class LadderResidualBlock_TP(Block_TP):
                 current_attention_out=current_attention_out,
                 current_mlp_out=current_mlp_out,
                 residual=residual,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 rope_cos_sin=rope_cos_sin,
                 cu_seqlens=cu_seqlens,

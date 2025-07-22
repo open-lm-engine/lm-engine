@@ -57,7 +57,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | list[list[int]] | None = None,
         inputs_embeds: torch.Tensor | list[list[float]] | None = None,
@@ -77,27 +77,16 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             labels=labels,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             use_cache=use_cache,
         )
-
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> None or (batch_size, key_length)
-        # ==========================================================================================
 
         clear_aux_loss()
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             position_ids=position_ids,
             use_cache=use_cache,
@@ -106,7 +95,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         )
 
         hidden_states = transformer_outputs.last_hidden_state
-        past_key_values = transformer_outputs.past_key_values
+        cache_params = transformer_outputs.cache_params
         del transformer_outputs
 
         lm_logits = None
@@ -135,7 +124,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
                 hidden_states=None,
                 vocab_weight=None,
                 cu_seqlens=cu_seqlens,
-                use_padding_free_transformer=self.use_padding_free_transformer,
+                use_padding_free_transformer=True,
                 reduction=reduction,
                 shift_logits_and_labels=True,
                 tensor_parallel_enabled=False,
@@ -150,7 +139,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             loss=loss,
             aux_loss=aux_loss,
             logits=lm_logits,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             last_hidden_state=hidden_states,
         )
 

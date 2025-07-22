@@ -8,15 +8,12 @@ import tempfile
 
 import torch
 from torch.testing import assert_close
-from transformers import AutoConfig, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM
 
 from lm_engine import SafeTensorsWeightsManager
 from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingface, import_from_huggingface
 
 from ..test_common import BaseTestCommons
-
-
-_RUN_SLOW = True if os.getenv("RUN_SLOW", "False").lower() in ["1", "true"] else False
 
 
 class TestCommons(BaseTestCommons):
@@ -191,7 +188,7 @@ class TestCommons(BaseTestCommons):
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
-        lm_engine_model = self.from_config(lm_engine_config).to(device)
+        lm_engine_model = AutoModelForCausalLM.from_config(lm_engine_config).to(device)
         lm_engine_model.eval()
 
         with tempfile.TemporaryDirectory() as tmp_path:
@@ -266,22 +263,6 @@ class TestCommons(BaseTestCommons):
             return weights1 == weights2
 
         return False
-
-    def from_config(self, config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
-        use_padding_free_transformer = kwargs.pop("use_padding_free_transformer", False)
-
-        model = AutoModelForCausalLM.from_config(
-            config,
-            use_padding_free_transformer=use_padding_free_transformer,
-            torch_dtype=kwargs.pop("torch_dtype", None),
-        )
-
-        if use_padding_free_transformer:
-            assert model.use_padding_free_transformer
-
-        assert len(kwargs) == 0
-
-        return model
 
     def assert_equal_tensors(
         self,
