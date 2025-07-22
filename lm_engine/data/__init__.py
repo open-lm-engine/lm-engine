@@ -6,7 +6,7 @@ import logging
 from functools import partial
 
 from ..arguments import DatasetArgs, TrainingArgs
-from ..enums import DatasetSplit, Mode
+from ..enums import DatasetSplit
 from ..tokenizers import TOKENIZER_TYPE
 from ..utils import ProcessGroupManager, log_rank_0, run_rank_n
 from .base import BaseDataset, BlendedDatasets
@@ -32,14 +32,14 @@ _DATASETS_LIST = {
 
 
 def get_datasets_list(
-    dataset_args_list: list[DatasetArgs], split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
+    dataset_args_list: list[DatasetArgs], split: DatasetSplit, use_output: bool, tokenizer: TOKENIZER_TYPE
 ) -> tuple[list[BaseDataset], list[int]]:
     """get the list of datasets from their configs
 
     Args:
         dataset_args_list (list[DatasetArgs]): list of DatasetArgs objects
         split (DatasetSplit): train / val / test split
-        mode (Mode): training / inference mode for running the program
+        use_output (bool): whether the output is returned in the dataset's samples
         tokenizer (TOKENIZER_TYPE): tokenizer
 
     Raises:
@@ -58,7 +58,7 @@ def get_datasets_list(
         dataset = _DATASETS_LIST[data_args.class_name](
             class_args=data_args.class_args,
             split=split,
-            mode=mode,
+            use_output=use_output,
             tokenizer=tokenizer,
             data_name=data_args.data_name,
             input_format=data_args.input_format,
@@ -85,21 +85,19 @@ def get_datasets_list(
 
 
 def get_finetuning_dataloader(
-    args: TrainingArgs, split: DatasetSplit, mode: Mode, tokenizer: TOKENIZER_TYPE
+    args: TrainingArgs, split: DatasetSplit, use_output: bool, tokenizer: TOKENIZER_TYPE
 ) -> ResumableDataLoader:
     """prepares datasets and sampler
 
     Args:
         args (TrainingArgs): arguments based on training / inference mode
         split (DatasetSplit): train / val / test split
-        mode (Mode): training / inference mode
+        use_output (bool): whether dataloader can return output in the sample
         tokenizer (TOKENIZER_TYPE): tokenizer
 
     Returns:
         ResumableDataLoader: dataloader for a blended dataset
     """
-
-    assert mode == Mode.training, "blended dataset is only supported in training mode"
 
     if ProcessGroupManager.get_tensor_parallel_rank() != 0:
         return
@@ -107,7 +105,7 @@ def get_finetuning_dataloader(
     micro_batch_size = args.training_parameters.micro_batch_size
 
     datasets_list, data_sampling_ratios = get_datasets_list(
-        dataset_args_list=args.datasets, split=split, mode=Mode.training, tokenizer=tokenizer
+        dataset_args_list=args.datasets, split=split, use_output=use_output, tokenizer=tokenizer
     )
 
     if len(datasets_list) == 0:
@@ -134,7 +132,7 @@ def get_finetuning_dataloader(
         sampler=sampler,
         collate_fn=partial(
             collate_fn,
-            mode=mode,
+            use_output=use_output,
             loss_mask=args.training_parameters.loss_mask,
             eos_token_id=tokenizer.eos_token_id,
             pad_to_multiple_of=ProcessGroupManager.get_tensor_parallel_world_size(),

@@ -5,12 +5,13 @@
 from __future__ import annotations
 
 import logging
+from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
 
-from ..enums import Kernel, Mode
+from ..enums import Kernel
 from ..hf_models import get_model_parallel_class, is_custom_model
 from ..kernels import is_kernel_allowed
 from ..tokenizers import get_tokenizer
@@ -22,7 +23,6 @@ class ModelWrapper(nn.Module):
 
     def __init__(
         self,
-        mode: Mode,
         model_name: str | None,
         pretrained_config: dict | None,
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
@@ -34,11 +34,11 @@ class ModelWrapper(nn.Module):
         trust_remote_code: bool = False,
         tokenizer_name: str | None = None,
         additional_special_tokens: list[str] | None = None,
+        keep_in_fp32: bool = True,
     ) -> ModelWrapper:
         """initializes a model wrapper for a HuggingFace model
 
         Args:
-            mode (Mode): training / inference mode
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
@@ -50,11 +50,11 @@ class ModelWrapper(nn.Module):
             trust_remote_code (bool, optional): whether the model has remote code in the HF bucket. Defaults to False.
             tokenizer_name (str | None, optional): path of the model on disk or HF hub. Defaults to None. If None, the `model_name` is used for tokenizer.
             additional_special_tokens (list[str] | None, optional): additional special tokens to use for expanding tokenizer. Defaults to None.
+            keep_in_fp32 (bool, optional): whether to keep model in fp32 right now. Defaults to True.
         """
 
         super().__init__()
 
-        self.mode = mode
         self.model_name = model_name
         self.pretrained_config = pretrained_config
         self.model_class = model_class
@@ -63,6 +63,7 @@ class ModelWrapper(nn.Module):
         self.sequence_parallel = sequence_parallel
         self.tokenizer_name = self.model_name if tokenizer_name is None else tokenizer_name
         self.trust_remote_code = trust_remote_code
+        self.keep_in_fp32 = keep_in_fp32
 
         self.num_pipeline_stages = num_pipeline_stages
         self.pipeline_stage_id = pipeline_stage_id
@@ -164,43 +165,35 @@ class ModelWrapper(nn.Module):
             if self.tokenizer.pad_token_id is not None:
                 assert self.tokenizer.pad_token_id == self.config.pad_token_id
 
-        def _get_model(**extras):
-            if self.model_name is None:
-                if self.is_pipeline_parallel_enabled or ProcessGroupManager.is_tensor_parallel_enabled():
-                    # avoid inferring the model class so use _from_config instead of from_config
-                    model = self.model_class._from_config(**model_kwargs, **extras)
-                else:
-                    model = self.model_class.from_config(**model_kwargs, **extras)
-            else:
-                model = self.model_class.from_pretrained(**model_kwargs, **extras)
+        context = nullcontext()
+        kwargs = {}
 
-            return model
-
-        if self.mode == Mode.training:
+        if self.keep_in_fp32:
             if self.efficient_initialization:
                 if self.model_name is None:
-                    with torch.device("meta"):
-                        self.model = _get_model()
+                    context = torch.device("meta")
                 else:
                     assert (
                         not ProcessGroupManager.is_tensor_parallel_enabled()
                     ), "tensor parallel models don't support efficient init with model name"
 
-                    if ProcessGroupManager.get_data_parallel_rank() == 0:
-                        self.model = _get_model()
-                    else:
-                        with torch.device("meta"):
-                            self.model = _get_model()
-            else:
-                self.model = _get_model()
+                    if ProcessGroupManager.get_data_parallel_rank() != 0:
+                        context = torch.device("meta")
+        elif self.dtype == "fp8":
+            log_rank_0(logging.WARN, "dtype fp8 was passed but loading model in fp16")
+            kwargs = {"torch_dtype": torch.float16}
         else:
-            if self.dtype == "fp8":
-                log_rank_0(logging.WARN, "dtype fp8 was passed but loading model in fp16")
-                torch_dtype = torch.float16
-            else:
-                torch_dtype = string_to_torch_dtype(self.dtype)
+            kwargs = {"torch_dtype": string_to_torch_dtype(self.dtype)}
 
-            self.model = _get_model(torch_dtype=torch_dtype)
+        with context:
+            if self.model_name is None:
+                if self.is_pipeline_parallel_enabled or ProcessGroupManager.is_tensor_parallel_enabled():
+                    # avoid inferring the model class so use _from_config instead of from_config
+                    self.model = self.model_class._from_config(**model_kwargs, **kwargs)
+                else:
+                    self.model = self.model_class.from_config(**model_kwargs, **kwargs)
+            else:
+                self.model = self.model_class.from_pretrained(**model_kwargs, **kwargs)
 
     def calculate_num_parameters(self) -> tuple[int, int]:
         model_kwargs = self._get_model_kwargs()

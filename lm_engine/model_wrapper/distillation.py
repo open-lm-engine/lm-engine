@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
 from ..dtensors import tensor_to_dtensor
-from ..enums import Kernel, KLDivergenceMethod, Mode
+from ..enums import Kernel, KLDivergenceMethod
 from ..hf_models import (
     CausalLMOutputWithPast,
     PipelineParallelOutput,
@@ -26,7 +26,6 @@ from .pretraining import ModelWrapperForPretraining
 class ModelWrapperForDistillation(ModelWrapperForPretraining):
     def __init__(
         self,
-        mode: Mode,
         model_name: str | None,
         pretrained_config: dict | None,
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
@@ -47,11 +46,11 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         additional_special_tokens: list[str] | None = None,
         reset_attention_mask: bool = False,
         reset_position_ids: bool = False,
+        keep_in_fp32: bool = True,
     ) -> ModelWrapperForDistillation:
         """initializes a model wrapper for a HuggingFace model
 
         Args:
-            mode (Mode): training / inference mode
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
@@ -67,6 +66,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             additional_special_tokens (list[str] | None, optional): additional special tokens to use for expanding tokenizer. Defaults to None.
             reset_attention_mask (bool, optional): whether to reset attention mask during pretraining. Defaults to False.
             reset_position_ids (bool, optional): whether to reset position ids during pretraining. Defaults to False.
+            keep_in_fp32 (bool, optional): whether to keep model in fp32 right now. Defaults to True.
         """
 
         self.teacher_model_class = teacher_model_class
@@ -76,7 +76,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         self.kl_divergence_weight = kl_divergence_weight
 
         super().__init__(
-            mode=mode,
             model_name=model_name,
             pretrained_config=pretrained_config,
             model_class=model_class,
@@ -92,6 +91,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             additional_special_tokens=additional_special_tokens,
             reset_attention_mask=reset_attention_mask,
             reset_position_ids=reset_position_ids,
+            keep_in_fp32=keep_in_fp32,
         )
 
         if ProcessGroupManager.is_tensor_parallel_enabled() or num_pipeline_stages > 1:

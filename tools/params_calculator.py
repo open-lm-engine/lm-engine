@@ -19,7 +19,6 @@ config = GPTBaseConfig(
     position_embedding_type="rope",
     activation_function="swiglu",
     normalization_function="rmsnorm",
-    attention_head_type="gqa",
 )
 
 with torch.device("meta"):

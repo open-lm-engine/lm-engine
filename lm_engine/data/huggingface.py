@@ -8,7 +8,7 @@ from datasets import load_dataset
 
 from lm_engine.tokenizers import TOKENIZER_TYPE
 
-from ..enums import DatasetSplit, Mode
+from ..enums import DatasetSplit
 from .base import BaseDataset
 
 
@@ -19,7 +19,7 @@ class HuggingFaceDataset(BaseDataset):
         self,
         class_args: dict,
         split: DatasetSplit,
-        mode: Mode,
+        use_output: bool,
         tokenizer: TOKENIZER_TYPE,
         data_name: str,
         input_format: str,
@@ -30,7 +30,7 @@ class HuggingFaceDataset(BaseDataset):
         super().__init__(
             class_args=class_args,
             split=split,
-            mode=mode,
+            use_output=use_output,
             tokenizer=tokenizer,
             data_name=data_name,
             input_format=input_format,
@@ -54,7 +54,7 @@ class HuggingFaceDataset(BaseDataset):
         examples = []
         for raw_example in dataset:
             input = self.construct_input_from_format(raw_example[input_key])
-            output = self.construct_output_from_format(raw_example[output_key]) if self.mode == Mode.training else None
+            output = self.construct_output_from_format(raw_example[output_key]) if self.use_output else None
 
             example = self.get_input_output_token_ids(input, output)
             examples.append(example)

@@ -46,7 +46,6 @@ class CrossLayerAttention(nn.Module):
         ), f"`hidden_size` ({self.hidden_size}) must be divisible by `num_heads` ({self.num_heads})"
 
         self.head_dim = self.hidden_size // self.num_heads
-
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
 
