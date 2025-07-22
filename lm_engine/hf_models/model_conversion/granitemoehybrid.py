@@ -49,13 +49,16 @@ def import_from_huggingface_granitemoehybrid(pretrained_model_name_or_path: str,
         tokenizer.save_pretrained(save_path, legacy_format=False)
 
 
-def _import_sequence_mixer_config(original_config: GraniteMoeHybridConfig) -> list[dict]:
-    configs = []
+def _import_config_from_huggingface(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
+    assert original_config.hidden_act == "silu"
+    assert not original_config.attention_bias
+
+    sequence_mixer_blocks = []
     for layer_idx in range(original_config.num_hidden_layers):
         layer_type = original_config.layer_types[layer_idx]
 
         if layer_type == "attention":
-            config = {
+            sequence_mixer_block = {
                 "sequence_mixer_type": "softmax_attention",
                 "num_attention_heads": original_config.num_attention_heads,
                 "num_key_value_heads": original_config.num_key_value_heads,
@@ -64,7 +67,7 @@ def _import_sequence_mixer_config(original_config: GraniteMoeHybridConfig) -> li
                 "softmax_dropout": original_config.attention_dropout,
             }
         elif layer_type == "mamba":
-            config = {
+            sequence_mixer_block = {
                 "sequence_mixer_type": "mamba2",
                 "state_size": original_config.mamba_d_state,
                 "intermediate_size": original_config.mamba_expand * original_config.hidden_size,
@@ -78,14 +81,7 @@ def _import_sequence_mixer_config(original_config: GraniteMoeHybridConfig) -> li
         else:
             raise ValueError(f"unexpected layer_type ({layer_type})")
 
-        configs.append(config)
-
-    return configs
-
-
-def _import_config_from_huggingface(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
-    assert original_config.hidden_act == "silu"
-    assert not original_config.attention_bias
+        sequence_mixer_blocks.append(sequence_mixer_block)
 
     # Allow for 0 experts by setting mlp_blocks accordingly
     mlp_blocks = []
@@ -109,6 +105,7 @@ def _import_config_from_huggingface(original_config: GraniteMoeHybridConfig) -> 
                 "activation_function": "swiglu",
                 "add_bias": False,
             }
+
         mlp_blocks.append(mlp_block)
 
     config = GPTBaseConfig(
@@ -130,7 +127,7 @@ def _import_config_from_huggingface(original_config: GraniteMoeHybridConfig) -> 
         m_emb=None if original_config.embedding_multiplier == 1 else original_config.embedding_multiplier,
         m_residual=None if original_config.residual_multiplier == 1 else original_config.residual_multiplier,
         m_width=None if original_config.logits_scaling == 1 else original_config.logits_scaling,
-        sequence_mixer_blocks=_import_sequence_mixer_config(original_config),
+        sequence_mixer_blocks=sequence_mixer_blocks,
         mlp_blocks=mlp_blocks,
     )
 
@@ -257,7 +254,6 @@ def export_to_huggingface_granitemoehybrid(pretrained_model_name_or_path: str, s
         sequence_mixer_block_types=_get_sequence_mixer_block_types(config),
         num_heads=original_config.num_attention_heads,
         num_key_value_heads=original_config.num_key_value_heads,
-        head_dim=original_config.hidden_size // original_config.num_attention_heads,
         num_experts=original_config.num_local_experts,
     )
 
@@ -289,6 +285,7 @@ def _get_sequence_mixer_block_types(config: GPTBaseConfig) -> list:
         elif block_type == "softmax_attention":
             block_type = "attention"
         seq_mixer_block_types.append(block_type)
+
     return seq_mixer_block_types
 
 
@@ -394,7 +391,6 @@ def _export_state_dict_to_huggingface(
     sequence_mixer_block_types: list,
     num_heads: int,
     num_key_value_heads: int,
-    head_dim: int,
     num_experts: int,
 ) -> None:
     state_dict = {
