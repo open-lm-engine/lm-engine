@@ -103,11 +103,15 @@ class ModelConversionTest(TestCommons):
         )
 
     @parameterized.expand(
-        TestCommons.make_args_matrix(TestCommons.get_all_devices(), TestCommons.get_attention_head_types())
+        TestCommons.make_args_matrix(
+            TestCommons.get_all_devices(), TestCommons.get_attention_head_types(), [True, False]
+        )
     )
-    def test_granitemoehybrid_model_conversion(self, device: torch.device, attention_head_type: str) -> None:
-        for lm_engine_config in [
-            self.get_moe_test_config(
+    def test_granitemoehybrid_model_conversion(
+        self, device: torch.device, attention_head_type: str, is_moe: bool
+    ) -> None:
+        if is_moe:
+            lm_engine_config = self.get_moe_test_config(
                 attention_head_type,
                 "nope",
                 add_bias=False,
@@ -116,8 +120,9 @@ class ModelConversionTest(TestCommons):
                 normalization_function="rmsnorm",
                 m_emb=2,
                 m_width=2,
-            ),
-            self.get_dense_test_config(
+            )
+        else:
+            lm_engine_config = self.get_dense_test_config(
                 attention_head_type,
                 "nope",
                 add_bias=False,
@@ -125,17 +130,17 @@ class ModelConversionTest(TestCommons):
                 normalization_function="rmsnorm",
                 m_emb=2,
                 m_width=2,
-            ),
-        ]:
-            for layer in range(lm_engine_config.num_layers):
-                if layer % 2 == 0:
-                    lm_engine_config.sequence_mixer_blocks[layer] = _Mamba2Args(intermediate_size=256)
-
-            self.model_conversion_test(
-                lm_engine_config=lm_engine_config,
-                model_type="granitemoehybrid",
-                device=device,
-                exact_match=False,
-                compare_loss=False,
-                logits_atol_float32=2.5e-5,
             )
+
+        for layer in range(lm_engine_config.num_layers):
+            if layer % 2 == 0:
+                lm_engine_config.sequence_mixer_blocks[layer] = _Mamba2Args(intermediate_size=256)
+
+        self.model_conversion_test(
+            lm_engine_config=lm_engine_config,
+            model_type="granitemoehybrid",
+            device=device,
+            exact_match=False,
+            compare_loss=False,
+            logits_atol_float32=2.5e-5,
+        )

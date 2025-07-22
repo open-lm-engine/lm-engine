@@ -163,7 +163,6 @@ def _import_state_dict_from_huggingface(
                 f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"
             )
 
-        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"):
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
                 safetensors_weights_manager.get_tensor(
                     f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"
@@ -171,21 +170,25 @@ def _import_state_dict_from_huggingface(
                 dim=1,
             )
 
-            assert safetensors_weights_manager.has_tensor(
-                f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"
-            )
-
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
                 f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"
             )
 
-        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"):
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = _split_and_reorder_for_glu(
+            if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"):
+                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = _split_and_reorder_for_glu(
+                    safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"),
+                    dim=0,
+                )
+                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
+                    safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.output_linear.weight")
+                )
+        else:
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
                 safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"),
                 dim=0,
             )
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.output_linear.weight")
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"
             )
 
         if sequence_mixer_block_types[layer_idx] == "mamba2":
@@ -254,7 +257,6 @@ def export_to_huggingface_granitemoehybrid(pretrained_model_name_or_path: str, s
         sequence_mixer_block_types=_get_sequence_mixer_block_types(config),
         num_heads=original_config.num_attention_heads,
         num_key_value_heads=original_config.num_key_value_heads,
-        num_experts=original_config.num_local_experts,
     )
 
     SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
@@ -391,7 +393,6 @@ def _export_state_dict_to_huggingface(
     sequence_mixer_block_types: list,
     num_heads: int,
     num_key_value_heads: int,
-    num_experts: int,
 ) -> None:
     state_dict = {
         "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
@@ -408,7 +409,8 @@ def _export_state_dict_to_huggingface(
         state_dict[f"model.layers.{layer_idx}.post_attention_layernorm.weight"] = (
             safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.ln_2.weight")
         )
-        if num_experts > 0:
+
+        if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.gate.weight"):
             state_dict[f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.gate.weight")
             )
@@ -418,6 +420,7 @@ def _export_state_dict_to_huggingface(
             state_dict[f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")
             )
+
             if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
                 state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
                     safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"),
@@ -427,8 +430,6 @@ def _export_state_dict_to_huggingface(
                     safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
                 )
         else:
-            # make sure if there are no experts, the MLP weights are there and copy those
-            assert safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight")
             state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"),
                 dim=0,
