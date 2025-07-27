@@ -29,6 +29,52 @@ FIM_MIDDLE = "<fim_middle>"
 
 
 class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
+    def __init__(
+        self,
+        model_name: str | None,
+        pretrained_config: dict | None,
+        model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
+        dtype: torch.dtype,
+        efficient_initialization: bool,
+        use_padding_free_transformer: bool,
+        sequence_parallel: bool,
+        micro_batch_size: int,
+        sequence_length: int,
+        num_pipeline_stages: int,
+        pipeline_stage_id: int,
+        trust_remote_code: bool = False,
+        tokenizer_name: str | None = None,
+        additional_special_tokens: list[str] | None = None,
+        reset_attention_mask: bool = False,
+        reset_position_ids: bool = False,
+        keep_in_fp32: bool = True,
+    ) -> ModelWrapperForPretraining:
+        super().__init__(
+            model_name,
+            pretrained_config,
+            model_class,
+            dtype,
+            efficient_initialization,
+            use_padding_free_transformer,
+            sequence_parallel,
+            micro_batch_size,
+            sequence_length,
+            num_pipeline_stages,
+            pipeline_stage_id,
+            trust_remote_code,
+            tokenizer_name,
+            additional_special_tokens,
+            reset_attention_mask,
+            reset_position_ids,
+            keep_in_fp32,
+        )
+        assert self.use_padding_free_transformer and self.reset_attention_mask
+
+    def _get_model_kwargs(self):
+        kwargs = super()._get_model_kwargs()
+        if hasattr(self, "mask_token_id"):
+            kwargs["mask_token_id"] = self.mask_token_id
+        return kwargs
 
     def forward(
         self,
@@ -104,23 +150,11 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             F.cross_entropy(
                 input=flat_logits,
                 target=flat_labels,
-                ignore_index=self.mask_token_id,
+                ignore_index=self.ignore_token_id,
                 reduction="none",
             )
             / p_mask.flatten()
         ).sum()
-
-        # lm_loss = get_autoregressive_language_modeling_loss(
-        #     lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
-        #     labels=labels,
-        #     hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
-        #     vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
-        #     cu_seqlens=None,
-        #     use_padding_free_transformer=self.use_padding_free_transformer,
-        #     reduction="sum",
-        #     shift_logits_and_labels=False,
-        #     tensor_parallel_enabled=tensor_parallel_enabled,
-        # )
 
         lm_loss = lm_loss * lm_loss_multiplier
         aux_loss = getattr(model_outputs, "aux_loss", 0)
@@ -147,37 +181,37 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         assert self.mask_token_id is not None
         self.pad_token_id = self.tokenizer.pad_token_id
         assert self.pad_token_id is not None
+        self.ignore_token_id = self.pad_token_id  # self.mask_token_id
+
+    # def _forward_process(self, input_ids, eps=1e-3):
+    #     b, l = input_ids.shape
+    #     t = torch.rand(b, device=input_ids.device)
+    #     p_mask = (1 - eps) * t + eps
+    #     p_mask = p_mask[:, None].repeat(1, l)
+
+    #     masked_indices = torch.rand((b, l), device=input_ids.device) < p_mask
+    #     noisy_batch = torch.where(masked_indices, self.mask_token_id, input_ids)
+    #     labels = torch.where(~masked_indices, self.ignore_token_id, input_ids)
+    #     return noisy_batch, labels, p_mask
 
     def _forward_process(self, input_ids, eps=1e-3):
-        b, l = input_ids.shape
-        t = torch.rand(b, device=input_ids.device)
+        t = torch.rand(1, device=input_ids.device)
         p_mask = (1 - eps) * t + eps
-        p_mask = p_mask[:, None].repeat(1, l)
-
-        masked_indices = torch.rand((b, l), device=input_ids.device) < p_mask
+        masked_indices = torch.rand_like(input_ids, dtype=t.dtype) < p_mask
         noisy_batch = torch.where(masked_indices, self.mask_token_id, input_ids)
-        labels = torch.where(~masked_indices, self.mask_token_id, input_ids)
-        return noisy_batch, labels, p_mask
+        labels = torch.where(~masked_indices, self.ignore_token_id, input_ids)
+        return noisy_batch, labels, ~masked_indices, p_mask
+
+    def _forward_and_place(self, curr_seq, start_idx, end_idx, input_ids, labels, p_mask):
+        curr_seq_input, curr_seq_labels, curr_unmasked_idxs, curr_seq_p_mask = self._forward_process(curr_seq)
+        input_ids[start_idx:end_idx] = curr_seq_input
+        labels[start_idx:end_idx] = curr_seq_labels
+        p_mask[start_idx:end_idx] = curr_seq_p_mask
+        return curr_seq_input, curr_seq_labels, curr_seq_p_mask
 
     def _prepare_model_inputs(self, batch: dict) -> dict:
         if self.is_pipeline_parallel_enabled:
             raise NotImplementedError("No pipeline for diffusion yet.")
-            # when using pipeline parallel, we broadcast the input outside the model function
-            # tokens = batch["text"]
-            # aux_loss_from_pipeline_parallel = batch["aux_loss_from_pipeline_parallel"]
-
-            # tokens = tokens.to(torch.cuda.current_device())
-
-            # if self.is_first_stage:
-            #     input_ids = tokens
-            #     pipeline_parallel_input = None
-            # else:
-            #     input_ids = None
-            #     pipeline_parallel_input = PipelineParallelInput(
-            #         hidden_states=tokens, aux_loss=aux_loss_from_pipeline_parallel
-            #     )
-
-            # batch = {"labels": None, "pipeline_parallel_input": pipeline_parallel_input}
         else:
             if ProcessGroupManager.is_tensor_parallel_enabled():
                 tokens = broadcast_tensor_parallel_input(
@@ -186,83 +220,125 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             else:
                 tokens = batch["text"]
                 tokens = tokens.to(torch.cuda.current_device())
-            unnoised_input_ids = tokens[:, 1:]
-            input_ids, labels, p_mask = self._forward_process(unnoised_input_ids)
-            batch = {"labels": labels, "p_mask": p_mask}
-
-        if self.use_padding_free_transformer:
-
-            batch_size, sequence_length = unnoised_input_ids.shape
-            input_ids = input_ids.flatten()
-            flat_labels = labels.view(-1)
-            if self.reset_attention_mask:
-                unnoised_input_ids = unnoised_input_ids.flatten()
-                batch_size * sequence_length
-                document_end_positions = unnoised_input_ids == self.eos_token_id
-                # Add the end token for the end of sample also
-                document_end_positions[sequence_length - 1 :: sequence_length] = 1
-                cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
-
-                # Randomly delete shorter sequences 1% of the time to train <pad>
-                deleted = False
-                for i in range(cu_seqlens.size(0) - 1):
-                    start_idx = cu_seqlens[i]
-                    end_idx = cu_seqlens[i + 1]
-                    if start_idx % sequence_length != 0:  # make sure not start of sample
-                        if torch.rand(1) < 0.01:
-                            deleted = True
-                            document_end_positions[start_idx - 1] = 0
-                            token_mask = input_ids[start_idx:end_idx] == self.mask_token_id
-                            input_ids[start_idx:end_idx] = torch.where(
-                                token_mask, input_ids[start_idx:end_idx], self.pad_token_id
-                            )
-                            flat_labels[start_idx:end_idx] = torch.where(
-                                ~token_mask, flat_labels[start_idx:end_idx], self.pad_token_id
-                            )
-                if deleted:
-                    cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
-
-                cu_seqlens = torch.cat([torch.tensor([0], device=input_ids.device), cu_seqlens])
-                cu_seqlens = cu_seqlens.to(torch.int32)
-
-                seqlen = cu_seqlens[1:] - cu_seqlens[:-1]
-                # we move to CPU here otherwise FlashAttention will move to CPU on every invocation i.e all layers
-                max_seqlen = seqlen.max().item()
-
-                if self.reset_position_ids:
-                    position_ids = torch.cat(
-                        [torch.arange(0, i, 1, dtype=torch.int32, device=input_ids.device) for i in seqlen]
-                    )
-                else:
-                    position_ids = self.position_ids
+            if torch.rand(1, device=tokens.device) < 0.5:
+                unnoised_input_ids = tokens[:, 1:]
             else:
-                cu_seqlens = self.cu_seqlens
-                max_seqlen = self.sequence_length
-                position_ids = self.position_ids
+                unnoised_input_ids = tokens[:, :-1]
+            # input_ids, labels, p_mask = self._forward_process(unnoised_input_ids)
+            # batch = {"labels": labels, "p_mask": p_mask}
+            batch = {}
 
-            batch["cu_seqlens"] = cu_seqlens
-            batch["max_seqlen"] = max_seqlen
-            batch["position_ids"] = position_ids
+        batch_size, sequence_length = unnoised_input_ids.shape
+        unnoised_input_ids = unnoised_input_ids.flatten()  # batch_size * sequence_length
 
-            # if deleted:
-            #     from transformers import PreTrainedTokenizer
-            #     tokenizer: PreTrainedTokenizer = self.tokenizer
-            #     for i in range(cu_seqlens.size(0) - 1):
-            #         seq_in = input_ids.flatten()[cu_seqlens[i]:cu_seqlens[i+1]]
-            #         print(' '.join([
-            #             c if idx != self.mask_token_id else "_"
-            #             for idx, c in zip(seq_in, tokenizer.convert_ids_to_tokens(seq_in))
-            #         ]))
-            #         seq_out = labels.flatten()[cu_seqlens[i]:cu_seqlens[i+1]]
-            #         print(' '.join([
-            #             c if idx != self.mask_token_id else "_"
-            #             for idx, c in zip(seq_out, tokenizer.convert_ids_to_tokens(seq_out))
-            #         ]))
-            #     print(cu_seqlens.size())
-            #     # print((unnoised_input_ids == self.eos_token_id).int().sum())
-            #     exit()
+        input_ids = torch.empty_like(unnoised_input_ids)
+        labels = torch.empty_like(unnoised_input_ids)
+        p_mask = torch.empty_like(unnoised_input_ids, dtype=torch.bfloat16)
 
-        batch["input_ids"] = input_ids
+        document_end_positions = unnoised_input_ids == self.eos_token_id
+        document_end_positions[sequence_length - 1 :: sequence_length] = (
+            1  # Add the end token for the end of sample also
+        )
+
+        cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
+        for i in range(cu_seqlens.size(0)):
+            start_idx = 0 if i == 0 else cu_seqlens[i - 1]
+            end_idx = cu_seqlens[i]
+
+            # # Sometimes replace boundaries of short sequences with more <eos> to encourage learning to <eos> earlier.
+            # orig_start_idx = start_idx
+            # if i > 0 and not moved_previous:
+            #     prev_start_idx = cu_seqlens[i - 2]
+            #     curr_seq_len = end_idx - start_idx
+            #     prev_seq_len = start_idx - prev_start_idx
+            #     if (unnoised_input_ids[start_idx - 1] == self.eos_token_id and
+            #         prev_seq_len * torch.rand(1, device=unnoised_input_ids.device) > curr_seq_len): # make sure shorter seq
+            #         # Resize previous entry
+            #         assert document_end_positions[end_idx - 1]
+            #         # curr_seq = unnoised_input_ids[start_idx:end_idx]
+
+            #         # Extend previous sequence
+            #         prevandcurr_seq = unnoised_input_ids[prev_start_idx:end_idx].clone()
+            #         # Mask out all current sequence
+            #         prevandcurr_seq[start_idx - prev_start_idx:] = self.eos_token_id
+            #         # Renoise previous sequence
+            #         prevandcurr_input, prevandcurr_labels, _, prevandcurr_mask \
+            #             = self._forward_process(prevandcurr_seq)
+
+            #         # Find first input that is EOS
+            #         eos_mask = (prevandcurr_input == self.eos_token_id)
+            #         if eos_mask.any():
+            #             first_input_eos = eos_mask.nonzero(as_tuple=True)[0].min()
+            #             start_idx = prev_start_idx + first_input_eos  + 1
+            #             document_end_positions[start_idx - 1] = True
+            #         else:
+            #             first_input_eos = prevandcurr_input.size(0) - 1
+            #             start_idx = end_idx
+            #         input_ids[prev_start_idx:start_idx] = prevandcurr_input[:first_input_eos + 1]
+            #         labels[prev_start_idx:start_idx] = prevandcurr_labels[:first_input_eos + 1]
+            #         p_mask[prev_start_idx:start_idx] = prevandcurr_mask[:first_input_eos + 1]
+            #         moved_previous = True
+
+            #         # Move barrier
+            #         document_end_positions[orig_start_idx - 1] = False
+            #         document_end_positions[start_idx - 1] = True
+            # else:
+            #     moved_previous = False
+
+            # moved_boundary = (start_idx != orig_start_idx) or moved_boundary
+
+            curr_seq = unnoised_input_ids[start_idx:end_idx]
+            curr_seq_input, curr_seq_labels, curr_unmasked_idxs, curr_seq_p_mask = self._forward_process(curr_seq)
+
+            input_ids[start_idx:end_idx] = curr_seq_input
+            labels[start_idx:end_idx] = curr_seq_labels
+            p_mask[start_idx:end_idx] = curr_seq_p_mask
+
+        cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
+        cu_seqlens = torch.cat([torch.tensor([0], device=unnoised_input_ids.device), cu_seqlens]).to(torch.int32)
+        seqlen = cu_seqlens[1:] - cu_seqlens[:-1]
+        # we move to CPU here otherwise FlashAttention will move to CPU on every invocation i.e all layers
+        max_seqlen = seqlen.max().item()
+
+        if self.reset_position_ids:
+            position_ids = torch.cat(
+                [torch.arange(0, i, 1, dtype=torch.int32, device=unnoised_input_ids.device) for i in seqlen]
+            )
+        else:
+            position_ids = self.position_ids
+
+        batch["input_ids"] = input_ids.flatten()
+        batch["labels"] = labels.flatten()
+        batch["p_mask"] = p_mask.flatten()
+        batch["cu_seqlens"] = cu_seqlens
+        batch["max_seqlen"] = max_seqlen
+        batch["position_ids"] = position_ids
+
+        # if moved_boundary:
+        #     from transformers import PreTrainedTokenizer
+        #     tokenizer: PreTrainedTokenizer = self.tokenizer
+        #     def to_token_list(seq):
+        #         output = []
+        #         for idx in seq:
+        #             if idx == self.ignore_token_id:
+        #                 c = '<I>'
+        #             elif idx == self.mask_token_id:
+        #                 c = '_'
+        #             else:
+        #                 c = tokenizer._convert_id_to_token(idx)
+        #             output.append(c)
+        #         return output
+        #     for i in range(cu_seqlens.size(0) - 1):
+        #         seq_in = input_ids.flatten()[cu_seqlens[i]:cu_seqlens[i+1]]
+        #         seq_out = labels.flatten()[cu_seqlens[i]:cu_seqlens[i+1]]
+        #         seq = torch.where(seq_out == self.ignore_token_id, seq_in, seq_out)
+        #         print()
+        #         print(cu_seqlens[i], cu_seqlens[i+1])
+        #         print(repr(tokenizer.convert_tokens_to_string(to_token_list(seq_out))))
+        #     print(cu_seqlens)
+        #     exit()
+        # else:
+        #     print("No deletions.")
 
         if ProcessGroupManager.is_tensor_parallel_enabled():
             batch["output_parallel_lm_logits"] = True

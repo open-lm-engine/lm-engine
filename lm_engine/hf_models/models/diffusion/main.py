@@ -23,12 +23,15 @@ from .config import DiffusionConfig
 
 class DiffusionMaskedLM(DiffusionPreTrainedModel):
     def __init__(self, config: DiffusionConfig, **kwargs) -> DiffusionPreTrainedModel:
+        if "mask_token_id" in kwargs:
+            self.mask_token_id = kwargs.pop("mask_token_id")
         super().__init__(config, **kwargs)
-
         self.router_aux_loss_coef = getattr(config, "router_aux_loss_coef", 0)
         self._init_model(config, **kwargs)
 
     def _init_model(self, config: DiffusionConfig, **kwargs) -> None:
+        if hasattr(self, "mask_token_id"):
+            kwargs["mask_token_id"] = self.mask_token_id
         self.transformer = DiffusionModel(config, **kwargs)
 
         if not self._tied_word_embeddings:
