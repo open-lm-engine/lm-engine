@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 install:
 	pip install -r requirements.txt
 	git submodule update --init --recursive
@@ -18,4 +22,5 @@ update-precommit:
 	pre-commit autoupdate
 
 style:
+	python copyright/copyright.py --repo ./ --exclude copyright-exclude.txt --header "Copyright (c) 2025, Mayank Mishra"
 	pre-commit run --all-files

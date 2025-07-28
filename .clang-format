@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 BasedOnStyle: LLVM
 BinPackArguments: false
 BinPackParameters: false

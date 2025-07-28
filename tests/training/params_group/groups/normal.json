@@ -16,7 +16,10 @@
         "model.transformer.h.2.mlp_block.c_proj.weight",
         "model.transformer.h.2.sequence_mixer.input_projection.weight",
         "model.transformer.h.2.sequence_mixer.output_projection.weight",
-        "model.transformer.h.2.sequence_mixer.state_weight",
+        "model.transformer.h.3.mlp_block.c_fc.weight",
+        "model.transformer.h.3.mlp_block.c_proj.weight",
+        "model.transformer.h.3.sequence_mixer.input_projection.weight",
+        "model.transformer.h.3.sequence_mixer.output_projection.weight",
         "model.transformer.wte.weight"
     ],
     "no_weight_decay": [
@@ -44,6 +47,13 @@
         "model.transformer.h.2.mlp_block.c_fc.bias",
         "model.transformer.h.2.mlp_block.c_proj.bias",
         "model.transformer.h.2.sequence_mixer.input_projection.bias",
+        "model.transformer.h.2.sequence_mixer.state_weight",
+        "model.transformer.h.3.ln_1.weight",
+        "model.transformer.h.3.ln_2.weight",
+        "model.transformer.h.3.mlp_block.c_fc.bias",
+        "model.transformer.h.3.mlp_block.c_proj.bias",
+        "model.transformer.h.3.sequence_mixer.input_projection.bias",
+        "model.transformer.h.3.sequence_mixer.state_weight",
         "model.transformer.ln_f.weight"
     ]
 }

@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 import argparse
 import os
 
@@ -5,10 +9,10 @@ import torch
 import torch.distributed
 from transformers import set_seed
 
-from dolomite_engine.enums import Kernel
-from dolomite_engine.hf_models import GPTDolomiteConfig, LadderResidualConfig, get_model_parallel_class
-from dolomite_engine.kernels import enable_kernels
-from dolomite_engine.utils import ProcessGroupManager, SafeTensorsWeightsManager, string_to_torch_dtype
+from lm_engine.enums import Kernel
+from lm_engine.hf_models import GPTBaseConfig, LadderResidualConfig, get_model_parallel_class
+from lm_engine.kernels import enable_kernels
+from lm_engine.utils import ProcessGroupManager, SafeTensorsWeightsManager, string_to_torch_dtype
 
 from ...test_common import TestCommons
 
@@ -37,8 +41,8 @@ elif args.attention_head_type == "mqa":
 else:
     num_key_value_heads = 8
 
-if args.model_type == "gpt_dolomite":
-    config = GPTDolomiteConfig(
+if args.model_type == "gpt_base":
+    config = GPTBaseConfig(
         num_layers=2,
         position_embedding_type=args.position_embedding_type,
         hidden_size=128,
@@ -142,14 +146,13 @@ if args.use_padding_free_transformer:
     cu_seqlens = torch.arange(
         0, input_ids.numel() + 1, sequence_length, dtype=torch.int32, device=torch.cuda.current_device()
     )
-    max_seqlen = torch.tensor(sequence_length, device=torch.cuda.current_device())
     position_ids = torch.arange(0, sequence_length, 1, device=torch.cuda.current_device()).repeat(batch_size)
 
     output_tp = model_tp(
         input_ids=input_ids.view(-1),
         labels=labels.view(-1),
         cu_seqlens=cu_seqlens,
-        max_seqlen=max_seqlen,
+        max_seqlen=sequence_length,
         position_ids=position_ids,
     )
 else:

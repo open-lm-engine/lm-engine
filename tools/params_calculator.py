@@ -1,10 +1,14 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 import torch
 from transformers import AutoModelForCausalLM
 
-from dolomite_engine.hf_models import GPTDolomiteConfig
+from lm_engine.hf_models import GPTBaseConfig
 
 
-config = GPTDolomiteConfig(
+config = GPTBaseConfig(
     vocab_size=65024,
     max_position_embeddings=4096,
     hidden_size=8192,
@@ -15,7 +19,6 @@ config = GPTDolomiteConfig(
     position_embedding_type="rope",
     activation_function="swiglu",
     normalization_function="rmsnorm",
-    attention_head_type="gqa",
 )
 
 with torch.device("meta"):

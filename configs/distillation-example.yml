@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 datasets:
   # class_name, data_name & data_sampling_ratio are not used but need to be passed to avoid errors
   - class_name: MegatronDataset

@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 datasets:
   - class_name: MegatronDataset
     data_name: Megatron
@@ -18,9 +22,9 @@ model_args:
   pretrained_config:
     initializer_range: 0.1
     layer_norm_epsilon: 1e-05
-    model_type: gpt_dolomite
+    model_type: gpt_base
     hidden_size: 512
-    num_layers: 3
+    num_layers: 4
     max_position_embeddings: 512
     normalization_function: rmsnorm
     position_embedding_type: rope
@@ -40,12 +44,15 @@ model_args:
         num_attention_heads: 16
       - sequence_mixer_type: mamba2
       - sequence_mixer_type: rnn
+      - sequence_mixer_type: gru
     mlp_blocks:
       - activation_function: swiglu
         mlp_type: MLP
       - activation_function: swiglu
         mlp_type: MoE
         shared_intermediate_size: 512
+      - activation_function: swiglu
+        mlp_type: MLP
       - activation_function: swiglu
         mlp_type: MLP
 

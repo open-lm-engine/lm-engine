@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 datasets:
   # class_name, data_name & data_sampling_ratio are not used but need to be passed to avoid errors
   - class_name: MegatronDataset
@@ -33,163 +37,123 @@ model_args:
     pad_token_id: 0
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
       - sequence_mixer_type: softmax_attention
-        attention_head_type: mha
         num_attention_heads: 36
         add_bias: false
     mlp_blocks:

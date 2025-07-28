@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 repos:
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1
