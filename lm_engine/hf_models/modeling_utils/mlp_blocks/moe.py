@@ -23,8 +23,8 @@ from .mlp import _get_std_for_linear
 
 
 if is_fma_available():
-    from fma import continuous_count_cute
-    from fma.modules.moe import group_with_padding, grouped_gemm_experts_cute, scattered_experts, ungroup_with_padding
+    from fma import continuous_count
+    from fma.modules.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
 
 
 # TODO add support for combileable bincount in PyTorch directly
@@ -40,7 +40,7 @@ def _(x: torch.Tensor, minlength: int) -> torch.Tensor:
 
 def compute_bincount(x: torch.Tensor, size: int, use_continuous_count: bool) -> torch.Tensor:
     if use_continuous_count:
-        count = continuous_count_cute(x, size=size)
+        count = continuous_count(x, size=size)
     else:
         count = bincount(x, minlength=size)
 
@@ -96,7 +96,7 @@ class ParameterizedExperts(nn.Module):
         grouped_in: bool = False,
         grouped_out: bool = False,
     ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.grouped_gemm_cute):
+        if is_kernel_allowed(Kernel.grouped_gemm):
             assert self.bias is None
             assert num_experts_per_token is None
             assert sorted_expert_idxs is None
@@ -106,7 +106,7 @@ class ParameterizedExperts(nn.Module):
             assert not grouped_in
             assert not grouped_out
 
-            input = grouped_gemm_experts_cute(
+            input = grouped_gemm_experts(
                 x=input, weight=self.weight, M_array=expert_frequency, N_array=self.N_array, K_array=self.K_array
             )
         elif is_kernel_allowed(Kernel.scattermoe):
@@ -292,12 +292,12 @@ class MoE(nn.Module):
             expert_frequency = compute_bincount(
                 x=sorted_expert_idxs,
                 size=self.num_experts,
-                use_continuous_count=self.is_hopper_or_newer_gpu and is_kernel_allowed(Kernel.continuous_count_cute),
+                use_continuous_count=self.is_hopper_or_newer_gpu and is_kernel_allowed(Kernel.continuous_count),
             )
 
         T = hidden_states.size(0)
 
-        if is_kernel_allowed(Kernel.grouped_gemm_cute):
+        if is_kernel_allowed(Kernel.grouped_gemm):
 
             def _input_projection(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
                 x, padded_expert_frequency, expert_padding_offset = group_with_padding(

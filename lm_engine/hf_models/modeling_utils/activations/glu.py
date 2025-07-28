@@ -13,7 +13,7 @@ from .base import get_base_activation
 
 
 if is_fma_available():
-    from fma import swiglu_packed_cute
+    from fma import swiglu_packed
 
 
 _GLU_BASE_MAPPING = {
@@ -36,9 +36,9 @@ class GLUActivation(nn.Module):
         self.base_activation = base_activation
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.swiglu_packed_cute) and isinstance(self.base_activation, nn.SiLU):
+        if is_kernel_allowed(Kernel.swiglu_packed) and isinstance(self.base_activation, nn.SiLU):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
-            x = swiglu_packed_cute(x)
+            x = swiglu_packed(x)
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             x = x.chunk(2, dim=-1)
