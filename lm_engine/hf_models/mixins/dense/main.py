@@ -173,7 +173,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         # decode
         generated_tokens = []
         for num_generated_tokens in range(max_new_tokens):
-            next_token = output.logits.argmax(dim=-1)
+            next_token = output.logits[:, -1, :].argmax(dim=-1)
             generated_tokens.append(next_token)
 
             output = self.forward(input_ids=next_token.unsqueeze(1), past_key_values=output.past_key_values)
