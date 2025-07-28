@@ -163,7 +163,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
 
     @torch.inference_mode()
     def generate(
-        self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None, max_new_tokens: int | None = None
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None, max_new_tokens: int = 20
     ) -> torch.Tensor:
         # prefill
         output = self.forward(input_ids=input_ids)
