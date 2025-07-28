@@ -160,3 +160,26 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             if self._tied_word_embeddings
             else self.lm_head(hidden_states)
         )
+
+    @torch.inference_mode()
+    def generate(
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None, max_new_tokens: int | None = None
+    ) -> torch.Tensor:
+        # prefill
+        output = self.forward(input_ids=input_ids)
+
+        lm_logits = output.logits
+        past_key_values = output.past_key_values
+
+        # decode
+        num_generated_tokens = 0
+        generated_tokens = []
+        for num_generated_tokens in range(max_new_tokens):
+            next_token = lm_logits.argmax(dim=-1)
+            generated_tokens.append(next_token)
+
+            output = self.forward(input_ids=next_token.unsqueeze(1), past_key_values=past_key_values)
+            num_generated_tokens += 1
+
+            lm_logits = output.logits
+            past_key_values = output.past_key_values
