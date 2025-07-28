@@ -210,6 +210,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         return curr_seq_input, curr_seq_labels, curr_seq_p_mask
 
     def _prepare_model_inputs(self, batch: dict) -> dict:
+        device = torch.cuda.current_device()
         if self.is_pipeline_parallel_enabled:
             raise NotImplementedError("No pipeline for diffusion yet.")
         else:
@@ -219,7 +220,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
                 )
             else:
                 tokens = batch["text"]
-                tokens = tokens.to(torch.cuda.current_device())
+                tokens = tokens.to(device)
             if torch.rand(1, device=tokens.device) < 0.5:
                 unnoised_input_ids = tokens[:, 1:]
             else:
@@ -229,8 +230,9 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             batch = {}
 
         batch_size, sequence_length = unnoised_input_ids.shape
-        unnoised_input_ids = unnoised_input_ids.flatten()  # batch_size * sequence_length
+        assert batch_size % 2 == 0
 
+        unnoised_input_ids = unnoised_input_ids.flatten()  # batch_size * sequence_length
         input_ids = torch.empty_like(unnoised_input_ids)
         labels = torch.empty_like(unnoised_input_ids)
         p_mask = torch.empty_like(unnoised_input_ids, dtype=torch.bfloat16)
@@ -240,59 +242,26 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             1  # Add the end token for the end of sample also
         )
 
-        cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
-        for i in range(cu_seqlens.size(0)):
-            start_idx = 0 if i == 0 else cu_seqlens[i - 1]
-            end_idx = cu_seqlens[i]
+        eps = 1e-3
 
-            # # Sometimes replace boundaries of short sequences with more <eos> to encourage learning to <eos> earlier.
-            # orig_start_idx = start_idx
-            # if i > 0 and not moved_previous:
-            #     prev_start_idx = cu_seqlens[i - 2]
-            #     curr_seq_len = end_idx - start_idx
-            #     prev_seq_len = start_idx - prev_start_idx
-            #     if (unnoised_input_ids[start_idx - 1] == self.eos_token_id and
-            #         prev_seq_len * torch.rand(1, device=unnoised_input_ids.device) > curr_seq_len): # make sure shorter seq
-            #         # Resize previous entry
-            #         assert document_end_positions[end_idx - 1]
-            #         # curr_seq = unnoised_input_ids[start_idx:end_idx]
+        def _apply_mask_and_fill(start_idx, end_idx, masked):
+            x = unnoised_input_ids[start_idx:end_idx]
+            p = masked.float().mean()
+            input_ids[start_idx:end_idx] = torch.where(masked, self.mask_token_id, x)
+            labels[start_idx:end_idx] = torch.where(~masked, self.ignore_token_id, x)
+            p_mask[start_idx:end_idx] = p
 
-            #         # Extend previous sequence
-            #         prevandcurr_seq = unnoised_input_ids[prev_start_idx:end_idx].clone()
-            #         # Mask out all current sequence
-            #         prevandcurr_seq[start_idx - prev_start_idx:] = self.eos_token_id
-            #         # Renoise previous sequence
-            #         prevandcurr_input, prevandcurr_labels, _, prevandcurr_mask \
-            #             = self._forward_process(prevandcurr_seq)
+        for i in range(0, batch_size, 2):
+            t = torch.rand(1, device=input_ids.device)[0]
+            p = (1 - eps) * t + eps
+            mask_count = torch.round(p * sequence_length).to(torch.int32)
 
-            #         # Find first input that is EOS
-            #         eos_mask = (prevandcurr_input == self.eos_token_id)
-            #         if eos_mask.any():
-            #             first_input_eos = eos_mask.nonzero(as_tuple=True)[0].min()
-            #             start_idx = prev_start_idx + first_input_eos  + 1
-            #             document_end_positions[start_idx - 1] = True
-            #         else:
-            #             first_input_eos = prevandcurr_input.size(0) - 1
-            #             start_idx = end_idx
-            #         input_ids[prev_start_idx:start_idx] = prevandcurr_input[:first_input_eos + 1]
-            #         labels[prev_start_idx:start_idx] = prevandcurr_labels[:first_input_eos + 1]
-            #         p_mask[prev_start_idx:start_idx] = prevandcurr_mask[:first_input_eos + 1]
-            #         moved_previous = True
+            masked = torch.randperm(sequence_length, device=device) < mask_count
+            _apply_mask_and_fill(start_idx=i * sequence_length, end_idx=(i + 1) * sequence_length, masked=masked)
 
-            #         # Move barrier
-            #         document_end_positions[orig_start_idx - 1] = False
-            #         document_end_positions[start_idx - 1] = True
-            # else:
-            #     moved_previous = False
-
-            # moved_boundary = (start_idx != orig_start_idx) or moved_boundary
-
-            curr_seq = unnoised_input_ids[start_idx:end_idx]
-            curr_seq_input, curr_seq_labels, curr_unmasked_idxs, curr_seq_p_mask = self._forward_process(curr_seq)
-
-            input_ids[start_idx:end_idx] = curr_seq_input
-            labels[start_idx:end_idx] = curr_seq_labels
-            p_mask[start_idx:end_idx] = curr_seq_p_mask
+            mask_count = sequence_length - mask_count
+            masked = torch.randperm(sequence_length, device=device) < mask_count
+            _apply_mask_and_fill(start_idx=(i + 1) * sequence_length, end_idx=(i + 2) * sequence_length, masked=masked)
 
         cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
         cu_seqlens = torch.cat([torch.tensor([0], device=unnoised_input_ids.device), cu_seqlens]).to(torch.int32)
@@ -313,30 +282,33 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         batch["cu_seqlens"] = cu_seqlens
         batch["max_seqlen"] = max_seqlen
         batch["position_ids"] = position_ids
+        print((input_ids == self.mask_token_id).int().sum())
 
-        # if moved_boundary:
-        #     from transformers import PreTrainedTokenizer
-        #     tokenizer: PreTrainedTokenizer = self.tokenizer
-        #     def to_token_list(seq):
-        #         output = []
-        #         for idx in seq:
-        #             if idx == self.ignore_token_id:
-        #                 c = '<I>'
-        #             elif idx == self.mask_token_id:
-        #                 c = '_'
-        #             else:
-        #                 c = tokenizer._convert_id_to_token(idx)
-        #             output.append(c)
-        #         return output
-        #     for i in range(cu_seqlens.size(0) - 1):
-        #         seq_in = input_ids.flatten()[cu_seqlens[i]:cu_seqlens[i+1]]
-        #         seq_out = labels.flatten()[cu_seqlens[i]:cu_seqlens[i+1]]
-        #         seq = torch.where(seq_out == self.ignore_token_id, seq_in, seq_out)
-        #         print()
-        #         print(cu_seqlens[i], cu_seqlens[i+1])
-        #         print(repr(tokenizer.convert_tokens_to_string(to_token_list(seq_out))))
-        #     print(cu_seqlens)
-        #     exit()
+        from transformers import PreTrainedTokenizer
+
+        tokenizer: PreTrainedTokenizer = self.tokenizer
+
+        def to_token_list(seq):
+            output = []
+            for idx in seq:
+                if idx == self.ignore_token_id:
+                    c = "<I>"
+                elif idx == self.mask_token_id:
+                    c = "_"
+                else:
+                    c = tokenizer._convert_id_to_token(idx)
+                output.append(c)
+            return output
+
+        for i in range(cu_seqlens.size(0) - 1):
+            seq_in = input_ids.flatten()[cu_seqlens[i] : cu_seqlens[i + 1]]
+            seq_out = labels.flatten()[cu_seqlens[i] : cu_seqlens[i + 1]]
+            seq = torch.where(seq_out == self.ignore_token_id, seq_in, seq_out)
+            print()
+            print(cu_seqlens[i].item(), cu_seqlens[i + 1].item())
+            print(repr(tokenizer.convert_tokens_to_string(to_token_list(seq_out))))
+        print(cu_seqlens)
+        exit()
         # else:
         #     print("No deletions.")
 
