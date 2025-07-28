@@ -110,6 +110,7 @@ def get_model_tflops(
     )
 
     total_flops = 0
+    return 0
     for layer_idx in range(config.num_layers):
         block = config.sequence_mixer_blocks[layer_idx]
         sequence_mixer_type = block.sequence_mixer_type

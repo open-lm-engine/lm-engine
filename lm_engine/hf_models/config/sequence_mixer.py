@@ -91,6 +91,16 @@ class _RNNArgs(_GRUArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
+class _PathArgs(BaseArgs):
+    sequence_mixer_type: str = "path"
+    num_attention_heads: int = 12
+    num_key_value_heads: int = 1
+    attention_multiplier: float | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "path"
+
+
 class _CausalConvolution(BaseArgs):
     sequence_mixer_type: str = "causal_convolution"
     activation_function: str = "silu"
