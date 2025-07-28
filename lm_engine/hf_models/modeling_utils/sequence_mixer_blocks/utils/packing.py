@@ -7,11 +7,13 @@ import torch.nn.functional as F
 
 from .....enums import Kernel
 from .....kernels import is_kernel_allowed
-from .....utils import is_cute_kernels_available
+from .....utils import is_fma_available
 
 
-if is_cute_kernels_available():
-    from cute_kernels import KernelBackend, pack_sequence_cute, unpack_sequence_cute
+if is_fma_available():
+    from fma import KernelBackend
+    from fma import pack_sequence as _pack_sequence
+    from fma import unpack_sequence as _unpack_sequence
 
 
 def compute_cu_seqlens_and_max_seqlen_from_attention_mask(
@@ -26,9 +28,9 @@ def compute_cu_seqlens_and_max_seqlen_from_attention_mask(
 def pack_sequence(
     inputs: torch.Tensor | list[torch.Tensor], cu_seqlens: torch.Tensor
 ) -> torch.Tensor | list[torch.Tensor]:
-    kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence_cute) else KernelBackend.torch
+    kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence) else KernelBackend.torch
 
-    inputs = pack_sequence_cute(
+    inputs = _pack_sequence(
         inputs=inputs,
         cu_seqlens=cu_seqlens,
         kernel_backend_forward=kernel_backend,
@@ -41,9 +43,9 @@ def pack_sequence(
 def unpack_sequence(
     inputs: torch.Tensor | list[torch.Tensor], cu_seqlens: torch.Tensor, output_shape: tuple[int]
 ) -> torch.Tensor | list[torch.Tensor]:
-    kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence_cute) else KernelBackend.torch
+    kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
 
-    inputs = unpack_sequence_cute(
+    inputs = _unpack_sequence(
         inputs=inputs,
         cu_seqlens=cu_seqlens,
         output_shape=output_shape,

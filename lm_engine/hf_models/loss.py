@@ -13,11 +13,11 @@ from torch.distributed.tensor.parallel import loss_parallel
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
-from ..utils import ProcessGroupManager, is_cute_kernels_available
+from ..utils import ProcessGroupManager, is_fma_available
 
 
-if is_cute_kernels_available():
-    from cute_kernels import cross_entropy_cute, fused_linear_cross_entropy_cute
+if is_fma_available():
+    from fma import cross_entropy, fused_linear_cross_entropy
 
 
 def get_autoregressive_language_modeling_loss(
@@ -50,22 +50,22 @@ def get_autoregressive_language_modeling_loss(
     else:
         assert cu_seqlens is None
 
-    if is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute):
+    if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
         assert lm_logits is None
         assert not tensor_parallel_enabled
 
-        loss = fused_linear_cross_entropy_cute(
+        loss = fused_linear_cross_entropy(
             x=hidden_states.reshape(-1, hidden_states.size(-1)),
             weight=vocab_weight,
             labels=labels.reshape(-1),
             reduction=reduction,
         )
-    elif is_kernel_allowed(Kernel.cross_entropy_cute):
+    elif is_kernel_allowed(Kernel.cross_entropy):
         assert hidden_states is None
         assert vocab_weight is None
         assert not tensor_parallel_enabled
 
-        loss = cross_entropy_cute(
+        loss = cross_entropy(
             x=lm_logits.reshape(-1, lm_logits.size(-1)), labels=labels.reshape(-1), reduction=reduction
         )
     else:

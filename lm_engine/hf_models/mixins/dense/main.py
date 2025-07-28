@@ -113,7 +113,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         loss = None
 
         if labels is None:
-            if is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute):
+            if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
                 if self.m_width is not None:
                     hidden_states = hidden_states / self.m_width
             else:
@@ -122,7 +122,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
                 if self.m_width is not None:
                     lm_logits = lm_logits / self.m_width
         else:
-            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
             lm_logits = self.get_lm_logits(hidden_states)
 
@@ -160,3 +160,24 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             if self._tied_word_embeddings
             else self.lm_head(hidden_states)
         )
+
+    @torch.inference_mode()
+    def generate(
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None, max_new_tokens: int = 20
+    ) -> torch.Tensor:
+        assert not self.use_padding_free_transformer
+
+        # prefill
+        output = self.forward(input_ids=input_ids, attention_mask=attention_mask)
+
+        # decode
+        generated_tokens = [input_ids]
+        for num_generated_tokens in range(max_new_tokens):
+            next_token = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
+            generated_tokens.append(next_token)
+
+            output = self.forward(input_ids=next_token, past_key_values=output.past_key_values)
+
+        generated_tokens = torch.cat(generated_tokens, dim=-1)
+
+        return generated_tokens

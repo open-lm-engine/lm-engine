@@ -11,7 +11,7 @@ import torch.nn as nn
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_cute_kernels_available
+from ....utils import divide_if_divisible, is_fma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..linear import ParameterizedLinear
@@ -19,9 +19,9 @@ from ..normalization import get_normalization_function
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
-if is_cute_kernels_available():
-    from cute_kernels import KernelBackend
-    from cute_kernels.modules.gru import gru_cute
+if is_fma_available():
+    from fma import KernelBackend
+    from fma.modules.gru import gru
 
 
 class GRU(nn.Module):
@@ -125,7 +125,7 @@ class GRU(nn.Module):
             i.view(*input.size()[:-1], self.num_heads, self.state_head_dim) for i in (input, forget_input, reset_input)
         ]
 
-        input = gru_cute(
+        input = gru(
             input=input,
             weight=weight,
             forget_input=forget_input,
@@ -136,7 +136,7 @@ class GRU(nn.Module):
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru_cute) else KernelBackend.torch,
+            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 
         if not self.use_padding_free_transformer and attention_mask is not None:

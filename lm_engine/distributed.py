@@ -400,7 +400,7 @@ def wrap_model_container_for_distributed_training(
         )
 
         def _pipeline_parallel_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-            use_fused_linear_cross_entropy = is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+            use_fused_linear_cross_entropy = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
             if isinstance(input, tuple):
                 input, aux_loss = input
