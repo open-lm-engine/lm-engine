@@ -171,11 +171,13 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         output = self.forward(input_ids=input_ids, attention_mask=attention_mask)
 
         # decode
-        generated_tokens = []
+        generated_tokens = [input_ids]
         for num_generated_tokens in range(max_new_tokens):
-            next_token = output.logits[:, -1, :].argmax(dim=-1)
+            next_token = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
             generated_tokens.append(next_token)
 
-            output = self.forward(input_ids=next_token.unsqueeze(1), past_key_values=output.past_key_values)
+            output = self.forward(input_ids=next_token, past_key_values=output.past_key_values)
+
+        generated_tokens = torch.cat(generated_tokens, dim=-1)
 
         return generated_tokens
