@@ -10,12 +10,12 @@ import torch.nn.functional as F
 
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
-from ...utils import is_cute_kernels_available
+from ...utils import is_fma_available
 from ..parameter import mark_parameter_as_no_weight_decay
 
 
-if is_cute_kernels_available():
-    from cute_kernels import p_norm_cute, rmsnorm_cute
+if is_fma_available():
+    from fma import p_norm_cute, rmsnorm_cute
 
 
 class RMSNorm(nn.RMSNorm):

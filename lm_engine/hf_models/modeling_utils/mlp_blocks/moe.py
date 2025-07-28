@@ -14,7 +14,7 @@ from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, is_cute_kernels_available
+from ....utils import ProcessGroupManager, is_fma_available
 from ...loss import add_aux_loss
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
@@ -22,14 +22,9 @@ from ..linear import ParameterizedLinear
 from .mlp import _get_std_for_linear
 
 
-if is_cute_kernels_available():
-    from cute_kernels import continuous_count_cute
-    from cute_kernels.modules.moe import (
-        group_with_padding,
-        grouped_gemm_experts_cute,
-        scattered_experts,
-        ungroup_with_padding,
-    )
+if is_fma_available():
+    from fma import continuous_count_cute
+    from fma.modules.moe import group_with_padding, grouped_gemm_experts_cute, scattered_experts, ungroup_with_padding
 
 
 # TODO add support for combileable bincount in PyTorch directly

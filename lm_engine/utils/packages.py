@@ -97,19 +97,22 @@ def is_triton_available() -> bool:
 
 try:
     if torch.cuda.is_available():
-        import cute_kernels
+        import fma
 
-        _IS_CUTE_KERNELS_AVAILABLE = True
+        _IS_FMA_AVAILABLE = True
     else:
-        _IS_CUTE_KERNELS_AVAILABLE = False
+        _IS_FMA_AVAILABLE = False
 except ImportError:
-    _IS_CUTE_KERNELS_AVAILABLE = False
+    _IS_FMA_AVAILABLE = False
 
-    warn_rank_0("cute-kernels is not installed, install from https://github.com/mayank31398/cute-kernels")
+    warn_rank_0(
+        "flash-model-architectures is not installed, install from "
+        "https://github.com/open-lm-engine/flash-model-architectures"
+    )
 
 
-def is_cute_kernels_available() -> bool:
-    return _IS_CUTE_KERNELS_AVAILABLE
+def is_fma_available() -> bool:
+    return _IS_FMA_AVAILABLE
 
 
 try:

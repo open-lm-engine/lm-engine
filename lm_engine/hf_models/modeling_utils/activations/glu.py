@@ -8,12 +8,12 @@ import torch
 import torch.nn as nn
 
 from ....kernels import Kernel, is_kernel_allowed, wait_for_ACT
-from ....utils import is_cute_kernels_available
+from ....utils import is_fma_available
 from .base import get_base_activation
 
 
-if is_cute_kernels_available():
-    from cute_kernels import swiglu_packed_cute
+if is_fma_available():
+    from fma import swiglu_packed_cute
 
 
 _GLU_BASE_MAPPING = {

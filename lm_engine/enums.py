@@ -59,25 +59,25 @@ class ExperimentsTrackerName(Enum):
 
 
 class Kernel(Enum):
-    # cute kernels
+    # FMA
     causal_conv1d = "causal_conv1d"
-    continuous_count_cute = "continuous_count_cute"
-    checkpointed_mlp = "checkpointed_mlp"
-    cross_entropy_cute = "cross_entropy_cute"
-    fused_linear_cross_entropy_cute = "fused_linear_cross_entropy_cute"
-    grouped_gemm_cute = "grouped_gemm_cute"
-    gru_cute = "gru_cute"
-    p_norm_cute = "p_norm_cute"
-    pack_sequence_cute = "pack_sequence_cute"
-    rmsnorm_cute = "rmsnorm_cute"
-    rmsnorm_memory_efficient_cute = "rmsnorm_memory_efficient_cute"
-    rnn_cute = "rnn_cute"
-    swiglu_packed_cute = "swiglu_packed_cute"
-    unpack_sequence_cute = "unpack_sequence_cute"
+    continuous_count = "continuous_count"
+    cross_entropy = "cross_entropy"
+    fused_linear_cross_entropy = "fused_linear_cross_entropy"
+    grouped_gemm = "grouped_gemm"
+    gru = "gru"
+    p_norm = "p_norm"
+    pack_sequence = "pack_sequence"
+    rmsnorm = "rmsnorm"
+    rmsnorm_memory_efficient = "rmsnorm_memory_efficient"
+    rnn = "rnn"
+    swiglu_packed = "swiglu_packed"
+    unpack_sequence = "unpack_sequence"
     # external kernels
     flash_attention_2 = "flash_attention_2"
     flash_attention_3 = "flash_attention_3"
     mamba2_ssm = "mamba2_ssm"
     scattermoe = "scattermoe"
     # custom functions
+    checkpointed_mlp = "checkpointed_mlp"
     ladder_residual_overlapped_layer = "ladder_residual_overlapped_layer"

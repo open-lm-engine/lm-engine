@@ -7,11 +7,11 @@ import torch.nn.functional as F
 
 from .....enums import Kernel
 from .....kernels import is_kernel_allowed
-from .....utils import is_cute_kernels_available
+from .....utils import is_fma_available
 
 
-if is_cute_kernels_available():
-    from cute_kernels import KernelBackend, pack_sequence_cute, unpack_sequence_cute
+if is_fma_available():
+    from fma import KernelBackend, pack_sequence_cute, unpack_sequence_cute
 
 
 def compute_cu_seqlens_and_max_seqlen_from_attention_mask(
