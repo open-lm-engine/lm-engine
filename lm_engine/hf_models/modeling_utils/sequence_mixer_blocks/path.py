@@ -15,6 +15,7 @@ from einops import rearrange
 
 from ....utils import is_flash_linear_attention_available
 from ...modeling_utils import ParameterizedLinear
+from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 
 
 if is_flash_linear_attention_available():
@@ -80,6 +81,9 @@ class PaTHAttention(nn.Module):
         if use_qk_norm:
             self.maybe_q_norm = RMSNorm(self.hidden_size)
             self.maybe_k_norm = RMSNorm(self.kv_dim)
+
+            mark_parameter_as_no_weight_decay(self.maybe_q_norm.weight)
+            mark_parameter_as_no_weight_decay(self.maybe_k_norm.weight)
         else:
             self.maybe_q_norm = nn.Identity()
             self.maybe_k_norm = nn.Identity()
@@ -87,6 +91,7 @@ class PaTHAttention(nn.Module):
         # NOTE LR to mup and using PT kaiming (its default)
         if use_w_shortconv:
             self.w_conv1d = ShortConvolution(self.kv_dim, 3)
+            mark_parameter_as_mup_learning_rate(self.w_conv1d.weight)
 
         # NOTE mup LR for bt_proj and g_proj
         # NOTE remove weight decay from bias for both bt_proj and g_proj and set to standard LR
@@ -100,6 +105,12 @@ class PaTHAttention(nn.Module):
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.o_proj = ParameterizedLinear(self.hidden_size, self.hidden_size, bias=False, std=std)
+
+        mark_parameter_as_mup_learning_rate(self.q_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.k_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.v_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.w_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.bt_proj.weight)
 
     def forward(
         self,
