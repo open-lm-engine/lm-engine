@@ -6,19 +6,18 @@ from __future__ import annotations
 
 import torch
 import torch.nn.functional as F
-from transformers import GenerationMixin
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
+from ...modeling_utils import ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
 
-class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
+class CausalLMModelMixin(PreTrainedModelMixin):
     _tied_weights_keys = ["lm_head.weight"]
     base_model_class = None
 
@@ -40,12 +39,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
 
         # Initialize weights and apply final processing
         self.post_init()
-
-    def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.transformer.wte
-
-    def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
-        self.transformer.wte = value
 
     def get_output_embeddings(self) -> ParameterizedLinear:
         return self.transformer.wte if self._tied_word_embeddings else self.lm_head
@@ -163,7 +156,11 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
 
     @torch.inference_mode()
     def generate(
-        self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None, max_new_tokens: int = 20
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        max_new_tokens: int = 20,
+        sampling_parameters: None = None,
     ) -> torch.Tensor:
         assert not self.use_padding_free_transformer
         has_attention_mask = attention_mask is not None

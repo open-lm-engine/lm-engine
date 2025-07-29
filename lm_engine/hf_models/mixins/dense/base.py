@@ -123,12 +123,6 @@ class BaseModelMixin(PreTrainedModelMixin):
         # Initialize weights and apply final processing
         self.post_init()
 
-    def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.wte
-
-    def set_input_embeddings(self, new_embeddings: ParameterizedEmbedding) -> None:
-        self.wte = new_embeddings
-
     def forward(
         self,
         input_ids: torch.Tensor | None = None,

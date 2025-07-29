@@ -21,22 +21,15 @@ class GenerationTest(TestCommons):
             ["mha", "mqa"],
             ["learned_absolute"],
             [torch.float32],
-            [True, False],
         )
     )
     def test_generation_matches_bigcode(
-        self,
-        device: torch.device,
-        attention_head_type: str,
-        position_embedding_type: str,
-        torch_dtype: torch.dtype,
-        use_cache: bool,
+        self, device: torch.device, attention_head_type: str, position_embedding_type: str, torch_dtype: torch.dtype
     ) -> None:
         self.skip_test_if_device_unavailable(device)
         self.skip_test_if_layernorm_kernel_unavailable(device, torch_dtype)
 
         lm_engine_config = self.get_dense_test_config(attention_head_type, position_embedding_type)
-        lm_engine_config.use_cache = use_cache
 
         lm_engine_model = self.from_config(lm_engine_config, torch_dtype=torch_dtype).to(device)
         lm_engine_model.eval()
@@ -54,18 +47,11 @@ class GenerationTest(TestCommons):
         input_ids, attention_mask, _ = self.get_dummy_inputs(device)
 
         lm_engine_output = lm_engine_model.generate(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            use_cache=use_cache,
-            return_dict_in_generate=True,
-            output_scores=True,
+            input_ids=input_ids, attention_mask=attention_mask, return_dict_in_generate=True, output_scores=True
         )
+
         bigcode_output = bigcode_model.generate(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            use_cache=use_cache,
-            return_dict_in_generate=True,
-            output_scores=True,
+            input_ids=input_ids, attention_mask=attention_mask, return_dict_in_generate=True, output_scores=True
         )
 
         assert lm_engine_output.sequences.equal(bigcode_output.sequences)
