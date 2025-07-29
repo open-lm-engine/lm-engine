@@ -274,22 +274,15 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             p = (1 - 2 * eps) * t + eps
 
             mask_count = torch.round(p * sequence_length).to(torch.int32)
-            # masked: torch.Tensor = torch.zeros(sequence_length, device=input_ids.device, dtype=torch.bool)
             masked_idxs_ = perm_idxs[i, :mask_count]
-            # masked[masked_idxs_] = True
-            # assert masked.int().sum() == mask_count, masked_idxs_
             _apply_mask_and_fill(
                 start_idx=i * sequence_length, end_idx=(i + 1) * sequence_length, masked_idxs=masked_idxs_
             )
             masked_indices[masked_ptr : masked_ptr + mask_count] = i * sequence_length + masked_idxs_
             masked_ptr += mask_count
 
-            # masked[:] = False
             mask_count = sequence_length - mask_count
-            # masked: torch.Tensor = torch.zeros(sequence_length, device=input_ids.device, dtype=torch.bool)
             masked_idxs_ = perm_idxs[i + 1, :mask_count]
-            # masked[masked_idxs_] = True
-            # assert masked.int().sum() == mask_count, masked_idxs_
             _apply_mask_and_fill(
                 start_idx=(i + 1) * sequence_length, end_idx=(i + 2) * sequence_length, masked_idxs=masked_idxs_
             )
