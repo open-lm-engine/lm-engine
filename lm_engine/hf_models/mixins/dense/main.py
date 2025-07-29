@@ -170,13 +170,23 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         # prefill
         output = self.forward(input_ids=input_ids, attention_mask=attention_mask)
 
+        if attention_mask is None:
+            attention_mask = torch.ones(
+                input_ids.size(0), input_ids.size(1), device=input_ids.device, dtype=torch.int32
+            )
+
         # decode
         generated_tokens = [input_ids]
         for num_generated_tokens in range(max_new_tokens):
+            attention_mask = torch.cat(
+                (attention_mask, torch.ones(input_ids.size(0), 1, device=input_ids.device, dtype=torch.int32)), dim=-1
+            )
             next_token = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
             generated_tokens.append(next_token)
 
-            output = self.forward(input_ids=next_token, past_key_values=output.past_key_values)
+            output = self.forward(
+                input_ids=next_token, attention_mask=attention_mask, past_key_values=output.past_key_values
+            )
 
         generated_tokens = torch.cat(generated_tokens, dim=-1)
 
