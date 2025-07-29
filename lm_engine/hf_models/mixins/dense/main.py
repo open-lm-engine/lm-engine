@@ -182,7 +182,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             else:
                 attention_mask = torch.ones(
                     input_ids.size(0),
-                    input_ids.size(-1) + num_generated_tokens + 1,
+                    input_ids.size(1) + num_generated_tokens + 1,
                     device=input_ids.device,
                     dtype=torch.int32,
                 )
