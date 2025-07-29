@@ -110,6 +110,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
         p_mask = batch.pop("p_mask")
+        masked_indices = batch["masked_indices"]
         output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)
 
         if self.is_pipeline_parallel_enabled:
@@ -130,7 +131,8 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             if use_aux_loss:
                 output = (output, aux_loss)
         else:
-            output = self.get_loss(output, labels, p_mask, lm_loss_multiplier=lm_loss_multiplier)
+            assert (labels[batch["masked_indices"]] != self.ignore_token_id).all()
+            output = self.get_loss(output, labels, masked_indices, p_mask, lm_loss_multiplier=lm_loss_multiplier)
 
         return output
 
@@ -138,13 +140,15 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         self,
         model_outputs: CausalLMOutputWithPast,
         labels: torch.Tensor,
+        masked_indices: torch.Tensor,
         p_mask: torch.Tensor,
         lm_loss_multiplier: float = 1,
     ) -> torch.Tensor | dict:
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         # use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
         flat_logits = model_outputs.logits.flatten(0, -2)
-        flat_labels = labels.flatten()
+        flat_labels = labels.flatten()[masked_indices]
+        flat_p_mask = p_mask.flatten()[masked_indices]
         # print(flat_logits.size(), flat_labels.size())
         lm_loss = (
             F.cross_entropy(
@@ -153,7 +157,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
                 ignore_index=self.ignore_token_id,
                 reduction="none",
             )
-            / p_mask.flatten()
+            / flat_p_mask
         ).sum()
 
         lm_loss = lm_loss * lm_loss_multiplier
@@ -181,7 +185,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         assert self.mask_token_id is not None
         self.pad_token_id = self.tokenizer.pad_token_id
         assert self.pad_token_id is not None
-        self.ignore_token_id = self.pad_token_id  # self.mask_token_id
+        self.ignore_token_id = -1  # self.pad_token_id  # self.mask_token_id
 
     # def _forward_process(self, input_ids, eps=1e-3):
     #     b, l = input_ids.shape
@@ -193,21 +197,20 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
     #     noisy_batch = torch.where(masked_indices, self.mask_token_id, input_ids)
     #     labels = torch.where(~masked_indices, self.ignore_token_id, input_ids)
     #     return noisy_batch, labels, p_mask
+    # def _forward_process(self, input_ids, eps=1e-3):
+    #     t = torch.rand(1, device=input_ids.device)
+    #     p_mask = (1 - eps) * t + eps
+    #     masked_indices = torch.rand_like(input_ids, dtype=t.dtype) < p_mask
+    #     noisy_batch = torch.where(masked_indices, self.mask_token_id, input_ids)
+    #     labels = torch.where(~masked_indices, self.ignore_token_id, input_ids)
+    #     return noisy_batch, labels, ~masked_indices, p_mask
 
-    def _forward_process(self, input_ids, eps=1e-3):
-        t = torch.rand(1, device=input_ids.device)
-        p_mask = (1 - eps) * t + eps
-        masked_indices = torch.rand_like(input_ids, dtype=t.dtype) < p_mask
-        noisy_batch = torch.where(masked_indices, self.mask_token_id, input_ids)
-        labels = torch.where(~masked_indices, self.ignore_token_id, input_ids)
-        return noisy_batch, labels, ~masked_indices, p_mask
-
-    def _forward_and_place(self, curr_seq, start_idx, end_idx, input_ids, labels, p_mask):
-        curr_seq_input, curr_seq_labels, curr_unmasked_idxs, curr_seq_p_mask = self._forward_process(curr_seq)
-        input_ids[start_idx:end_idx] = curr_seq_input
-        labels[start_idx:end_idx] = curr_seq_labels
-        p_mask[start_idx:end_idx] = curr_seq_p_mask
-        return curr_seq_input, curr_seq_labels, curr_seq_p_mask
+    # def _forward_and_place(self, curr_seq, start_idx, end_idx, input_ids, labels, p_mask):
+    #     curr_seq_input, curr_seq_labels, curr_unmasked_idxs, curr_seq_p_mask = self._forward_process(curr_seq)
+    #     input_ids[start_idx:end_idx] = curr_seq_input
+    #     labels[start_idx:end_idx] = curr_seq_labels
+    #     p_mask[start_idx:end_idx] = curr_seq_p_mask
+    #     return curr_seq_input, curr_seq_labels, curr_seq_p_mask
 
     def _prepare_model_inputs(self, batch: dict) -> dict:
         device = torch.cuda.current_device()
@@ -230,39 +233,74 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             batch = {}
 
         batch_size, sequence_length = unnoised_input_ids.shape
-        assert batch_size % 2 == 0
+
+        perm_idxs = torch.argsort(torch.rand_like(unnoised_input_ids, dtype=torch.bfloat16), dim=-1)
 
         unnoised_input_ids = unnoised_input_ids.flatten()  # batch_size * sequence_length
-        input_ids = torch.empty_like(unnoised_input_ids)
-        labels = torch.empty_like(unnoised_input_ids)
+        input_ids = unnoised_input_ids.clone()
+        labels = torch.full_like(unnoised_input_ids, fill_value=self.ignore_token_id)
         p_mask = torch.empty_like(unnoised_input_ids, dtype=torch.bfloat16)
 
-        document_end_positions = unnoised_input_ids == self.eos_token_id
-        document_end_positions[sequence_length - 1 :: sequence_length] = (
-            1  # Add the end token for the end of sample also
+        assert batch_size % 2 == 0
+        masked_ptr = 0
+        masked_indices = (
+            torch.zeros((batch_size // 2) * sequence_length, dtype=input_ids.dtype, device=input_ids.device) - 1
         )
 
-        eps = 1e-3
+        document_end_positions = unnoised_input_ids == self.eos_token_id
+        document_end_positions[sequence_length - 1 :: sequence_length] = 1
+        eps = 1e-4
 
-        def _apply_mask_and_fill(start_idx, end_idx, masked):
-            x = unnoised_input_ids[start_idx:end_idx]
-            p = masked.float().mean()
-            input_ids[start_idx:end_idx] = torch.where(masked, self.mask_token_id, x)
-            labels[start_idx:end_idx] = torch.where(~masked, self.ignore_token_id, x)
-            p_mask[start_idx:end_idx] = p
+        def _apply_mask_and_fill(start_idx, end_idx, masked_idxs):
+            x = unnoised_input_ids[start_idx:end_idx].clone()
+            row_p = p_mask[start_idx:end_idx]
+            labels[start_idx:end_idx][masked_idxs] = input_ids[start_idx:end_idx][masked_idxs]
+            input_ids[start_idx:end_idx][masked_idxs] = self.mask_token_id
+            # input_ids[start_idx:end_idx] = torch.where(masked, self.mask_token_id, x)
+            # labels[start_idx:end_idx] = torch.where(~masked, self.ignore_token_id, x)
+
+            end_positions = x == self.eos_token_id
+            end_positions[-1] = True
+            cu_seqlens = end_positions.nonzero(as_tuple=True)[0] + 1
+
+            for i in range(cu_seqlens.size(0)):
+                doc_start = 0 if i == 0 else cu_seqlens[i - 1]
+                doc_end = cu_seqlens[i]
+                doc_mask = input_ids[start_idx:end_idx][doc_start:doc_end] == self.mask_token_id
+                row_p[doc_start:doc_end] = torch.clamp(doc_mask.float().mean(), min=eps)
 
         for i in range(0, batch_size, 2):
             t = torch.rand(1, device=input_ids.device)[0]
-            p = (1 - eps) * t + eps
+            p = (1 - 2 * eps) * t + eps
+
             mask_count = torch.round(p * sequence_length).to(torch.int32)
+            # masked: torch.Tensor = torch.zeros(sequence_length, device=input_ids.device, dtype=torch.bool)
+            masked_idxs_ = perm_idxs[i, :mask_count]
+            # masked[masked_idxs_] = True
+            # assert masked.int().sum() == mask_count, masked_idxs_
+            _apply_mask_and_fill(
+                start_idx=i * sequence_length, end_idx=(i + 1) * sequence_length, masked_idxs=masked_idxs_
+            )
+            masked_indices[masked_ptr : masked_ptr + mask_count] = i * sequence_length + masked_idxs_
+            masked_ptr += mask_count
 
-            masked = torch.randperm(sequence_length, device=device) < mask_count
-            _apply_mask_and_fill(start_idx=i * sequence_length, end_idx=(i + 1) * sequence_length, masked=masked)
-
+            # masked[:] = False
             mask_count = sequence_length - mask_count
-            masked = torch.randperm(sequence_length, device=device) < mask_count
-            _apply_mask_and_fill(start_idx=(i + 1) * sequence_length, end_idx=(i + 2) * sequence_length, masked=masked)
+            # masked: torch.Tensor = torch.zeros(sequence_length, device=input_ids.device, dtype=torch.bool)
+            masked_idxs_ = perm_idxs[i + 1, :mask_count]
+            # masked[masked_idxs_] = True
+            # assert masked.int().sum() == mask_count, masked_idxs_
+            _apply_mask_and_fill(
+                start_idx=(i + 1) * sequence_length, end_idx=(i + 2) * sequence_length, masked_idxs=masked_idxs_
+            )
+            masked_indices[masked_ptr : masked_ptr + mask_count] = (i + 1) * sequence_length + masked_idxs_
+            masked_ptr += mask_count
 
+        masked_indices, _ = torch.sort(masked_indices)
+        # idxs = torch.arange(masked_indices.size(0), device=masked_indices.device)
+        # consec_equal = masked_indices[idxs[:-1]] == masked_indices[idxs[1:]]
+        # assert not consec_equal.any(), masked_indices[:-1][consec_equal]
+        # assert masked_indices.size(0) == torch.unique(masked_indices).size(0)
         cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
         cu_seqlens = torch.cat([torch.tensor([0], device=unnoised_input_ids.device), cu_seqlens]).to(torch.int32)
         seqlen = cu_seqlens[1:] - cu_seqlens[:-1]
@@ -276,39 +314,42 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         else:
             position_ids = self.position_ids
 
+        # masked_idxs = (labels != self.ignore_token_id).nonzero(as_tuple=True)[0]
+        # masked_idxs, _ = torch.sort(masked_idxs)
+        assert (labels[masked_indices] != self.ignore_token_id).all()
+        assert (input_ids[masked_indices] == self.mask_token_id).all()
+
         batch["input_ids"] = input_ids.flatten()
         batch["labels"] = labels.flatten()
         batch["p_mask"] = p_mask.flatten()
         batch["cu_seqlens"] = cu_seqlens
         batch["max_seqlen"] = max_seqlen
         batch["position_ids"] = position_ids
-        print((input_ids == self.mask_token_id).int().sum())
-
-        from transformers import PreTrainedTokenizer
-
-        tokenizer: PreTrainedTokenizer = self.tokenizer
-
-        def to_token_list(seq):
-            output = []
-            for idx in seq:
-                if idx == self.ignore_token_id:
-                    c = "<I>"
-                elif idx == self.mask_token_id:
-                    c = "_"
-                else:
-                    c = tokenizer._convert_id_to_token(idx)
-                output.append(c)
-            return output
-
-        for i in range(cu_seqlens.size(0) - 1):
-            seq_in = input_ids.flatten()[cu_seqlens[i] : cu_seqlens[i + 1]]
-            seq_out = labels.flatten()[cu_seqlens[i] : cu_seqlens[i + 1]]
-            seq = torch.where(seq_out == self.ignore_token_id, seq_in, seq_out)
-            print()
-            print(cu_seqlens[i].item(), cu_seqlens[i + 1].item())
-            print(repr(tokenizer.convert_tokens_to_string(to_token_list(seq_out))))
-        print(cu_seqlens)
-        exit()
+        batch["masked_indices"] = masked_indices
+        # from transformers import PreTrainedTokenizer
+        # tokenizer: PreTrainedTokenizer = self.tokenizer
+        # def to_token_list(seq):
+        #     output = []
+        #     for idx in seq:
+        #         if idx == self.ignore_token_id:
+        #             c = "<I>"
+        #         elif idx == self.mask_token_id:
+        #             c = "_"
+        #         else:
+        #             c = tokenizer._convert_id_to_token(idx)
+        #         output.append(c)
+        #     return output
+        # print((input_ids == self.mask_token_id).int().sum().item())
+        # for i in range(cu_seqlens.size(0) - 1):
+        #     seq_in = input_ids.flatten()[cu_seqlens[i] : cu_seqlens[i + 1]]
+        #     seq_out = labels.flatten()[cu_seqlens[i] : cu_seqlens[i + 1]]
+        #     seq = torch.where(seq_out == self.ignore_token_id, seq_in, seq_out)
+        #     assert p_mask[cu_seqlens[i]] == p_mask[cu_seqlens[i + 1] - 1]
+        #     print()
+        #     print(cu_seqlens[i].item(), cu_seqlens[i + 1].item(), p_mask[cu_seqlens[i + 1] - 1].item())
+        #     print(repr(tokenizer.convert_tokens_to_string(to_token_list(seq_out))))
+        # print(cu_seqlens)
+        # exit()
         # else:
         #     print("No deletions.")
 

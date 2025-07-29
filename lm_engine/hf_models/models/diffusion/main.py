@@ -70,6 +70,7 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
         reduction: str = "mean",
+        masked_indices: torch.Tensor | None = None,
     ) -> CausalLMOutputWithPast:
         assert return_dict
         assert inputs_embeds is None
@@ -112,6 +113,9 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
 
         lm_logits = None
         loss = None
+
+        if masked_indices is not None:
+            hidden_states = hidden_states[masked_indices]
 
         if labels is None:
             if is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute):
