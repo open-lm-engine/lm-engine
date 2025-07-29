@@ -166,21 +166,27 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
         self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None, max_new_tokens: int = 20
     ) -> torch.Tensor:
         assert not self.use_padding_free_transformer
+        has_attention_mask = attention_mask is not None
 
         # prefill
         output = self.forward(input_ids=input_ids, attention_mask=attention_mask)
 
-        if attention_mask is None:
-            attention_mask = torch.ones(
-                input_ids.size(0), input_ids.size(1), device=input_ids.device, dtype=torch.int32
-            )
-
         # decode
         generated_tokens = [input_ids]
         for num_generated_tokens in range(max_new_tokens):
-            attention_mask = torch.cat(
-                (attention_mask, torch.ones(input_ids.size(0), 1, device=input_ids.device, dtype=torch.int32)), dim=-1
-            )
+            if has_attention_mask:
+                attention_mask = torch.cat(
+                    (attention_mask, torch.ones(input_ids.size(0), 1, device=input_ids.device, dtype=torch.int32)),
+                    dim=-1,
+                )
+            else:
+                attention_mask = torch.ones(
+                    input_ids.size(0),
+                    input_ids.size(-1) + num_generated_tokens + 1,
+                    device=input_ids.device,
+                    dtype=torch.int32,
+                )
+
             next_token = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
             generated_tokens.append(next_token)
 
