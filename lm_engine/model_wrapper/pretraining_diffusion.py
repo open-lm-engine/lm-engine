@@ -158,7 +158,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
                 reduction="none",
             )
             / flat_p_mask
-        ).sum()
+        ).sum() / 2
 
         lm_loss = lm_loss * lm_loss_multiplier
         aux_loss = getattr(model_outputs, "aux_loss", 0)
@@ -232,21 +232,21 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             # batch = {"labels": labels, "p_mask": p_mask}
             batch = {}
 
-        batch_size, sequence_length = unnoised_input_ids.shape
+        orig_batch_size, sequence_length = unnoised_input_ids.shape
+        batch_size = orig_batch_size * 2
 
         perm_idxs = torch.argsort(torch.rand_like(unnoised_input_ids, dtype=torch.bfloat16), dim=-1)
-
-        unnoised_input_ids = unnoised_input_ids.flatten()  # batch_size * sequence_length
+        unnoised_input_ids = unnoised_input_ids.repeat_interleave(2, 0).flatten()
         input_ids = unnoised_input_ids.clone()
-        labels = torch.full_like(unnoised_input_ids, fill_value=self.ignore_token_id)
-        p_mask = torch.empty_like(unnoised_input_ids, dtype=torch.bfloat16)
+        # unnoised_input_ids = unnoised_input_ids.flatten()  # batch_size * sequence_length
+        labels = torch.full_like(input_ids, fill_value=self.ignore_token_id)
+        p_mask = torch.empty_like(input_ids, dtype=torch.bfloat16)
 
-        assert batch_size % 2 == 0
+        # assert batch_size % 2 == 0
         masked_ptr = 0
         masked_indices = (
-            torch.zeros((batch_size // 2) * sequence_length, dtype=input_ids.dtype, device=input_ids.device) - 1
+            torch.zeros(batch_size * (sequence_length // 2), dtype=input_ids.dtype, device=input_ids.device) - 1
         )
-
         document_end_positions = unnoised_input_ids == self.eos_token_id
         document_end_positions[sequence_length - 1 :: sequence_length] = 1
         eps = 1e-4
@@ -269,24 +269,27 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
                 doc_mask = input_ids[start_idx:end_idx][doc_start:doc_end] == self.mask_token_id
                 row_p[doc_start:doc_end] = torch.clamp(doc_mask.float().mean(), min=eps)
 
-        for i in range(0, batch_size, 2):
+        # for i in range(0, batch_size, 2):
+        for i in range(orig_batch_size):
             t = torch.rand(1, device=input_ids.device)[0]
             p = (1 - 2 * eps) * t + eps
 
             mask_count = torch.round(p * sequence_length).to(torch.int32)
             masked_idxs_ = perm_idxs[i, :mask_count]
             _apply_mask_and_fill(
-                start_idx=i * sequence_length, end_idx=(i + 1) * sequence_length, masked_idxs=masked_idxs_
+                start_idx=2 * i * sequence_length, end_idx=(2 * i + 1) * sequence_length, masked_idxs=masked_idxs_
             )
-            masked_indices[masked_ptr : masked_ptr + mask_count] = i * sequence_length + masked_idxs_
+            masked_indices[masked_ptr : masked_ptr + mask_count] = 2 * i * sequence_length + masked_idxs_
             masked_ptr += mask_count
 
+            masked_idxs_ = perm_idxs[i, mask_count:]
             mask_count = sequence_length - mask_count
-            masked_idxs_ = perm_idxs[i + 1, :mask_count]
             _apply_mask_and_fill(
-                start_idx=(i + 1) * sequence_length, end_idx=(i + 2) * sequence_length, masked_idxs=masked_idxs_
+                start_idx=(2 * i + 1) * sequence_length,
+                end_idx=(2 * i + 2) * sequence_length,
+                masked_idxs=masked_idxs_,
             )
-            masked_indices[masked_ptr : masked_ptr + mask_count] = (i + 1) * sequence_length + masked_idxs_
+            masked_indices[masked_ptr : masked_ptr + mask_count] = (2 * i + 1) * sequence_length + masked_idxs_
             masked_ptr += mask_count
 
         masked_indices, _ = torch.sort(masked_indices)
@@ -319,6 +322,7 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
         batch["max_seqlen"] = max_seqlen
         batch["position_ids"] = position_ids
         batch["masked_indices"] = masked_indices
+
         # from transformers import PreTrainedTokenizer
         # tokenizer: PreTrainedTokenizer = self.tokenizer
         # def to_token_list(seq):
