@@ -12,7 +12,7 @@ from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import ParameterizedLinear
+from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
@@ -39,6 +39,12 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         # Initialize weights and apply final processing
         self.post_init()
+
+    def get_input_embeddings(self) -> ParameterizedEmbedding:
+        return self.transformer.wte
+
+    def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
+        self.transformer.wte = value
 
     def get_output_embeddings(self) -> ParameterizedLinear:
         return self.transformer.wte if self._tied_word_embeddings else self.lm_head
