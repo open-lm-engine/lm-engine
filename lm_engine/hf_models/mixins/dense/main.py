@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
-from ...config import CommonConfig
+from ...config import CommonConfig, SamplingParams
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
@@ -166,10 +166,12 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
         max_new_tokens: int = 20,
-        sampling_parameters: None = None,
+        sampling_parameters: SamplingParams | None = None,
     ) -> torch.Tensor:
         assert not self.use_padding_free_transformer
+
         has_attention_mask = attention_mask is not None
+        is_greedy = sampling_parameters is None or sampling_parameters.is_greedy()
 
         # prefill
         output = self.forward(input_ids=input_ids, attention_mask=attention_mask)
@@ -190,7 +192,17 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                     dtype=torch.int32,
                 )
 
-            next_token = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
+            if is_greedy:
+                next_token = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
+            else:
+                if sampling_parameters.temperature is not None:
+                    logits = output.logits[:, -1, :] / sampling_parameters.temperature
+
+                probabilities = F.softmax(logits, dim=-1)
+
+                if sampling_parameters.top_k is not None:
+                    probabilities, indices = probabilities.topk(k=sampling_parameters.top_k)
+
             generated_tokens.append(next_token)
 
             output = self.forward(

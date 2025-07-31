@@ -11,6 +11,7 @@ from transformers import PretrainedConfig
 
 from ...utils import BaseArgs, divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
+from .sampling_params import SamplingParams
 from .sequence_mixer import (
     _CausalConvolution,
     _GRUArgs,
