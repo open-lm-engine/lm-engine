@@ -6,19 +6,18 @@ from __future__ import annotations
 
 import torch
 import torch.nn.functional as F
-from transformers import GenerationMixin
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
-from ...config import CommonConfig
+from ...config import CommonConfig, SamplingParams
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
 
-class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
+class CausalLMModelMixin(PreTrainedModelMixin):
     _tied_weights_keys = ["lm_head.weight"]
     base_model_class = None
 
@@ -81,17 +80,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             attention_mask=attention_mask,
             use_cache=use_cache,
         )
-
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> None or (batch_size, key_length)
-        # ==========================================================================================
 
         clear_aux_loss()
 
@@ -160,3 +148,54 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             if self._tied_word_embeddings
             else self.lm_head(hidden_states)
         )
+
+    @torch.inference_mode()
+    def generate(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        max_new_tokens: int = 20,
+        sampling_parameters: SamplingParams | None = None,
+    ) -> torch.Tensor:
+        assert not self.use_padding_free_transformer
+
+        has_attention_mask = attention_mask is not None
+        is_greedy = sampling_parameters is None or sampling_parameters.is_greedy()
+
+        # prefill
+        output = self(input_ids=input_ids, attention_mask=attention_mask)
+
+        # decode
+        generated_tokens = [input_ids]
+        for num_generated_tokens in range(max_new_tokens):
+            if has_attention_mask:
+                attention_mask = torch.cat(
+                    (attention_mask, torch.ones(input_ids.size(0), 1, device=input_ids.device, dtype=torch.int32)),
+                    dim=-1,
+                )
+            else:
+                attention_mask = torch.ones(
+                    input_ids.size(0),
+                    input_ids.size(1) + num_generated_tokens + 1,
+                    device=input_ids.device,
+                    dtype=torch.int32,
+                )
+
+            if is_greedy:
+                next_token = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
+            else:
+                if sampling_parameters.temperature is not None:
+                    logits = output.logits[:, -1, :] / sampling_parameters.temperature
+
+                probabilities = F.softmax(logits, dim=-1)
+
+                if sampling_parameters.top_k is not None:
+                    probabilities, indices = probabilities.topk(k=sampling_parameters.top_k)
+
+            generated_tokens.append(next_token)
+
+            output = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=output.past_key_values)
+
+        generated_tokens = torch.cat(generated_tokens, dim=-1)
+
+        return generated_tokens
