@@ -163,7 +163,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         is_greedy = sampling_parameters is None or sampling_parameters.is_greedy()
 
         # prefill
-        output = self.forward(input_ids=input_ids, attention_mask=attention_mask)
+        output = self(input_ids=input_ids, attention_mask=attention_mask)
 
         # decode
         generated_tokens = [input_ids]
@@ -194,9 +194,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
             generated_tokens.append(next_token)
 
-            output = self.forward(
-                input_ids=next_token, attention_mask=attention_mask, past_key_values=output.past_key_values
-            )
+            output = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=output.past_key_values)
 
         generated_tokens = torch.cat(generated_tokens, dim=-1)
 
