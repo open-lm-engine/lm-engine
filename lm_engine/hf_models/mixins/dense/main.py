@@ -162,6 +162,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         assert not self.use_padding_free_transformer
 
         has_attention_mask = attention_mask is not None
+        min_tokens_to_keep = 1
 
         # prefill
         output = self(input_ids=input_ids, attention_mask=attention_mask)
@@ -183,13 +184,10 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 )
 
             lm_logits: torch.Tensor = output.logits[:, -1, :]
-            past_key_values: GenerationCache = output.past_key_values
 
             if temperature == 0:
-                # greedy
                 next_token = lm_logits.argmax(dim=-1).unsqueeze(1)
             else:
-                # sampling
                 if temperature != 1:
                     lm_logits = lm_logits / temperature
 
@@ -199,12 +197,25 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                     mask = lm_logits < lm_logits_top_k_min
                     lm_logits = lm_logits.masked_fill(mask, -float("inf"))
 
-                lm_logits = F.softmax(lm_logits, dim=-1)
-                next_token = torch.multinomial(lm_logits, num_samples=1)
+                if top_p is not None:
+                    sorted_logits, sorted_indices = lm_logits.sort(descending=False)
+                    cumulative_probs = F.softmax(sorted_logits, dim=-1).cumsum(dim=-1)
+
+                    # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
+                    sorted_indices_to_remove = cumulative_probs <= (1 - top_p)
+                    # Keep at least min_tokens_to_keep
+                    sorted_indices_to_remove[..., -min_tokens_to_keep:] = 0
+
+                    # scatter sorted tensors to original indexing
+                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                    lm_logits = lm_logits.masked_fill(indices_to_remove, -float("inf"))
+
+                probabilities = F.softmax(lm_logits, dim=-1)
+                next_token = torch.multinomial(probabilities, num_samples=1)
 
             generated_tokens.append(next_token)
 
-            output = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=past_key_values)
+            output = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=output.past_key_values)
 
         generated_tokens = torch.cat(generated_tokens, dim=-1)
 
