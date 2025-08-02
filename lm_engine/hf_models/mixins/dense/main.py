@@ -183,6 +183,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 )
 
             lm_logits: torch.Tensor = output.logits[:, -1, :]
+            past_key_values: GenerationCache = output.past_key_values
 
             if temperature == 0:
                 # greedy
@@ -203,7 +204,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
             generated_tokens.append(next_token)
 
-            output = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=output.past_key_values)
+            output = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=past_key_values)
 
         generated_tokens = torch.cat(generated_tokens, dim=-1)
 
