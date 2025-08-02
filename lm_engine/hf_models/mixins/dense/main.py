@@ -181,16 +181,19 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                     dtype=torch.int32,
                 )
 
+            lm_logits: torch.Tensor = output.logits[:, -1, :]
+
             if is_greedy:
-                next_token = output.logits[:, -1, :].argmax(dim=-1).unsqueeze(1)
+                next_token = lm_logits.argmax(dim=-1).unsqueeze(1)
             else:
                 if sampling_parameters.temperature is not None:
-                    logits = output.logits[:, -1, :] / sampling_parameters.temperature
+                    lm_logits = lm_logits / sampling_parameters.temperature
 
-                probabilities = F.softmax(logits, dim=-1)
+                if sampling_parameters.top_k is not None and sampling_parameters.top_k < lm_logits.size(-1):
+                    # mask all tokens with logits less than the min(topk(lm_logits))
+                    lm_logits_top_k_min = lm_logits.topk(k=sampling_parameters.top_k)[0][:, -1]
 
-                if sampling_parameters.top_k is not None:
-                    probabilities, indices = probabilities.topk(k=sampling_parameters.top_k)
+                probabilities = F.softmax(lm_logits, dim=-1)
 
             generated_tokens.append(next_token)
 
