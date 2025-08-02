@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from transformers import PreTrainedModel
+from transformers import GenerationConfig, PreTrainedModel
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -35,6 +35,7 @@ class PreTrainedModelMixin(PreTrainedModel):
         super().__init__(config, *args, **kwargs)
 
         assert self.config_class is not None
+        self.generation_config = GenerationConfig.from_model_config(self.config)
 
         self.use_padding_free_transformer = kwargs.get("use_padding_free_transformer", False)
         self._tied_word_embeddings = config.tie_word_embeddings
