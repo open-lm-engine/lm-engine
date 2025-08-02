@@ -196,7 +196,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                     mask = lm_logits < lm_logits_top_k_min
                     lm_logits = lm_logits.masked_fill(mask, -float("inf"))
 
-                probabilities = F.softmax(lm_logits, dim=-1)
+                lm_logits = F.softmax(lm_logits, dim=-1)
+                next_token = torch.multinomial(lm_logits, num_samples=1)
 
             generated_tokens.append(next_token)
 
