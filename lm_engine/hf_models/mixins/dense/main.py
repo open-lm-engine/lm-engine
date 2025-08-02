@@ -185,8 +185,10 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             lm_logits: torch.Tensor = output.logits[:, -1, :]
 
             if temperature == 0:
+                # greedy
                 next_token = lm_logits.argmax(dim=-1).unsqueeze(1)
             else:
+                # sampling
                 if temperature != 1:
                     lm_logits = lm_logits / temperature
 
