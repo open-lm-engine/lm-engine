@@ -173,6 +173,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         # prefill
         output = self(input_ids=input_ids, attention_mask=attention_mask)
+        finished = torch.zeros(input_ids.size(0), device=input_ids.device, dtype=torch.bool)
 
         # decode
         generated_tokens = [input_ids]
@@ -221,7 +222,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 probabilities = F.softmax(lm_logits, dim=-1)
                 next_token = torch.multinomial(probabilities, num_samples=1)
 
-            finished = next_token == self.generation_config.eos_token_id
+            finished = finished | (next_token == self.generation_config.eos_token_id)
             next_token = next_token.masked_fill(finished, self.generation_config.eos_token_id)
 
             generated_tokens.append(next_token)
