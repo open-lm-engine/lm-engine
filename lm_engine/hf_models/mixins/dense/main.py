@@ -158,11 +158,15 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         temperature: float = 0,
         top_k: int | None = None,
         top_p: float | None = None,
+        **kwargs,
     ) -> torch.Tensor:
         assert not self.use_padding_free_transformer
 
         has_attention_mask = attention_mask is not None
         min_tokens_to_keep = 1
+
+        if "max_length" in kwargs:
+            max_new_tokens = kwargs.pop("max_length") - input_ids.size(-1)
 
         # prefill
         output = self(input_ids=input_ids, attention_mask=attention_mask)
