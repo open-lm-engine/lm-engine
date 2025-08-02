@@ -168,6 +168,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         if "max_length" in kwargs:
             max_new_tokens = kwargs.pop("max_length") - input_ids.size(-1)
 
+        assert len(kwargs) == 0
+
         # prefill
         output = self(input_ids=input_ids, attention_mask=attention_mask)
 
