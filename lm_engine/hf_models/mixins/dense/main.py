@@ -162,7 +162,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         assert not self.use_padding_free_transformer
 
         has_attention_mask = attention_mask is not None
-        is_greedy = temperature == 0
 
         # prefill
         output = self(input_ids=input_ids, attention_mask=attention_mask)
@@ -185,7 +184,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
             lm_logits: torch.Tensor = output.logits[:, -1, :]
 
-            if is_greedy:
+            if temperature == 0:
                 next_token = lm_logits.argmax(dim=-1).unsqueeze(1)
             else:
                 if temperature != 1:
