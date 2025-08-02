@@ -155,12 +155,14 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
         max_new_tokens: int = 20,
-        sampling_parameters: SamplingParams | None = None,
+        temperature: float | None = None,
+        top_k: int | None = None,
+        top_p: float | None = None,
     ) -> torch.Tensor:
         assert not self.use_padding_free_transformer
 
         has_attention_mask = attention_mask is not None
-        is_greedy = sampling_parameters is None or sampling_parameters.is_greedy()
+        is_greedy = temperature is None or temperature == 0
 
         # prefill
         output = self(input_ids=input_ids, attention_mask=attention_mask)
@@ -186,12 +188,12 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             if is_greedy:
                 next_token = lm_logits.argmax(dim=-1).unsqueeze(1)
             else:
-                if sampling_parameters.temperature is not None:
-                    lm_logits = lm_logits / sampling_parameters.temperature
+                if temperature is not None:
+                    lm_logits = lm_logits / temperature
 
-                if sampling_parameters.top_k is not None and sampling_parameters.top_k < lm_logits.size(-1):
+                if top_k is not None and top_k < lm_logits.size(-1):
                     # mask all tokens with logits less than the min(topk(lm_logits))
-                    lm_logits_top_k_min = lm_logits.topk(k=sampling_parameters.top_k)[0][:, -1]
+                    lm_logits_top_k_min = lm_logits.topk(k=top_k)[0][:, -1]
 
                 probabilities = F.softmax(lm_logits, dim=-1)
 
