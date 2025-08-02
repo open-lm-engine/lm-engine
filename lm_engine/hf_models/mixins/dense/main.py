@@ -165,6 +165,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         has_attention_mask = attention_mask is not None
         min_tokens_to_keep = 1
 
+        # for HF compatibility
         if "max_length" in kwargs:
             max_new_tokens = kwargs.pop("max_length") - input_ids.size(-1)
 
@@ -219,6 +220,9 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
                 probabilities = F.softmax(lm_logits, dim=-1)
                 next_token = torch.multinomial(probabilities, num_samples=1)
+
+            finished = next_token == self.eos_token_id
+            next_token = next_token.masked_fill(finished, self.eos_token_id)
 
             generated_tokens.append(next_token)
 
