@@ -173,7 +173,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         # prefill
         output = self(input_ids=input_ids, attention_mask=attention_mask)
-        finished = torch.zeros(input_ids.size(0), device=input_ids.device, dtype=torch.bool)
+        finished = torch.zeros(input_ids.size(0), 1, device=input_ids.device, dtype=torch.bool)
 
         # decode
         generated_tokens = [input_ids]
