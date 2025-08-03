@@ -172,6 +172,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             )
 
         kwargs.pop("pad_token_id", self.generation_config.pad_token_id) == self.generation_config.pad_token_id
+        kwargs.pop("use_cache", None)
 
         if "do_sample" in kwargs:
             if kwargs.pop("do_sample"):
