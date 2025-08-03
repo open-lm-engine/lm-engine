@@ -167,7 +167,9 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         # for HF compatibility
         if "max_length" in kwargs:
-            max_new_tokens = kwargs.pop("max_length") - input_ids.size(-1)
+            max_new_tokens = kwargs.pop("max_length") - (
+                input_ids.size(-1) if attention_mask is None else attention_mask.sum(dim=-1).item()
+            )
 
         assert len(kwargs) == 0
 
