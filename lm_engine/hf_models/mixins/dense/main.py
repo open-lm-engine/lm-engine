@@ -171,6 +171,15 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 input_ids.size(-1) if attention_mask is None else attention_mask.sum(dim=-1).min().item()
             )
 
+        kwargs.pop("pad_token_id", self.generation_config.pad_token_id) == self.generation_config.pad_token_id
+
+        if "do_sample" in kwargs:
+            if kwargs.pop("do_sample"):
+                if temperature == 0:
+                    temperature = 1
+            else:
+                temperature = 0
+
         assert len(kwargs) == 0
 
         # prefill
