@@ -5,7 +5,6 @@
 
 import torch
 from parameterized import parameterized
-from transformers import AutoModelForCausalLM
 
 from lm_engine.hf_models import export_to_huggingface
 

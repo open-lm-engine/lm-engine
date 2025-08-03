@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import torch
 import torch.nn.functional as F
-from transformers import GenerationMixin
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -18,7 +17,7 @@ from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
 
-class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
+class CausalLMModelMixin(PreTrainedModelMixin):
     _tied_weights_keys = ["lm_head.weight"]
     base_model_class = None
 
@@ -81,17 +80,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             attention_mask=attention_mask,
             use_cache=use_cache,
         )
-
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> None or (batch_size, key_length)
-        # ==========================================================================================
 
         clear_aux_loss()
 
@@ -160,3 +148,103 @@ class CausalLMModelMixin(PreTrainedModelMixin, GenerationMixin):
             if self._tied_word_embeddings
             else self.lm_head(hidden_states)
         )
+
+    @torch.inference_mode()
+    def generate(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        max_new_tokens: int = 20,
+        temperature: float = 0,
+        top_k: int | None = None,
+        top_p: float | None = None,
+        **kwargs,
+    ) -> torch.Tensor:
+        assert not self.use_padding_free_transformer
+
+        has_attention_mask = attention_mask is not None
+        min_tokens_to_keep = 1
+
+        # for HF compatibility
+        if "max_length" in kwargs:
+            max_new_tokens = kwargs.pop("max_length") - (
+                input_ids.size(-1) if attention_mask is None else attention_mask.sum(dim=-1).min().item()
+            )
+
+        kwargs.pop("pad_token_id", self.generation_config.pad_token_id) == self.generation_config.pad_token_id
+        kwargs.pop("use_cache", None)
+
+        if "do_sample" in kwargs:
+            if kwargs.pop("do_sample"):
+                if temperature == 0:
+                    temperature = 1
+            else:
+                temperature = 0
+
+        assert len(kwargs) == 0
+
+        # prefill
+        output = self(input_ids=input_ids, attention_mask=attention_mask)
+        finished = torch.zeros(input_ids.size(0), 1, device=input_ids.device, dtype=torch.bool)
+
+        # decode
+        generated_tokens = [input_ids]
+        for num_generated_tokens in range(max_new_tokens):
+            if has_attention_mask:
+                attention_mask = torch.cat(
+                    (attention_mask, torch.ones(input_ids.size(0), 1, device=input_ids.device, dtype=torch.int32)),
+                    dim=-1,
+                )
+            else:
+                attention_mask = torch.ones(
+                    input_ids.size(0),
+                    input_ids.size(1) + num_generated_tokens + 1,
+                    device=input_ids.device,
+                    dtype=torch.int32,
+                )
+
+            lm_logits: torch.Tensor = output.logits[:, -1, :]
+            past_key_values = output.past_key_values
+
+            if temperature == 0:
+                next_token = lm_logits.argmax(dim=-1).unsqueeze(1)
+            else:
+                if temperature != 1:
+                    lm_logits = lm_logits / temperature
+
+                if top_k is not None and top_k < lm_logits.size(-1):
+                    # mask all tokens with logits less than the min(topk(lm_logits))
+                    lm_logits_top_k_min = lm_logits.topk(k=top_k)[0][:, -1].unsqueeze(-1)
+                    mask = lm_logits < lm_logits_top_k_min
+                    lm_logits = lm_logits.masked_fill(mask, -float("inf"))
+
+                if top_p is not None:
+                    sorted_logits, sorted_indices = lm_logits.sort(descending=False)
+                    cumulative_probs = F.softmax(sorted_logits, dim=-1).cumsum(dim=-1)
+
+                    # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
+                    sorted_indices_to_remove = cumulative_probs <= (1 - top_p)
+                    # Keep at least min_tokens_to_keep
+                    sorted_indices_to_remove[..., -min_tokens_to_keep:] = 0
+
+                    # scatter sorted tensors to original indexing
+                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                    lm_logits = lm_logits.masked_fill(indices_to_remove, -float("inf"))
+
+                probabilities = F.softmax(lm_logits, dim=-1)
+                next_token = torch.multinomial(probabilities, num_samples=1)
+
+            finished = finished | (next_token == self.generation_config.eos_token_id)
+            next_token = next_token.masked_fill(finished, self.generation_config.eos_token_id)
+
+            generated_tokens.append(next_token)
+
+            # early exit when all sequences finish
+            if finished.min() == 1:
+                break
+
+            output = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=past_key_values)
+
+        generated_tokens = torch.cat(generated_tokens, dim=-1)
+
+        return generated_tokens
