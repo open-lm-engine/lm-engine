@@ -57,9 +57,6 @@ def get_model_container(
         kwargs["reset_attention_mask"] = args.model_args.reset_attention_mask
         kwargs["reset_position_ids"] = args.model_args.reset_position_ids
 
-    if tuning_method == TuningMethod.pretraining_diffusion:
-        print(args.model_args)
-
     if tuning_method == TuningMethod.distillation:
         kwargs["teacher_model_name"] = args.teacher_args.model_name
         kwargs["teacher_model_class"] = args.teacher_args.model_class
