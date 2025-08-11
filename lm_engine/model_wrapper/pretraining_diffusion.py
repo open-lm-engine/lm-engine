@@ -25,30 +25,6 @@ from .pretraining import _F, ModelWrapperForPretraining
 from .utils import broadcast_tensor_parallel_input
 
 
-FIM_MIDDLE = "<fim_middle>"
-
-ANNEAL = False
-
-MAX_ANNEALING_STEPS = 4096
-ANNEALING_STEP = 0 if ANNEAL else 4096
-
-
-def get_annealing_step():
-    global ANNEALING_STEP
-    return ANNEALING_STEP
-
-
-def get_max_annealing_steps():
-    global MAX_ANNEALING_STEPS
-    return MAX_ANNEALING_STEPS
-
-
-def update_annealing():
-    global ANNEALING_STEP
-    ANNEALING_STEP = min(ANNEALING_STEP + 1, MAX_ANNEALING_STEPS)
-    # print("Updated to ", ANNEALING_STEP)
-
-
 class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
     def __init__(
         self,
@@ -201,12 +177,14 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
 
     def _setup_tokenizer(self) -> None:
         super()._setup_tokenizer()
-        # TODO (shawntan) Use FIM token for now. Figure out if there is a way to have actual mask token.
-        self.mask_token_id = 100351  # self.tokenizer.convert_tokens_to_ids(FIM_MIDDLE)
-        assert self.mask_token_id is not None
+        assert hasattr(
+            self.tokenizer, "mask_token_id"
+        ), "Tokenizer must have `mask_token_id` for diffusion_pretraining"
+        self.mask_token_id = self.tokenizer.mask_token_id
+        assert self.mask_token_id is not None, "Tokenizer must have `mask_token_id` for diffusion_pretraining"
         self.pad_token_id = self.tokenizer.pad_token_id
         assert self.pad_token_id is not None
-        self.ignore_token_id = -1  # self.pad_token_id  # self.mask_token_id
+        self.ignore_token_id = -1
 
     def _prepare_model_inputs(self, batch: dict) -> dict:
         device = torch.cuda.current_device()
@@ -220,18 +198,14 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             else:
                 tokens = batch["text"]
                 tokens = tokens.to(device)
-            # if torch.rand(1, device=tokens.device) < 0.5:
-            #     unnoised_input_ids = tokens[:, 1:]
-            # else:
-            #     unnoised_input_ids = tokens[:, :-1]
+
+        # still shifted to facilitate adaptation workflow
         input_ids = tokens[:, :-1]
         labels = tokens[:, 1:]
         orig_batch_size, sequence_length = input_ids.shape
         batch_size = orig_batch_size * 2
 
         perm_idxs = torch.argsort(torch.rand_like(input_ids[:, :-1], dtype=torch.bfloat16), dim=-1)
-        # unnoised_input_ids = unnoised_input_ids.repeat_interleave(2, 0).flatten()
-        # input_ids = unnoised_input_ids.clone()
         input_ids = input_ids.repeat_interleave(2, 0).flatten()
         orig_input_ids = input_ids.clone()
         unmasked_labels = labels.repeat_interleave(2, 0).flatten()
@@ -251,31 +225,9 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
 
         def _apply_mask_and_fill(start_idx, end_idx, masked_idxs, p):
             nonlocal moved_boundary
-            # assert ((masked_idxs - 1) >= 0).all()
             labels[start_idx:end_idx][masked_idxs] = input_ids[start_idx:end_idx][masked_idxs + 1]
             input_ids[start_idx:end_idx][masked_idxs + 1] = self.mask_token_id
             p_mask[start_idx:end_idx] = p
-
-            # prob = torch.rand(1, device=tokens.device)
-            # if prob < 0.5:
-            #     end_positions = unnoised_input_ids[start_idx:end_idx] == self.eos_token_id
-            #     end_positions_noised = input_ids[start_idx:end_idx] == self.eos_token_id
-            #     # find mismatches
-            #     end_position_mismatch = (end_positions != end_positions_noised) & (
-            #         input_ids[start_idx:end_idx] == self.mask_token_id
-            #     )
-            #     if end_position_mismatch.any():
-            #         movable_locs = torch.nonzero(end_position_mismatch, as_tuple=True)[0]
-            #         move_start_idx = movable_locs[torch.randint(movable_locs.size(0), size=(1,))[0]]
-            #         rest_unmasked = input_ids[start_idx:end_idx][move_start_idx:] != self.mask_token_id
-            #         if rest_unmasked.any():
-            #             first_unmasked_idx = move_start_idx + torch.nonzero(rest_unmasked, as_tuple=True)[0].min()
-            #             if first_unmasked_idx - move_start_idx > 1:
-            #                 moved_boundary = True
-            #                 document_end_positions[start_idx:end_idx][move_start_idx] = False
-            #                 document_end_positions[start_idx:end_idx][first_unmasked_idx] = True
-            #                 input_ids[start_idx:end_idx][first_unmasked_idx] = self.eos_token_id
-            #                 labels[start_idx:end_idx][move_start_idx:first_unmasked_idx] = self.eos_token_id
 
         for i in range(orig_batch_size):
             t = torch.rand(1, device=input_ids.device)[0]
@@ -314,75 +266,17 @@ class ModelWrapperForPretrainingDiffusion(ModelWrapperForPretraining):
             )
         else:
             position_ids = self.position_ids
-
-        # masked_idxs = (labels != self.ignore_token_id).nonzero(as_tuple=True)[0]
-        # masked_idxs, _ = torch.sort(masked_idxs)
-        # print(labels[masked_indices], masked_indices)
         assert (labels[masked_indices] != self.ignore_token_id).all()
         assert (input_ids[masked_indices + 1] == self.mask_token_id).all()
-        anneal_ratio = min((get_annealing_step() / get_max_annealing_steps()) / 0.5, 1)
-        if ANNEAL:
-            batch = {
-                # "input_ids": input_ids,
-                # "input_ids": orig_input_ids,
-                "input_ids": torch.where(
-                    torch.rand_like(orig_input_ids, dtype=torch.bfloat16) < anneal_ratio, input_ids, orig_input_ids
-                ),
-                "labels": unmasked_labels,
-                # "labels": labels.flatten(),
-                "p_mask": p_mask.flatten(),
-                "cu_seqlens": cu_seqlens,
-                "max_seqlen": max_seqlen,
-                "position_ids": position_ids,
-                "masked_indices": masked_indices,
-            }
-            update_annealing()
-        else:
-            batch = {
-                "input_ids": input_ids,
-                "labels": labels.flatten(),
-                "p_mask": p_mask.flatten(),
-                "cu_seqlens": cu_seqlens,
-                "max_seqlen": max_seqlen,
-                "position_ids": position_ids,
-                "masked_indices": masked_indices,
-            }
-
-        # if True:
-        #     from transformers import PreTrainedTokenizer
-        #     tokenizer: PreTrainedTokenizer = self.tokenizer
-        #     def to_token_list(seq):
-        #         output = []
-        #         for idx in seq:
-        #             if idx == self.ignore_token_id:
-        #                 c = "<I>"
-        #             elif idx == self.mask_token_id:
-        #                 c = "_"
-        #             else:
-        #                 c = tokenizer._convert_id_to_token(idx)
-        #             output.append(c)
-        #         return output
-        #     print((input_ids == self.mask_token_id).int().sum().item())
-        #     combine_seq = batch["input_ids"][1:].clone()
-        #     mask = combine_seq == self.mask_token_id
-        #     combine_seq[mask] = batch["labels"][:-1][mask]
-        #     combine_seq = torch.cat([input_ids[:1], combine_seq], dim=0)
-
-        #     for i in range(cu_seqlens.size(0) - 1):
-        #         # seq_in = batch["input_ids"][cu_seqlens[i] : cu_seqlens[i + 1]]
-        #         # seq_out = batch["labels"][cu_seqlens[i] : cu_seqlens[i + 1]]
-        #         # seq = torch.where(seq_out == self.ignore_token_id, seq_in, seq_out)
-        #         seq = combine_seq[cu_seqlens[i] : cu_seqlens[i + 1]]
-        #         assert p_mask[cu_seqlens[i]] == p_mask[cu_seqlens[i + 1] - 1]
-        #         print()
-        #         print(cu_seqlens[i].item(), cu_seqlens[i + 1].item(), p_mask[cu_seqlens[i + 1] - 1].item())
-        #         print(repr(tokenizer.convert_tokens_to_string(to_token_list(seq))))
-        #         # print(repr(tokenizer.convert_tokens_to_string(to_token_list(seq_out))))
-        #     print(cu_seqlens)
-        #     exit()
-        # else:
-        #     print("No deletions.")
-
+        batch = {
+            "input_ids": input_ids,
+            "labels": labels.flatten(),
+            "p_mask": p_mask.flatten(),
+            "cu_seqlens": cu_seqlens,
+            "max_seqlen": max_seqlen,
+            "position_ids": position_ids,
+            "masked_indices": masked_indices,
+        }
         if ProcessGroupManager.is_tensor_parallel_enabled():
             batch["output_parallel_lm_logits"] = True
 
