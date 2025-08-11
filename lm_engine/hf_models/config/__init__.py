@@ -16,6 +16,7 @@ from .sequence_mixer import (
     _GRUArgs,
     _Mamba2Args,
     _MultiHeadLatentAttentionArgs,
+    _PathArgs,
     _RNNArgs,
     _SoftmaxAttentionArgs,
     _StickbreakingAttentionArgs,
@@ -206,6 +207,7 @@ class CommonConfig(PretrainedConfig):
             | _RNNArgs
             | _SoftmaxAttentionArgs
             | _StickbreakingAttentionArgs
+            | _PathArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])

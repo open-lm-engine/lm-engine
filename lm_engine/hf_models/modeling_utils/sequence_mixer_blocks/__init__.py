@@ -12,6 +12,7 @@ from .causal_convolution import CausalConvolution
 from .gru import GRU
 from .mamba2 import Mamba2
 from .multihead_latent_attention import MultiHeadLatentAttention
+from .path import PaTHAttention
 from .rnn import RNN
 from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
 from .utils import flash_attention
@@ -112,6 +113,21 @@ def get_sequence_mixer(
             use_padding_free_transformer=use_padding_free_transformer,
             normalization_function=block.normalization_function,
             layer_norm_epsilon=config.layer_norm_epsilon,
+        )
+    elif sequence_mixer_type == "path":
+        return PaTHAttention(
+            hidden_size=config.hidden_size,
+            num_heads=block.num_attention_heads,
+            num_kv_heads=block.num_key_value_heads,
+            attention_multiplier=block.attention_multiplier,
+            use_forget_gate=False,
+            use_qk_norm=False,
+            use_w_shortconv=True,
+            init_method=config.init_method,
+            initializer_range=config.initializer_range,
+            m_width=config.m_width,
+            num_layers=config.num_layers,
+            layer_idx=layer_idx,
         )
     else:
         sequence_mixer_kwargs = dict(
