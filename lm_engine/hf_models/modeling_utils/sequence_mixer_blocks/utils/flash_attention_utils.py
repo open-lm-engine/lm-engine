@@ -94,6 +94,18 @@ def flash_attention(
                 causal=causal,
             )
         else:
+            from ....model_wrapper.pretraining_diffusion import ANNEAL, get_annealing_step, get_max_annealing_steps
+
+            if ANNEAL:
+                anneal_proportion = get_annealing_step() / get_max_annealing_steps()
+                if anneal_proportion < 0.5:
+                    right_window_size = 0
+                else:
+                    right_window_size = int((anneal_proportion - 0.75) * 2 * max_seqlen)
+                    # print("right_window_size =", right_window_size)
+                window_size = (-1, right_window_size)
+            else:
+                window_size = (-1, -1)
             attn_output = flash_attention_2_varlen(
                 q=query,
                 k=key,
@@ -105,6 +117,7 @@ def flash_attention(
                 dropout_p=dropout,
                 softmax_scale=softmax_scale,
                 causal=causal,
+                window_size=window_size,
             )
     else:
         if attention_mask is None:

@@ -27,6 +27,7 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
             self.mask_token_id = kwargs.pop("mask_token_id")
         super().__init__(config, **kwargs)
         self.router_aux_loss_coef = getattr(config, "router_aux_loss_coef", 0)
+        self.first_forward_pass = True
         self._init_model(config, **kwargs)
 
     def _init_model(self, config: DiffusionConfig, **kwargs) -> None:
@@ -74,6 +75,13 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
     ) -> CausalLMOutputWithPast:
         assert return_dict
         assert inputs_embeds is None
+
+        if self.training and self.first_forward_pass and hasattr(self, "mask_token_id"):
+            with torch.no_grad():
+                self.transformer.wte.weight.data[self.mask_token_id] = torch.mean(
+                    self.transformer.wte.weight.data, dim=0
+                )
+                self.first_forward_pass = False
 
         input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
             input_ids=input_ids,
@@ -159,8 +167,17 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
         )
 
     def get_lm_logits(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        return (
+        logits = (
             F.linear(hidden_states, self.transformer.wte.weight)
             if self._tied_word_embeddings
             else self.lm_head(hidden_states)
         )
+        assert hasattr(self, "mask_token_id")
+        logits[..., self.mask_token_id]
+        # print("mask_id_logit",
+        #       mask_id_logit.min().item(),
+        #       mask_id_logit.max().item(),
+        #       mask_id_logit.median().item(),
+        #       mask_id_logit.mean().item())
+        logits[..., self.mask_token_id] = -1.0e5
+        return logits
