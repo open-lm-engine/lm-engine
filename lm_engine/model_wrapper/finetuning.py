@@ -32,7 +32,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
             batch = self._broadcast_inputs_for_tensor_parallel(batch)
 
         if not self.is_custom_model:
-            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         labels = batch.pop("labels")
         model_outputs: CausalLMOutputWithPast = self.model(**batch)
@@ -52,7 +52,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
         lm_loss_multiplier: float = 1,
     ) -> torch.Tensor | dict:
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         lm_loss = get_autoregressive_language_modeling_loss(
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,

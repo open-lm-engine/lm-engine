@@ -131,11 +131,5 @@ echo $DISTRIBUTED_ARGS
 
 export TRITON_PRINT_AUTOTUNING=1
 
-# # srun ${SRUN_ARGS} pip install -e ../cute-kernels/
-# command='bash -c "pip install -e ../cute-kernels/ && torchrun $DISTRIBUTED_ARGS  -m lm_engine.pretrain --config $config"'
-# srun ${SRUN_ARGS} ${command}
-# # Optional: install package before running
-# # srun ${SRUN_ARGS} pip install -e ../cute-kernels/
-
 command="torchrun $DISTRIBUTED_ARGS -m lm_engine.pretrain --config $config"
 srun ${SRUN_ARGS} bash -c "$command"

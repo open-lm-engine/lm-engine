@@ -124,7 +124,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         labels = batch.pop("labels")
         output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)
 
-        assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+        assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         student_logits = output.logits
         del output

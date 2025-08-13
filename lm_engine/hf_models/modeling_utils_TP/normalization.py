@@ -11,13 +11,13 @@ from torch.distributed._tensor.placement_types import Partial, Replicate
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed, wait_for_ACT
-from ...utils import ProcessGroupManager, is_cute_kernels_available
+from ...utils import ProcessGroupManager, is_fma_available
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 
 
-if is_cute_kernels_available():
-    from cute_kernels import rmsnorm_cute
+if is_fma_available():
+    from fma import rmsnorm
 
 
 class LayerNorm_TP(nn.LayerNorm, DTensorModule):
@@ -76,18 +76,18 @@ class RMSNorm_TP(nn.RMSNorm, DTensorModule):
         self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        rmsnorm_cute_allowed = is_kernel_allowed(Kernel.rmsnorm_cute)
-        rmsnorm_memory_efficient_cute_allowed = is_kernel_allowed(Kernel.rmsnorm_memory_efficient_cute)
+        rmsnorm_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm)
+        rmsnorm_memory_efficient_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm_memory_efficient)
 
-        if rmsnorm_cute_allowed or rmsnorm_memory_efficient_cute_allowed:
+        if rmsnorm_kernel_allowed or rmsnorm_memory_efficient_kernel_allowed:
             input = wait_for_ACT(input, wait_in_forward=True, wait_in_backward=False)
-            input = rmsnorm_cute(
+            input = rmsnorm(
                 x=input,
                 weight=dtensor_to_tensor(
                     self.weight, grad_placement=Partial() if self.sequence_parallel else Replicate()
                 ),
                 eps=self.eps,
-                memory_efficient=rmsnorm_memory_efficient_cute_allowed,
+                memory_efficient=rmsnorm_memory_efficient_kernel_allowed,
             )
             input = wait_for_ACT(input, wait_in_forward=False, wait_in_backward=True)
         else:
