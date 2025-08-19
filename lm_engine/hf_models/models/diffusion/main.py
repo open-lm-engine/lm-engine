@@ -107,14 +107,14 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
         )
 
         hidden_states = transformer_outputs.last_hidden_state
+        if masked_indices is not None:
+            hidden_states = torch.index_select(hidden_states, dim=0, index=masked_indices)
+
         past_key_values = transformer_outputs.past_key_values
         del transformer_outputs
 
         lm_logits = None
         loss = None
-
-        if masked_indices is not None:
-            hidden_states = hidden_states[masked_indices]
 
         if labels is None:
             if is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute):
@@ -163,5 +163,8 @@ class DiffusionMaskedLM(DiffusionPreTrainedModel):
             if self._tied_word_embeddings
             else self.lm_head(hidden_states)
         )
-        logits[..., self.mask_token_id] = -1.0e5
+        logits.index_fill_(
+            dim=-1, index=torch.tensor(self.mask_token_id, dtype=torch.int32, device=logits.device), value=-1.0e5
+        )
+        # logits[..., self.mask_token_id] = -1.0e5
         return logits
