@@ -128,6 +128,9 @@ class Attention(nn.Module):
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
+    def extra_repr(self):
+        return f"causal={self.causal}, num_heads={self.num_heads}, num_key_value_heads={self.num_key_value_heads},"
+
     def forward(
         self,
         hidden_states: torch.Tensor,
