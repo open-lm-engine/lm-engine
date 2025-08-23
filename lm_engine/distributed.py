@@ -293,9 +293,7 @@ def wrap_model_container_for_distributed_training(
                         if ProcessGroupManager.get_data_parallel_rank() == 0:
                             full_tensor = param
                         else:
-                            full_tensor = torch.empty(
-                                param.shape, dtype=param.dtype, device=get_current_device()
-                            )
+                            full_tensor = torch.empty(param.shape, dtype=param.dtype, device=get_current_device())
 
                         new_state_dict[param_name] = distribute_tensor(
                             full_tensor,
