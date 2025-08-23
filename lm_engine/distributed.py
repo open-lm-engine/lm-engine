@@ -35,6 +35,7 @@ from .hf_models.parameter import _ALL_MARKERS
 from .kernels import is_kernel_allowed
 from .utils import (
     ProcessGroupManager,
+    get_current_device,
     get_module_class_from_name,
     is_torchao_available,
     log_rank_0,
@@ -267,24 +268,22 @@ def wrap_model_container_for_distributed_training(
             )
 
             if efficient_initialization:
-                # contributed by Yu Chin Fabian Lim
-                # original reference https://github.com/fabianlim/accelerate/pull/1
                 if model_name is None:
-                    model = model.to_empty(device=torch.cuda.current_device())
+                    model = model.to_empty(device=get_current_device())
 
                     for module in model.modules():
                         if hasattr(module, "reset_parameters"):
-                            with torch.device(torch.cuda.current_device()):
+                            with torch.device(get_current_device()):
                                 module.reset_parameters()
                 else:
                     if ProcessGroupManager.get_data_parallel_rank() == 0:
-                        model = model.to(torch.cuda.current_device())
+                        model = model.to(get_current_device())
                     else:
-                        model = model.to_empty(device=torch.cuda.current_device())
+                        model = model.to_empty(device=get_current_device())
 
                         for module in model.modules():
                             if hasattr(module, "reset_parameters"):
-                                with torch.device(torch.cuda.current_device()):
+                                with torch.device(get_current_device()):
                                     module.reset_parameters()
 
                     # state dict with DTensors
@@ -295,7 +294,7 @@ def wrap_model_container_for_distributed_training(
                             full_tensor = param
                         else:
                             full_tensor = torch.empty(
-                                param.shape, dtype=param.dtype, device=torch.cuda.current_device()
+                                param.shape, dtype=param.dtype, device=get_current_device()
                             )
 
                         new_state_dict[param_name] = distribute_tensor(

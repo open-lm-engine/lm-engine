@@ -271,7 +271,7 @@ model_args:
         mlp_type: MLP
         add_bias: false
         intermediate_size: 1408
-  efficient_initialization: true
+  # efficient_initialization: true
 
 tuning_args:
   tuning_method: pretraining

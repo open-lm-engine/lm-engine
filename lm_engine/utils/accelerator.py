@@ -13,7 +13,7 @@ def get_backend() -> str:
     if torch.cuda.is_available():
         backend = "cpu:gloo,cuda:nccl"
     elif torch.mps.is_available():
-        backend = "mps:gloo"
+        backend = "cpu:gloo"
     else:
         raise NotImplementedError()
 
@@ -34,3 +34,14 @@ def get_device_string() -> str:
 def set_device(device: torch.device) -> None:
     if torch.cuda.is_available():
         torch.cuda.set_device(device)
+
+
+def get_current_device() -> torch.device:
+    if torch.cuda.is_available():
+        device = torch.cuda.current_device()
+    elif torch.mps.is_available():
+        device = torch.mps.current_device()
+    else:
+        raise NotImplementedError()
+
+    return device
