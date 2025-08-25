@@ -7,4 +7,5 @@ python tools/data/preprocess_data.py \
     --tokenizer $TOKENIZER \
     --output-prefix $OUTPUT_PATH \
     --workers 1 \
-    --chunk-size 1000
+    --chunk-size 1000 \
+    --append-eod
