@@ -12,10 +12,10 @@ GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -w)
 NODE_RANK=$(($(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | sed 'n; d' | grep -n -m1 $(echo $HOSTNAME | cut -d'.' -f1) | cut -d':' -f1)-1))
 
 TOKENIZERS_PARALLELISM=false \
-torchrun --nnodes=$NNODES \
-    --node_rank=$NODE_RANK \
-    --nproc_per_node=$GPUS_PER_NODE \
-    --rdzv_id=101 \
-    --rdzv_endpoint=$MASTER_ADDRESS:$MASTER_PORT \
-    -m lm_engine.pretrain \
+torchrun -m lm_engine.pretrain \
     --config ${1}
+
+    # --node_rank=$NODE_RANK \
+    # --nproc_per_node=$GPUS_PER_NODE \
+    # --rdzv_id=101 \
+    # --rdzv_endpoint=$MASTER_ADDRESS:$MASTER_PORT \ --nnodes=$NNODES \

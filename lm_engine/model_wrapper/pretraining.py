@@ -18,7 +18,7 @@ from ..hf_models import (
     is_aux_loss_zero,
 )
 from ..kernels import is_kernel_allowed
-from ..utils import MetricsTrackingDict, ProcessGroupManager
+from ..utils import MetricsTrackingDict, ProcessGroupManager, get_current_device
 from .base import ModelWrapper
 from .utils import broadcast_tensor_parallel_input
 
@@ -220,7 +220,7 @@ class ModelWrapperForPretraining(ModelWrapper):
                 )
             else:
                 tokens = batch["text"]
-                tokens = tokens.to(torch.cuda.current_device())
+                tokens = tokens.to(get_current_device())
 
             input_ids = tokens[:, :-1]
             batch = {"labels": tokens[:, 1:]}

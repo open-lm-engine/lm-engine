@@ -15,6 +15,7 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
+from .accelerator import get_backend, get_device_string, set_device
 from .miscellaneous import divide_if_divisible
 
 
@@ -61,7 +62,7 @@ class ProcessGroupManager:
             timeout_minutes = timedelta(timeout_minutes)
 
         torch.distributed.init_process_group(
-            backend="cpu:gloo,cuda:nccl",
+            backend=get_backend(),
             rank=ProcessGroupManager.get_global_rank(),
             world_size=ProcessGroupManager.get_world_size(),
             timeout=timeout_minutes,
@@ -94,7 +95,7 @@ class ProcessGroupManager:
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
         _MESH = init_device_mesh(
-            "cuda",
+            get_device_string(),
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
@@ -105,7 +106,7 @@ class ProcessGroupManager:
         )
 
         local_rank = int(os.getenv("LOCAL_RANK", 0))
-        torch.cuda.set_device(local_rank)
+        set_device(local_rank)
 
         if use_async_tensor_parallel:
             enable_symm_mem_for_group(ProcessGroupManager.get_tensor_parallel_group().group_name)

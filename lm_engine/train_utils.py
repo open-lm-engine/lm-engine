@@ -15,6 +15,9 @@ from .utils import ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager,
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
+    if ProcessGroupManager.get_data_parallel_world_size() == 1:
+        return metrics_tracker
+
     tensor = [metrics_tracker[key] for key in metrics_tracker]
     tensor = torch.stack(tensor)
     # NOTE the cpu() call was to save memory but might not be needed anymore
