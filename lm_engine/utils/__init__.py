@@ -6,7 +6,7 @@ import logging
 
 import torch
 
-from .accelerator import get_current_device
+from .accelerator import get_current_device, get_device_string
 from .hf_hub import download_repo
 from .logger import log_metrics, log_rank_0, print_rank_0, print_ranks_all, set_logger
 from .loss_dict import MetricsTrackingDict

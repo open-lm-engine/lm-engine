@@ -21,7 +21,15 @@ from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContaine
 from ..data import ResumableDataLoader
 from ..hf_models import fix_unsharded_state_dict
 from ..model_wrapper import ModelWrapper, get_model_container
-from ..utils import ExperimentsTracker, ProcessGroupManager, load_yaml, log_rank_0, run_rank_n, string_to_torch_dtype
+from ..utils import (
+    ExperimentsTracker,
+    ProcessGroupManager,
+    get_device_string,
+    load_yaml,
+    log_rank_0,
+    run_rank_n,
+    string_to_torch_dtype,
+)
 from .lr_scheduler import _get_lr_scheduler_path, _LRSchedulerSaver, _resume_learning_rate
 from .model import _get_model_path, _ModelSaver
 from .model_optimizer import _get_model_optimizer_path, _ModelOptimizerSaver

@@ -163,6 +163,12 @@ def wrap_model_container_for_distributed_training(
     data_parallel_replication_world_size = ProcessGroupManager.get_data_parallel_replication_world_size()
     model_name = args.model_args.model_name
 
+    if fsdp_algorithm is None:
+        for i, model in enumerate(model_container):
+            model_container[i] = model.to(get_current_device())
+
+        return model_container, None
+
     if dtype in ["fp16", "bf16"]:
         if communication_dtype != "fp32":
             log_rank_0(
