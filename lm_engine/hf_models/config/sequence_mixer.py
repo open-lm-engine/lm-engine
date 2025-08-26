@@ -20,6 +20,14 @@ class _SoftmaxAttentionArgs(BaseArgs):
         assert self.sequence_mixer_type == "softmax_attention"
 
 
+class _MixtureOfAttentionArgs(_SoftmaxAttentionArgs):
+    sequence_mixer_type: str = "momha"
+    num_experts: int = 8
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "momha"
+
+
 class _MultiHeadLatentAttentionArgs(BaseArgs):
     sequence_mixer_type: str = "multihead_latent_attention"
     num_attention_heads: int | None = None
