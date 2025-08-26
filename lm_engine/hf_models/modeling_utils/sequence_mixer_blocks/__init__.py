@@ -11,6 +11,7 @@ from .attention import (
 from .causal_convolution import CausalConvolution
 from .gru import GRU
 from .mamba2 import Mamba2
+from .mixture_of_attention import MixtureOfAttention
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
 from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
@@ -26,6 +27,7 @@ SEQUENCE_MIXER_TYPE = (
     | RNN
     | SBAttention
     | PaddingFreeSBAttention
+    | MixtureOfAttention
 )
 
 
@@ -133,6 +135,13 @@ def get_sequence_mixer(
         if sequence_mixer_type == "softmax_attention":
             return Attention(
                 **sequence_mixer_kwargs,
+                softmax_dropout=block.softmax_dropout,
+                use_padding_free_transformer=use_padding_free_transformer,
+            )
+        elif sequence_mixer_type == "momha":
+            return MixtureOfAttention(
+                **sequence_mixer_kwargs,
+                num_experts=block.num_experts,
                 softmax_dropout=block.softmax_dropout,
                 use_padding_free_transformer=use_padding_free_transformer,
             )
