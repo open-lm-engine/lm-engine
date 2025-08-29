@@ -27,11 +27,7 @@ class GPTBaseAttentionTest(TestCommons):
         )
     )
     def test_sdpa_padding_free_transformer_equivalence(
-        self,
-        device: torch.device,
-        attention_head_type: str,
-        position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        self, device: torch.device, attention_head_type: str, position_embedding_type: str, dtype: torch.dtype
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
@@ -39,8 +35,8 @@ class GPTBaseAttentionTest(TestCommons):
 
         config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
 
-        sdpa_model = self.from_config(config, torch_dtype=torch_dtype).to(device)
-        flash_model = self.from_config(config, torch_dtype=torch_dtype, use_padding_free_transformer=True).to(device)
+        sdpa_model = self.from_config(config, dtype=dtype).to(device)
+        flash_model = self.from_config(config, dtype=dtype, use_padding_free_transformer=True).to(device)
 
         sdpa_model.eval()
         flash_model.eval()
@@ -84,7 +80,7 @@ class GPTBaseAttentionTest(TestCommons):
         device: torch.device,
         attention_head_type: str,
         position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        dtype: torch.dtype,
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
@@ -93,7 +89,7 @@ class GPTBaseAttentionTest(TestCommons):
         input_ids, attention_mask, labels = self.get_dummy_inputs(device)
         config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
@@ -133,7 +129,7 @@ class GPTBaseAttentionTest(TestCommons):
         device: torch.device,
         attention_head_type: str,
         position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        dtype: torch.dtype,
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
@@ -141,7 +137,7 @@ class GPTBaseAttentionTest(TestCommons):
 
         config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype, use_padding_free_transformer=True).to(device)
+        model = self.from_config(config, dtype=dtype, use_padding_free_transformer=True).to(device)
         model.eval()
 
         with enable_kernels([Kernel.flash_attention_2]):
@@ -185,7 +181,7 @@ class GPTBaseAttentionTest(TestCommons):
         device: torch.device,
         attention_head_type: str,
         position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        dtype: torch.dtype,
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
@@ -193,7 +189,7 @@ class GPTBaseAttentionTest(TestCommons):
 
         config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         input_ids, _, labels = self.get_dummy_inputs(device)
@@ -231,7 +227,7 @@ class GPTBaseAttentionTest(TestCommons):
         device: torch.device,
         attention_head_type: str,
         position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        dtype: torch.dtype,
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
@@ -242,7 +238,7 @@ class GPTBaseAttentionTest(TestCommons):
 
         attention_mask = torch.ones_like(input_ids)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = self.from_config(config, torch_dtype=dtype).to(device)
         model.eval()
 
         with enable_kernels([Kernel.flash_attention_2]):

@@ -18,15 +18,15 @@ SEED = 1234
 
 class MultiHeadLatentAttentionTest(TestCommons):
     @parameterized.expand(TestCommons.make_args_matrix([torch.device("cuda")], [torch.float16, torch.bfloat16]))
-    def test_sdpa_padding_free_transformer_equivalence(self, device: torch.device, torch_dtype: torch.dtype) -> None:
+    def test_sdpa_padding_free_transformer_equivalence(self, device: torch.device, dtype: torch.dtype) -> None:
         self.skip_test_if_device_unavailable(device)
 
         set_seed(SEED)
 
         config = self.get_dense_test_config(num_layers=1)
 
-        sdpa_model = self.from_config(config, torch_dtype=torch_dtype).to(device)
-        flash_model = self.from_config(config, torch_dtype=torch_dtype, use_padding_free_transformer=True).to(device)
+        sdpa_model = self.from_config(config, dtype=dtype).to(device)
+        flash_model = self.from_config(config, dtype=dtype, use_padding_free_transformer=True).to(device)
 
         sdpa_model.eval()
         flash_model.eval()
@@ -58,7 +58,7 @@ class MultiHeadLatentAttentionTest(TestCommons):
         self.assert_equal_tensors(sdpa_loss, flash_loss, False)
 
     @parameterized.expand(TestCommons.make_args_matrix([torch.device("cuda")], [torch.float16, torch.bfloat16]))
-    def test_sdpa_flash_attention_equivalence(self, device: torch.device, torch_dtype: torch.dtype) -> None:
+    def test_sdpa_flash_attention_equivalence(self, device: torch.device, dtype: torch.dtype) -> None:
         self.skip_test_if_device_unavailable(device)
 
         set_seed(SEED)
@@ -66,7 +66,7 @@ class MultiHeadLatentAttentionTest(TestCommons):
         input_ids, attention_mask, labels = self.get_dummy_inputs(device)
         config = self.get_dense_test_config(num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)

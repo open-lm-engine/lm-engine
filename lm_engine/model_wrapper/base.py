@@ -189,9 +189,9 @@ class ModelWrapper(nn.Module):
                         context = torch.device("meta")
         elif self.dtype == "fp8":
             log_rank_0(logging.WARN, "dtype fp8 was passed but loading model in fp16")
-            kwargs = {"torch_dtype": torch.float16}
+            kwargs = {"dtype": torch.float16}
         else:
-            kwargs = {"torch_dtype": string_to_torch_dtype(self.dtype)}
+            kwargs = {"dtype": string_to_torch_dtype(self.dtype)}
 
         with context:
             if self.model_name is None:
