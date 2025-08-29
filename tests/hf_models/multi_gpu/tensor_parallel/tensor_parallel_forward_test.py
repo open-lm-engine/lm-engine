@@ -17,7 +17,6 @@ from ...test_common import TestCommons
 class TensorParallelTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            ["gqa"],
             TestCommons.get_position_embedding_types(),
             TestCommons.get_attention_implementations(),
             TestCommons.get_dtypes(),
@@ -26,7 +25,6 @@ class TensorParallelTest(TestCommons):
             [GPTBaseConfig.model_type],
         )
         + TestCommons.make_args_matrix(
-            ["gqa"],
             ["rope"],
             ["flash_attention_2"],
             [torch.float16],
@@ -38,7 +36,6 @@ class TensorParallelTest(TestCommons):
     @TestCommons.slow_test
     def test_tensor_parallel_forward(
         self,
-        attention_head_type: str,
         position_embedding_type: str,
         attention_implementation: str,
         dtype: torch.dtype,
@@ -66,8 +63,6 @@ class TensorParallelTest(TestCommons):
                 str(gpus_per_node),
                 "-m",
                 "tests.hf_models.multi_gpu.tensor_parallel.tensor_parallel_forward",
-                "--attention-head-type",
-                attention_head_type,
                 "--position-embedding-type",
                 position_embedding_type,
                 "--dtype",
