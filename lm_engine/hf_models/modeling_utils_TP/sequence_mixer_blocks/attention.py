@@ -17,7 +17,7 @@ from ...cache import GenerationCache
 from ...modeling_utils import Attention, apply_rotary_pos_emb, flash_attention
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
 from ..dropout import Dropout_TP
-from ..linear import ColumnParallelLinear, ReplicatedLinear, RowParallelLinear
+from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
 class Attention_TP(Attention):
