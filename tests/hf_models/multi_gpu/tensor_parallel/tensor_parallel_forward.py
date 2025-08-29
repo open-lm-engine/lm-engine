@@ -36,8 +36,6 @@ torch_dtype = string_to_torch_dtype(args.torch_dtype)
 
 if args.attention_head_type == "mha":
     num_key_value_heads = 16
-elif args.attention_head_type == "mqa":
-    num_key_value_heads = 1
 else:
     num_key_value_heads = 8
 

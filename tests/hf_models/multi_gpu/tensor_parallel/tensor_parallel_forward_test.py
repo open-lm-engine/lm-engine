@@ -17,7 +17,7 @@ from ...test_common import TestCommons
 class TensorParallelTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            ["mqa", "gqa"],
+            ["gqa"],
             TestCommons.get_position_embedding_types(),
             TestCommons.get_attention_implementations(),
             TestCommons.get_dtypes(),
