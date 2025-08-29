@@ -7,7 +7,6 @@ from __future__ import annotations
 from typing import Iterable
 
 import torch
-from transformers import Cache
 
 from ..config import CommonConfig
 from .attention import _SoftmaxAttentionCache
@@ -28,11 +27,8 @@ _CACHE_CLASSES = {
 CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
 
 
-class GenerationCache(Cache):
+class GenerationCache:
     def __init__(self, config: CommonConfig, **kwargs) -> GenerationCache:
-        super().__init__()
-
-        self._seen_tokens = 0
         self.cache: list[_SoftmaxAttentionCache] = [
             _CACHE_CLASSES[config.sequence_mixer_blocks[i].sequence_mixer_type](config, i, **kwargs)
             for i in range(config.num_layers)
@@ -44,9 +40,6 @@ class GenerationCache(Cache):
     def __iter__(self) -> Iterable[CACHE_TYPE]:
         for layer_idx in range(len(self)):
             yield self.cache[layer_idx].get_cache()
-
-    def __len__(self) -> int:
-        return self.seen_tokens
 
     def update(self, *, layer_idx: int, **kwargs) -> CACHE_TYPE:
         return self.cache[layer_idx].update(**kwargs)
