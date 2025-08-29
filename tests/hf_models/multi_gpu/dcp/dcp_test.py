@@ -12,16 +12,9 @@ from ...test_common import TestCommons
 
 
 class DCPTest(TestCommons):
-    @parameterized.expand(
-        TestCommons.make_args_matrix(["gqa", "mqa"], ["gelu", "geglu"], [(3, 2, 2), (3, 1, 4), (0, 4, 1)])
-    )
+    @parameterized.expand(TestCommons.make_args_matrix(["gelu", "geglu"], [(3, 2, 2), (3, 1, 4), (0, 4, 1)]))
     @TestCommons.slow_test
-    def test_dcp(
-        self,
-        attention_head_type: str,
-        activation_function: str,
-        zero_stage_ddp_sizes: tuple[int, int, int],
-    ) -> None:
+    def test_dcp(self, activation_function: str, zero_stage_ddp_sizes: tuple[int, int, int]) -> None:
         self.skip_test_if_device_unavailable(torch.device("cuda"))
 
         gpus_per_node = torch.cuda.device_count()
@@ -37,8 +30,6 @@ class DCPTest(TestCommons):
                 "tests/hf_models/multi_gpu/dcp/train.yml",
                 "--unshard-config",
                 "tests/hf_models/multi_gpu/dcp/unshard.yml",
-                "--attention-head-type",
-                attention_head_type,
                 "--activation-function",
                 activation_function,
                 "--tmp-path",
