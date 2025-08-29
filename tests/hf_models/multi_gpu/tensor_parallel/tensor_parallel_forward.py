@@ -12,7 +12,7 @@ from transformers import set_seed
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig, LadderResidualConfig, get_model_parallel_class
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import ProcessGroupManager, SafeTensorsWeightsManager, string_to_dtype
+from lm_engine.utils import ProcessGroupManager, SafeTensorsWeightsManager, string_to_torch_dtype
 
 from ...test_common import TestCommons
 
@@ -32,7 +32,7 @@ set_seed(42)
 
 ProcessGroupManager(tensor_parallel_world_size=int(os.getenv("WORLD_SIZE")))
 
-dtype = string_to_dtype(args.dtype)
+dtype = string_to_torch_dtype(args.dtype)
 
 if args.attention_head_type == "mha":
     num_key_value_heads = 16
