@@ -182,7 +182,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         super()._setup_model()
 
         self.teacher_model = self.teacher_model_class.from_pretrained(
-            self.teacher_model_name, torch_dtype=string_to_torch_dtype(self.teacher_model_dtype)
+            self.teacher_model_name, dtype=string_to_torch_dtype(self.teacher_model_dtype)
         )
         self.teacher_model.eval()
 

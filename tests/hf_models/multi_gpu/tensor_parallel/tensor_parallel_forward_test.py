@@ -41,14 +41,14 @@ class TensorParallelTest(TestCommons):
         attention_head_type: str,
         position_embedding_type: str,
         attention_implementation: str,
-        torch_dtype: torch.dtype,
+        dtype: torch.dtype,
         use_padding_free_transformer: bool,
         sequence_parallel: bool,
         model_type: str,
     ) -> None:
         self.skip_test_if_device_unavailable(torch.device("cuda"))
 
-        if (attention_implementation, torch_dtype) not in [
+        if (attention_implementation, dtype) not in [
             ("sdpa", torch.float32),
             ("flash_attention_2", torch.float16),
         ]:
@@ -70,8 +70,8 @@ class TensorParallelTest(TestCommons):
                 attention_head_type,
                 "--position-embedding-type",
                 position_embedding_type,
-                "--torch-dtype",
-                torch_dtype_to_string(torch_dtype),
+                "--dtype",
+                torch_dtype_to_string(dtype),
                 "--attention-implementation",
                 attention_implementation,
                 "--model-type",
