@@ -58,6 +58,10 @@ class Attention_TP(Attention):
             f"`embed_dim` ({self.global_hidden_size}) must be divisible by `num_heads` ({self.global_num_heads})",
         )
 
+        self.hidden_size = divide_if_divisible(
+            self.global_hidden_size, tp_world_size, "hidden_size should be divisible by TP world size"
+        )
+
         self.num_heads = divide_if_divisible(
             self.global_num_heads, tp_world_size, "num_heads must be divisible by TP world size"
         )
