@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn.functional as F
+from transformers import StoppingCriteriaList
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -15,7 +16,6 @@ from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, g
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
-from transformers import StoppingCriteriaList
 
 
 class CausalLMModelMixin(PreTrainedModelMixin):
@@ -250,6 +250,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             if finished.min() == 1:
                 break
 
-            output: CausalLMOutputWithPast = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=past_key_values)
+            output: CausalLMOutputWithPast = self(
+                input_ids=next_token, attention_mask=attention_mask, past_key_values=past_key_values
+            )
 
         return generated_tokens
