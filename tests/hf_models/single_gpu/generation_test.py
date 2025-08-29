@@ -6,8 +6,6 @@
 import torch
 from parameterized import parameterized
 
-from lm_engine.hf_models import export_to_huggingface
-
 from ..test_common import TestCommons
 
 
@@ -25,16 +23,16 @@ class GenerationTest(TestCommons):
         device: torch.device,
         attention_head_type: str,
         position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        dtype: torch.dtype,
     ) -> None:
         self.skip_test_if_device_unavailable(device)
-        self.skip_test_if_layernorm_kernel_unavailable(device, torch_dtype)
+        self.skip_test_if_layernorm_kernel_unavailable(device, dtype)
 
         for config in [
             self.get_dense_test_config(attention_head_type, position_embedding_type),
             self.get_moe_test_config(attention_head_type, position_embedding_type),
         ]:
-            model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+            model = self.from_config(config, dtype=dtype).to(device)
             model.eval()
 
             input_ids, attention_mask, _ = self.get_dummy_inputs(device)

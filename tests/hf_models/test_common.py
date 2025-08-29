@@ -255,7 +255,7 @@ class TestCommons(BaseTestCommons):
         config1 = json.load(open(os.path.join(path1, "config.json"), "r"))
         config2 = json.load(open(os.path.join(path2, "config.json"), "r"))
 
-        for key in ["architectures", "torch_dtype", "dtype"]:
+        for key in ["architectures", "dtype"]:
             config1.pop(key, None)
             config2.pop(key, None)
 
@@ -273,7 +273,7 @@ class TestCommons(BaseTestCommons):
         model = AutoModelForCausalLM.from_config(
             config,
             use_padding_free_transformer=use_padding_free_transformer,
-            torch_dtype=kwargs.pop("torch_dtype", None),
+            dtype=kwargs.pop("dtype", None),
         )
 
         if use_padding_free_transformer:

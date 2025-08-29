@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--attention-head-type", type=str)
 parser.add_argument("--position-embedding-type", type=str)
 parser.add_argument("--attention-implementation", type=str)
-parser.add_argument("--torch-dtype", type=str)
+parser.add_argument("--dtype", type=str)
 parser.add_argument("--tmp-path", type=str)
 parser.add_argument("--use-padding-free-transformer", action="store_true")
 parser.add_argument("--sequence-parallel", action="store_true")
@@ -32,7 +32,7 @@ set_seed(42)
 
 ProcessGroupManager(tensor_parallel_world_size=int(os.getenv("WORLD_SIZE")))
 
-torch_dtype = string_to_torch_dtype(args.torch_dtype)
+dtype = string_to_torch_dtype(args.dtype)
 
 if args.attention_head_type == "mha":
     num_key_value_heads = 16
@@ -105,7 +105,7 @@ if torch.distributed.get_rank() == 0:
     model.eval()
 
     model.save_pretrained(args.tmp_path, safe_serialization=True)
-    model = model.to(torch_dtype)
+    model = model.to(dtype)
 
 torch.distributed.barrier()
 
@@ -127,7 +127,7 @@ model_tp = model_tp.to_empty(device=torch.cuda.current_device())
 model_tp.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(args.tmp_path))
 
 # set model to eval mode
-model_tp = model_tp.to(torch_dtype)
+model_tp = model_tp.to(dtype)
 model_tp.eval()
 
 set_seed(42)
