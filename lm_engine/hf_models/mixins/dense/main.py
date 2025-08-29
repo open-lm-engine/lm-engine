@@ -15,6 +15,7 @@ from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, g
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
+from transformers import StoppingCriteriaList
 
 
 class CausalLMModelMixin(PreTrainedModelMixin):
@@ -181,14 +182,18 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             else:
                 temperature = 0
 
+        stopping_criteria_list = kwargs.pop("stopping_criteria", None)
+        if stopping_criteria_list is not None:
+            stopping_criteria_list = StoppingCriteriaList(stopping_criteria_list)
+
         assert len(kwargs) == 0
 
         # prefill
         output = self(input_ids=input_ids, attention_mask=attention_mask)
-        finished = torch.zeros(input_ids.size(0), 1, device=input_ids.device, dtype=torch.bool)
+        finished = torch.zeros(input_ids.size(0), device=input_ids.device, dtype=torch.bool)
 
         # decode
-        generated_tokens = [input_ids]
+        generated_tokens = input_ids
         for num_generated_tokens in range(max_new_tokens):
             if has_attention_mask:
                 attention_mask = torch.cat(
@@ -203,7 +208,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                     dtype=torch.int32,
                 )
 
-            lm_logits: torch.Tensor = output.logits[:, -1, :]
+            lm_logits = output.logits[:, -1, :]
             past_key_values = output.past_key_values
 
             if temperature == 0:
@@ -234,17 +239,17 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 probabilities = F.softmax(lm_logits, dim=-1)
                 next_token = torch.multinomial(probabilities, num_samples=1)
 
-            finished = finished | (next_token == self.generation_config.eos_token_id)
-            next_token = next_token.masked_fill(finished, self.generation_config.eos_token_id)
+            next_token = next_token.masked_fill(finished.unsqueeze(1), self.generation_config.pad_token_id)
+            generated_tokens = torch.cat([generated_tokens, next_token], dim=-1)
 
-            generated_tokens.append(next_token)
+            finished = finished | (next_token.squeeze(1) == self.generation_config.eos_token_id)
+            if stopping_criteria_list is not None:
+                finished = finished | stopping_criteria_list(generated_tokens, None)
 
             # early exit when all sequences finish
             if finished.min() == 1:
                 break
 
-            output = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=past_key_values)
-
-        generated_tokens = torch.cat(generated_tokens, dim=-1)
+            output: CausalLMOutputWithPast = self(input_ids=next_token, attention_mask=attention_mask, past_key_values=past_key_values)
 
         return generated_tokens
