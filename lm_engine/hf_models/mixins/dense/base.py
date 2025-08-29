@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from transformers import PreTrainedModel
+from transformers import GenerationConfig, PreTrainedModel
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -35,6 +35,7 @@ class PreTrainedModelMixin(PreTrainedModel):
         super().__init__(config, *args, **kwargs)
 
         assert self.config_class is not None
+        self.generation_config = GenerationConfig.from_model_config(self.config)
 
         self.use_padding_free_transformer = kwargs.get("use_padding_free_transformer", False)
         self._tied_word_embeddings = config.tie_word_embeddings
@@ -123,12 +124,6 @@ class BaseModelMixin(PreTrainedModelMixin):
         # Initialize weights and apply final processing
         self.post_init()
 
-    def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.wte
-
-    def set_input_embeddings(self, new_embeddings: ParameterizedEmbedding) -> None:
-        self.wte = new_embeddings
-
     def forward(
         self,
         input_ids: torch.Tensor | None = None,
@@ -155,15 +150,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
         )
-
-        # ==========================================================================================
-        # padding_free:
-        #     attention_mask -> None
-        # flash:
-        #     attention_mask -> (batch_size, key_length)
-        # else:
-        #     attention_mask -> (batch_size, 1, query_length, key_length)
-        # ==========================================================================================
 
         if is_generation_cache_enabled():
             past_key_values = (
@@ -227,10 +213,6 @@ class BaseModelMixin(PreTrainedModelMixin):
     ) -> torch.Tensor:
         past_length = key_length - query_length
 
-        # ==========================================================================================
-        # attention_mask -> (batch_size, key_length)
-        # ==========================================================================================
-
         if query_length > 1:
             # (query_length, key_length)
             causal_mask = torch.empty((query_length, key_length), dtype=torch.bool, device=device)
@@ -258,15 +240,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 # (batch_size, query_length, key_length)
                 causal_mask = attention_mask.unsqueeze(1).to(dtype=torch.bool, device=device)
 
-        # ==========================================================================================
-        # attention_mask -> (batch_size, query_length, key_length)
-        # ==========================================================================================
-
         causal_mask = causal_mask.unsqueeze(1)
-
-        # ==========================================================================================
-        # attention_mask -> (batch_size, 1, query_length, key_length)
-        # ==========================================================================================
 
         return causal_mask
 
@@ -312,17 +286,6 @@ class BaseModelMixin(PreTrainedModelMixin):
                 "inputs"
             )
 
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> None or (batch_size, key_length)
-        # ==========================================================================================
-
         past_length = None
         query_length = None
         key_length = None
@@ -338,34 +301,9 @@ class BaseModelMixin(PreTrainedModelMixin):
                 attention_mask, past_length, query_length, key_length, input_ids.device
             )
 
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> (batch_size, query_length)
-        # ==========================================================================================
-
         hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
 
-        # ==========================================================================================
-        # padding_free:
-        #     hidden_states -> (total_q, num_heads * head_dim)
-        # else:
-        #     hidden_states -> (batch_size, query_length, num_heads * head_dim)
-        # ==========================================================================================
-
         rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
-
-        # ==========================================================================================
-        # padding_free:
-        #     rope_cos_sin -> 2 * (max_seqlen, head_dim)
-        # else:
-        #     rope_cos_sin -> 2 * (key_length, head_dim)
-        # ==========================================================================================
 
         attention_mask = self._get_maybe_causal_mask(
             attention_mask, batch_size, query_length, key_length, hidden_states.dtype, input_ids.device
