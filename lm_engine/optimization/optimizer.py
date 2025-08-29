@@ -67,7 +67,21 @@ def get_optimizer_container(
         raise ImportError("relevant package for the optimizer is not installed")
 
     params_groups_list = get_param_groups_list(model_container, optimizer_class_args, params_group_method)
-
+    # TODO hack for length-extension
+    # for group in params_groups_list:
+    #     for param in group:
+    #         for p in param[1]:
+    #             # p.parameter_name_map = {k: p.parameter_name_map[k] for k in p.parameter_name_map}
+    #             # for k in p.parameter_name_map:
+    #             #     print(k)
+    #             p.parameter_name_map = {
+    #                 k: p.parameter_name_map[k]
+    #                 for k in p.parameter_name_map
+    #                 if (
+    #                     'sequence_mixer' in k or
+    #                     'wte' in k
+    #                 )
+    #             }
     if use_optimizer_with_backward_hook:
         for model, params_groups in zip(model_container, params_groups_list):
             for param_name, param in model.named_parameters():

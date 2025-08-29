@@ -14,6 +14,7 @@ class _SoftmaxAttentionArgs(BaseArgs):
     softmax_dropout: float = 0
     dropout: float = 0
     add_bias: bool = True
+    causal: bool = True
     attention_multiplier: float | None = None
 
     def model_post_init(self, __context: Any) -> None:

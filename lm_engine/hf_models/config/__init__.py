@@ -215,7 +215,6 @@ class CommonConfig(PretrainedConfig):
                 sequence_mixer_block["intermediate_size"] = sequence_mixer_block.pop(
                     "intermediate_size", 2 * self.hidden_size
                 )
-
             sequence_mixer_blocks.append(_SEQUENCE_MIXER_CONFIG_CLASSES[sequence_mixer_type](**sequence_mixer_block))
 
         self.sequence_mixer_blocks = sequence_mixer_blocks

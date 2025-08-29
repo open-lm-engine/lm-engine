@@ -19,6 +19,9 @@ from .models import (
     PaLMConfig,
     PaLMForCausalLM,
     PaLMModel,
+    DiffusionConfig,
+    DiffusionMaskedLM,
+    DiffusionModel
 )
 
 
@@ -28,6 +31,7 @@ _CUSTOM_MODEL_REGISTRY = [
     (GPTCrossLayerConfig, GPTCrossLayerModel, GPTCrossLayerForCausalLM),
     (LadderResidualConfig, LadderResidualModel, LadderResidualForCausalLM),
     (PaLMConfig, PaLMModel, PaLMForCausalLM),
+    (DiffusionConfig, DiffusionModel, DiffusionMaskedLM)
 ]
 _CUSTOM_MODEL_TYPES = []
 _CUSTOM_MODEL_CLASSES = []

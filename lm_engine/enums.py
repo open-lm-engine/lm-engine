@@ -33,6 +33,7 @@ class TuningMethod(Enum):
     """training method"""
 
     pretraining = "pretraining"
+    pretraining_diffusion = "pretraining_diffusion"
     full_finetuning = "full_finetuning"
     distillation = "distillation"
 
