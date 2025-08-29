@@ -238,7 +238,7 @@ class GPTBaseAttentionTest(TestCommons):
 
         attention_mask = torch.ones_like(input_ids)
 
-        model = self.from_config(config, torch_dtype=dtype).to(device)
+        model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         with enable_kernels([Kernel.flash_attention_2]):
