@@ -181,7 +181,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
     @classmethod
     def from_pretrained(
-        cls, pretrained_model_name_or_path: str, torch_dtype: torch.dtype = torch.float32, **kwargs
+        cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
     ) -> CausalLMModelMixin_TP:
         config: CommonConfig = cls.config_class.from_pretrained(pretrained_model_name_or_path)
 
@@ -189,7 +189,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
         with torch.device("meta"):
             # try sharding vocab matrices if really struggling for memory
             model = cls._from_config(config, **kwargs)
-            model = model.to(dtype=torch_dtype)
+            model = model.to(dtype=dtype)
 
         # copy to device without copying storage
         model = model.to_empty(device=torch.cuda.current_device())

@@ -20,27 +20,20 @@ SEED = 1234
 class GPTBaseAttentionTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [torch.device("cuda")],
-            TestCommons.get_attention_head_types(),
-            TestCommons.get_position_embedding_types(),
-            [torch.float16, torch.bfloat16],
+            [torch.device("cuda")], TestCommons.get_position_embedding_types(), [torch.float16, torch.bfloat16]
         )
     )
     def test_sdpa_padding_free_transformer_equivalence(
-        self,
-        device: torch.device,
-        attention_head_type: str,
-        position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        self, device: torch.device, position_embedding_type: str, dtype: torch.dtype
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
         set_seed(SEED)
 
-        config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
+        config = self.get_dense_test_config(position_embedding_type, num_layers=1)
 
-        sdpa_model = self.from_config(config, torch_dtype=torch_dtype).to(device)
-        flash_model = self.from_config(config, torch_dtype=torch_dtype, use_padding_free_transformer=True).to(device)
+        sdpa_model = self.from_config(config, dtype=dtype).to(device)
+        flash_model = self.from_config(config, dtype=dtype, use_padding_free_transformer=True).to(device)
 
         sdpa_model.eval()
         flash_model.eval()
@@ -73,27 +66,20 @@ class GPTBaseAttentionTest(TestCommons):
 
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [torch.device("cuda")],
-            TestCommons.get_attention_head_types(),
-            TestCommons.get_position_embedding_types(),
-            [torch.float16, torch.bfloat16],
+            [torch.device("cuda")], TestCommons.get_position_embedding_types(), [torch.float16, torch.bfloat16]
         )
     )
     def test_sdpa_flash_attention_equivalence(
-        self,
-        device: torch.device,
-        attention_head_type: str,
-        position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        self, device: torch.device, position_embedding_type: str, dtype: torch.dtype
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
         set_seed(SEED)
 
         input_ids, attention_mask, labels = self.get_dummy_inputs(device)
-        config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
+        config = self.get_dense_test_config(position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
@@ -122,26 +108,19 @@ class GPTBaseAttentionTest(TestCommons):
 
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [torch.device("cuda")],
-            TestCommons.get_attention_head_types(),
-            TestCommons.get_position_embedding_types(),
-            [torch.float16, torch.bfloat16],
+            [torch.device("cuda")], TestCommons.get_position_embedding_types(), [torch.float16, torch.bfloat16]
         )
     )
     def test_padding_free_transformer_with_list_and_tensor(
-        self,
-        device: torch.device,
-        attention_head_type: str,
-        position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        self, device: torch.device, position_embedding_type: str, dtype: torch.dtype
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
         set_seed(SEED)
 
-        config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
+        config = self.get_dense_test_config(position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype, use_padding_free_transformer=True).to(device)
+        model = self.from_config(config, dtype=dtype, use_padding_free_transformer=True).to(device)
         model.eval()
 
         with enable_kernels([Kernel.flash_attention_2]):
@@ -174,26 +153,17 @@ class GPTBaseAttentionTest(TestCommons):
 
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [torch.device("cuda")],
-            TestCommons.get_attention_head_types(),
-            TestCommons.get_position_embedding_types(),
-            [torch.float16, torch.bfloat16],
+            [torch.device("cuda")], TestCommons.get_position_embedding_types(), [torch.float16, torch.bfloat16]
         )
     )
-    def test_sdpa_flash_enabled(
-        self,
-        device: torch.device,
-        attention_head_type: str,
-        position_embedding_type: str,
-        torch_dtype: torch.dtype,
-    ) -> None:
+    def test_sdpa_flash_enabled(self, device: torch.device, position_embedding_type: str, dtype: torch.dtype) -> None:
         self.skip_test_if_device_unavailable(device)
 
         set_seed(SEED)
 
-        config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
+        config = self.get_dense_test_config(position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         input_ids, _, labels = self.get_dummy_inputs(device)
@@ -220,29 +190,22 @@ class GPTBaseAttentionTest(TestCommons):
 
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [torch.device("cuda")],
-            TestCommons.get_attention_head_types(),
-            TestCommons.get_position_embedding_types(),
-            [torch.float16, torch.bfloat16],
+            [torch.device("cuda")], TestCommons.get_position_embedding_types(), [torch.float16, torch.bfloat16]
         )
     )
     def test_flash_attention_equivalence_with_and_without_attention_masks(
-        self,
-        device: torch.device,
-        attention_head_type: str,
-        position_embedding_type: str,
-        torch_dtype: torch.dtype,
+        self, device: torch.device, position_embedding_type: str, dtype: torch.dtype
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
         set_seed(SEED)
 
         input_ids, _, labels = self.get_dummy_inputs(device)
-        config = self.get_dense_test_config(attention_head_type, position_embedding_type, num_layers=1)
+        config = self.get_dense_test_config(position_embedding_type, num_layers=1)
 
         attention_mask = torch.ones_like(input_ids)
 
-        model = self.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         with enable_kernels([Kernel.flash_attention_2]):

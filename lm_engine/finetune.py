@@ -14,7 +14,7 @@ from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from .data import ResumableDataLoader, custom_iterator, get_finetuning_dataloader, get_next_batch
 from .distributed import wrap_model_container_for_distributed_training
 from .dtensors import dtensor_to_tensor
-from .enums import DatasetSplit, Mode, TuningMethod
+from .enums import DatasetSplit, TuningMethod
 from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
 from .model_wrapper import get_model_container

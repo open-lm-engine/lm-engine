@@ -144,7 +144,6 @@ class Attention(nn.Module):
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
 
-        if self.use_padding_free_transformer:
             total_q = hidden_states.shape[0]
             input_shape = (total_q, self.num_key_value_heads, -1)
             output_shape = (total_q, -1, self.head_dim)

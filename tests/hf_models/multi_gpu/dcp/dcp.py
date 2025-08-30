@@ -18,7 +18,6 @@ from lm_engine.utils import ProcessGroupManager, load_yaml
 parser = argparse.ArgumentParser()
 parser.add_argument("--train-config", type=str)
 parser.add_argument("--unshard-config", type=str)
-parser.add_argument("--attention-head-type", type=str)
 parser.add_argument("--activation-function", type=str)
 parser.add_argument("--tmp-path", type=str)
 parser.add_argument("--zero-stage", type=int)
@@ -29,12 +28,7 @@ args = parser.parse_args()
 train_config = TrainingArgs(**load_yaml(args.train_config))
 unshard_config = UnshardingArgs(**load_yaml(args.unshard_config))
 
-if args.attention_head_type == "mha":
-    num_key_value_heads = train_config.model_args.pretrained_config["sequence_mixer_blocks"][0]["num_attention_heads"]
-elif args.attention_head_type == "mqa":
-    num_key_value_heads = 1
-else:
-    num_key_value_heads = 8
+num_key_value_heads = 8
 
 # set zero stage
 train_config.distributed_args.stage = args.zero_stage
