@@ -26,7 +26,7 @@ class UnshardingTest(TestCommons):
                 str(gpus_per_node),
                 "-m",
                 "tests.hf_models.multi_gpu.unsharding.unsharding",
-                "--attention-head-type",
+                "--activation-function",
                 activation_function,
                 "--tmp-path",
                 tmp_path,
