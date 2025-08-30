@@ -102,7 +102,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         loss = None
 
         if labels is None:
-            if is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute):
+            if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
                 if self.m_width is not None:
                     hidden_states = hidden_states / self.m_width
             else:
@@ -111,7 +111,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 if self.m_width is not None:
                     lm_logits = lm_logits / self.m_width
         else:
-            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
             lm_logits = self.get_lm_logits(hidden_states)
 
