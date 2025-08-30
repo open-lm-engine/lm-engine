@@ -58,7 +58,7 @@ class RoPE(nn.Module):
         self.register_buffer("sin_cached", (emb.sin() * self.mscale).to(device=device, dtype=dtype), persistent=False)
 
     def _get_inv_freq(self) -> torch.Tensor:
-        return 1.0 / (self.base ** (torch.arange(0, self.head_dim, 2, dtype=torch.float32) / self.head_dim))
+        return 1.0 / (self.base ** (torch.arange(0, self.head_dim, 2, dtype=torch.float32) * (1 / self.head_dim)))
 
 
 class YaRNScaledRoPE(RoPE):
@@ -92,7 +92,7 @@ class YaRNScaledRoPE(RoPE):
         self.reset_parameters()
 
     def _get_inv_freq(self) -> torch.Tensor:
-        pos_freqs = self.base ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim)
+        pos_freqs = self.base ** (torch.arange(0, self.head_dim, 2).float() * (1 / self.head_dim))
         inv_freq_extrapolation = 1.0 / pos_freqs
         inv_freq_interpolation = 1.0 / (self.scale * pos_freqs)
 
