@@ -24,7 +24,6 @@ kernel_args:
   kernels:
     - rmsnorm_cute
     - gru_cute
-    - hippo_rnn_cute
     - rnn_cute
     - scattermoe
     - mamba2_ssm

@@ -14,7 +14,6 @@ from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import (
     _CausalConvolution,
     _GRUArgs,
-    _HiPPO_RNNArgs,
     _Mamba2Args,
     _MultiHeadLatentAttentionArgs,
     _RNNArgs,
@@ -69,7 +68,6 @@ _NAKED_DISALLOWED_ARGS = [
 _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "causal_convolution": _CausalConvolution,
     "gru": _GRUArgs,
-    "hippo_rnn": _HiPPO_RNNArgs,
     "mamba2": _Mamba2Args,
     "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
@@ -203,7 +201,6 @@ class CommonConfig(PretrainedConfig):
         sequence_mixer_blocks: list[
             _CausalConvolution
             | _GRUArgs
-            | _HiPPO_RNNArgs
             | _Mamba2Args
             | _MultiHeadLatentAttentionArgs
             | _RNNArgs
