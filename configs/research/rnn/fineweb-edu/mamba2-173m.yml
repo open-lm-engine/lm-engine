@@ -9,24 +9,22 @@ datasets:
     data_sampling_ratio: 1
     class_args:
       eval_steps: 2
-      data_cache_path: /u/shawntan/proj/mayank/data-cache
+      data_cache_path: /mnt/vast/proj/checkpoints/granite-4-models-carina/data-cache
       # Option 1: data loading using --data-path with single file
       data_path:
-        - 0.5
-        - /proj/datasets/granite-4-datasets-megatron-merged/web-nemotron-cc-hq-p2_0
-        - 0.5
-        - /proj/datasets/granite-4-datasets-megatron-merged/web-nemotron-cc-hq-p2_1
+        - /mnt/vast/proj/datasets/starcoder-tokenized-fineweb/fineweb-edu
       split: 99.5,0.5,0
       # split: 1,0,0
       sequence_length: 4096
 
 tokenizer_args:
-  tokenizer_name: /proj/checkpoints/dmf-lh-checkpoints/granite-4.0-tiktoken
+  tokenizer_name: bigcode/starcoder
 
 kernel_args:
   kernels:
-    - rnn
-    - gru
+    - rmsnorm_cute
+    - rnn_cute
+    - gru_cute
     - scattermoe
     - mamba2_ssm
     - flash_attention_2
@@ -46,10 +44,9 @@ model_args:
     num_layers: 24
     init_method: mup
     router_aux_loss_coef: 0.0001
-    bos_token_id: 100257
-    eos_token_id: 100257
-    pad_token_id: 100256
-    vocab_size: 100352
+    bos_token_id: 0
+    eos_token_id: 0
+    pad_token_id: 0
     max_position_embeddings: 4096
     sequence_mixer_blocks:
       - sequence_mixer_type: mamba2
@@ -395,11 +392,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/mamba2-173m
+  save_path: /mnt/vast/proj/checkpoints/mayank/mamba2-173m
   save_interval: 5000
 
 # load_args:
-#   load_path: /u/shawntan/proj/mayank/checkpoints/mamba2-173m
+#   load_path: /mnt/vast/proj/checkpoints/mayank/mamba2-173m
 
 logging_args:
   log_interval: 10
@@ -407,13 +404,13 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: model-architectures
-    name: mamba2-nemo-173m
+    name: mamba2-173m
 
 training_parameters:
   num_training_steps: 25000
   eval_interval: 2500
-  micro_batch_size: 16
-  gradient_accumulation_steps: 2
+  micro_batch_size: 48
+  gradient_accumulation_steps: 3
   eval_during_training: true
 
 optimizer_args:
@@ -434,11 +431,11 @@ lr_scheduler_args:
   num_decay_steps: 25000
   extra_lr_scheduler_args:
     # 4 * global_batch_size
-    a: 4096
+    a: 4608
     # constant
     b: -0.51
     # global_batch_size in number of tokens
-    c: 4194304
+    c: 4718592
 
 mixed_precision_args:
   dtype: bf16
