@@ -12,7 +12,7 @@ from ...test_common import TestCommons
 
 
 class UnshardingTest(TestCommons):
-    @parameterized.expand(TestCommons.make_args_matrix(["gelu", "geglu"]))
+    @parameterized.expand(["gelu", "geglu"])
     @TestCommons.slow_test
     def test_unsharding(self, activation_function: str) -> None:
         self.skip_test_if_device_unavailable(torch.device("cuda"))
