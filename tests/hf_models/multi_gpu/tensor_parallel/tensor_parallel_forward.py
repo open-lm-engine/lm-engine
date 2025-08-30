@@ -18,7 +18,6 @@ from ...test_common import TestCommons
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--attention-head-type", type=str)
 parser.add_argument("--position-embedding-type", type=str)
 parser.add_argument("--attention-implementation", type=str)
 parser.add_argument("--dtype", type=str)
@@ -33,13 +32,7 @@ set_seed(42)
 ProcessGroupManager(tensor_parallel_world_size=int(os.getenv("WORLD_SIZE")))
 
 dtype = string_to_torch_dtype(args.dtype)
-
-if args.attention_head_type == "mha":
-    num_key_value_heads = 16
-elif args.attention_head_type == "mqa":
-    num_key_value_heads = 1
-else:
-    num_key_value_heads = 8
+num_key_value_heads = 8
 
 if args.model_type == "gpt_base":
     config = GPTBaseConfig(

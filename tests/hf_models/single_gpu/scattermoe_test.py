@@ -25,7 +25,7 @@ class ScatterMoETest(TestCommons):
 
         input_ids, attention_mask, _ = self.get_dummy_inputs(device)
 
-        config = self.get_moe_test_config("mha", "rope", num_layers=1, add_bias=False)
+        config = self.get_moe_test_config("rope", num_layers=1, add_bias=False)
 
         model = self.from_config(config, dtype=dtype).to(device)
         model.eval()

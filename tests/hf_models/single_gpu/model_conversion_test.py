@@ -11,32 +11,19 @@ from ..test_common import TestCommons
 
 
 class ModelConversionTest(TestCommons):
-    @parameterized.expand(
-        TestCommons.make_args_matrix(
-            TestCommons.get_all_devices(), TestCommons.get_attention_head_types(), [True, False]
-        )
-    )
-    def test_llama_model_conversion(self, device: torch.device, attention_head_type: str, add_bias: bool) -> None:
+    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
+    def test_llama_model_conversion(self, device: torch.device, add_bias: bool) -> None:
         lm_engine_config = self.get_dense_test_config(
-            attention_head_type,
-            "rope",
-            add_bias=add_bias,
-            activation_function="swiglu",
-            normalization_function="rmsnorm",
+            "rope", add_bias=add_bias, activation_function="swiglu", normalization_function="rmsnorm"
         )
 
         self.model_conversion_test(
             lm_engine_config=lm_engine_config, model_type="llama", device=device, exact_match=False
         )
 
-    @parameterized.expand(
-        TestCommons.make_args_matrix(
-            TestCommons.get_all_devices(), TestCommons.get_attention_head_types(), [True, False]
-        )
-    )
-    def test_granite_model_conversion(self, device: torch.device, attention_head_type: str, add_bias: bool) -> None:
+    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
+    def test_granite_model_conversion(self, device: torch.device, add_bias: bool) -> None:
         lm_engine_config = self.get_dense_test_config(
-            attention_head_type,
             "rope",
             add_bias=add_bias,
             activation_function="swiglu",
@@ -49,18 +36,10 @@ class ModelConversionTest(TestCommons):
             lm_engine_config=lm_engine_config, model_type="granite", device=device, exact_match=False
         )
 
-    @parameterized.expand(
-        TestCommons.make_args_matrix(TestCommons.get_all_devices(), TestCommons.get_attention_head_types())
-    )
-    def test_granitemoe_model_conversion(self, device: torch.device, attention_head_type: str) -> None:
+    @parameterized.expand(TestCommons.get_all_devices())
+    def test_granitemoe_model_conversion(self, device: torch.device) -> None:
         lm_engine_config = self.get_moe_test_config(
-            attention_head_type,
-            "rope",
-            add_bias=False,
-            activation_function="swiglu",
-            normalization_function="rmsnorm",
-            m_emb=2,
-            m_width=2,
+            "rope", add_bias=False, activation_function="swiglu", normalization_function="rmsnorm", m_emb=2, m_width=2
         )
 
         self.model_conversion_test(
@@ -71,12 +50,9 @@ class ModelConversionTest(TestCommons):
             compare_loss=False,
         )
 
-    @parameterized.expand(
-        TestCommons.make_args_matrix(TestCommons.get_all_devices(), TestCommons.get_attention_head_types())
-    )
-    def test_granitemoeshared_model_conversion(self, device: torch.device, attention_head_type: str) -> None:
+    @parameterized.expand(TestCommons.get_all_devices())
+    def test_granitemoeshared_model_conversion(self, device: torch.device) -> None:
         lm_engine_config = self.get_moe_test_config(
-            attention_head_type,
             "rope",
             add_bias=False,
             shared_n_inner=64,
@@ -94,17 +70,10 @@ class ModelConversionTest(TestCommons):
             compare_loss=False,
         )
 
-    @parameterized.expand(
-        TestCommons.make_args_matrix(
-            TestCommons.get_all_devices(), TestCommons.get_attention_head_types(), [True, False]
-        )
-    )
-    def test_granitemoehybrid_model_conversion(
-        self, device: torch.device, attention_head_type: str, is_moe: bool
-    ) -> None:
+    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
+    def test_granitemoehybrid_model_conversion(self, device: torch.device, is_moe: bool) -> None:
         if is_moe:
             lm_engine_config = self.get_moe_test_config(
-                attention_head_type,
                 "nope",
                 add_bias=False,
                 shared_n_inner=64,
@@ -115,7 +84,6 @@ class ModelConversionTest(TestCommons):
             )
         else:
             lm_engine_config = self.get_dense_test_config(
-                attention_head_type,
                 "nope",
                 add_bias=False,
                 activation_function="swiglu",
