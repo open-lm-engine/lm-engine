@@ -19,7 +19,7 @@ def collate_fn(
     use_padding_free_transformer: bool,
     labels_mask_value: int = -100,
     pad_to_multiple_of: int = 1,
-    device: torch.device = None,
+    device: torch.device | None = None,
 ) -> dict:
     """prepares the batch with padding to pass into the forward function of the HuggingFace model
 

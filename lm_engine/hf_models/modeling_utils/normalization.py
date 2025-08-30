@@ -37,18 +37,10 @@ class RMSNorm(nn.RMSNorm):
 
 
 class PNorm(RMSNorm):
-    def __init__(
-        self,
-        normalized_shape: int,
-        p: int,
-        eps: float | None = None,
-        elementwise_affine=True,
-        device: torch.device = None,
-        dtype: torch.dtype = None,
-    ) -> PNorm:
+    def __init__(self, normalized_shape: int, p: int, eps: float | None = None, elementwise_affine=True) -> PNorm:
         assert p == 2
         self.p = p
-        super().__init__(normalized_shape, eps, elementwise_affine, device, dtype)
+        super().__init__(normalized_shape, eps, elementwise_affine)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         if is_kernel_allowed(Kernel.p_norm):

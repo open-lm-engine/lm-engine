@@ -21,8 +21,6 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         in_features: int,
         out_features: int,
         bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
@@ -36,14 +34,7 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
             f"`out_features` ({out_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
         )
 
-        super().__init__(
-            in_features=in_features,
-            out_features=self.out_features_per_device,
-            bias=bias,
-            device=device,
-            dtype=dtype,
-            std=std,
-        )
+        super().__init__(in_features=in_features, out_features=self.out_features_per_device, bias=bias, std=std)
 
         self.weight = nn.Parameter(
             tensor_to_dtensor(
@@ -82,8 +73,6 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
         in_features: int,
         out_features: int,
         bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
@@ -97,14 +86,7 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
             f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
         )
 
-        super().__init__(
-            in_features=self.in_features_per_device,
-            out_features=out_features,
-            bias=bias,
-            device=device,
-            dtype=dtype,
-            std=std,
-        )
+        super().__init__(in_features=self.in_features_per_device, out_features=out_features, bias=bias, std=std)
 
         self.weight = nn.Parameter(
             tensor_to_dtensor(

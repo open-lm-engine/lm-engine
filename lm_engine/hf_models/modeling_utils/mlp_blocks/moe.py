@@ -49,22 +49,15 @@ def compute_bincount(x: torch.Tensor, size: int, use_continuous_count: bool) -> 
 
 class ParameterizedExperts(nn.Module):
     def __init__(
-        self,
-        num_experts: int,
-        in_features: int,
-        out_features: int,
-        add_bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
+        self, num_experts: int, in_features: int, out_features: int, add_bias: bool = True, std: float | None = None
     ) -> ParameterizedExperts:
         super().__init__()
 
-        self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features, device=device, dtype=dtype))
+        self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features))
 
         self.bias = None
         if add_bias:
-            self.bias = nn.Parameter(torch.empty(num_experts, out_features, device=device, dtype=dtype))
+            self.bias = nn.Parameter(torch.empty(num_experts, out_features))
 
         self.std = std
 
@@ -72,13 +65,8 @@ class ParameterizedExperts(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        self.register_buffer(
-            "N_array", torch.empty((num_experts,), device=device, dtype=torch.uint32), persistent=False
-        )
-
-        self.register_buffer(
-            "K_array", torch.empty((num_experts,), device=device, dtype=torch.uint32), persistent=False
-        )
+        self.register_buffer("N_array", torch.empty((num_experts,), dtype=torch.uint32), persistent=False)
+        self.register_buffer("K_array", torch.empty((num_experts,), dtype=torch.uint32), persistent=False)
 
         self.reset_parameters()
 

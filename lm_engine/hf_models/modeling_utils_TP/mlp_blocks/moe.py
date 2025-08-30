@@ -28,17 +28,9 @@ if is_fma_available():
 
 class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
     def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
+        self, in_features: int, out_features: int, bias: bool = True, std: float | None = None
     ) -> ReplicatedLinear_TP:
-        super().__init__(
-            in_features=in_features, out_features=out_features, bias=bias, device=device, dtype=dtype, std=std
-        )
+        super().__init__(in_features=in_features, out_features=out_features, bias=bias, std=std)
 
         self.weight = nn.Parameter(
             tensor_to_dtensor(
@@ -49,14 +41,7 @@ class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
 
 class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
-        self,
-        num_experts: int,
-        in_features: int,
-        out_features: int,
-        add_bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
+        self, num_experts: int, in_features: int, out_features: int, add_bias: bool = True, std: float | None = None
     ) -> ColumnParallelExperts:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
 
@@ -71,8 +56,6 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
             in_features=in_features,
             out_features=self.out_features_per_device,
             add_bias=add_bias,
-            device=device,
-            dtype=dtype,
             std=std,
         )
 
@@ -115,14 +98,7 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
 
 class RowParallelExperts(ColumnParallelExperts):
     def __init__(
-        self,
-        num_experts: int,
-        in_features: int,
-        out_features: int,
-        add_bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
+        self, num_experts: int, in_features: int, out_features: int, add_bias: bool = True, std: float | None = None
     ) -> RowParallelExperts:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
 
@@ -138,8 +114,6 @@ class RowParallelExperts(ColumnParallelExperts):
             in_features=self.in_features_per_device,
             out_features=out_features,
             add_bias=add_bias,
-            device=device,
-            dtype=dtype,
             std=std,
         )
 
