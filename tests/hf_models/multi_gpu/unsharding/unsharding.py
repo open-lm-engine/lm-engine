@@ -24,7 +24,6 @@ from ...test_common import TestCommons
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--attention-head-type", type=str)
 parser.add_argument("--activation-function", type=str)
 parser.add_argument("--tmp-path", type=str)
 args = parser.parse_args()
@@ -33,13 +32,7 @@ args = parser.parse_args()
 ProcessGroupManager(tensor_parallel_world_size=int(os.getenv("WORLD_SIZE")))
 
 is_tp_first_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
-
-if args.attention_head_type == "mha":
-    num_key_value_heads = 16
-elif args.attention_head_type == "mqa":
-    num_key_value_heads = 1
-else:
-    num_key_value_heads = 8
+num_key_value_heads = 8
 
 config = GPTBaseConfig(
     num_layers=2,

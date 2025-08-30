@@ -17,7 +17,7 @@ from ...cache import GenerationCache
 from ...modeling_utils import Attention, apply_rotary_pos_emb, flash_attention
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
 from ..dropout import Dropout_TP
-from ..linear import ColumnParallelLinear, ReplicatedLinear, RowParallelLinear
+from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
 class Attention_TP(Attention):
@@ -73,54 +73,26 @@ class Attention_TP(Attention):
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
-        if self.global_num_heads > 1 and self.global_num_key_value_heads == 1:
-            # MQA
-            self.num_key_value_heads = 1
-            self.is_mqa = True
+        divide_if_divisible(
+            self.global_num_heads,
+            self.global_num_key_value_heads,
+            f"`num_heads` ({self.global_num_heads}) should be a multiple of `num_key_value_heads` ({self.global_num_key_value_heads})",
+        )
 
-            self.c_attn = _MQA_QueryKeyValueProjection(
-                hidden_size=hidden_size,
-                num_attention_heads=num_attention_heads,
-                add_bias=add_bias,
-                m_width=m_width,
-                num_layers=num_layers,
-                init_method=init_method,
-                initializer_range=initializer_range,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
-        else:
-            self.is_mqa = False
+        self.num_key_value_heads = divide_if_divisible(
+            self.global_num_key_value_heads,
+            tp_world_size,
+            f"`num_key_value_heads` ({self.global_num_key_value_heads}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
+        )
 
-            assert (
-                self.global_num_key_value_heads is not None
-            ), "`num_key_value_heads` needs to be specified with GroupedQueryAttention"
-
-            assert self.global_num_key_value_heads > 1, (
-                "GroupedQueryAttention should have more than 1 head for keys and values, use MultiQueryAttention class if "
-                "you want to use 1 head for keys and values"
-            )
-
-            divide_if_divisible(
-                self.global_num_heads,
-                self.global_num_key_value_heads,
-                f"`num_heads` ({self.global_num_heads}) should be a multiple of `num_key_value_heads` ({self.global_num_key_value_heads})",
-            )
-
-            self.num_key_value_heads = divide_if_divisible(
-                self.global_num_key_value_heads,
-                tp_world_size,
-                f"`num_key_value_heads` ({self.global_num_key_value_heads}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
-            )
-
-            self.c_attn = ColumnParallelLinear(
-                self.global_hidden_size,
-                self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
-                bias=self.add_bias,
-                std=std,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
+        self.c_attn = ColumnParallelLinear(
+            self.global_hidden_size,
+            self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
+            bias=self.add_bias,
+            std=std,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
+        )
 
         self.c_proj = RowParallelLinear(
             self.global_hidden_size,
@@ -182,24 +154,13 @@ class Attention_TP(Attention):
 
         hidden_states = self.c_attn(hidden_states)
 
-        if self.is_mqa:
-            query, key, value = hidden_states
+        hidden_states = hidden_states.view(*input_shape)
 
-            if self.use_padding_free_transformer:
-                query = query.view(total_q, -1, self.head_dim)
-            else:
-                query = query.view(batch_size, query_length, -1, self.head_dim)
+        query, key, value = hidden_states.split(
+            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
+        )
 
-            key = key.unsqueeze(-2)
-            value = value.unsqueeze(-2)
-        else:
-            hidden_states = hidden_states.view(*input_shape)
-
-            query, key, value = hidden_states.split(
-                ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
-            )
-
-            query = query.reshape(*output_shape)
+        query = query.reshape(*output_shape)
 
         if not self.use_padding_free_transformer:
             query = query.transpose(1, 2)
@@ -266,61 +227,3 @@ class Attention_TP(Attention):
         hidden_states = self.dropout(hidden_states)
 
         return hidden_states
-
-
-class _MQA_QueryKeyValueProjection(nn.Module):
-    def __init__(
-        self,
-        hidden_size: int,
-        num_attention_heads: int,
-        add_bias: bool,
-        m_width: int,
-        num_layers: int,
-        init_method: str,
-        initializer_range: float,
-        use_padding_free_transformer: bool = False,
-        sequence_parallel: bool = False,
-    ) -> None:
-        super().__init__()
-
-        self.global_hidden_size = hidden_size
-        self.add_bias = add_bias
-
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
-
-        hidden_size = divide_if_divisible(
-            self.global_hidden_size, tp_world_size, "hidden_size should be divisible by TP world size"
-        )
-
-        num_heads = divide_if_divisible(
-            num_attention_heads, tp_world_size, "num_heads must be divisible by TP world size"
-        )
-        self.head_dim = divide_if_divisible(hidden_size, num_heads, "")
-
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
-
-        self.q_attn = ColumnParallelLinear(
-            self.global_hidden_size,
-            self.global_hidden_size,
-            bias=self.add_bias,
-            std=std,
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
-        )
-
-        self.kv_attn = ReplicatedLinear(
-            self.global_hidden_size,
-            2 * self.head_dim,
-            bias=self.add_bias,
-            std=std / math.sqrt(2 * num_layers),
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
-        )
-
-    def forward(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        query = self.q_attn(hidden_states)
-
-        key_value = self.kv_attn(hidden_states)
-        key, value = key_value.chunk(2, -1)
-
-        return query, key, value

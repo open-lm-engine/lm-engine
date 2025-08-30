@@ -10,25 +10,25 @@ import torch.nn.functional as F
 
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
-from ...utils import is_cute_kernels_available
+from ...utils import is_fma_available
 from ..parameter import mark_parameter_as_no_weight_decay
 
 
-if is_cute_kernels_available():
-    from cute_kernels import p_norm_cute, rmsnorm_cute
+if is_fma_available():
+    from fma import p_norm, rmsnorm
 
 
 class RMSNorm(nn.RMSNorm):
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        rmsnorm_cute_allowed = is_kernel_allowed(Kernel.rmsnorm_cute)
-        rmsnorm_memory_efficient_cute_allowed = is_kernel_allowed(Kernel.rmsnorm_memory_efficient_cute)
+        rmsnorm_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm)
+        rmsnorm_memory_efficient_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm_memory_efficient)
 
-        if rmsnorm_cute_allowed or rmsnorm_memory_efficient_cute_allowed:
-            hidden_states = rmsnorm_cute(
+        if rmsnorm_kernel_allowed or rmsnorm_memory_efficient_kernel_allowed:
+            hidden_states = rmsnorm(
                 x=hidden_states,
                 weight=self.weight,
                 eps=self.eps,
-                memory_efficient=rmsnorm_memory_efficient_cute_allowed,
+                memory_efficient=rmsnorm_memory_efficient_kernel_allowed,
             )
         else:
             hidden_states = super().forward(hidden_states)
@@ -51,8 +51,8 @@ class PNorm(RMSNorm):
         super().__init__(normalized_shape, eps, elementwise_affine, device, dtype)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.p_norm_cute):
-            hidden_states = p_norm_cute(x=hidden_states, p=self.p, weight=self.weight, eps=self.eps)
+        if is_kernel_allowed(Kernel.p_norm):
+            hidden_states = p_norm(x=hidden_states, p=self.p, weight=self.weight, eps=self.eps)
         else:
             dtype = hidden_states.dtype
 

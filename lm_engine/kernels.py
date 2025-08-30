@@ -8,13 +8,13 @@ import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor
 
 from .enums import Kernel
-from .utils import is_cute_kernels_available
+from .utils import is_fma_available
 
 
-if is_cute_kernels_available():
-    from cute_kernels.utils import get_boolean_env_variable
+if is_fma_available():
+    from fma.utils import get_boolean_env_variable
 
-    _ENABLE_ALL_KERNELS = get_boolean_env_variable("ENABLE_ALL_CUTE_KERNELS", False)
+    _ENABLE_ALL_KERNELS = get_boolean_env_variable("ENABLE_ALL_KERNELS", False)
 else:
     _ENABLE_ALL_KERNELS = False
 

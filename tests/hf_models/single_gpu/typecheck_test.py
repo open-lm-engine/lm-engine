@@ -17,7 +17,7 @@ class TypeCheckTest(TestCommons):
         self.skip_test_if_device_unavailable(device)
 
         config = self.get_dense_test_config(
-            attention_head_type="mha", position_embedding_type="learned_absolute", num_layers=8, num_attention_heads=32
+            position_embedding_type="learned_absolute", num_layers=8, num_attention_heads=32
         )
         model = self.from_config(config, use_padding_free_transformer=True).to(device)
         model.eval()

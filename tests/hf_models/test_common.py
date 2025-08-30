@@ -21,10 +21,6 @@ _RUN_SLOW = True if os.getenv("RUN_SLOW", "False").lower() in ["1", "true"] else
 
 class TestCommons(BaseTestCommons):
     @staticmethod
-    def get_attention_head_types() -> list[str]:
-        return ["mha", "mqa", "gqa"]
-
-    @staticmethod
     def get_attention_implementations() -> list[str]:
         return ["sdpa", "flash_attention_2"]
 
@@ -42,7 +38,6 @@ class TestCommons(BaseTestCommons):
 
     @staticmethod
     def get_dense_test_config(
-        attention_head_type: str,
         position_embedding_type: str,
         num_layers: int = 8,
         add_bias: bool = True,
@@ -54,14 +49,7 @@ class TestCommons(BaseTestCommons):
         attention_multiplier: float = None,
         num_attention_heads: int = 4,
     ) -> GPTBaseConfig:
-        if attention_head_type == "mha":
-            num_key_value_heads = num_attention_heads
-        elif attention_head_type == "mqa":
-            num_key_value_heads = 1
-        elif attention_head_type == "gqa":
-            num_key_value_heads = 2
-        else:
-            raise ValueError(f"unexpected attention_head_type ({attention_head_type})")
+        num_key_value_heads = 2
 
         return GPTBaseConfig(
             vocab_size=2048,
@@ -95,7 +83,6 @@ class TestCommons(BaseTestCommons):
 
     @staticmethod
     def get_moe_test_config(
-        attention_head_type: str,
         position_embedding_type: str,
         num_layers: int = 8,
         num_experts: int = 8,
@@ -110,14 +97,7 @@ class TestCommons(BaseTestCommons):
         attention_multiplier: float = None,
         num_attention_heads: int = 4,
     ) -> GPTBaseConfig:
-        if attention_head_type == "mha":
-            num_key_value_heads = num_attention_heads
-        elif attention_head_type == "mqa":
-            num_key_value_heads = 1
-        elif attention_head_type == "gqa":
-            num_key_value_heads = 2
-        else:
-            raise ValueError(f"unexpected attention_head_type ({attention_head_type})")
+        num_key_value_heads = 2
 
         return GPTBaseConfig(
             vocab_size=2048,
@@ -255,7 +235,7 @@ class TestCommons(BaseTestCommons):
         config1 = json.load(open(os.path.join(path1, "config.json"), "r"))
         config2 = json.load(open(os.path.join(path2, "config.json"), "r"))
 
-        for key in ["architectures", "torch_dtype"]:
+        for key in ["architectures", "dtype"]:
             config1.pop(key, None)
             config2.pop(key, None)
 
@@ -273,7 +253,7 @@ class TestCommons(BaseTestCommons):
         model = AutoModelForCausalLM.from_config(
             config,
             use_padding_free_transformer=use_padding_free_transformer,
-            torch_dtype=kwargs.pop("torch_dtype", None),
+            dtype=kwargs.pop("dtype", None),
         )
 
         if use_padding_free_transformer:

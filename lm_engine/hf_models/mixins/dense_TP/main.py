@@ -117,7 +117,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
         if self.is_last_stage:
             if labels is None:
-                if is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute):
+                if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
                     if self.m_width is not None:
                         hidden_states = hidden_states / self.m_width
                 else:
@@ -127,7 +127,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
                         lm_logits = lm_logits / self.m_width
             else:
                 assert not self.is_pipeline_parallel_enabled
-                assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+                assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
                 lm_logits = self.get_lm_logits(hidden_states)
 
@@ -181,7 +181,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
     @classmethod
     def from_pretrained(
-        cls, pretrained_model_name_or_path: str, torch_dtype: torch.dtype = torch.float32, **kwargs
+        cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
     ) -> CausalLMModelMixin_TP:
         config: CommonConfig = cls.config_class.from_pretrained(pretrained_model_name_or_path)
 
@@ -189,7 +189,7 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
         with torch.device("meta"):
             # try sharding vocab matrices if really struggling for memory
             model = cls._from_config(config, **kwargs)
-            model = model.to(dtype=torch_dtype)
+            model = model.to(dtype=dtype)
 
         # copy to device without copying storage
         model = model.to_empty(device=torch.cuda.current_device())

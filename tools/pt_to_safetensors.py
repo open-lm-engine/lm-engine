@@ -21,8 +21,8 @@ checkpoint_to_be_converted = "checkpoint/"
 safetensors_destination_path = "checkpoint-st/"
 
 # loading the model with full precision
-# you can modify this behaviour by passing torch_dtype=<intended dtype>
-model = AutoModelForCausalLM.from_pretrained(checkpoint_to_be_converted, torch_dtype=torch.bfloat16).to(
+# you can modify this behaviour by passing dtype=<intended dtype>
+model = AutoModelForCausalLM.from_pretrained(checkpoint_to_be_converted, dtype=torch.bfloat16).to(
     "cuda" if torch.cuda.is_available() else "cpu"
 )
 

@@ -4,7 +4,6 @@
 
 from transformers import AutoConfig
 
-from .bigcode import export_to_huggingface_bigcode, import_from_huggingface_bigcode
 from .granite import export_to_huggingface_granite, import_from_huggingface_granite
 from .granitemoe import export_to_huggingface_granitemoe, import_from_huggingface_granitemoe
 from .granitemoehybrid import export_to_huggingface_granitemoehybrid, import_from_huggingface_granitemoehybrid
@@ -13,7 +12,6 @@ from .llama import export_to_huggingface_llama, import_from_huggingface_llama
 
 
 _MODEL_IMPORT_FUNCTIONS = {
-    "gpt_bigcode": import_from_huggingface_bigcode,
     "granite": import_from_huggingface_granite,
     "granitemoe": import_from_huggingface_granitemoe,
     "granitemoeshared": import_from_huggingface_granitemoeshared,
@@ -34,7 +32,6 @@ def import_from_huggingface(pretrained_model_name_or_path: str, save_path: str) 
 
 
 _MODEL_EXPORT_FUNCTIONS = {
-    "gpt_bigcode": export_to_huggingface_bigcode,
     "granite": export_to_huggingface_granite,
     "granitemoe": export_to_huggingface_granitemoe,
     "granitemoeshared": export_to_huggingface_granitemoeshared,

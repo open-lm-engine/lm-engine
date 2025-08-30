@@ -48,8 +48,6 @@ def unshard_gpt_base_tensor_parallel_state_dicts(
         output_state_dict.update(
             _get_attention(
                 tensor_parallel_state_dicts,
-                num_attention_heads=block.num_attention_heads,
-                num_key_value_heads=block.num_key_value_heads,
                 add_bias=block.add_bias,
                 prefix=prefix + f"transformer.h.{layer_idx}.sequence_mixer.",
                 check_correctness=check_correctness,
@@ -140,12 +138,7 @@ def _get_layernorm(
 
 
 def _get_attention(
-    tensor_parallel_state_dicts: list[dict],
-    num_attention_heads: int,
-    num_key_value_heads: int,
-    add_bias: bool,
-    prefix: str,
-    check_correctness: bool,
+    tensor_parallel_state_dicts: list[dict], add_bias: bool, prefix: str, check_correctness: bool
 ) -> dict:
     output = {
         prefix
@@ -158,30 +151,13 @@ def _get_attention(
             tensor_parallel_state_dicts, key=prefix + "c_proj.bias", check_correctness=check_correctness
         )
 
-    if num_attention_heads > 1 and num_key_value_heads == 1:
-        q_weight = _concatenate_tensors_from_state_dicts(
-            tensor_parallel_state_dicts, key=prefix + "c_attn.q_attn.weight", dim=0
+    output[prefix + "c_attn.weight"] = _concatenate_tensors_from_state_dicts(
+        tensor_parallel_state_dicts, key=prefix + "c_attn.weight", dim=0
+    )
+    if add_bias:
+        output[prefix + "c_attn.bias"] = _concatenate_tensors_from_state_dicts(
+            tensor_parallel_state_dicts, key=prefix + "c_attn.bias", dim=0
         )
-        kv_weight = _get_once_from_state_dicts_with_check(
-            tensor_parallel_state_dicts, key=prefix + "c_attn.kv_attn.weight", check_correctness=check_correctness
-        )
-        output[prefix + "c_attn.weight"] = torch.cat([q_weight, kv_weight])
-        if add_bias:
-            q_bias = _concatenate_tensors_from_state_dicts(
-                tensor_parallel_state_dicts, key=prefix + "c_attn.q_attn.bias", dim=0
-            )
-            kv_bias = _get_once_from_state_dicts_with_check(
-                tensor_parallel_state_dicts, key=prefix + "c_attn.kv_attn.bias", check_correctness=check_correctness
-            )
-            output[prefix + "c_attn.bias"] = torch.cat([q_bias, kv_bias])
-    else:
-        output[prefix + "c_attn.weight"] = _concatenate_tensors_from_state_dicts(
-            tensor_parallel_state_dicts, key=prefix + "c_attn.weight", dim=0
-        )
-        if add_bias:
-            output[prefix + "c_attn.bias"] = _concatenate_tensors_from_state_dicts(
-                tensor_parallel_state_dicts, key=prefix + "c_attn.bias", dim=0
-            )
 
     return output
 

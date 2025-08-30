@@ -6,57 +6,13 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from torch.distributed._tensor.placement_types import Partial, Replicate, Shard
+from torch.distributed._tensor.placement_types import Replicate, Shard
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
 from ...utils import ProcessGroupManager, divide_if_divisible
 from ..modeling_utils import ParameterizedLinear
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
-
-
-class ReplicatedLinear(ParameterizedLinear, DTensorModule):
-    def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
-        use_padding_free_transformer: bool = False,
-        sequence_parallel: bool = False,
-    ) -> ReplicatedLinear:
-        super().__init__(in_features, out_features, bias, device, dtype, std)
-
-        self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
-
-        self.weight = nn.Parameter(
-            tensor_to_dtensor(
-                self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Replicate()
-            )
-        )
-        if bias:
-            self.bias = nn.Parameter(
-                tensor_to_dtensor(
-                    self.bias,
-                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
-                    current_placement=Replicate(),
-                )
-            )
-
-        self.input_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
-
-        if use_async_tensor_parallel():
-            self.compile()
-
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        input = tensor_to_dtensor(input, device_mesh=self.tp_mesh, current_placement=self.input_placement)
-        input = super().forward(input)
-        input = dtensor_to_tensor(
-            input, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
-        )
-        return input
 
 
 class ColumnParallelLinear(ParameterizedLinear, DTensorModule):

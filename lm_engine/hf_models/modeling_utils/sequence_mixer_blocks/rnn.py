@@ -11,7 +11,7 @@ import torch.nn as nn
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_cute_kernels_available
+from ....utils import divide_if_divisible, is_fma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
@@ -22,9 +22,9 @@ from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
-if is_cute_kernels_available():
-    from cute_kernels import KernelBackend
-    from cute_kernels.modules.rnn import rnn_cute
+if is_fma_available():
+    from fma import KernelBackend
+    from fma.modules.rnn import rnn
 
 
 class RNN(nn.Module):
@@ -162,14 +162,14 @@ class RNN(nn.Module):
 
         state_weight = self.state_weight_norm(self.state_weight.view(self.num_heads, -1)).view_as(self.state_weight)
 
-        input = rnn_cute(
+        input = rnn(
             input=input,
             weight=state_weight,
             input_state=input_state,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn_cute) else KernelBackend.torch,
+            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
         )
 
         if not self.use_padding_free_transformer and attention_mask is not None:
