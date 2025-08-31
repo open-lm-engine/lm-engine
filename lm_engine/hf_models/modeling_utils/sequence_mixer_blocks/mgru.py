@@ -16,7 +16,7 @@ from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
 from ..convolution import ParameterizedConv1d
-from ..linear import ParameterizedLinear, ParameterizedLowRankLinear
+from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
@@ -72,7 +72,8 @@ class MGRU(nn.Module):
 
         self.input_projection = ParameterizedLinear(
             self.input_size,
-            3 * self.intermediate_size + (self.intermediate_size if self.is_gated_normalization else 0),
+            3 * self.intermediate_size
+            + (self.intermediate_head_dim * self.state_size if self.is_gated_normalization else 0),
             bias=add_bias,
             std=std,
         )
@@ -103,7 +104,7 @@ class MGRU(nn.Module):
             self.state_size * self.intermediate_head_dim, self.output_size, bias=False, std=std
         )
 
-        self.norm = get_normalization_function(normalization_function, self.state_size)
+        self.norm = get_normalization_function(normalization_function, self.intermediate_size * self.state_head_dim)
         self.input_norm = get_normalization_function("rmsnorm", self.intermediate_size)
         self.forget_norm = get_normalization_function("rmsnorm", self.intermediate_size)
         self.reset_norm = get_normalization_function("rmsnorm", self.intermediate_size)
@@ -149,7 +150,9 @@ class MGRU(nn.Module):
         input = self.input_projection(input)
 
         if self.is_gated_normalization:
-            input, gate = input.split((3 * self.intermediate_size, self.intermediate_size), dim=-1)
+            input, gate = input.split(
+                (3 * self.intermediate_size, self.intermediate_head_dim * self.state_size), dim=-1
+            )
 
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
@@ -201,7 +204,7 @@ class MGRU(nn.Module):
         if cache_params is not None:
             cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
 
-        input = input.view(*input.size()[:-2], -1)
+        input = input.view(*input.size()[:-3], -1)
 
         if self.is_gated_normalization:
             input = self.norm(input, gate)
