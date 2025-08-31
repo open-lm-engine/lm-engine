@@ -198,7 +198,7 @@ def get_model_tflops(
             # sigmoid(Wh + x)
             sequence_mixer_flops += 3 * s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
         else:
-            raise NotImplementedError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
+            return 0
 
         total_flops += sequence_mixer_flops
 
