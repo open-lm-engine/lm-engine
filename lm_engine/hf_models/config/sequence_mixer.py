@@ -71,8 +71,8 @@ class _Mamba2Args(BaseArgs):
         assert self.sequence_mixer_type == "mamba2"
 
 
-class _GRUArgs(BaseArgs):
-    sequence_mixer_type: str = "gru"
+class _MGRUArgs(BaseArgs):
+    sequence_mixer_type: str = "mgru"
     state_size: int = 2048
     num_heads: int = 128
     add_bias: bool = True
@@ -82,6 +82,13 @@ class _GRUArgs(BaseArgs):
     num_groups: int | None = None
     kernel_size: int | None = None
     activation_function: str | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "mgru"
+
+
+class _GRUArgs(_MGRUArgs):
+    sequence_mixer_type: str = "gru"
     low_rank: int | None = None
     low_rank_norm: bool = False
 
