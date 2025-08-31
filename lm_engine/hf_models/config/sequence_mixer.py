@@ -74,6 +74,7 @@ class _Mamba2Args(BaseArgs):
 class _MGRUArgs(BaseArgs):
     sequence_mixer_type: str = "mgru"
     state_size: int = 2048
+    intermediate_size: int = 2048
     num_heads: int = 128
     add_bias: bool = True
     normalization_function: str | None = None
@@ -89,6 +90,15 @@ class _MGRUArgs(BaseArgs):
 
 class _GRUArgs(_MGRUArgs):
     sequence_mixer_type: str = "gru"
+    state_size: int = 2048
+    num_heads: int = 128
+    add_bias: bool = True
+    normalization_function: str | None = None
+    gradient_clipping: float | None = None
+    scaling_factor: float = 1
+    num_groups: int | None = None
+    kernel_size: int | None = None
+    activation_function: str | None = None
     low_rank: int | None = None
     low_rank_norm: bool = False
 
