@@ -54,7 +54,7 @@ model_args:
     sequence_mixer_blocks:
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -63,7 +63,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -72,7 +72,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -81,7 +81,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -90,7 +90,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -99,7 +99,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -108,7 +108,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -117,7 +117,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -126,7 +126,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -135,7 +135,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -144,7 +144,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -153,7 +153,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -162,7 +162,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -171,7 +171,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -180,7 +180,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -189,7 +189,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -198,7 +198,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -207,7 +207,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -216,7 +216,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -225,7 +225,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -234,7 +234,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -243,7 +243,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -252,7 +252,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
@@ -261,7 +261,7 @@ model_args:
         gradient_clipping: 1
       - sequence_mixer_type: gru
         state_size: 624
-        num_heads: 24
+        num_heads: 12
         num_groups: 1872
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
