@@ -11,7 +11,6 @@ from .attention import (
 from .causal_convolution import CausalConvolution
 from .gru import GRU
 from .mamba2 import Mamba2
-from .mgru import MGRU
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
 from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
@@ -55,26 +54,6 @@ def get_sequence_mixer(
             output_size=config.hidden_size,
             low_rank=block.low_rank,
             low_rank_norm=block.low_rank_norm,
-            num_heads=block.num_heads,
-            num_groups=block.num_groups,
-            kernel_size=block.kernel_size,
-            activation_function=block.activation_function,
-            add_bias=block.add_bias,
-            gradient_clipping=block.gradient_clipping,
-            initializer_range=config.initializer_range,
-            m_width=config.m_width,
-            init_method=config.init_method,
-            normalization_function=block.normalization_function,
-            num_layers=config.num_layers,
-            layer_idx=layer_idx,
-            use_padding_free_transformer=use_padding_free_transformer,
-        )
-    elif sequence_mixer_type == "mgru":
-        return MGRU(
-            input_size=config.hidden_size,
-            intermediate_size=block.intermediate_size,
-            state_size=block.state_size,
-            output_size=config.hidden_size,
             num_heads=block.num_heads,
             num_groups=block.num_groups,
             kernel_size=block.kernel_size,
