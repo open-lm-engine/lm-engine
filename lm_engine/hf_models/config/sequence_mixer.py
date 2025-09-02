@@ -89,6 +89,13 @@ class _GRUArgs(BaseArgs):
         assert self.sequence_mixer_type == "gru"
 
 
+class _MSUArgs(_GRUArgs):
+    sequence_mixer_type: str = "msu"
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "msu"
+
+
 class _RNNArgs(_GRUArgs):
     sequence_mixer_type: str = "rnn"
 
