@@ -48,7 +48,7 @@ class MSU(nn.Module):
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
-    ) -> GRU:
+    ) -> MSU:
         super().__init__()
 
         self.input_size = input_size
