@@ -56,8 +56,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -67,8 +67,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -78,8 +78,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -89,8 +89,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -100,8 +100,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -111,8 +111,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -122,8 +122,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -133,8 +133,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -144,8 +144,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -155,8 +155,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -166,8 +166,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -177,8 +177,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -188,8 +188,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -199,8 +199,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -210,8 +210,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -221,8 +221,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -232,8 +232,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -243,8 +243,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -254,8 +254,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -265,8 +265,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -276,8 +276,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -287,8 +287,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -298,8 +298,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -309,8 +309,8 @@ model_args:
         state_size: 116736
         low_rank: 64
         low_rank_norm: true
-        num_heads: 8448
-        num_groups: 25344
+        num_heads: 7296
+        num_groups: 350208
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -428,16 +428,16 @@ save_args:
 logging_args:
   log_interval: 10
   # torch_profiler_trace_path: tmp
-  experiments_tracker_name: wandb
-  wandb_args:
-    project: model-architectures
-    name: gru-conv-lr-nemo-173m
+  # experiments_tracker_name: wandb
+  # wandb_args:
+  #   project: model-architectures
+  #   name: gru-conv-lr-nemo-173m
 
 training_parameters:
   num_training_steps: 25000
   eval_interval: 2500
   micro_batch_size: 8
-  gradient_accumulation_steps: 16
+  gradient_accumulation_steps: 128
   eval_during_training: true
 
 optimizer_args:
