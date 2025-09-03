@@ -13,6 +13,7 @@ from ...utils import BaseArgs, divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import (
     _CausalConvolution,
+    _FRUArgs,
     _GRUArgs,
     _Mamba2Args,
     _MSUArgs,
@@ -68,6 +69,7 @@ _NAKED_DISALLOWED_ARGS = [
 
 _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "causal_convolution": _CausalConvolution,
+    "fru": _FRUArgs,
     "gru": _GRUArgs,
     "mamba2": _Mamba2Args,
     "msu": _MSUArgs,
