@@ -53,264 +53,264 @@ model_args:
     max_position_embeddings: 4096
     sequence_mixer_blocks:
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: gru
-        state_size: 116736
+        state_size: 2112
         low_rank: 64
         low_rank_norm: true
-        num_heads: 7296
-        num_groups: 350208
+        num_heads: 132
+        num_groups: 6336
         activation_function: silu
         normalization_function: silu_gated_rmsnorm
         kernel_size: 4
@@ -428,16 +428,16 @@ save_args:
 logging_args:
   log_interval: 10
   # torch_profiler_trace_path: tmp
-  # experiments_tracker_name: wandb
-  # wandb_args:
-  #   project: model-architectures
-  #   name: gru-conv-lr-nemo-173m
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: model-architectures
+    name: gru-conv-lr-nemo-173m
 
 training_parameters:
   num_training_steps: 25000
   eval_interval: 2500
   micro_batch_size: 8
-  gradient_accumulation_steps: 128
+  gradient_accumulation_steps: 4
   eval_during_training: true
 
 optimizer_args:
