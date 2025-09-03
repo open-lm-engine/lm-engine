@@ -103,6 +103,14 @@ class _RNNArgs(_GRUArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
+class _FRUArgs(_GRUArgs):
+    sequence_mixer_type: str = "fru"
+    intermediate_size: int = 256
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "fru"
+
+
 class _CausalConvolution(BaseArgs):
     sequence_mixer_type: str = "causal_convolution"
     activation_function: str = "silu"
