@@ -32,6 +32,7 @@ from .utils import (
     MetricsTrackingDict,
     ProcessGroupManager,
     StepTracker,
+    get_device_string,
     init_distributed,
     is_torchao_available,
     log_rank_0,
@@ -173,11 +174,17 @@ def train_step_without_pipeline_parallel(
     assert len(model_container) == 1
     model = model_container[0]
 
-    fsdp_algorithm = 2 if hasattr(model, "set_requires_gradient_sync") else 1
+    fsdp_algorithm = None
+    if hasattr(model, "set_requires_gradient_sync"):
+        fsdp_algorithm = 2
+    elif hasattr(model, "no_sync"):
+        fsdp_algorithm = 1
 
     no_sync = nullcontext
     if not sync_every_gradient_accumulation_step:
-        if fsdp_algorithm == 1:
+        if fsdp_algorithm is None:
+            pass
+        elif fsdp_algorithm == 1:
             no_sync = model.no_sync
         else:
             model.set_requires_gradient_sync(False)
@@ -370,9 +377,14 @@ def train(
         / ProcessGroupManager.get_world_size()
     )
 
-    forward_context = nullcontext
-    backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
+    # FIXME hardcoded to bf16
+    forward_context = lambda: (
+        torch.autocast(get_device_string(), dtype=torch.bfloat16)
+        if args.distributed_args.fsdp_algorithm is None
+        else nullcontext
+    )
 
+    backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
     torch_profiler = get_torch_profiler(args.logging_args.torch_profiler_trace_path)
 
     if torch_profiler is not None:
