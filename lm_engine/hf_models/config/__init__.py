@@ -15,6 +15,7 @@ from .sequence_mixer import (
     _CausalConvolution,
     _GRUArgs,
     _Mamba2Args,
+    _MixtureOfAttentionArgs,
     _MultiHeadLatentAttentionArgs,
     _RNNArgs,
     _SoftmaxAttentionArgs,
@@ -73,6 +74,7 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "rnn": _RNNArgs,
     "stickbreaking_attention": _StickbreakingAttentionArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
+    "momha": _MixtureOfAttentionArgs,
 }
 
 _MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
@@ -136,10 +138,10 @@ class CommonConfig(PretrainedConfig):
 
         self.rope_dim = rope_dim
         if self.rope_dim is None and position_embedding_type == "rope":
-            assert (
-                self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "sequence_mixer_type")
-                == "softmax_attention"
-            ), "specify rope_dim"
+            assert self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "sequence_mixer_type") in [
+                "softmax_attention",
+                "momha",
+            ], "specify rope_dim"
 
             self.rope_dim = divide_if_divisible(
                 self.hidden_size,
