@@ -82,7 +82,7 @@ def convert_file(
 
     if input_file.endswith(".jsonl"):
         assert subset is None, f"jsonl doesn't support a subset"
-        encoded_docs = pool.imap(encoder.encode, open(input, "r", encoding="utf-8"), chunk_size)
+        encoded_docs = pool.imap(encoder.encode, open(input_file, "r", encoding="utf-8"), chunk_size)
     elif input_file.endswith(".jsonl.zst"):
         assert subset is None, f"zst jsonl doesn't support a subset"
 

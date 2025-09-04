@@ -17,7 +17,7 @@ SEED = 1234
 
 class ScatterMoETest(TestCommons):
     @parameterized.expand(TestCommons.get_dtypes())
-    def test_scattermoe(self, torch_dtype: torch.dtype) -> None:
+    def test_scattermoe(self, dtype: torch.dtype) -> None:
         device = torch.device("cuda")
         self.skip_test_if_device_unavailable(device)
 
@@ -25,9 +25,9 @@ class ScatterMoETest(TestCommons):
 
         input_ids, attention_mask, _ = self.get_dummy_inputs(device)
 
-        config = self.get_moe_test_config("mha", "rope", num_layers=1, add_bias=False)
+        config = self.get_moe_test_config("rope", num_layers=1, add_bias=False)
 
-        model = AutoModelForCausalLM.from_config(config, torch_dtype=torch_dtype).to(device)
+        model = AutoModelForCausalLM.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         naive_output = model(input_ids=input_ids, attention_mask=attention_mask)

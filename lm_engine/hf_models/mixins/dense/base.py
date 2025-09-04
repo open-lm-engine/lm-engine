@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from transformers import PreTrainedModel
+from transformers import GenerationConfig, PreTrainedModel
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -35,6 +35,8 @@ class PreTrainedModelMixin(PreTrainedModel):
         super().__init__(config, *args, **kwargs)
 
         assert self.config_class is not None
+        self.generation_config = GenerationConfig.from_model_config(self.config)
+
         self._tied_word_embeddings = config.tie_word_embeddings
 
     def _init_weights(self, module: nn.Module) -> None:
@@ -115,12 +117,6 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         # Initialize weights and apply final processing
         self.post_init()
-
-    def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.wte
-
-    def set_input_embeddings(self, new_embeddings: ParameterizedEmbedding) -> None:
-        self.wte = new_embeddings
 
     def forward(
         self,
@@ -209,10 +205,6 @@ class BaseModelMixin(PreTrainedModelMixin):
     ) -> torch.Tensor:
         past_length = key_length - query_length
 
-        # ==========================================================================================
-        # attention_mask -> (batch_size, key_length)
-        # ==========================================================================================
-
         if query_length > 1:
             # (query_length, key_length)
             causal_mask = torch.empty((query_length, key_length), dtype=torch.bool, device=device)
@@ -240,15 +232,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 # (batch_size, query_length, key_length)
                 causal_mask = attention_mask.unsqueeze(1).to(dtype=torch.bool, device=device)
 
-        # ==========================================================================================
-        # attention_mask -> (batch_size, query_length, key_length)
-        # ==========================================================================================
-
         causal_mask = causal_mask.unsqueeze(1)
-
-        # ==========================================================================================
-        # attention_mask -> (batch_size, 1, query_length, key_length)
-        # ==========================================================================================
 
         return causal_mask
 

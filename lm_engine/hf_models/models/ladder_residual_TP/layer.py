@@ -11,19 +11,19 @@ import torch.nn.functional as F
 from ....dtensors import dtensor_to_tensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, is_cute_kernels_available
+from ....utils import ProcessGroupManager, is_fma_available
 from ...cache import GenerationCache
 from ...mixins import Block_TP
 from ...modeling_utils_TP import get_mlp_block_TP
 from ..ladder_residual.layer import LadderResidualBlock
 
 
-if is_cute_kernels_available():
-    from cute_kernels.constants import MAX_TRITON_BLOCK_SIZE
-    from cute_kernels.math import ceil_divide, divide_if_divisible, get_next_power_of_2
-    from cute_kernels.ops.rmsnorm import rmsnorm_backward_triton, rmsnorm_forward_triton
-    from cute_kernels.ops.swiglu import swiglu_backward_triton, swiglu_forward_triton
-    from cute_kernels.utils import ensure_contiguous, get_num_elements_and_hidden_size, get_sm_count
+if is_fma_available():
+    from fma.constants import MAX_TRITON_BLOCK_SIZE
+    from fma.math import ceil_divide, divide_if_divisible, get_next_power_of_2
+    from fma.ops.rmsnorm import rmsnorm_backward_triton, rmsnorm_forward_triton
+    from fma.ops.swiglu import swiglu_backward_triton, swiglu_forward_triton
+    from fma.utils import ensure_contiguous, get_num_elements_and_hidden_size, get_sm_count
 
     @ensure_contiguous
     def _swiglu_packed_forward(x: torch.Tensor) -> torch.Tensor:

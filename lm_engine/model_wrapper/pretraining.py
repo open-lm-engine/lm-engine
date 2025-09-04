@@ -113,7 +113,7 @@ class ModelWrapperForPretraining(ModelWrapper):
         # transformers does forward pass before however and then trims the tokens.
 
         if not self.is_custom_model:
-            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         if isinstance(batch, torch.Tensor):
             batch = {"text": batch}
@@ -153,7 +153,7 @@ class ModelWrapperForPretraining(ModelWrapper):
         self, model_outputs: CausalLMOutputWithPast, labels: torch.Tensor, lm_loss_multiplier: float = 1
     ) -> torch.Tensor | dict:
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy_cute)
+        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         lm_loss = get_autoregressive_language_modeling_loss(
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,

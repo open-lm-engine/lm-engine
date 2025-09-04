@@ -15,9 +15,8 @@ from ..test_common import TestCommons
 
 
 class WeightTest(TestCommons):
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_attention_head_types()))
-    def test_query_key_value_weight_loading_and_saving(self, attention_head_type: str) -> None:
-        config = self.get_dense_test_config(attention_head_type, "learned_absolute")
+    def test_query_key_value_weight_loading_and_saving(self) -> None:
+        config = self.get_dense_test_config("learned_absolute")
 
         layer_idx = 1
         attention = get_sequence_mixer(config, True, False, layer_idx)

@@ -17,7 +17,6 @@ from ...test_common import TestCommons
 class TensorParallelTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            ["mqa", "gqa"],
             TestCommons.get_position_embedding_types(),
             TestCommons.get_attention_implementations(),
             TestCommons.get_dtypes(),
@@ -25,7 +24,6 @@ class TensorParallelTest(TestCommons):
             [GPTBaseConfig.model_type],
         )
         + TestCommons.make_args_matrix(
-            ["gqa"],
             ["rope"],
             ["flash_attention_2"],
             [torch.float16],
@@ -36,16 +34,15 @@ class TensorParallelTest(TestCommons):
     @TestCommons.slow_test
     def test_tensor_parallel_forward(
         self,
-        attention_head_type: str,
         position_embedding_type: str,
         attention_implementation: str,
-        torch_dtype: torch.dtype,
+        dtype: torch.dtype,
         sequence_parallel: bool,
         model_type: str,
     ) -> None:
         self.skip_test_if_device_unavailable(torch.device("cuda"))
 
-        if (attention_implementation, torch_dtype) not in [
+        if (attention_implementation, dtype) not in [
             ("sdpa", torch.float32),
             ("flash_attention_2", torch.float16),
         ]:
@@ -60,12 +57,10 @@ class TensorParallelTest(TestCommons):
                 str(gpus_per_node),
                 "-m",
                 "tests.hf_models.multi_gpu.tensor_parallel.tensor_parallel_forward",
-                "--attention-head-type",
-                attention_head_type,
                 "--position-embedding-type",
                 position_embedding_type,
-                "--torch-dtype",
-                torch_dtype_to_string(torch_dtype),
+                "--dtype",
+                torch_dtype_to_string(dtype),
                 "--attention-implementation",
                 attention_implementation,
                 "--model-type",
