@@ -71,19 +71,27 @@ class AlphaNumericTokenizer:
 
     def _get_token_id(self, x: str) -> None:
         assert isinstance(x, str)
-        assert len(x) == 1
 
-        xid = ord(x)
+        if len(x) == 1:
+            xid = ord(x)
 
-        if self._0 <= xid <= self._9:
-            y = xid - self._0
-        elif self.a <= xid <= self.z:
-            y = xid - self.a + 10
-        elif self.A <= xid <= self.Z:
-            y = xid - self.A + 36
-        elif xid == self.eos_token:
+            if self._0 <= xid <= self._9:
+                y = xid - self._0
+            elif self.a <= xid <= self.z:
+                y = xid - self.a + 10
+            elif self.A <= xid <= self.Z:
+                y = xid - self.A + 36
+            else:
+                raise ValueError(f"unexpected token ({x})")
+        elif x == self.eos_token:
             y = self.eos_token_id
+        elif x in self.special_tokens:
+            y = self.special_tokens[x]
         else:
             raise ValueError(f"unexpected token ({x})")
 
         return y
+
+    def add_special_tokens(self, special_tokens: dict) -> None:
+        for i, token in enumerate(special_tokens["additional_special_tokens"]):
+            self.special_tokens[token] = self.eos_token_id + i + 1
