@@ -6,9 +6,7 @@ from ..config import GPTCrossLayerConfig
 from .base import CrossLayerAttention, KeyValueProjection
 
 
-def get_sequence_mixer(
-    config: GPTCrossLayerConfig, causal: bool, use_padding_free_transformer: bool, layer_idx: int
-) -> CrossLayerAttention:
+def get_sequence_mixer(config: GPTCrossLayerConfig, causal: bool, layer_idx: int) -> CrossLayerAttention:
     block = config.sequence_mixer_blocks[layer_idx]
     assert block.sequence_mixer_type == "softmax_attention"
 
@@ -25,5 +23,4 @@ def get_sequence_mixer(
         num_layers=config.num_layers,
         causal=causal,
         layer_idx=layer_idx,
-        use_padding_free_transformer=use_padding_free_transformer,
     )

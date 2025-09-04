@@ -3,6 +3,7 @@
 # **************************************************
 
 from .activations import get_activation_function, is_glu
+from .attention_mask import AttentionMaskInfo
 from .convolution import ParameterizedConv1d
 from .embedding import ParameterizedEmbedding
 from .linear import ParameterizedLinear
