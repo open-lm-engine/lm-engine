@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import math
+from typing import Callable
 
 import torch
 import torch.nn as nn
@@ -17,7 +18,7 @@ from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
 from ..convolution import ParameterizedConv1d
-from ..linear import ParameterizedLinear, ParameterizedLowRankLinear
+from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
@@ -35,7 +36,6 @@ class FRU(nn.Module):
         intermediate_size: int,
         state_size: int,
         output_size: int,
-        low_rank: int | None,
         num_heads: int,
         num_groups: int | None,
         kernel_size: int | None,
@@ -55,11 +55,8 @@ class FRU(nn.Module):
         self.input_size = input_size
         self.intermediate_size = intermediate_size
         self.state_size = state_size
-        self.expansion_factor = divide_if_divisible(self.state_size, self.intermediate_size, "")
         self.output_size = output_size
-        self.low_rank = low_rank
         self.num_heads = num_heads
-        self.num_groups = num_groups
         self.kernel_size = kernel_size
         self.activation_string = activation_function
         self.gradient_clipping = gradient_clipping
@@ -67,6 +64,9 @@ class FRU(nn.Module):
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
         self.is_gated_normalization = normalization_function == "silu_gated_rmsnorm"
+        self.intermediate_head_dim = divide_if_divisible(self.intermediate_size, self.num_heads, "")
+        self.expansion_factor = divide_if_divisible(self.state_size, self.intermediate_size, "")
+        self.num_groups = 3 * (self.num_heads + self.expansion_factor)
 
         std = initializer_range
         if init_method == "mup":
@@ -75,8 +75,7 @@ class FRU(nn.Module):
 
         self.input_projection = ParameterizedLinear(
             self.input_size,
-            2 * self.state_size + self.low_rank + self.intermediate_size,
-            +(self.state_size if self.is_gated_normalization else 0),
+            self.num_groups + (self.state_size if self.is_gated_normalization else 0),
             bias=add_bias,
             std=std,
         )
@@ -85,16 +84,13 @@ class FRU(nn.Module):
             assert num_groups is None
             assert activation_function is None
         else:
-            is_glu_activation = is_glu(self.activation_string)
-            divide_if_divisible((6 if is_glu_activation else 3) * self.state_size, num_groups, "")
-
             self.conv1d = ParameterizedConv1d(
-                in_channels=3 * self.state_size,
-                out_channels=(6 if is_glu_activation else 3) * self.state_size,
+                in_channels=self.num_groups,
+                out_channels=self.num_groups,
                 kernel_size=kernel_size,
                 bias=add_bias,
                 padding=kernel_size - 1,
-                groups=num_groups,
+                groups=self.num_groups,
                 std=std,
             )
 
@@ -106,9 +102,9 @@ class FRU(nn.Module):
         self.output_projection = ParameterizedLinear(self.state_size, self.output_size, bias=False, std=std)
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
-        self.input_norm = get_normalization_function("rmsnorm", self.state_size)
-        self.forget_norm = get_normalization_function("rmsnorm", self.state_size)
-        self.reset_norm = get_normalization_function("rmsnorm", self.low_rank)
+        self.input_norm = get_normalization_function("rmsnorm", self.expansion_factor)
+        self.forget_norm = get_normalization_function("rmsnorm", self.expansion_factor)
+        self.reset_norm = get_normalization_function("rmsnorm", self.expansion_factor)
 
         self.state_weight_norm = get_normalization_function(
             "p_norm", self.state_head_dim * self.state_head_dim, elementwise_affine=False, p=2
@@ -150,9 +146,7 @@ class FRU(nn.Module):
         input = self.input_projection(input)
 
         if self.is_gated_normalization:
-            input, gate = input.split(
-                (2 * self.state_size + self.num_heads + self.intermediate_size, self.state_size), dim=-1
-            )
+            input, gate = input.split((self.num_groups, self.state_size), dim=-1)
 
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
@@ -168,23 +162,11 @@ class FRU(nn.Module):
                 conv1d_stride=1,
             )
 
-        input, forget_input, low_rank_input, reset_input = input.split(
-            (self.state_size, self.state_size, self.num_heads, self.state_head_dim), dim=-1
-        )
+        input, forget_input, reset_input = input.chunk(3, dim=-1)
 
-        low_rank_input = F.silu(low_rank_input)
-
-        input = self.input_norm(input)
-        forget_input = self.forget_norm(forget_input)
-        reset_input = self.reset_norm(reset_input)
-
-        input, forget_input = [
-            i.view(*input.size()[:-1], self.num_heads, self.state_head_dim) for i in (input, forget_input)
-        ]
-
-        low_rank_input = low_rank_input.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, -1, self.expansion_factor, -1)
-        reset_input = reset_input.unsqueeze(-2).unsqueeze(-2)
-        reset_input = reset_input * low_rank_input
+        input = self._preprocess_input(input, self.input_norm)
+        forget_input = self._preprocess_input(forget_input, self.forget_norm)
+        reset_input = self._preprocess_input(reset_input, self.reset_norm)
 
         state_weight = self.state_weight_norm(self.state_weight.view(3 * self.num_heads, -1)).view_as(
             self.state_weight
@@ -221,6 +203,20 @@ class FRU(nn.Module):
         input = self.output_projection(input)
 
         return input
+
+    def _preprocess_input(self, x: torch.Tensor, norm: Callable) -> torch.Tensor:
+        x_low_rank, x = x.split((self.num_heads, self.expansion_factor), dim=-1)
+
+        x_low_rank = F.silu(x_low_rank)
+        x = norm(x)
+
+        x_low_rank = x_low_rank.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, -1, self.intermediate_head_dim, -1)
+        x = x.unsqueeze(-2).unsqueeze(-2).expand(-1, -1, self.num_heads, -1, -1)
+
+        x = x * x_low_rank
+        x = x.flatten(-2, -1)
+
+        return x
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
