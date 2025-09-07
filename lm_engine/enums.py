@@ -81,3 +81,5 @@ class Kernel(Enum):
     # custom functions
     checkpointed_mlp = "checkpointed_mlp"
     ladder_residual_overlapped_layer = "ladder_residual_overlapped_layer"
+    # smoe
+    smoe = "smoe"
