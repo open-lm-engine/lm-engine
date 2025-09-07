@@ -8,6 +8,7 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -52,20 +53,13 @@ class RNN(nn.Module):
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
-        self.is_gated_normalization = normalization_function == "silu_gated_rmsnorm"
 
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.input_projection = ParameterizedLinear(
-            self.input_size,
-            self.state_size + (self.state_size if self.is_gated_normalization else 0),
-            bias=add_bias,
-            std=std,
-        )
-
+        self.input_projection = ParameterizedLinear(self.input_size, 2 * self.state_size, bias=add_bias, std=std)
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -108,9 +102,7 @@ class RNN(nn.Module):
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         input = self.input_projection(input)
-
-        if self.is_gated_normalization:
-            input, gate = input.chunk(2, dim=-1)
+        input, gate = input.chunk(2, dim=-1)
 
         input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
 
@@ -140,10 +132,8 @@ class RNN(nn.Module):
 
         input = input.view(*input.size()[:-2], -1)
 
-        if self.is_gated_normalization:
-            input = self.norm(input, gate)
-        else:
-            input = self.norm(input)
+        input = input * F.silu(gate)
+        input = self.norm(input)
 
         input = self.output_projection(input)
 
