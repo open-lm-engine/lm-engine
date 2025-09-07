@@ -246,7 +246,7 @@ class MoE(nn.Module):
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
         if is_kernel_allowed(Kernel.smoe):
-            hidden_states, router_logits = MoE_Function.apply(
+            hidden_states, router_logits, expert_frequency = MoE_Function.apply(
                 hidden_states,
                 self.gate.weight,
                 self.c_fc.weight.permute(1, 2, 0),
