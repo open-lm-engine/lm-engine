@@ -65,7 +65,7 @@ class FRU(nn.Module):
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
         self.intermediate_head_dim = divide_if_divisible(self.intermediate_size, self.num_heads, "")
         self.expansion_factor = divide_if_divisible(self.state_size, self.intermediate_size, "")
-        self.num_groups = 3 * (self.num_heads + self.expansion_factor)
+        self.num_groups = 3 * (self.num_heads + self.intermediate_size)
 
         std = initializer_range
         if init_method == "mup":
@@ -193,10 +193,6 @@ class FRU(nn.Module):
 
         if cache_params is not None:
             cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
-
-        print(input.size())
-        input = input.view(*input.size()[:-2], self.num_heads, self.intermediate_head_dim, self.expansion_factor)
-        print(input.size())
 
         input = self.output_projection.l1(input)
         input = self.output_projection.norm(input * F.silu(gate))
