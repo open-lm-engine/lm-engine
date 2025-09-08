@@ -72,7 +72,7 @@ class MSU(nn.Module):
 
         if self.low_rank is None:
             self.input_projection = ParameterizedLinear(
-                self.input_size, 3 * self.state_size + self.num_heads, bias=add_bias, std=std
+                self.input_size, 3 * self.state_size + 2 * self.num_heads, bias=add_bias, std=std
             )
         else:
             self.input_projection = ParameterizedLowRankLinear(
@@ -119,9 +119,9 @@ class MSU(nn.Module):
             # divide_if_divisible((6 if is_glu_activation else 3) * self.state_size, num_groups, "")
 
             self.conv1d = ParameterizedConv1d(
-                in_channels=2 * self.state_size + self.num_heads,
+                in_channels=2 * self.state_size + 2 * self.num_heads,
                 out_channels=(4 if is_glu_activation else 2) * self.state_size
-                + (2 if is_glu_activation else 1) * self.num_heads,
+                + (4 if is_glu_activation else 2) * self.num_heads,
                 kernel_size=kernel_size,
                 bias=add_bias,
                 padding=kernel_size - 1,
@@ -141,6 +141,8 @@ class MSU(nn.Module):
         self.forget_norm = get_normalization_function("rmsnorm", self.state_size)
         self.reset_norm = get_normalization_function("rmsnorm", self.num_heads)
 
+        self.residual_weight = nn.Parameter(torch.empty(self.num_heads))
+
         self.state_weight_norm = get_normalization_function(
             "p_norm", self.state_head_dim * self.state_head_dim, elementwise_affine=False, p=2
         )
@@ -157,6 +159,9 @@ class MSU(nn.Module):
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
 
         mark_parameter_as_no_weight_decay(self.state_weight)
+
+        mark_parameter_as_no_weight_decay(self.residual_weight)
+        mark_parameter_as_mup_learning_rate(self.residual_weight)
 
         self.reset_parameters()
 
@@ -186,7 +191,7 @@ class MSU(nn.Module):
 
         if self.low_rank is None:
             input = self.input_projection(input)
-            input, gate = input.split((2 * self.state_size + self.num_heads, self.state_size), dim=-1)
+            input, gate = input.split((2 * self.state_size + 2 * self.num_heads, self.state_size), dim=-1)
         else:
             gate = self.gate_projection(input)
             forget_input = self.forget_projection(input)
@@ -209,7 +214,9 @@ class MSU(nn.Module):
                 conv1d_stride=1,
             )
 
-        input, forget_input, reset_input = input.split((self.state_size, self.state_size, self.num_heads), dim=-1)
+        input, forget_input, reset_input, C = input.split(
+            (self.state_size, self.state_size, self.num_heads, self.num_heads), dim=-1
+        )
 
         input = self.input_norm(input)
         forget_input = self.forget_norm(forget_input)
@@ -218,6 +225,8 @@ class MSU(nn.Module):
         input, forget_input = [
             i.view(*input.size()[:-1], self.num_heads, self.state_head_dim) for i in (input, forget_input)
         ]
+
+        residual = self.residual_weight.unsqueeze(-1).unsqueeze(0).unsqueeze(0) * input
 
         state_weight = self.state_weight_norm(self.state_weight.view(3 * self.num_heads, -1)).view_as(
             self.state_weight
@@ -244,6 +253,7 @@ class MSU(nn.Module):
         if cache_params is not None:
             cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
 
+        input = residual + input * C.unsqueeze(-1)
         input = input.view(*input.size()[:-2], -1)
 
         input = input * F.silu(gate)
@@ -256,6 +266,7 @@ class MSU(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
+        nn.init.ones_(self.residual_weight)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
