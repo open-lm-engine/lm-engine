@@ -403,7 +403,7 @@ class Mamba2(nn.Module):
             if cache_params is not None:
                 cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
 
-        scan_output = self.norm(y) * F.silu(gate)
+        scan_output = y * F.silu(gate)
         scan_output = self.norm(scan_output)
 
         # end ssd naive
