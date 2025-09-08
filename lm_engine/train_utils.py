@@ -170,11 +170,7 @@ def get_model_tflops(
             sequence_mixer_flops *= 2
         elif sequence_mixer_type == "rnn":
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(
-                b * s,
-                h,
-                block.state_size + (block.state_size if block.normalization_function == "silu_gated_rmsnorm" else 0),
-            )
+            sequence_mixer_flops = _get_linear_flops(b * s, h, 2 * block.state_size)
             # output projection FLOPs
             sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
 
@@ -184,12 +180,7 @@ def get_model_tflops(
             sequence_mixer_flops += s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
         elif sequence_mixer_type == "gru":
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(
-                b * s,
-                h,
-                3 * block.state_size
-                + (block.state_size if block.normalization_function == "silu_gated_rmsnorm" else 0),
-            )
+            sequence_mixer_flops = _get_linear_flops(b * s, h, 4 * block.state_size)
             # output projection FLOPs
             sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
 

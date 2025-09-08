@@ -53,145 +53,145 @@ model_args:
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
       - sequence_mixer_type: rnn
         state_size: 1024
         num_heads: 1024
         add_bias: false
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         gradient_clipping: 1
     mlp_blocks:
       - activation_function: swiglu

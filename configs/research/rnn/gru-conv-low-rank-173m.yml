@@ -59,7 +59,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -70,7 +70,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -81,7 +81,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -92,7 +92,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -103,7 +103,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -114,7 +114,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -125,7 +125,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -136,7 +136,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -147,7 +147,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -158,7 +158,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -169,7 +169,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -180,7 +180,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -191,7 +191,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -202,7 +202,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -213,7 +213,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -224,7 +224,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -235,7 +235,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -246,7 +246,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -257,7 +257,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -268,7 +268,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -279,7 +279,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -290,7 +290,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -301,7 +301,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
@@ -312,7 +312,7 @@ model_args:
         num_heads: 132
         num_groups: 6336
         activation_function: silu
-        normalization_function: silu_gated_rmsnorm
+        normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
