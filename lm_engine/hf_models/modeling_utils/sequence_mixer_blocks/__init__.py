@@ -127,6 +127,7 @@ def get_sequence_mixer(
             layer_norm_epsilon=config.layer_norm_epsilon,
             initializer_range=config.initializer_range,
             init_method=config.init_method,
+            normalization_function=block.normalization_function,
             m_width=config.m_width,
             num_layers=config.num_layers,
             layer_idx=layer_idx,

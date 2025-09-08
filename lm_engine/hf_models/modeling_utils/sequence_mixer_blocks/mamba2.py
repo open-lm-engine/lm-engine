@@ -109,6 +109,7 @@ class Mamba2(nn.Module):
         initializer_range: float,
         m_width: float,
         init_method: str,
+        normalization_function: str | None,
         num_layers: int,
         layer_idx: int,
     ) -> Mamba2:
@@ -165,7 +166,7 @@ class Mamba2(nn.Module):
         # The core is to load them, compute the discrete states, then write the updated state. Keeps the memory bounded
         A = torch.arange(1, self.num_heads + 1)
         self.A_log = nn.Parameter(torch.log(A))
-        self.norm = get_normalization_function("silu_gated_rmsnorm", self.intermediate_size, eps=layer_norm_epsilon)
+        self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
         self.D = nn.Parameter(torch.ones(self.num_heads))
 
         self.out_proj = ParameterizedLinear(
@@ -402,7 +403,8 @@ class Mamba2(nn.Module):
             if cache_params is not None:
                 cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
 
-        scan_output = self.norm(y, gate)
+        scan_output = y * F.silu(gate)
+        scan_output = self.norm(scan_output)
 
         # end ssd naive
 
@@ -563,7 +565,8 @@ class Mamba2(nn.Module):
 
                 scan_output = scan_output.view(batch_size, seq_len, -1)
                 # Multiply "gate" branch and apply extra normalization layer
-                scan_output = self.norm(scan_output, gate)
+                scan_output = scan_output * F.silu(gate)
+                scan_output = self.norm(scan_output)
 
                 # 4. Final linear projection
                 out = self.out_proj(scan_output)

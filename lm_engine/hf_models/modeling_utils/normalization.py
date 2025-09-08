@@ -61,29 +61,10 @@ class PNorm(RMSNorm):
         return f"p={self.p}"
 
 
-class SiluGatedRMSNorm(RMSNorm):
-    def forward(self, hidden_states: torch.Tensor, gate: torch.Tensor) -> torch.Tensor:
-        input_dtype = hidden_states.dtype
-        hidden_states = hidden_states.float()
-
-        hidden_states = hidden_states * F.silu(gate.float())
-
-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
-
-        hidden_states = hidden_states.to(input_dtype)
-
-        if self.weight is not None:
-            hidden_states = self.weight * hidden_states
-
-        return hidden_states
-
-
 _NORMALIZATION_FUNCTIONS = {
     "layernorm": nn.LayerNorm,
     "p_norm": PNorm,
     "rmsnorm": RMSNorm,
-    "silu_gated_rmsnorm": SiluGatedRMSNorm,
 }
 
 
@@ -93,7 +74,7 @@ def get_normalization_function(
     elementwise_affine: bool = True,
     eps: float = 1e-5,
     p: int | None = None,
-) -> nn.LayerNorm | RMSNorm | PNorm | SiluGatedRMSNorm:
+) -> nn.LayerNorm | RMSNorm | PNorm:
     if normalization_function is None:
         return nn.Identity()
 

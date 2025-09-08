@@ -8,6 +8,7 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -63,7 +64,6 @@ class GRU(nn.Module):
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
-        self.is_gated_normalization = normalization_function == "silu_gated_rmsnorm"
 
         std = initializer_range
         if init_method == "mup":
@@ -71,12 +71,7 @@ class GRU(nn.Module):
         self.state_weight_std = std
 
         if self.low_rank is None:
-            self.input_projection = ParameterizedLinear(
-                self.input_size,
-                3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
-                bias=add_bias,
-                std=std,
-            )
+            self.input_projection = ParameterizedLinear(self.input_size, 4 * self.state_size, bias=add_bias, std=std)
         else:
             self.input_projection = ParameterizedLowRankLinear(
                 self.input_size,
@@ -105,15 +100,14 @@ class GRU(nn.Module):
                 std=std,
             )
 
-            if self.is_gated_normalization:
-                self.gate_projection = ParameterizedLowRankLinear(
-                    self.input_size,
-                    self.state_size,
-                    rank=self.low_rank,
-                    bias=add_bias,
-                    norm=low_rank_norm,
-                    std=std,
-                )
+            self.gate_projection = ParameterizedLowRankLinear(
+                self.input_size,
+                self.state_size,
+                rank=self.low_rank,
+                bias=add_bias,
+                norm=low_rank_norm,
+                std=std,
+            )
 
         if kernel_size is None:
             assert num_groups is None
@@ -189,13 +183,9 @@ class GRU(nn.Module):
 
         if self.low_rank is None:
             input = self.input_projection(input)
-
-            if self.is_gated_normalization:
-                input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
+            input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
         else:
-            if self.is_gated_normalization:
-                gate = self.gate_projection(input)
-
+            gate = self.gate_projection(input)
             forget_input = self.forget_projection(input)
             reset_input = self.reset_projection(input)
             input = self.input_projection(input)
@@ -253,10 +243,8 @@ class GRU(nn.Module):
 
         input = input.view(*input.size()[:-2], -1)
 
-        if self.is_gated_normalization:
-            input = self.norm(input, gate)
-        else:
-            input = self.norm(input)
+        input = input * F.silu(gate)
+        input = self.norm(input)
 
         input = self.output_projection(input)
 
