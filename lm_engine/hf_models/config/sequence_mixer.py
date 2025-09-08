@@ -80,7 +80,6 @@ class _GRUArgs(BaseArgs):
     normalization_function: str | None = None
     gradient_clipping: float | None = None
     scaling_factor: float = 1
-    num_groups: int | None = None
     kernel_size: int | None = None
     activation_function: str | None = None
     low_rank: int | None = None

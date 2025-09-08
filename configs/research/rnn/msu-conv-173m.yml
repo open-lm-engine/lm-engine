@@ -56,7 +56,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -65,7 +64,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -74,7 +72,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -83,7 +80,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -92,7 +88,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -101,7 +96,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -110,7 +104,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -119,7 +112,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -128,7 +120,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -137,7 +128,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -146,7 +136,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -155,7 +144,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -164,7 +152,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -173,7 +160,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -182,7 +168,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -191,7 +176,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -200,7 +184,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -209,7 +192,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -218,7 +200,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -227,7 +208,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -236,7 +216,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -245,7 +224,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -254,7 +232,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -263,7 +240,6 @@ model_args:
       - sequence_mixer_type: msu
         state_size: 768
         num_heads: 48
-        num_groups: 1584
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4

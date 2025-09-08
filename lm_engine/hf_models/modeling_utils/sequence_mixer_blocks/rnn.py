@@ -35,7 +35,6 @@ class RNN(nn.Module):
         state_size: int,
         output_size: int,
         num_heads: int,
-        num_groups: int | None,
         kernel_size: int | None,
         activation_function: str | None,
         add_bias: bool,
@@ -54,7 +53,6 @@ class RNN(nn.Module):
         self.state_size = state_size
         self.output_size = output_size
         self.num_heads = num_heads
-        self.num_groups = num_groups
         self.kernel_size = kernel_size
         self.activation_string = activation_function
         self.gradient_clipping = gradient_clipping
@@ -70,19 +68,17 @@ class RNN(nn.Module):
         self.input_projection = ParameterizedLinear(self.input_size, 2 * self.state_size, bias=add_bias, std=std)
 
         if kernel_size is None:
-            assert num_groups is None
             assert activation_function is None
         else:
-            is_glu_activation = is_glu(self.activation_string)
-            divide_if_divisible((2 if is_glu_activation else 1) * self.state_size, num_groups, "")
+            assert not is_glu(self.activation_string)
 
             self.conv1d = ParameterizedConv1d(
                 in_channels=self.state_size,
-                out_channels=(2 if is_glu_activation else 1) * self.state_size,
+                out_channels=self.state_size,
                 kernel_size=kernel_size,
                 bias=add_bias,
                 padding=kernel_size - 1,
-                groups=num_groups,
+                groups=self.state_size,
                 std=std,
             )
 
@@ -143,7 +139,7 @@ class RNN(nn.Module):
                 attention_mask=attention_mask,
                 conv1d_weight=self.conv1d.weight,
                 conv1d_bias=self.conv1d.bias,
-                conv1d_num_groups=self.num_groups,
+                conv1d_num_groups=self.state_size,
                 return_cache_state=cache_params is not None,
                 activation_string=self.activation_string,
                 conv1d_padding=self.kernel_size - 1,

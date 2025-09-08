@@ -37,7 +37,6 @@ class GRU(nn.Module):
         low_rank: int | None,
         low_rank_norm: bool,
         num_heads: int,
-        num_groups: int | None,
         kernel_size: int | None,
         activation_function: str | None,
         add_bias: bool,
@@ -57,13 +56,13 @@ class GRU(nn.Module):
         self.output_size = output_size
         self.low_rank = low_rank
         self.num_heads = num_heads
-        self.num_groups = num_groups
         self.kernel_size = kernel_size
         self.activation_string = activation_function
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
+        self.conv_dim = 3 * self.state_size
 
         std = initializer_range
         if init_method == "mup":
@@ -110,19 +109,17 @@ class GRU(nn.Module):
             )
 
         if kernel_size is None:
-            assert num_groups is None
             assert activation_function is None
         else:
-            is_glu_activation = is_glu(self.activation_string)
-            divide_if_divisible((6 if is_glu_activation else 3) * self.state_size, num_groups, "")
+            assert not is_glu(self.activation_string)
 
             self.conv1d = ParameterizedConv1d(
-                in_channels=3 * self.state_size,
-                out_channels=(6 if is_glu_activation else 3) * self.state_size,
+                in_channels=self.conv_dim,
+                out_channels=self.conv_dim,
                 kernel_size=kernel_size,
                 bias=add_bias,
                 padding=kernel_size - 1,
-                groups=num_groups,
+                groups=self.conv_dim,
                 std=std,
             )
 
@@ -199,7 +196,7 @@ class GRU(nn.Module):
                 attention_mask=attention_mask,
                 conv1d_weight=self.conv1d.weight,
                 conv1d_bias=self.conv1d.bias,
-                conv1d_num_groups=self.num_groups,
+                conv1d_num_groups=self.conv_dim,
                 return_cache_state=cache_params is not None,
                 activation_string=self.activation_string,
                 conv1d_padding=self.kernel_size - 1,

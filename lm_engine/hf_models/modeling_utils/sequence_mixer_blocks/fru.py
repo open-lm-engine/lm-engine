@@ -37,7 +37,6 @@ class FRU(nn.Module):
         state_size: int,
         output_size: int,
         num_heads: int,
-        num_groups: int | None,
         kernel_size: int | None,
         activation_function: str | None,
         add_bias: bool,
@@ -65,7 +64,7 @@ class FRU(nn.Module):
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
         self.intermediate_head_dim = divide_if_divisible(self.intermediate_size, self.num_heads, "")
         self.expansion_factor = divide_if_divisible(self.state_size, self.intermediate_size, "")
-        self.num_groups = 3 * (self.num_heads + self.intermediate_size)
+        self.conv_dim = 3 * (self.num_heads + self.intermediate_size)
 
         std = initializer_range
         if init_method == "mup":
@@ -74,22 +73,21 @@ class FRU(nn.Module):
 
         self.input_projection = ParameterizedLinear(
             self.input_size,
-            self.num_groups + self.state_size,
+            self.conv_dim + self.state_size,
             bias=add_bias,
             std=std,
         )
 
         if kernel_size is None:
-            assert num_groups is None
             assert activation_function is None
         else:
             self.conv1d = ParameterizedConv1d(
-                in_channels=self.num_groups,
-                out_channels=self.num_groups,
+                in_channels=self.conv_dim,
+                out_channels=self.conv_dim,
                 kernel_size=kernel_size,
                 bias=add_bias,
                 padding=kernel_size - 1,
-                groups=self.num_groups,
+                groups=self.conv_dim,
                 std=std,
             )
 
@@ -147,7 +145,7 @@ class FRU(nn.Module):
         conv_state = None
 
         input = self.input_projection(input)
-        input, gate = input.split((self.num_groups, self.state_size), dim=-1)
+        input, gate = input.split((self.conv_dim, self.state_size), dim=-1)
 
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
@@ -156,7 +154,7 @@ class FRU(nn.Module):
                 attention_mask=attention_mask,
                 conv1d_weight=self.conv1d.weight,
                 conv1d_bias=self.conv1d.bias,
-                conv1d_num_groups=self.num_groups,
+                conv1d_num_groups=self.conv_dim,
                 return_cache_state=cache_params is not None,
                 activation_string=self.activation_string,
                 conv1d_padding=self.kernel_size - 1,
