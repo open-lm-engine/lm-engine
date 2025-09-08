@@ -576,5 +576,6 @@ class Mamba2(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         A = torch.arange(1, self.num_heads + 1)
-        self.A_log.data = torch.log(A)
+        self.A_log.fill_(torch.log(A))
+
         nn.init.ones_(self.D)
