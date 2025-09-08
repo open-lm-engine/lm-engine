@@ -66,6 +66,7 @@ class _Mamba2Args(BaseArgs):
     activation_function: str = "silu"
     num_groups: int = 8
     chunk_size: int = 256
+    normalization_function: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "mamba2"
