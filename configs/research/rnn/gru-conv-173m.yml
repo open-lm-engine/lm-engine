@@ -29,6 +29,7 @@ kernel_args:
     - gru
     - scattermoe
     - mamba2_ssm
+    - causal_conv1d
     - flash_attention_2
 
 model_args:
@@ -364,8 +365,8 @@ logging_args:
 training_parameters:
   num_training_steps: 25000
   eval_interval: 2500
-  micro_batch_size: 16
-  gradient_accumulation_steps: 2
+  micro_batch_size: 8
+  gradient_accumulation_steps: 4
   eval_during_training: true
 
 optimizer_args:
