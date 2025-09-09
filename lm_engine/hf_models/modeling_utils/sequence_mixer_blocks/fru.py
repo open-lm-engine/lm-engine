@@ -172,7 +172,7 @@ class FRU(nn.Module):
         kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
 
         input = rnn(
-            input=input,
+            input=kvT,
             weight=self.state_weight,
             input_state=input_state,
             gradient_clipping=self.gradient_clipping,
