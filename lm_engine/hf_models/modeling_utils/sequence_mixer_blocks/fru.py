@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_fma_available
+from ....utils import divide_if_divisible, is_fma_available, print_ranks_all
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
@@ -192,10 +192,8 @@ class FRU(nn.Module):
         input = q.unsqueeze(-2) @ input
         input = input.squeeze(-2).flatten(-2, -1)
 
-        input = input.view(*input.size()[:-2], -1)
-
         input = input * F.silu(gate)
-        input = self.norm(input)
+        input = self.g_norm(input)
 
         input = self.output_projection(input)
 
