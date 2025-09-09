@@ -155,6 +155,14 @@ class GRU(nn.Module):
         else:
             mark_parameter_as_mup_learning_rate(self.input_projection.l1.weight)
             mark_parameter_as_mup_learning_rate(self.input_projection.l2.weight)
+            mark_parameter_as_mup_learning_rate(self.forget_projection.l1.weight)
+            mark_parameter_as_mup_learning_rate(self.forget_projection.l2.weight)
+            mark_parameter_as_mup_learning_rate(self.reset_projection.l1.weight)
+            mark_parameter_as_mup_learning_rate(self.reset_projection.l2.weight)
+
+            if self.is_gated_normalization:
+                mark_parameter_as_mup_learning_rate(self.gate_projection.l1.weight)
+                mark_parameter_as_mup_learning_rate(self.gate_projection.l2.weight)
 
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)

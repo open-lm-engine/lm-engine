@@ -18,7 +18,7 @@ from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
 from ..convolution import ParameterizedConv1d
-from ..linear import ParameterizedLinear
+from ..linear import ParameterizedLinear, ParameterizedLowRankLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
@@ -63,10 +63,9 @@ class FRU(nn.Module):
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
-        self.is_gated_normalization = normalization_function == "silu_gated_rmsnorm"
         self.intermediate_head_dim = divide_if_divisible(self.intermediate_size, self.num_heads, "")
         self.expansion_factor = divide_if_divisible(self.state_size, self.intermediate_size, "")
-        self.num_groups = 3 * (self.num_heads + self.expansion_factor)
+        self.num_groups = 3 * (self.num_heads + self.intermediate_size)
 
         std = initializer_range
         if init_method == "mup":
@@ -75,7 +74,7 @@ class FRU(nn.Module):
 
         self.input_projection = ParameterizedLinear(
             self.input_size,
-            self.num_groups + (self.state_size if self.is_gated_normalization else 0),
+            self.num_groups + self.state_size,
             bias=add_bias,
             std=std,
         )
@@ -99,9 +98,10 @@ class FRU(nn.Module):
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.output_projection = ParameterizedLinear(self.state_size, self.output_size, bias=False, std=std)
+        # self.output_projection = ParameterizedLinear(self.state_size, self.output_size, bias=False, std=std)
+        self.output_projection = ParameterizedLowRankLinear(self.intermediate_size, self.output_size, 1, norm=True, bias=False, std=std)
 
-        self.norm = get_normalization_function(normalization_function, self.state_size)
+        # self.norm = get_normalization_function(normalization_function, self.state_size)
         self.input_norm = get_normalization_function("rmsnorm", self.expansion_factor)
         self.forget_norm = get_normalization_function("rmsnorm", self.expansion_factor)
         self.reset_norm = get_normalization_function("rmsnorm", self.expansion_factor)
@@ -113,7 +113,8 @@ class FRU(nn.Module):
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
-        mark_parameter_as_mup_learning_rate(self.output_projection.weight)
+        mark_parameter_as_mup_learning_rate(self.output_projection.l1.weight)
+        mark_parameter_as_mup_learning_rate(self.output_projection.l2.weight)
 
         mark_parameter_as_no_weight_decay(self.state_weight)
 
@@ -144,9 +145,7 @@ class FRU(nn.Module):
         conv_state = None
 
         input = self.input_projection(input)
-
-        if self.is_gated_normalization:
-            input, gate = input.split((self.num_groups, self.state_size), dim=-1)
+        input, gate = input.split((self.num_groups, self.state_size), dim=-1)
 
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
@@ -193,14 +192,9 @@ class FRU(nn.Module):
         if cache_params is not None:
             cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
 
-        input = input.view(*input.size()[:-2], -1)
-
-        if self.is_gated_normalization:
-            input = self.norm(input, gate)
-        else:
-            input = self.norm(input)
-
-        input = self.output_projection(input)
+        input = self.output_projection.l1(input)
+        input = self.output_projection.norm(input * F.silu(gate))
+        input = self.output_projection.l2(input)
 
         return input
 
