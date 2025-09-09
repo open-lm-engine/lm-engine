@@ -94,7 +94,6 @@ def get_sequence_mixer(
             state_size=block.state_size,
             output_size=config.hidden_size,
             low_rank=block.low_rank,
-            low_rank_norm=block.low_rank_norm,
             num_heads=block.num_heads,
             kernel_size=block.kernel_size,
             activation_function=block.activation_function,

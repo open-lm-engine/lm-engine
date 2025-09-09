@@ -35,7 +35,6 @@ class MSU(nn.Module):
         state_size: int,
         output_size: int,
         low_rank: int | None,
-        low_rank_norm: bool,
         num_heads: int,
         kernel_size: int | None,
         activation_function: str | None,
@@ -69,46 +68,9 @@ class MSU(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        if self.low_rank is None:
-            self.input_projection = ParameterizedLinear(
-                self.input_size, self.conv_dim + self.state_size, bias=add_bias, std=std
-            )
-        else:
-            self.input_projection = ParameterizedLowRankLinear(
-                self.input_size,
-                self.state_size,
-                rank=self.low_rank,
-                bias=add_bias,
-                norm=low_rank_norm,
-                std=std,
-            )
-
-            self.forget_projection = ParameterizedLowRankLinear(
-                self.input_size,
-                self.state_size,
-                rank=self.low_rank,
-                bias=add_bias,
-                norm=low_rank_norm,
-                std=std,
-            )
-
-            self.reset_projection = ParameterizedLowRankLinear(
-                self.input_size,
-                self.state_size,
-                rank=self.low_rank,
-                bias=add_bias,
-                norm=low_rank_norm,
-                std=std,
-            )
-
-            self.gate_projection = ParameterizedLowRankLinear(
-                self.input_size,
-                self.state_size,
-                rank=self.low_rank,
-                bias=add_bias,
-                norm=low_rank_norm,
-                std=std,
-            )
+        self.input_projection = ParameterizedLinear(
+            self.input_size, self.conv_dim + self.state_size, bias=add_bias, std=std
+        )
 
         if kernel_size is None:
             assert activation_function is None
@@ -145,20 +107,16 @@ class MSU(nn.Module):
         )
 
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
-
-        if self.low_rank is None:
-            mark_parameter_as_mup_learning_rate(self.input_projection.weight)
-        else:
-            mark_parameter_as_mup_learning_rate(self.input_projection.l1.weight)
-            mark_parameter_as_mup_learning_rate(self.input_projection.l2.weight)
-
+        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
+        mark_parameter_as_mup_learning_rate(self.residual_weight)
+        mark_parameter_as_mup_learning_rate(self.sequence_mixer_weight)
 
         mark_parameter_as_no_weight_decay(self.state_weight)
-
         mark_parameter_as_no_weight_decay(self.residual_weight)
-        mark_parameter_as_mup_learning_rate(self.residual_weight)
+        mark_parameter_as_no_weight_decay(self.residual_weight)
+        mark_parameter_as_no_weight_decay(self.sequence_mixer_weight)
 
         self.reset_parameters()
 
@@ -186,16 +144,8 @@ class MSU(nn.Module):
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
         conv_state = None
 
-        if self.low_rank is None:
-            input = self.input_projection(input)
-            input, gate = input.split((2 * self.state_size + self.num_heads, self.state_size), dim=-1)
-        else:
-            gate = self.gate_projection(input)
-            forget_input = self.forget_projection(input)
-            reset_input = self.reset_projection(input)
-            input = self.input_projection(input)
-
-            input = torch.cat([input, forget_input, reset_input], dim=-1)
+        input = self.input_projection(input)
+        input, gate = input.split((2 * self.state_size + self.num_heads, self.state_size), dim=-1)
 
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
