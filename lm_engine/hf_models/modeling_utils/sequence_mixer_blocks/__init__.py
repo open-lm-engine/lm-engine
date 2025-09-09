@@ -90,7 +90,6 @@ def get_sequence_mixer(
     elif sequence_mixer_type == "fru":
         return FRU(
             input_size=config.hidden_size,
-            intermediate_size=block.intermediate_size,
             state_size=block.state_size,
             output_size=config.hidden_size,
             num_heads=block.num_heads,
