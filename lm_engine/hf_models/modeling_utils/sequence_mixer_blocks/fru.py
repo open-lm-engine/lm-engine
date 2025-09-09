@@ -28,7 +28,7 @@ if is_fma_available():
     from fma.modules.msu import msu
 
 
-class MSU(nn.Module):
+class FRU(nn.Module):
     def __init__(
         self,
         input_size: int,
@@ -114,10 +114,6 @@ class MSU(nn.Module):
 
         self.residual_weight = nn.Parameter(torch.empty(self.num_heads))
 
-        self.state_weight_norm = get_normalization_function(
-            "p_norm", self.state_head_dim * self.state_head_dim, elementwise_affine=False, p=2
-        )
-
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
@@ -176,9 +172,9 @@ class MSU(nn.Module):
             dim=-1,
         )
 
-        input = self.input_norm(input)
-        forget_input = self.forget_norm(forget_input)
-        reset_input = self.reset_norm(reset_input)
+        # input = self.input_norm(input)
+        # forget_input = self.forget_norm(forget_input)
+        # reset_input = self.reset_norm(reset_input)
 
         # LR = N * LRH
         # SS = N * SH
@@ -189,7 +185,7 @@ class MSU(nn.Module):
             for i in (input, forget_input)
         ]
 
-        # B, S, N, LRH, 1
+        # B, S, N, SS / LR, 1
         expander = expander.unsqueeze(-2).expand(-1, -1, self.num_heads, -1).unsqueeze(-1)
 
         input = input * expander
@@ -200,10 +196,7 @@ class MSU(nn.Module):
 
         residual = self.residual_weight.unsqueeze(-1).unsqueeze(0).unsqueeze(0) * input
 
-        state_weight = self.state_weight_norm(self.state_weight.view(3 * self.num_heads, -1)).view_as(
-            self.state_weight
-        )
-        weight, forget_weight, reset_weight = state_weight.chunk(3, dim=0)
+        weight, forget_weight, reset_weight = self.state_weight.chunk(3, dim=0)
 
         input = msu(
             input=input,
