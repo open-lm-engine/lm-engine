@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_fma_available, print_ranks_all
+from ....utils import divide_if_divisible, is_fma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
@@ -26,6 +26,7 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 if is_fma_available():
     from fma import KernelBackend
     from fma.modules.msu import msu
+    from fma.modules.rnn import rnn
 
 
 class FRU(nn.Module):
@@ -34,8 +35,6 @@ class FRU(nn.Module):
         input_size: int,
         state_size: int,
         output_size: int,
-        low_rank: int | None,
-        low_rank_norm: bool,
         num_heads: int,
         kernel_size: int | None,
         activation_function: str | None,
@@ -48,40 +47,34 @@ class FRU(nn.Module):
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
-    ) -> MSU:
+    ) -> FRU:
         super().__init__()
 
         self.input_size = input_size
         self.state_size = state_size
         self.output_size = output_size
-        self.low_rank = low_rank
         self.num_heads = num_heads
-        self.low_rank_head_dim = divide_if_divisible(self.low_rank, self.num_heads, "")
         self.kernel_size = kernel_size
         self.activation_string = activation_function
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
-        self.expansion_factor = divide_if_divisible(self.state_size, self.low_rank, "")
+
+        self.q_shape = self.num_heads * self.state_head_dim
+        self.k_shape = self.num_heads * self.state_head_dim
+        self.v_shape = self.num_heads * self.state_head_dim
+        self.g_shape = self.num_heads * self.state_head_dim
+
+        self.conv_dim = self.q_shape + self.k_shape + self.v_shape
 
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.reset_input_shape = self.num_heads
-        self.C_shape = self.num_heads
-        self.gate_shape = self.low_rank
-        self.input_shape = self.low_rank
-        self.forget_input_shape = self.low_rank
-
-        self.conv_dim = (
-            self.input_shape + self.forget_input_shape + self.reset_input_shape + self.C_shape + self.expansion_factor
-        )
-
         self.input_projection = ParameterizedLinear(
-            self.input_size, self.conv_dim + self.gate_shape, bias=add_bias, std=std
+            self.input_size, self.conv_dim + self.g_shape, bias=add_bias, std=std
         )
 
         if kernel_size is None:
@@ -99,30 +92,22 @@ class FRU(nn.Module):
                 std=std,
             )
 
-        self.state_weight = nn.Parameter(torch.empty(3 * self.num_heads, self.state_head_dim, self.state_head_dim))
+        self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.up_projection = ParameterizedLinear(self.state_head_dim, self.low_rank_head_dim, bias=False, std=std)
-        self.output_projection = ParameterizedLinear(self.low_rank, self.output_size, bias=False, std=std)
+        self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
 
-        self.norm = get_normalization_function(normalization_function, self.gate_shape)
-        self.input_norm = get_normalization_function("rmsnorm", self.input_shape)
-        self.forget_norm = get_normalization_function("rmsnorm", self.forget_input_shape)
-        self.reset_norm = get_normalization_function("rmsnorm", self.reset_input_shape)
-
-        self.residual_weight = nn.Parameter(torch.empty(self.num_heads))
+        self.norm = get_normalization_function("rmsnorm", self.state_head_dim, elementwise_affine=False)
+        self.g_norm = get_normalization_function(normalization_function, self.state_size)
 
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
-        mark_parameter_as_mup_learning_rate(self.up_projection.weight)
-        mark_parameter_as_mup_learning_rate(self.residual_weight)
 
         mark_parameter_as_no_weight_decay(self.state_weight)
-        mark_parameter_as_no_weight_decay(self.residual_weight)
 
         self.reset_parameters()
 
@@ -151,7 +136,7 @@ class FRU(nn.Module):
         conv_state = None
 
         input = self.input_projection(input)
-        input, gate = input.split((self.conv_dim, self.gate_shape), dim=-1)
+        input, gate = input.split((self.conv_dim, self.g_shape), dim=-1)
 
         if self.kernel_size is not None:
             input, conv_state = causal_convolution(
@@ -167,44 +152,28 @@ class FRU(nn.Module):
                 conv1d_stride=1,
             )
 
-        input, forget_input, reset_input, C, expander = input.split(
-            (self.input_shape, self.forget_input_shape, self.reset_input_shape, self.C_shape, self.expansion_factor),
-            dim=-1,
-        )
+        q, k, v = input.split((self.q_shape, self.k_shape, self.v_shape), dim=-1)
 
-        # input = self.input_norm(input)
-        # forget_input = self.forget_norm(forget_input)
-        # reset_input = self.reset_norm(reset_input)
+        q = q.view(*q.size()[:-1], self.num_heads, self.state_head_dim)
+        k = k.view(*k.size()[:-1], self.num_heads, self.state_head_dim)
+        v = v.view(*v.size()[:-1], self.num_heads, self.state_head_dim)
 
-        # LR = N * LRH
-        # SS = N * SH
+        q = self.norm(q)
+        k = self.norm(k)
+        v = self.norm(v)
 
-        # B, S, N, 1, LRH
-        input, forget_input = [
-            i.view(*input.size()[:-1], self.num_heads, self.low_rank_head_dim).unsqueeze(-2)
-            for i in (input, forget_input)
-        ]
+        # B, S, N, H, 1
+        k = k[..., :, None]
+        # B, S, N, 1, H
+        v = v[..., None, :]
 
-        # B, S, N, SS / LR, 1
-        expander = expander.unsqueeze(-2).expand(-1, -1, self.num_heads, -1).unsqueeze(-1)
+        # B, S, N, H, H
+        kvT = k * v
+        kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
 
-        input = input * expander
-        forget_input = forget_input * expander
-
-        input = input.flatten(-2, -1)
-        forget_input = forget_input.flatten(-2, -1)
-
-        residual = self.residual_weight.unsqueeze(-1).unsqueeze(0).unsqueeze(0) * input
-
-        weight, forget_weight, reset_weight = self.state_weight.chunk(3, dim=0)
-
-        input = msu(
+        input = rnn(
             input=input,
-            weight=weight,
-            forget_input=forget_input,
-            forget_weight=forget_weight,
-            reset_input=reset_input,
-            reset_weight=reset_weight,
+            weight=self.state_weight,
             input_state=input_state,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
@@ -212,15 +181,17 @@ class FRU(nn.Module):
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 
-        if not self.use_padding_free_transformer and attention_mask is not None:
-            input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, output_shape=(B, S, *input.size()[1:]))
+        # FIXME
+        # if not self.use_padding_free_transformer and attention_mask is not None:
+        #     input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, output_shape=(B, S, *input.size()[1:]))
 
-        if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+        # if cache_params is not None:
+        #     cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
 
-        input = residual + input * C.unsqueeze(-1)
+        input = input.view(B, self.state_head_dim, S, self.num_heads, self.state_head_dim).permute(0, 2, 3, 1, 4)
+        input = q.unsqueeze(-2) @ input
+        input = input.squeeze(-2).flatten(-2, -1)
 
-        input = self.up_projection(input)
         input = input.view(*input.size()[:-2], -1)
 
         input = input * F.silu(gate)
@@ -234,6 +205,7 @@ class FRU(nn.Module):
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
         nn.init.ones_(self.residual_weight)
+        nn.init.ones_(self.sequence_mixer_weight)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
