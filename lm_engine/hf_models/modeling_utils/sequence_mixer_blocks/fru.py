@@ -26,7 +26,6 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 if is_fma_available():
     from fma import KernelBackend
     from fma.modules.msu import msu
-    from fma.modules.rnn import rnn
 
 
 class FRU(nn.Module):
@@ -64,9 +63,10 @@ class FRU(nn.Module):
         self.q_shape = self.num_heads * self.state_head_dim
         self.k_shape = self.num_heads * self.state_head_dim
         self.v_shape = self.num_heads * self.state_head_dim
+        self.f_shape = self.num_heads * self.state_head_dim
         self.g_shape = self.num_heads * self.state_head_dim
 
-        self.conv_dim = self.q_shape + self.k_shape + self.v_shape
+        self.conv_dim = self.q_shape + self.k_shape + self.v_shape + self.f_shape
 
         std = initializer_range
         if init_method == "mup":
@@ -98,6 +98,11 @@ class FRU(nn.Module):
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
+
+        self.register_buffer(
+            "reset_weight", torch.zeros(self.num_heads, self.state_head_dim, self.state_head_dim, dtype=torch.bfloat16)
+        )
+        self.forget_multiplier = nn.Parameter(torch.empty(self.num_heads))
 
         self.norm = get_normalization_function(normalization_function, self.state_head_dim, elementwise_affine=False)
         self.g_norm = get_normalization_function(normalization_function, self.state_size)
@@ -152,11 +157,12 @@ class FRU(nn.Module):
                 conv1d_stride=1,
             )
 
-        q, k, v = input.split((self.q_shape, self.k_shape, self.v_shape), dim=-1)
+        q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.f_shape), dim=-1)
 
         q = q.view(*q.size()[:-1], self.num_heads, self.state_head_dim)
         k = k.view(*k.size()[:-1], self.num_heads, self.state_head_dim)
         v = v.view(*v.size()[:-1], self.num_heads, self.state_head_dim)
+        f = f.view(*f.size()[:-1], self.num_heads, self.state_head_dim)
 
         q = self.norm(q)
         k = self.norm(k)
@@ -169,11 +175,20 @@ class FRU(nn.Module):
 
         # B, S, N, H, H
         kvT = k * v
-        kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
 
-        input = rnn(
+        f = f * self.forget_multiplier[:, None]
+        f = f[..., None].expand_as(kvT)
+
+        kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
+        f = f.permute(0, 3, 1, 2, 4).flatten(0, 1)
+
+        input = msu(
             input=kvT,
             weight=self.state_weight,
+            forget_input=f,
+            forget_weight=self.reset_weight,
+            reset_input=torch.full_like(kvT[..., 0], fill_value=20),
+            reset_weight=self.reset_weight,
             input_state=input_state,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
@@ -202,6 +217,7 @@ class FRU(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
+        nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
