@@ -99,7 +99,7 @@ class FRU(nn.Module):
             std /= math.sqrt(m_width)
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
 
-        self.norm = get_normalization_function("rmsnorm", self.state_head_dim, elementwise_affine=False)
+        self.norm = get_normalization_function(normalization_function, self.state_head_dim, elementwise_affine=False)
         self.g_norm = get_normalization_function(normalization_function, self.state_size)
 
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
