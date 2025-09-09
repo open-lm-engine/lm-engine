@@ -29,6 +29,7 @@ kernel_args:
     - gru
     - scattermoe
     - mamba2_ssm
+    - causal_conv1d
     - flash_attention_2
 
 model_args:
@@ -52,241 +53,193 @@ model_args:
     vocab_size: 100352
     max_position_embeddings: 4096
     sequence_mixer_blocks:
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: gru
-        state_size: 2112
-        low_rank: 64
-        low_rank_norm: true
-        num_heads: 132
+      - sequence_mixer_type: rnn
+        state_size: 1024
+        num_heads: 64
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -395,11 +348,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/gru-lr-conv-173m
+  save_path: /u/shawntan/proj/mayank/checkpoints/rnn-conv-173m
   save_interval: 5000
 
 # load_args:
-#   load_path: /u/shawntan/proj/mayank/checkpoints/gru-lr-conv-173m
+#   load_path: /u/shawntan/proj/mayank/checkpoints/rnn-conv-173m
 
 logging_args:
   log_interval: 10
@@ -407,13 +360,13 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: model-architectures
-    name: gru-conv-lr-nemo-173m
+    name: rnn-conv-nemo-173m
 
 training_parameters:
   num_training_steps: 25000
   eval_interval: 2500
-  micro_batch_size: 8
-  gradient_accumulation_steps: 4
+  micro_batch_size: 16
+  gradient_accumulation_steps: 2
   eval_during_training: true
 
 optimizer_args:
@@ -434,11 +387,11 @@ lr_scheduler_args:
   num_decay_steps: 25000
   extra_lr_scheduler_args:
     # 4 * global_batch_size
-    a: 4608
+    a: 4096
     # constant
     b: -0.51
     # global_batch_size in number of tokens
-    c: 4718592
+    c: 4194304
 
 mixed_precision_args:
   dtype: bf16
@@ -446,3 +399,4 @@ mixed_precision_args:
 distributed_args:
   stage: 0
   torch_compile: true
+  # gradient_checkpointing_method: block
