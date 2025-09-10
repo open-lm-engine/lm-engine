@@ -217,6 +217,7 @@ class FRU(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
+        nn.init.zeros_(self.reset_weight)
         nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
 
     def extra_repr(self) -> str:
