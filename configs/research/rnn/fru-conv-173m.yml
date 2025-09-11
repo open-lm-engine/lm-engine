@@ -54,192 +54,192 @@ model_args:
     max_position_embeddings: 4096
     sequence_mixer_blocks:
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
       - sequence_mixer_type: fru
-        state_size: 608
-        num_heads: 38
+        state_size: 512
+        num_heads: 32
         activation_function: silu
         normalization_function: rmsnorm
         kernel_size: 4
@@ -342,17 +342,17 @@ model_args:
         mlp_type: MLP
         add_bias: false
         intermediate_size: 1408
-  efficient_initialization: true
+  efficient_initialization: false
 
 tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/fru-conv-608-173m
+  save_path: /u/shawntan/proj/mayank/checkpoints/fru-conv-forget-weight-608-173m
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/fru-conv-608-173m
+#   load_path: /mnt/vast/proj/checkpoints/mayank/fru-conv-forget-weight-608-173m
 
 logging_args:
   log_interval: 10
@@ -360,13 +360,13 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: model-architectures
-    name: fru-conv-608-nemo-173m
+    name: fru-conv-forget-weight-512-nemo-173m
 
 training_parameters:
   num_training_steps: 25000
   eval_interval: 2500
-  micro_batch_size: 8
-  gradient_accumulation_steps: 4
+  micro_batch_size: 4
+  gradient_accumulation_steps: 8
   eval_during_training: true
 
 optimizer_args:
