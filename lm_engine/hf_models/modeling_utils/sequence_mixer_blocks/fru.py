@@ -94,6 +94,11 @@ class FRU(nn.Module):
 
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
+        self.forget_multiplier = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim))
+        mark_parameter_as_no_weight_decay(self.forget_multiplier)
+        self.logistic_factor = nn.Parameter(torch.zeros(self.num_heads))
+        mark_parameter_as_no_weight_decay(self.logistic_factor)
+
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
@@ -102,7 +107,6 @@ class FRU(nn.Module):
         self.register_buffer(
             "reset_weight", torch.zeros(self.num_heads, self.state_head_dim, self.state_head_dim, dtype=torch.bfloat16)
         )
-        self.forget_multiplier = nn.Parameter(torch.empty(self.num_heads))
 
         self.norm = get_normalization_function(normalization_function, self.state_head_dim, elementwise_affine=False)
         self.g_norm = get_normalization_function(normalization_function, self.state_size)
@@ -158,6 +162,7 @@ class FRU(nn.Module):
             )
 
         q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.f_shape), dim=-1)
+        factor = torch.sigmoid(self.logistic_factor)
 
         q = q.view(*q.size()[:-1], self.num_heads, self.state_head_dim)
         k = k.view(*k.size()[:-1], self.num_heads, self.state_head_dim)
@@ -171,12 +176,12 @@ class FRU(nn.Module):
         # B, S, N, H, 1
         k = k[..., :, None]
         # B, S, N, 1, H
-        v = v[..., None, :]
+        v = v[..., None, :] * factor[..., :, None, None]
 
         # B, S, N, H, H
         kvT = k * v
 
-        f = f * self.forget_multiplier[:, None]
+        f = f * (2 * torch.sigmoid(self.forget_multiplier))
         f = f[..., None].expand_as(kvT)
 
         kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
@@ -184,7 +189,7 @@ class FRU(nn.Module):
 
         input = msu(
             input=kvT,
-            weight=self.state_weight,
+            weight=self.state_weight * factor[:, None, None],
             forget_input=f,
             forget_weight=self.reset_weight,
             reset_input=torch.full_like(kvT[..., 0], fill_value=20),
@@ -219,6 +224,7 @@ class FRU(nn.Module):
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
         nn.init.zeros_(self.reset_weight)
         nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
+        nn.init.zeros_(self.logistic_factor)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
