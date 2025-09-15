@@ -76,11 +76,12 @@ class FRU(nn.Module):
         self.input_projection = ParameterizedLinear(
             self.input_size, self.conv_dim + self.g_shape, bias=add_bias, std=std
         )
+        self.input_activation = nn.SiLU()
 
         if kernel_size is None:
             assert activation_function is None
         else:
-            assert not is_glu(self.activation_string)
+            assert self.activation_string is None or not is_glu(self.activation_string)
 
             self.conv1d = ParameterizedConv1d(
                 in_channels=self.conv_dim,
@@ -92,12 +93,30 @@ class FRU(nn.Module):
                 std=std,
             )
 
-        self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
-
-        self.forget_multiplier = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim))
-        mark_parameter_as_no_weight_decay(self.forget_multiplier)
-        self.logistic_factor = nn.Parameter(torch.zeros(self.num_heads))
+        factor = 1 / math.sqrt(2 * self.state_head_dim)
+        p = factor
+        _logistic_factor = math.log(p) - math.log(1 - p) 
+        self.logistic_factor = nn.Parameter(torch.full((self.num_heads,), fill_value=_logistic_factor))
         mark_parameter_as_no_weight_decay(self.logistic_factor)
+        self.state_weight = nn.Parameter(
+            torch.eye(self.state_head_dim)[None, :, :] / (torch.sigmoid(self.logistic_factor))[:, None, None]
+        )
+
+        # p_m = torch.rand(self.num_heads, self.state_head_dim) * 0.9 + 0.05
+        p_m = torch.rand(self.num_heads, 1) * 0.9 + 0.05
+        forget_mul = torch.log(p_m) - torch.log(1 - p_m)
+        self.forget_multiplier = nn.Parameter(forget_mul)
+        mark_parameter_as_no_weight_decay(self.forget_multiplier)
+
+        # self.forget_bias = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim))
+        p_b = torch.rand(self.num_heads, self.state_head_dim) * 0.9 + 0.05
+        p_b = p_b / p_m
+        forget_bias = torch.log(p_b) - torch.log(1 - p_b)
+        self.forget_bias = nn.Parameter(forget_bias)
+        mark_parameter_as_no_weight_decay(self.forget_bias)
+
+        self.log_activation_range = nn.Parameter(torch.zeros(self.num_heads))
+        mark_parameter_as_no_weight_decay(self.log_activation_range)
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
@@ -108,7 +127,7 @@ class FRU(nn.Module):
             "reset_weight", torch.zeros(self.num_heads, self.state_head_dim, self.state_head_dim, dtype=torch.bfloat16)
         )
 
-        self.norm = get_normalization_function(normalization_function, self.state_head_dim, elementwise_affine=False)
+        self.norm = get_normalization_function('p_norm', self.state_head_dim, p=2, elementwise_affine=False)
         self.g_norm = get_normalization_function(normalization_function, self.state_size)
 
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
@@ -116,7 +135,7 @@ class FRU(nn.Module):
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
 
-        mark_parameter_as_no_weight_decay(self.state_weight)
+        # mark_parameter_as_no_weight_decay(self.state_weight)
 
         self.reset_parameters()
 
@@ -162,34 +181,42 @@ class FRU(nn.Module):
             )
 
         q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.f_shape), dim=-1)
-        factor = torch.sigmoid(self.logistic_factor)
+        factor = torch.sigmoid(self.logistic_factor).float()
+        activation_range = (F.softplus(self.log_activation_range) + 1).float()
 
         q = q.view(*q.size()[:-1], self.num_heads, self.state_head_dim)
         k = k.view(*k.size()[:-1], self.num_heads, self.state_head_dim)
         v = v.view(*v.size()[:-1], self.num_heads, self.state_head_dim)
         f = f.view(*f.size()[:-1], self.num_heads, self.state_head_dim)
 
-        q = self.norm(q)
+        # q = self.norm(q)
         k = self.norm(k)
-        v = self.norm(v)
+        # v = self.norm(v)
+        # f = self.norm(f)
+
 
         # B, S, N, H, 1
         k = k[..., :, None]
         # B, S, N, 1, H
-        v = v[..., None, :] * factor[..., :, None, None]
+        v = (v[..., None, :] * (factor / activation_range)[..., :, None, None]).to(k.dtype)
 
         # B, S, N, H, H
         kvT = k * v
 
-        f = f * (2 * torch.sigmoid(self.forget_multiplier))
+        f = (2 * torch.sigmoid(self.forget_multiplier)) * (f + self.forget_bias)
+        f_p = torch.softmax(f.float(), dim=-1)
+        f = (torch.log(1 - f_p + 1e-4) - torch.log(f_p + 1e-4)).to(k.dtype)
         f = f[..., None].expand_as(kvT)
 
         kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
         f = f.permute(0, 3, 1, 2, 4).flatten(0, 1)
-
+        # print(f[:, 0].size())
+        # print(f[:, 0])
+        # print((1 - torch.sigmoid(f[:, 0].view(-1, 16, 32, 16))).sum(1))
+        state_weight = (self.state_weight * factor[:, None, None]).to(self.state_weight.dtype)
         input = msu(
             input=kvT,
-            weight=self.state_weight * factor[:, None, None],
+            weight=state_weight,
             forget_input=f,
             forget_weight=self.reset_weight,
             reset_input=torch.full_like(kvT[..., 0], fill_value=20),
@@ -207,7 +234,7 @@ class FRU(nn.Module):
 
         # if cache_params is not None:
         #     cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
-
+        input = (input * activation_range[:, None]).to(input.dtype)
         input = input.view(B, self.state_head_dim, S, self.num_heads, self.state_head_dim).permute(0, 2, 3, 1, 4)
         input = q.unsqueeze(-2) @ input
         input = input.squeeze(-2).flatten(-2, -1)
@@ -221,10 +248,15 @@ class FRU(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        nn.init.normal_(self.state_weight, std=self.state_weight_std)
-        nn.init.zeros_(self.reset_weight)
-        nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
+        # nn.init.normal_(self.state_weight, std=self.state_weight_std)
+        # nn.init.zeros_(self.reset_weight)
+        # nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
+        nn.init.zeros_(self.forget_multiplier)
+        nn.init.zeros_(self.forget_bias)
+
         nn.init.zeros_(self.logistic_factor)
+        # torch.fill_(self.log_activation_range, value=3.)
+        torch.fill_(self.log_activation_range, value=0.)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
