@@ -3,6 +3,7 @@
 # **************************************************
 
 import logging
+from contextlib import nullcontext
 from functools import partial
 from typing import Callable
 
@@ -32,10 +33,11 @@ from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
 from .hf_models import CausalLMOutputWithPast
 from .hf_models.parameter import _ALL_MARKERS
-from .kernels import is_kernel_allowed
+from .kernels import enable_kernels, is_kernel_allowed
 from .utils import (
     ProcessGroupManager,
     get_module_class_from_name,
+    is_fma_available,
     is_torchao_available,
     log_rank_0,
     string_to_torch_dtype,
@@ -50,15 +52,8 @@ if is_torchao_available():
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
 
-_STAGE_FULL_SHARDING_STRATEGY_MAP = {
-    2: ShardingStrategy.SHARD_GRAD_OP,
-    3: ShardingStrategy.FULL_SHARD,
-}
-
-_STAGE_HYBRID_SHARDING_STRATEGY_MAP = {
-    2: ShardingStrategy._HYBRID_SHARD_ZERO2,
-    3: ShardingStrategy.HYBRID_SHARD,
-}
+_STAGE_FULL_SHARDING_STRATEGY_MAP = {2: ShardingStrategy.SHARD_GRAD_OP, 3: ShardingStrategy.FULL_SHARD}
+_STAGE_HYBRID_SHARDING_STRATEGY_MAP = {2: ShardingStrategy._HYBRID_SHARD_ZERO2, 3: ShardingStrategy.HYBRID_SHARD}
 
 
 def _get_pipeline_parallel_schedule(
@@ -350,8 +345,13 @@ def wrap_model_container_for_distributed_training(
     if torch_compile:
         log_rank_0(logging.INFO, "using torch compile")
 
-        for i, model in enumerate(model_container):
-            model_container[i] = torch.compile(model)
+        context = nullcontext()
+        if Kernel.rmsnorm in args.kernel_args.kernels:
+            context = enable_kernels(kernels=[Kernel.rmsnorm.name])
+
+        with context:
+            for i, model in enumerate(model_container):
+                model_container[i] = torch.compile(model)
 
     _set_parameter_marker_maps(model_container, marker_maps)
 

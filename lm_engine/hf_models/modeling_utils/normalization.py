@@ -15,28 +15,10 @@ from ..parameter import mark_parameter_as_no_weight_decay
 
 
 if is_fma_available():
-    from fma import p_norm, rmsnorm
+    from fma import p_norm
 
 
-class RMSNorm(nn.RMSNorm):
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        rmsnorm_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm)
-        rmsnorm_memory_efficient_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm_memory_efficient)
-
-        if rmsnorm_kernel_allowed or rmsnorm_memory_efficient_kernel_allowed:
-            hidden_states = rmsnorm(
-                x=hidden_states,
-                weight=self.weight,
-                eps=self.eps,
-                memory_efficient=rmsnorm_memory_efficient_kernel_allowed,
-            )
-        else:
-            hidden_states = super().forward(hidden_states)
-
-        return hidden_states
-
-
-class PNorm(RMSNorm):
+class PNorm(nn.RMSNorm):
     def __init__(
         self,
         normalized_shape: int,
@@ -65,16 +47,12 @@ class PNorm(RMSNorm):
         return hidden_states
 
 
-_NORMALIZATION_FUNCTIONS = {
-    "layernorm": nn.LayerNorm,
-    "p_norm": PNorm,
-    "rmsnorm": RMSNorm,
-}
+_NORMALIZATION_FUNCTIONS = {"layernorm": nn.LayerNorm, "p_norm": PNorm, "rmsnorm": nn.RMSNorm}
 
 
 def get_normalization_function(
     normalization_function: str, normalized_shape: int, eps: float = 1e-5, p: int | None = None
-) -> nn.LayerNorm | RMSNorm | PNorm:
+) -> nn.LayerNorm | nn.RMSNorm | PNorm:
     if normalization_function is None:
         return nn.Identity()
 
