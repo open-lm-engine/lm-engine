@@ -346,7 +346,7 @@ def wrap_model_container_for_distributed_training(
         log_rank_0(logging.INFO, "using torch compile")
 
         context = nullcontext()
-        if Kernel.rmsnorm in args.kernel_args.kernels:
+        if is_fma_available() and Kernel.rmsnorm in args.kernel_args.kernels:
             context = enable_kernels(kernels=[Kernel.rmsnorm.name])
 
         with context:
