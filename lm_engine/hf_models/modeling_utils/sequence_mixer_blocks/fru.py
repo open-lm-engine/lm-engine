@@ -104,10 +104,6 @@ class FRU(nn.Module):
             std /= math.sqrt(m_width)
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
 
-        self.register_buffer(
-            "reset_weight", torch.zeros(self.num_heads, self.state_head_dim, self.state_head_dim, dtype=torch.bfloat16)
-        )
-
         self.norm = get_normalization_function(normalization_function, self.state_head_dim, elementwise_affine=False)
         self.g_norm = get_normalization_function(normalization_function, self.state_size)
 
@@ -220,7 +216,6 @@ class FRU(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
-        nn.init.zeros_(self.reset_weight)
         nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
         nn.init.zeros_(self.logistic_factor)
 
