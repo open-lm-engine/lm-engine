@@ -17,6 +17,9 @@ class Split(Enum):
     test = 2
 
 
+helpers = None
+
+
 def compile_helpers() -> None:
     """Compile C++ helper functions at runtime. Make sure this is invoked on a single process."""
 
@@ -25,8 +28,9 @@ def compile_helpers() -> None:
     build_directory = os.path.join(os.path.dirname(__file__), "build")
     os.makedirs(build_directory, exist_ok=True)
 
+    global helpers
     if ProcessGroupManager.get_global_rank() == 0:
-        load_cpp_extension(
+        helpers = load_cpp_extension(
             "helpers",
             sources=os.path.join(os.path.dirname(__file__), "helpers.cpp"),
             extra_cflags=["-O3", "-Wall", "-shared", "-std=c++11", "-fPIC", "-fdiagnostics-color"],
@@ -45,16 +49,12 @@ def build_blending_indices(
     size: int,
     verbose: bool,
 ) -> None:
-    import helpers
-
     helpers.build_blending_indices(dataset_index, dataset_sample_index, weights, num_datasets, size, verbose)
 
 
 def build_sample_idx(
     sizes: np.ndarray, doc_idx: np.ndarray, sequence_length: int, num_epochs: int, tokens_per_epoch: int
 ) -> np.ndarray:
-    import helpers
-
     if doc_idx.dtype == np.int32:
         log_rank_0(logging.INFO, f"using int32 for sample idx")
         sample_idx = helpers.build_sample_idx_int32(sizes, doc_idx, sequence_length, num_epochs, tokens_per_epoch)
