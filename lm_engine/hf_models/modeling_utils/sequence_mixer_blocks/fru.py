@@ -25,7 +25,7 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 
 if is_fma_available():
     from fma import KernelBackend
-    from fma.modules.msu import msu
+    from fma.modules.fru import fru
 
 
 class FRU(nn.Module):
@@ -187,7 +187,7 @@ class FRU(nn.Module):
         kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
         f = f.permute(0, 3, 1, 2, 4).flatten(0, 1)
 
-        input = msu(
+        input = fru(
             input=kvT,
             weight=self.state_weight * factor[:, None, None],
             forget_input=f,
