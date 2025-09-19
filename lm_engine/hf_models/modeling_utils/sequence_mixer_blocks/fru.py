@@ -187,7 +187,6 @@ class FRU(nn.Module):
             input=kvT,
             weight=self.state_weight * factor[:, None, None],
             forget_input=f,
-            reset_input=torch.full_like(kvT[..., 0], fill_value=20),
             input_state=input_state,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
