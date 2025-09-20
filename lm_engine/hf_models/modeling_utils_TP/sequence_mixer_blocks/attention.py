@@ -37,7 +37,6 @@ class Attention_TP(Attention):
         num_layers: int,
         causal: bool,
         layer_idx: int | None = None,
-        use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> Attention_TP:
         nn.Module.__init__(self)
@@ -49,7 +48,6 @@ class Attention_TP(Attention):
         self.global_num_heads = num_attention_heads
         self.global_num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
 
         divide_if_divisible(
@@ -90,7 +88,6 @@ class Attention_TP(Attention):
             self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
             bias=self.add_bias,
             std=std,
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
 
@@ -99,30 +96,15 @@ class Attention_TP(Attention):
             self.global_hidden_size,
             bias=self.add_bias,
             std=std / math.sqrt(2 * num_layers),
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
 
         self.softmax_dropout_p = softmax_dropout
 
         self.softmax_dropout = (
-            nn.Identity()
-            if softmax_dropout == 0
-            else Dropout_TP(
-                softmax_dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
+            nn.Identity() if softmax_dropout == 0 else Dropout_TP(softmax_dropout, sequence_parallel=sequence_parallel)
         )
-        self.dropout = (
-            nn.Identity()
-            if dropout == 0
-            else Dropout_TP(
-                dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
-        )
+        self.dropout = nn.Identity() if dropout == 0 else Dropout_TP(dropout, sequence_parallel=sequence_parallel)
 
     def forward(
         self,
@@ -138,19 +120,8 @@ class Attention_TP(Attention):
 
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
 
-        if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
-            assert past_key_values is None
-
-            total_q = hidden_states.shape[0] * (tp_world_size if self.sequence_parallel else 1)
-            input_shape = (total_q, self.num_key_value_heads, -1)
-            output_shape = (total_q, -1, self.head_dim)
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-            query_length *= tp_world_size if self.sequence_parallel else 1
-
-            input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
-            output_shape = (batch_size, query_length, -1, self.head_dim)
+        T = hidden_states.shape[0] * (tp_world_size if self.sequence_parallel else 1)
+        input_shape = (T, self.num_key_value_heads, -1)
 
         hidden_states = self.c_attn(hidden_states)
 
@@ -161,11 +132,6 @@ class Attention_TP(Attention):
         )
 
         query = query.reshape(*output_shape)
-
-        if not self.use_padding_free_transformer:
-            query = query.transpose(1, 2)
-            key = key.transpose(1, 2)
-            value = value.transpose(1, 2)
 
         if self.position_embedding_type == "rope":
             query = apply_rotary_pos_emb(query, rope_cos_sin)

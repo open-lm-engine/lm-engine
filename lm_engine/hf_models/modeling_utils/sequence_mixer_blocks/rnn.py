@@ -41,7 +41,6 @@ class RNN(nn.Module):
         scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> RNN:
         super().__init__()
 
@@ -51,7 +50,6 @@ class RNN(nn.Module):
         self.num_heads = num_heads
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
 
         std = initializer_range
@@ -82,29 +80,11 @@ class RNN(nn.Module):
         self,
         input: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        if self.use_padding_free_transformer:
-            assert cache_params is None
-            assert attention_mask is None
-        else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
-
-            batch_size, sequence_length = input.size()[:2]
-
-            if attention_mask is not None:
-                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
-
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-
         input = self.input_projection(input)
         input, gate = input.chunk(2, dim=-1)
-
-        input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
 
         weight = self.state_weight
 
@@ -112,25 +92,27 @@ class RNN(nn.Module):
             input = input * self.scaling_factor
             weight = weight * self.scaling_factor
 
+        T = input.size(0)
+        input = input.view(T, self.num_heads, self.state_head_dim)
+
         input = rnn(
             input=input,
             weight=weight,
-            input_state=input_state,
+            input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
         )
 
-        if not self.use_padding_free_transformer and attention_mask is not None:
-            input = unpack_sequence(
-                inputs=input, cu_seqlens=cu_seqlens, output_shape=(batch_size, sequence_length, *input.size()[1:])
+        if cache_params is not None:
+            cache_params.update(
+                state=input[cu_seqlens[1:] - 1],
+                num_tokens_added=cu_seqlens[1:] - cu_seqlens[:-1],
+                layer_idx=self.layer_idx,
             )
 
-        if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
-
-        input = input.view(*input.size()[:-2], -1)
+        input = input.view(T, -1)
 
         input = input * F.silu(gate)
         input = self.norm(input)

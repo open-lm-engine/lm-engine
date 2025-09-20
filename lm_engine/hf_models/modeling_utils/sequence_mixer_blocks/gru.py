@@ -41,7 +41,6 @@ class GRU(nn.Module):
         scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> GRU:
         super().__init__()
 
@@ -51,7 +50,6 @@ class GRU(nn.Module):
         self.num_heads = num_heads
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
 
         std = initializer_range
@@ -88,25 +86,9 @@ class GRU(nn.Module):
         self,
         input: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        if self.use_padding_free_transformer:
-            assert cache_params is None
-            assert attention_mask is None
-        else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
-
-            batch_size, sequence_length = input.size()[:2]
-
-            if attention_mask is not None:
-                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
-
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-
         input = self.input_projection(input)
         input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
 
@@ -119,8 +101,9 @@ class GRU(nn.Module):
         input, forget_input, reset_input = input.chunk(3, dim=-1)
         weight, forget_weight, reset_weight = weight.chunk(3, dim=0)
 
+        T = input.size(0)
         input, forget_input, reset_input = [
-            i.view(*input.size()[:-1], self.num_heads, self.state_head_dim) for i in (input, forget_input, reset_input)
+            i.view(T, self.num_heads, self.state_head_dim) for i in (input, forget_input, reset_input)
         ]
 
         input = gru(
@@ -130,22 +113,21 @@ class GRU(nn.Module):
             forget_weight=forget_weight,
             reset_input=reset_input,
             reset_weight=reset_weight,
-            input_state=input_state,
+            input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 
-        if not self.use_padding_free_transformer and attention_mask is not None:
-            input = unpack_sequence(
-                inputs=input, cu_seqlens=cu_seqlens, output_shape=(batch_size, sequence_length, *input.size()[1:])
+        if cache_params is not None:
+            cache_params.update(
+                state=input[cu_seqlens[1:] - 1],
+                num_tokens_added=cu_seqlens[1:] - cu_seqlens[:-1],
+                layer_idx=self.layer_idx,
             )
 
-        if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
-
-        input = input.view(*input.size()[:-2], -1)
+        input = input.view(T, -1)
 
         input = input * F.silu(gate)
         input = self.norm(input)
