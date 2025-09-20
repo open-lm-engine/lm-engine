@@ -187,7 +187,7 @@ class FRU(nn.Module):
             )
 
         q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.f_shape), dim=-1)
-        factor = torch.sigmoid(self.logistic_factor).float()
+        torch.sigmoid(self.logistic_factor).float()
         (F.softplus(self.log_activation_range) + 1).float()
 
         q = q.view(*q.size()[:-1], self.num_q_heads, self.qk_head_dim)
@@ -211,7 +211,7 @@ class FRU(nn.Module):
 
         input = fru(
             input=kvT,
-            weight=(self.state_weight * factor[:, None, None]).to(self.state_weight.dtype),
+            weight=self.state_weight,
             forget_input=f,
             input_state=input_state,
             gradient_clipping=self.gradient_clipping,
@@ -246,6 +246,7 @@ class FRU(nn.Module):
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
         nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
+        nn.init.zeros_(self.forget_multiplier)
         nn.init.zeros_(self.forget_bias)
         nn.init.zeros_(self.logistic_factor)
         nn.init.zeros_(self.log_activation_range)
