@@ -118,11 +118,6 @@ class FRU(nn.Module):
         self.log_activation_range = nn.Parameter(torch.zeros(self.num_heads))
         mark_parameter_as_no_weight_decay(self.log_activation_range)
 
-        self.forget_multiplier = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim))
-        mark_parameter_as_no_weight_decay(self.forget_multiplier)
-        self.logistic_factor = nn.Parameter(torch.zeros(self.num_heads))
-        mark_parameter_as_no_weight_decay(self.logistic_factor)
-
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
@@ -245,7 +240,7 @@ class FRU(nn.Module):
         nn.init.zeros_(self.forget_multiplier)
         nn.init.zeros_(self.forget_bias)
         nn.init.zeros_(self.logistic_factor)
-        torch.fill_(self.log_activation_range, value=0.0)
+        nn.init.zeros_(self.log_activation_range)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
