@@ -26,6 +26,7 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 if is_fma_available():
     from fma import KernelBackend
     from fma.modules.msu import msu
+    # from fma.modules.gru import gru
 
 
 class FRU(nn.Module):
@@ -60,11 +61,21 @@ class FRU(nn.Module):
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
 
-        self.q_shape = self.num_heads * self.state_head_dim
-        self.k_shape = self.num_heads * self.state_head_dim
-        self.v_shape = self.num_heads * self.state_head_dim
-        self.f_shape = self.num_heads * self.state_head_dim
-        self.g_shape = self.num_heads * self.state_head_dim
+        self.num_groups = 1
+        assert self.num_heads % self.num_groups == 0
+        self.num_q_heads = self.num_groups
+        self.num_k_heads = self.num_groups
+        self.num_v_heads = self.num_heads
+        self.num_f_heads = self.num_heads
+
+        self.qk_head_dim = 2 * self.state_head_dim
+        self.v_head_dim = self.state_head_dim
+
+        self.q_shape = self.num_q_heads * self.qk_head_dim
+        self.k_shape = self.num_k_heads * self.qk_head_dim
+        self.f_shape = self.num_f_heads * self.qk_head_dim
+        self.v_shape = self.num_v_heads * self.v_head_dim
+        self.g_shape = self.num_v_heads * self.v_head_dim
 
         self.conv_dim = self.q_shape + self.k_shape + self.v_shape + self.f_shape
 
@@ -96,26 +107,26 @@ class FRU(nn.Module):
         factor = 1 / math.sqrt(2 * self.state_head_dim)
         p = factor
         _logistic_factor = math.log(p) - math.log(1 - p) 
-        self.logistic_factor = nn.Parameter(torch.full((self.num_heads,), fill_value=_logistic_factor))
+        self.logistic_factor = nn.Parameter(torch.full((self.num_v_heads,), fill_value=_logistic_factor))
         mark_parameter_as_no_weight_decay(self.logistic_factor)
         self.state_weight = nn.Parameter(
             torch.eye(self.state_head_dim)[None, :, :] / (torch.sigmoid(self.logistic_factor))[:, None, None]
         )
 
         # p_m = torch.rand(self.num_heads, self.state_head_dim) * 0.9 + 0.05
-        p_m = torch.rand(self.num_heads, 1) * 0.9 + 0.05
+        p_m = torch.rand(self.num_f_heads) * 0.9 + 0.05
         forget_mul = torch.log(p_m) - torch.log(1 - p_m)
         self.forget_multiplier = nn.Parameter(forget_mul)
         mark_parameter_as_no_weight_decay(self.forget_multiplier)
 
         # self.forget_bias = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim))
-        p_b = torch.rand(self.num_heads, self.state_head_dim) * 0.9 + 0.05
-        p_b = p_b / p_m
+        p_b = torch.rand(self.num_f_heads, self.qk_head_dim) * 0.9 + 0.05
+        p_b = p_b / p_m[:, None]
         forget_bias = torch.log(p_b) - torch.log(1 - p_b)
         self.forget_bias = nn.Parameter(forget_bias)
         mark_parameter_as_no_weight_decay(self.forget_bias)
 
-        self.log_activation_range = nn.Parameter(torch.zeros(self.num_heads))
+        self.log_activation_range = nn.Parameter(torch.zeros((self.num_v_heads,)))
         mark_parameter_as_no_weight_decay(self.log_activation_range)
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -184,41 +195,32 @@ class FRU(nn.Module):
         factor = torch.sigmoid(self.logistic_factor).float()
         activation_range = (F.softplus(self.log_activation_range) + 1).float()
 
-        q = q.view(*q.size()[:-1], self.num_heads, self.state_head_dim)
-        k = k.view(*k.size()[:-1], self.num_heads, self.state_head_dim)
-        v = v.view(*v.size()[:-1], self.num_heads, self.state_head_dim)
-        f = f.view(*f.size()[:-1], self.num_heads, self.state_head_dim)
+        q = q.view(*q.size()[:-1], self.num_q_heads, self.qk_head_dim)
+        k = k.view(*k.size()[:-1], self.num_k_heads, self.qk_head_dim)
+        v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
+        f = f.view(*f.size()[:-1], self.num_f_heads, self.qk_head_dim)
 
-        # q = self.norm(q)
         k = self.norm(k)
-        # v = self.norm(v)
-        # f = self.norm(f)
+        k = k.repeat(1, 1, self.num_v_heads // self.num_k_heads, 1)
 
+        # v = (v * (factor / activation_range).view(self.num_groups, self.num_v_heads // self.num_groups)[..., None, None]).to(k.dtype)
+        kvT = k[..., :, None] * v[..., None, :]
 
-        # B, S, N, H, 1
-        k = k[..., :, None]
-        # B, S, N, 1, H
-        v = (v[..., None, :] * (factor / activation_range)[..., :, None, None]).to(k.dtype)
-
-        # B, S, N, H, H
-        kvT = k * v
-
-        f = (2 * torch.sigmoid(self.forget_multiplier)) * (f + self.forget_bias)
+        f = (2 * torch.sigmoid(self.forget_multiplier[..., None])) * (f + self.forget_bias)
         f_p = torch.softmax(f.float(), dim=-1)
         f = (torch.log(1 - f_p + 1e-4) - torch.log(f_p + 1e-4)).to(k.dtype)
         f = f[..., None].expand_as(kvT)
 
         kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
         f = f.permute(0, 3, 1, 2, 4).flatten(0, 1)
-        # print(f[:, 0].size())
-        # print(f[:, 0])
-        # print((1 - torch.sigmoid(f[:, 0].view(-1, 16, 32, 16))).sum(1))
-        state_weight = (self.state_weight * factor[:, None, None]).to(self.state_weight.dtype)
+        state_weight = self.state_weight
+        # state_weight = (self.state_weight * factor[:, None, None]).to(self.state_weight.dtype)
         input = msu(
             input=kvT,
             weight=state_weight,
             forget_input=f,
             forget_weight=self.reset_weight,
+            # reset_input=torch.full_like(v[..., 0], fill_value=20),
             reset_input=torch.full_like(kvT[..., 0], fill_value=20),
             reset_weight=self.reset_weight,
             input_state=input_state,
@@ -227,18 +229,22 @@ class FRU(nn.Module):
             max_seqlen=max_seqlen,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
-
+        # input = (input * activation_range[:, None]).to(input.dtype)
         # FIXME
         # if not self.use_padding_free_transformer and attention_mask is not None:
         #     input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, output_shape=(B, S, *input.size()[1:]))
 
         # if cache_params is not None:
         #     cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
-        input = (input * activation_range[:, None]).to(input.dtype)
-        input = input.view(B, self.state_head_dim, S, self.num_heads, self.state_head_dim).permute(0, 2, 3, 1, 4)
+        # assert input.size(0) == B * self.qk_head_dim
+        # assert input.size(1) == S
+        # assert input.size(2) == self.num_v_heads
+        # assert input.size(3) == self.v_head_dim
+        input = input.view(B, self.qk_head_dim, S, self.num_v_heads, self.v_head_dim).permute(0, 2, 3, 1, 4)
+        input = input.view(B, S, self.num_v_heads, self.qk_head_dim, self.v_head_dim)
+        q = q.repeat(1, 1,  self.num_v_heads // self.num_groups, 1)
         input = q.unsqueeze(-2) @ input
         input = input.squeeze(-2).flatten(-2, -1)
-
         input = input * F.silu(gate)
         input = self.g_norm(input)
 
@@ -248,9 +254,9 @@ class FRU(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        # nn.init.normal_(self.state_weight, std=self.state_weight_std)
-        # nn.init.zeros_(self.reset_weight)
-        # nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
+        nn.init.normal_(self.state_weight, std=self.state_weight_std)
+        nn.init.zeros_(self.reset_weight)
+        nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
         nn.init.zeros_(self.forget_multiplier)
         nn.init.zeros_(self.forget_bias)
 
