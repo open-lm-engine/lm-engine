@@ -62,12 +62,12 @@ class FRU(nn.Module):
 
         self.num_groups = 1
         assert self.num_heads % self.num_groups == 0
-        self.num_q_heads = self.num_groups
-        self.num_k_heads = self.num_groups
+        self.num_q_heads = self.num_heads
+        self.num_k_heads = self.num_heads
         self.num_v_heads = self.num_heads
         self.num_f_heads = self.num_heads
 
-        self.qk_head_dim = 2 * self.state_head_dim
+        self.qk_head_dim = self.state_head_dim
         self.v_head_dim = self.state_head_dim
 
         self.q_shape = self.num_q_heads * self.qk_head_dim
@@ -202,8 +202,8 @@ class FRU(nn.Module):
         kvT = k[..., :, None] * v[..., None, :]
 
         f = (2 * torch.sigmoid(self.forget_multiplier[..., None])) * (f + self.forget_bias)
-        f_p = torch.softmax(f.float(), dim=-1)
-        f = (torch.log(1 - f_p + 1e-4) - torch.log(f_p + 1e-4)).to(k.dtype)
+        # f = torch.softmax(f.float(), dim=-1).to(k.dtype)
+        # f = (torch.log(1 - f_p + 1e-4) - torch.log(f_p + 1e-4)).to(k.dtype)
         f = f[..., None].expand_as(kvT)
 
         kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
@@ -217,6 +217,7 @@ class FRU(nn.Module):
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
+            do_sigmoid_forget=True,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
         # input = (input * activation_range[:, None]).to(input.dtype)
@@ -232,7 +233,7 @@ class FRU(nn.Module):
         # assert input.size(3) == self.v_head_dim
         input = input.view(B, self.qk_head_dim, S, self.num_v_heads, self.v_head_dim).permute(0, 2, 3, 1, 4)
         input = input.view(B, S, self.num_v_heads, self.qk_head_dim, self.v_head_dim)
-        q = q.repeat(1, 1, self.num_v_heads // self.num_groups, 1)
+        # q = q.repeat(1, 1, self.num_v_heads // self.num_groups, 1)
         input = q.unsqueeze(-2) @ input
         input = input.squeeze(-2).flatten(-2, -1)
         input = input * F.silu(gate)

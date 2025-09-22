@@ -348,11 +348,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/fru-conv-forget-weight-608-173m
+  save_path: /u/shawntan/proj/mayank/checkpoints/fru-conv-512-173m
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/fru-conv-forget-weight-608-173m
+#   load_path: /mnt/vast/proj/checkpoints/mayank/fru-conv-forget-weight-512-173m
 
 logging_args:
   log_interval: 10
@@ -360,7 +360,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: model-architectures
-    name: fru-conv-forget-weight-512-nemo-173m
+    name: fru-conv-512-173m
 
 training_parameters:
   num_training_steps: 25000
