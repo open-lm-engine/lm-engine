@@ -183,6 +183,8 @@ class Mamba2(nn.Module):
         mark_parameter_as_mup_learning_rate(self.in_proj.weight)
         mark_parameter_as_mup_learning_rate(self.out_proj.weight)
 
+        self.reset_parameters()
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -575,7 +577,8 @@ class Mamba2(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
+        self.A_log.zero_()
         A = torch.arange(1, self.num_heads + 1)
-        self.A_log.fill_(torch.log(A))
+        self.A_log += torch.log(A)
 
         nn.init.ones_(self.D)
