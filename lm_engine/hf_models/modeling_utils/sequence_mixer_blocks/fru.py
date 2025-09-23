@@ -187,8 +187,6 @@ class FRU(nn.Module):
             )
 
         q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.f_shape), dim=-1)
-        torch.sigmoid(self.logistic_factor).float()
-        (F.softplus(self.log_activation_range) + 1).float()
 
         q = q.view(*q.size()[:-1], self.num_q_heads, self.qk_head_dim)
         k = k.view(*k.size()[:-1], self.num_k_heads, self.qk_head_dim)
@@ -197,13 +195,9 @@ class FRU(nn.Module):
 
         k = self.norm(k)
         k = k.repeat(1, 1, self.num_v_heads // self.num_k_heads, 1)
-
-        # v = (v * (factor / activation_range).view(self.num_groups, self.num_v_heads // self.num_groups)[..., None, None]).to(k.dtype)
         kvT = k[..., :, None] * v[..., None, :]
 
         f = (2 * torch.sigmoid(self.forget_multiplier[..., None])) * (f + self.forget_bias)
-        # f = torch.softmax(f.float(), dim=-1).to(k.dtype)
-        # f = (torch.log(1 - f_p + 1e-4) - torch.log(f_p + 1e-4)).to(k.dtype)
         f = f[..., None].expand_as(kvT)
 
         kvT = kvT.permute(0, 3, 1, 2, 4).flatten(0, 1)
@@ -220,20 +214,16 @@ class FRU(nn.Module):
             do_sigmoid_forget=True,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
-        # input = (input * activation_range[:, None]).to(input.dtype)
+
         # FIXME
         # if not self.use_padding_free_transformer and attention_mask is not None:
         #     input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, output_shape=(B, S, *input.size()[1:]))
 
         # if cache_params is not None:
         #     cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
-        # assert input.size(0) == B * self.qk_head_dim
-        # assert input.size(1) == S
-        # assert input.size(2) == self.num_v_heads
-        # assert input.size(3) == self.v_head_dim
+
         input = input.view(B, self.qk_head_dim, S, self.num_v_heads, self.v_head_dim).permute(0, 2, 3, 1, 4)
         input = input.view(B, S, self.num_v_heads, self.qk_head_dim, self.v_head_dim)
-        # q = q.repeat(1, 1, self.num_v_heads // self.num_groups, 1)
         input = q.unsqueeze(-2) @ input
         input = input.squeeze(-2).flatten(-2, -1)
         input = input * F.silu(gate)
