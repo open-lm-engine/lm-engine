@@ -103,29 +103,18 @@ class FRU(nn.Module):
                 std=std,
             )
 
-        factor = 1 / math.sqrt(2 * self.state_head_dim)
-        p = factor
-        _logistic_factor = math.log(p) - math.log(1 - p)
-        self.logistic_factor = nn.Parameter(torch.full((self.num_v_heads,), fill_value=_logistic_factor))
+        self.logistic_factor = nn.Parameter(torch.empty(self.num_v_heads))
         mark_parameter_as_no_weight_decay(self.logistic_factor)
-        self.state_weight = nn.Parameter(
-            torch.eye(self.state_head_dim)[None, :, :] / (torch.sigmoid(self.logistic_factor))[:, None, None]
-        )
 
-        # p_m = torch.rand(self.num_heads, self.state_head_dim) * 0.9 + 0.05
-        p_m = torch.rand(self.num_f_heads) * 0.9 + 0.05
-        forget_mul = torch.log(p_m) - torch.log(1 - p_m)
-        self.forget_multiplier = nn.Parameter(forget_mul)
+        self.state_weight = nn.Parameter(torch.empty(self.num_v_heads, self.state_head_dim, self.state_head_dim))
+
+        self.forget_multiplier = nn.Parameter(torch.empty(self.num_f_heads))
         mark_parameter_as_no_weight_decay(self.forget_multiplier)
 
-        # self.forget_bias = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim))
-        p_b = torch.rand(self.num_f_heads, self.qk_head_dim) * 0.9 + 0.05
-        p_b = p_b / p_m[:, None]
-        forget_bias = torch.log(p_b) - torch.log(1 - p_b)
-        self.forget_bias = nn.Parameter(forget_bias)
+        self.forget_bias = nn.Parameter(torch.empty(self.num_f_heads, self.qk_head_dim))
         mark_parameter_as_no_weight_decay(self.forget_bias)
 
-        self.log_activation_range = nn.Parameter(torch.zeros((self.num_v_heads,)))
+        self.log_activation_range = nn.Parameter(torch.empty((self.num_v_heads,)))
         mark_parameter_as_no_weight_decay(self.log_activation_range)
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -236,7 +225,6 @@ class FRU(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
-        nn.init.normal_(self.forget_multiplier, std=self.state_weight_std)
         nn.init.zeros_(self.forget_multiplier)
         nn.init.zeros_(self.forget_bias)
         nn.init.zeros_(self.logistic_factor)
