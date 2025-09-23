@@ -82,6 +82,8 @@ class RNN(nn.Module):
                 std=std,
             )
 
+            mark_parameter_as_mup_learning_rate(self.conv1d.weight)
+
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -96,7 +98,6 @@ class RNN(nn.Module):
             "p_norm", self.state_head_dim * self.state_head_dim, elementwise_affine=False, p=2
         )
 
-        mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
