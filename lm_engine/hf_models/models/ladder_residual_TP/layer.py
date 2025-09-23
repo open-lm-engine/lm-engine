@@ -21,7 +21,7 @@ from ..ladder_residual.layer import LadderResidualBlock
 if is_fma_available():
     from fma.constants import MAX_TRITON_BLOCK_SIZE
     from fma.math import ceil_divide, divide_if_divisible, get_next_power_of_2
-    from fma.ops.rmsnorm import rmsnorm_backward_triton, rmsnorm_forward_triton
+    from fma.ops.rmsnorm import fused_residual_add_rmsnorm
     from fma.ops.swiglu import swiglu_backward_triton, swiglu_forward_triton
     from fma.utils import ensure_contiguous, get_num_elements_and_hidden_size, get_sm_count
 
