@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, AutoTokenizer, GenerationConfig, Qwen3Config, Qwen3ForCausalLM
+from transformers import AutoConfig, AutoTokenizer, GenerationConfig, Qwen2MoeConfig
 
 from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo

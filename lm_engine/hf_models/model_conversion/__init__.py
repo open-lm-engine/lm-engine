@@ -9,7 +9,7 @@ from .granitemoe import export_to_huggingface_granitemoe, import_from_huggingfac
 from .granitemoehybrid import export_to_huggingface_granitemoehybrid, import_from_huggingface_granitemoehybrid
 from .granitemoeshared import export_to_huggingface_granitemoeshared, import_from_huggingface_granitemoeshared
 from .llama import export_to_huggingface_llama, import_from_huggingface_llama
-from .qwen3 import import_from_huggingface_qwen3
+from .qwen2_moe import import_from_huggingface_qwen3
 
 
 _MODEL_IMPORT_FUNCTIONS = {

@@ -104,3 +104,13 @@ class ModelConversionTest(TestCommons):
             compare_loss=False,
             logits_atol_float32=2.5e-5,
         )
+
+    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
+    def test_llama_model_conversion(self, device: torch.device, add_bias: bool) -> None:
+        lm_engine_config = self.get_dense_test_config(
+            "rope", add_bias=add_bias, activation_function="swiglu", normalization_function="rmsnorm"
+        )
+
+        self.model_conversion_test(
+            lm_engine_config=lm_engine_config, model_type="qwen2_moe", device=device, exact_match=False
+        )
