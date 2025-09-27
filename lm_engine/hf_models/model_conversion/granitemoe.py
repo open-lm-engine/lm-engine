@@ -8,9 +8,12 @@ from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
 from ..models import GPTBaseConfig
 from .granitemoeshared import _export_state_dict_to_huggingface, _import_state_dict_from_huggingface
+from .utils import save_config_tokenizer_model
 
 
-def import_from_huggingface_granitemoe(pretrained_model_name_or_path: str, save_path: str) -> None:
+def import_from_huggingface_granitemoe(
+    pretrained_model_name_or_path: str, save_path: str | None = None
+) -> tuple[GPTBaseConfig, GenerationConfig, AutoTokenizer, dict]:
     original_config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
     config = _import_config_from_huggingface(original_config)
     num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
@@ -24,14 +27,18 @@ def import_from_huggingface_granitemoe(pretrained_model_name_or_path: str, save_
         config.hidden_size // num_attention_heads,
     )
 
-    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
-    config.save_pretrained(save_path)
-
     generation_config = GenerationConfig.from_model_config(config)
-    generation_config.save_pretrained(save_path)
 
-    if tokenizer is not None:
-        tokenizer.save_pretrained(save_path, legacy_format=False)
+    if save_path is not None:
+        save_config_tokenizer_model(
+            config=config,
+            generation_config=generation_config,
+            tokenizer=tokenizer,
+            state_dict=state_dict,
+            save_path=save_path,
+        )
+
+    return config, generation_config, tokenizer, state_dict
 
 
 def _import_config_from_huggingface(original_config: GraniteMoeConfig) -> GPTBaseConfig:
