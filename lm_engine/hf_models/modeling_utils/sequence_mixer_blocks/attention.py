@@ -70,6 +70,7 @@ class Attention(nn.Module):
         attention_multiplier: float,
         position_embedding_type: str,
         add_bias: bool,
+        qkv_bias: bool,
         softmax_dropout: float,
         dropout: float,
         init_method: str,
@@ -87,6 +88,7 @@ class Attention(nn.Module):
         self.num_heads = num_attention_heads
         self.num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
+        self.qkv_bias = qkv_bias
         self.use_padding_free_transformer = use_padding_free_transformer
 
         self.head_dim = divide_if_divisible(
@@ -111,7 +113,7 @@ class Attention(nn.Module):
         self.c_attn = ParameterizedLinear(
             self.hidden_size,
             self.hidden_size + 2 * self.num_key_value_heads * self.head_dim,
-            bias=self.add_bias,
+            bias=self.qkv_bias,
             std=std,
         )
 
