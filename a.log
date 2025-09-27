@@ -1,0 +1,47 @@
+E       mean_dim = CallFunction(aten.mean.dim, pow_Tensor_Scalar, Ignored(), True)
+E       add_Scalar = CallFunction(aten.add.Scalar, mean_dim, Ignored())
+E       rsqrt_default = CallFunction(aten.rsqrt.default, add_Scalar, _users=3)
+E       mul_Tensor = CallFunction(aten.mul.Tensor, KeywordArg('x'), rsqrt_default, _users=2)
+E       mul_Tensor_1 = CallFunction(aten.mul.Tensor, mul_Tensor, KeywordArg('weight'))
+E       mul_Tensor_2 = CallFunction(aten.mul.Tensor, KeywordArg('tangents_1'), KeywordArg('weight'), _users=2)
+E       mul_Tensor_3 = CallFunction(aten.mul.Tensor, mul_Tensor_2, rsqrt_default)
+E       mul_Tensor_4 = CallFunction(aten.mul.Tensor, mul_Tensor_2, KeywordArg('x'))
+E       mul_Scalar = CallFunction(aten.mul.Scalar, mul_Tensor_4, Ignored())
+E       pow_Tensor_Scalar_1 = CallFunction(aten.pow.Tensor_Scalar, rsqrt_default, Ignored())
+E       mul_Tensor_5 = CallFunction(aten.mul.Tensor, mul_Scalar, pow_Tensor_Scalar_1)
+E       expand_default = CallFunction(aten.expand.default, mul_Tensor_5, Ignored())
+E       div_Scalar = CallFunction(aten.div.Scalar, expand_default, Ignored())
+E       pow_Tensor_Scalar_2 = CallFunction(aten.pow.Tensor_Scalar, KeywordArg('x'), Ignored())
+E       mul_Scalar_1 = CallFunction(aten.mul.Scalar, pow_Tensor_Scalar_2, Ignored())
+E       mul_Tensor_6 = CallFunction(aten.mul.Tensor, div_Scalar, mul_Scalar_1)
+E       add_Tensor = CallFunction(aten.add.Tensor, mul_Tensor_3, mul_Tensor_6)
+E       mul_Tensor_7 = CallFunction(aten.mul.Tensor, KeywordArg('tangents_1'), mul_Tensor)
+E       output = MultiOutputPattern([mul_Tensor_1,
+E         add_Tensor,
+E         mul_Tensor_7,
+E         None
+E       ]) with duplicated match graph graph():
+E           %primals_2 : [num_users=4] = placeholder[target=primals_1]
+E           %primals_4 : [num_users=2] = placeholder[target=primals_2]
+E           %primals_6 : [num_users=0] = placeholder[target=primals_3]
+E           %tangents_2 : [num_users=2] = placeholder[target=tangents_1]
+E           %pow_1 : [num_users=1] = call_function[target=torch.ops.aten.pow.Tensor_Scalar](args = (%primals_2, 2), kwargs = {})
+E           %mean : [num_users=1] = call_function[target=torch.ops.aten.mean.dim](args = (%pow_1, [0], True), kwargs = {})
+E           %add : [num_users=1] = call_function[target=torch.ops.aten.add.Scalar](args = (%mean, 1.1920928955078125e-07), kwargs = {})
+E           %rsqrt : [num_users=3] = call_function[target=torch.ops.aten.rsqrt.default](args = (%add,), kwargs = {})
+E           %mul : [num_users=2] = call_function[target=torch.ops.aten.mul.Tensor](args = (%primals_2, %rsqrt), kwargs = {})
+E           %mul_1 : [num_users=1] = call_function[target=torch.ops.aten.mul.Tensor](args = (%mul, %primals_4), kwargs = {})
+E           %mul_2 : [num_users=1] = call_function[target=torch.ops.aten.mul.Tensor](args = (%tangents_2, %mul), kwargs = {})
+E           %mul_3 : [num_users=2] = call_function[target=torch.ops.aten.mul.Tensor](args = (%tangents_2, %primals_4), kwargs = {})
+E           %mul_4 : [num_users=1] = call_function[target=torch.ops.aten.mul.Tensor](args = (%mul_3, %primals_2), kwargs = {})
+E           %mul_5 : [num_users=1] = call_function[target=torch.ops.aten.mul.Tensor](args = (%mul_3, %rsqrt), kwargs = {})
+E           %pow_2 : [num_users=1] = call_function[target=torch.ops.aten.pow.Tensor_Scalar](args = (%rsqrt, 3), kwargs = {})
+E           %mul_6 : [num_users=1] = call_function[target=torch.ops.aten.mul.Scalar](args = (%mul_4, -0.5), kwargs = {})
+E           %mul_7 : [num_users=1] = call_function[target=torch.ops.aten.mul.Tensor](args = (%mul_6, %pow_2), kwargs = {})
+E           %expand : [num_users=1] = call_function[target=torch.ops.aten.expand.default](args = (%mul_7, [1]), kwargs = {})
+E           %div : [num_users=1] = call_function[target=torch.ops.aten.div.Scalar](args = (%expand, 1), kwargs = {})
+E           %pow_3 : [num_users=1] = call_function[target=torch.ops.aten.pow.Tensor_Scalar](args = (%primals_2, 1.0), kwargs = {})
+E           %mul_8 : [num_users=1] = call_function[target=torch.ops.aten.mul.Scalar](args = (%pow_3, 2.0), kwargs = {})
+E           %mul_9 : [num_users=1] = call_function[target=torch.ops.aten.mul.Tensor](args = (%div, %mul_8), kwargs = {})
+E           %add_1 : [num_users=1] = call_function[target=torch.ops.aten.add.Tensor](args = (%mul_5, %mul_9), kwargs = {})
+E           return [mul_1, add_1, mul_2, None]
