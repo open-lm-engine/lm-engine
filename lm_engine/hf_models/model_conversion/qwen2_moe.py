@@ -36,7 +36,6 @@ def import_from_huggingface_qwen2_moe(pretrained_model_name_or_path: str, save_p
 
 def _import_config_from_huggingface(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
-    assert not original_config.attention_bias
 
     config = GPTBaseConfig(
         vocab_size=original_config.vocab_size,
@@ -55,15 +54,11 @@ def _import_config_from_huggingface(original_config: Qwen2MoeConfig) -> GPTBaseC
         bos_token_id=original_config.bos_token_id,
         eos_token_id=original_config.eos_token_id,
         pad_token_id=original_config.pad_token_id,
-        m_emb=None if original_config.embedding_multiplier == 1 else original_config.embedding_multiplier,
-        m_residual=None if original_config.residual_multiplier == 1 else original_config.residual_multiplier,
-        m_width=None if original_config.logits_scaling == 1 else original_config.logits_scaling,
         sequence_mixer_blocks=[
             {
                 "sequence_mixer_type": "softmax_attention",
                 "num_attention_heads": original_config.num_attention_heads,
                 "num_key_value_heads": original_config.num_key_value_heads,
-                "attention_multiplier": original_config.attention_multiplier,
                 "add_bias": False,
                 "softmax_dropout": original_config.attention_dropout,
             }
@@ -73,7 +68,7 @@ def _import_config_from_huggingface(original_config: Qwen2MoeConfig) -> GPTBaseC
             {
                 "mlp_type": "MoE",
                 "intermediate_size": original_config.intermediate_size,
-                "num_experts": original_config.num_local_experts,
+                "num_experts": original_config.num_experts,
                 "num_experts_per_tok": original_config.num_experts_per_tok,
                 "activation_function": "swiglu",
                 "add_bias": False,
@@ -143,7 +138,6 @@ def _export_config_to_huggingface(config: GPTBaseConfig) -> Qwen2MoeConfig:
         bos_token_id=config.bos_token_id,
         eos_token_id=config.eos_token_id,
         pad_token_id=config.pad_token_id,
-        attention_multiplier=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "attention_multiplier"),
         qkv_bias=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "qkv_bias"),
         mlp_only_layers=None,
         architectures=[Qwen2MoeForCausalLM.__name__],
