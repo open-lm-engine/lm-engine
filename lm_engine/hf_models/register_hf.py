@@ -14,7 +14,6 @@ from .models import (
     GPTCrossLayerModel,
     LadderResidualConfig,
     LadderResidualForCausalLM,
-    LadderResidualForCausalLM_TP,
     LadderResidualModel,
     PaLMConfig,
     PaLMForCausalLM,
@@ -49,10 +48,7 @@ def is_custom_model(model_type: str) -> bool:
     return model_type in _CUSTOM_MODEL_TYPES
 
 
-_MODEL_PARALLEL_CLASS_MAPPING = {
-    GPTBaseConfig.model_type: GPTBaseForCausalLM_TP,
-    LadderResidualConfig.model_type: LadderResidualForCausalLM_TP,
-}
+_MODEL_PARALLEL_CLASS_MAPPING = {GPTBaseConfig.model_type: GPTBaseForCausalLM_TP}
 
 
 def get_model_parallel_class(model_type: str) -> AutoModelForCausalLM:

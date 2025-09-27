@@ -53,7 +53,7 @@ class ParameterizedExperts(nn.Module):
         num_experts: int,
         in_features: int,
         out_features: int,
-        add_bias: bool = True,
+        add_bias: bool = False,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
