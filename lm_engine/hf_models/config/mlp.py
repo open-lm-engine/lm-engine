@@ -12,7 +12,7 @@ class _MLPArgs(BaseArgs):
     intermediate_size: int
     activation_function: str = "gelu_pytorch_tanh"
     dropout: float = 0
-    add_bias: bool = True
+    add_bias: bool = False
 
     def model_post_init(self, __context: Any) -> None:
         assert self.mlp_type == "MLP"

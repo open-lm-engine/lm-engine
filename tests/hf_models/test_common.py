@@ -87,7 +87,7 @@ class TestCommons(BaseTestCommons):
         num_layers: int = 8,
         num_experts: int = 8,
         num_experts_per_tok: int = 8,
-        add_bias: bool = True,
+        add_bias: bool = False,
         shared_n_inner: int | None = None,
         activation_function: str = "gelu_pytorch_tanh",
         normalization_function: str = "layernorm",

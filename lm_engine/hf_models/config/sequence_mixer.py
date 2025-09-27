@@ -13,7 +13,7 @@ class _SoftmaxAttentionArgs(BaseArgs):
     num_key_value_heads: int = 1
     softmax_dropout: float = 0
     dropout: float = 0
-    add_bias: bool = True
+    add_bias: bool = False
     attention_multiplier: float | None = None
 
     def model_post_init(self, __context: Any) -> None:
@@ -25,7 +25,7 @@ class _MultiHeadLatentAttentionArgs(BaseArgs):
     num_attention_heads: int | None = None
     softmax_dropout: float = 0
     dropout: float = 0
-    add_bias: bool = True
+    add_bias: bool = False
     attention_multiplier: float | None = None
     query_compression_size: int | None = None
     key_value_compression_size: int | None = None
@@ -47,7 +47,7 @@ class _StickbreakingAttentionArgs(BaseArgs):
     num_attention_heads: int = 12
     num_key_value_heads: int = 1
     dropout: float = 0
-    add_bias: bool = True
+    add_bias: bool = False
     attention_multiplier: float | None = None
 
     def model_post_init(self, __context: Any) -> None:
@@ -61,7 +61,7 @@ class _Mamba2Args(BaseArgs):
     num_heads: int = 128
     conv_kernel_size: int = 4
     time_step_limit: tuple[float, float] = (0, float("inf"))
-    add_bias: bool = True
+    add_bias: bool = False
     use_conv_bias: bool = True
     activation_function: str = "silu"
     num_groups: int = 8
@@ -76,7 +76,7 @@ class _GRUArgs(BaseArgs):
     sequence_mixer_type: str = "gru"
     state_size: int = 2048
     num_heads: int = 128
-    add_bias: bool = True
+    add_bias: bool = False
     normalization_function: str | None = None
     gradient_clipping: float | None = None
     scaling_factor: float = 1
