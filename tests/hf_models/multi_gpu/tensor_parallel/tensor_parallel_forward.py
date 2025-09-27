@@ -10,7 +10,7 @@ import torch.distributed
 from transformers import set_seed
 
 from lm_engine.enums import Kernel
-from lm_engine.hf_models import GPTBaseConfig, LadderResidualConfig, get_model_parallel_class
+from lm_engine.hf_models import GPTBaseConfig, get_model_parallel_class
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import ProcessGroupManager, SafeTensorsWeightsManager, string_to_torch_dtype
 
@@ -24,7 +24,6 @@ parser.add_argument("--dtype", type=str)
 parser.add_argument("--tmp-path", type=str)
 parser.add_argument("--use-padding-free-transformer", action="store_true")
 parser.add_argument("--sequence-parallel", action="store_true")
-parser.add_argument("--model-type", type=str)
 args = parser.parse_args()
 
 set_seed(42)
@@ -34,54 +33,29 @@ ProcessGroupManager(tensor_parallel_world_size=int(os.getenv("WORLD_SIZE")))
 dtype = string_to_torch_dtype(args.dtype)
 num_key_value_heads = 8
 
-if args.model_type == "gpt_base":
-    config = GPTBaseConfig(
-        num_layers=2,
-        position_embedding_type=args.position_embedding_type,
-        hidden_size=128,
-        sequence_mixer_blocks=[
-            {
-                "sequence_mixer_type": "softmax_attention",
-                "add_bias": False,
-                "num_attention_heads": 16,
-                "num_key_value_heads": num_key_value_heads,
-            },
-            {
-                "sequence_mixer_type": "softmax_attention",
-                "add_bias": False,
-                "num_attention_heads": 16,
-                "num_key_value_heads": num_key_value_heads,
-            },
-        ],
-        mlp_blocks=[
-            {"mlp_type": "MLP", "add_bias": False},
-            {"mlp_type": "MoE", "add_bias": False},
-        ],
-    )
-elif args.model_type == "ladder_residual":
-    config = LadderResidualConfig(
-        num_layers=2,
-        position_embedding_type=args.position_embedding_type,
-        hidden_size=128,
-        sequence_mixer_blocks=[
-            {
-                "sequence_mixer_type": "softmax_attention",
-                "add_bias": False,
-                "num_attention_heads": 16,
-                "num_key_value_heads": num_key_value_heads,
-            },
-            {
-                "sequence_mixer_type": "softmax_attention",
-                "add_bias": False,
-                "num_attention_heads": 16,
-                "num_key_value_heads": num_key_value_heads,
-            },
-        ],
-        mlp_blocks=[
-            {"mlp_type": "MLP", "add_bias": False},
-            {"mlp_type": "MoE", "add_bias": False},
-        ],
-    )
+config = GPTBaseConfig(
+    num_layers=2,
+    position_embedding_type=args.position_embedding_type,
+    hidden_size=128,
+    sequence_mixer_blocks=[
+        {
+            "sequence_mixer_type": "softmax_attention",
+            "add_bias": False,
+            "num_attention_heads": 16,
+            "num_key_value_heads": num_key_value_heads,
+        },
+        {
+            "sequence_mixer_type": "softmax_attention",
+            "add_bias": False,
+            "num_attention_heads": 16,
+            "num_key_value_heads": num_key_value_heads,
+        },
+    ],
+    mlp_blocks=[
+        {"mlp_type": "MLP", "add_bias": False},
+        {"mlp_type": "MoE", "add_bias": False},
+    ],
+)
 
 enable_kernels(
     [Kernel.scattermoe] + ([Kernel.flash_attention_2] if args.attention_implementation == "flash_attention_2" else [])
