@@ -4,7 +4,7 @@
 
 from transformers import AutoConfig, LlamaConfig, LlamaForCausalLM
 
-from ...utils import SafeTensorsWeightsManager, download_repo
+from ...utils import SafeTensorsWeightsManager
 from ..modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
     interleave_up_gate_tensor_for_mlp,
