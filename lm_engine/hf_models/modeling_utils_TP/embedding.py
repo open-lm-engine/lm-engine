@@ -13,7 +13,7 @@ from torch.distributed._tensor.placement_types import Replicate, Shard
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...utils import ProcessGroupManager, divide_if_divisible
 from ..modeling_utils import ParameterizedEmbedding
-from .dtensor_module import DTensorModule
+from ..modeling_utils.dtensor_module import DTensorModule
 from .TP import get_module_placements
 
 

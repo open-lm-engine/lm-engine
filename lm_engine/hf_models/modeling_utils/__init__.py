@@ -6,7 +6,7 @@ from .activations import get_activation_function, is_glu
 from .convolution import ParameterizedConv1d
 from .dropout import Dropout
 from .embedding import ParameterizedEmbedding
-from .linear import ParameterizedLinear
+from .linear import ColumnParallelLinear, ParameterizedLinear, RowParallelLinear
 from .mlp_blocks import (
     MLP,
     MoE,
