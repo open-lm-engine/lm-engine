@@ -173,6 +173,10 @@ except ImportError:
     warn_rank_0("zstandard is not available")
 
 
+def is_zstandard_available():
+    return _IS_ZSTANDARD_AVAILABLE
+
+
 @run_rank_n
 def log_environment() -> None:
     packages = sorted(["{}=={}".format(d.metadata["Name"], d.version) for d in distributions()])
