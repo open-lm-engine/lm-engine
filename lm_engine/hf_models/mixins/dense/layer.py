@@ -29,9 +29,7 @@ class Block(nn.Module):
         self.ln_2 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
-        self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
-        )
+        self.mlp_block = get_mlp_block(config, layer_idx=layer_idx)
 
     def forward(
         self,
