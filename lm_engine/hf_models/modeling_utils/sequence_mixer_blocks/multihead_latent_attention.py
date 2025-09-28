@@ -27,6 +27,7 @@ class MultiHeadLatentAttention(nn.Module):
         num_attention_heads: int,
         head_dim: int,
         attention_multiplier: float,
+        sliding_window: int | None,
         position_embedding_type: str,
         add_bias: bool,
         softmax_dropout: float,
@@ -53,6 +54,7 @@ class MultiHeadLatentAttention(nn.Module):
         self.key_value_compression_size = key_value_compression_size
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
+        self.sliding_window = sliding_window
         self.layer_idx = layer_idx
 
         std = initializer_range
@@ -178,6 +180,7 @@ class MultiHeadLatentAttention(nn.Module):
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,
+                sliding_window=self.sliding_window,
             )
 
             del query, key, value
@@ -185,6 +188,8 @@ class MultiHeadLatentAttention(nn.Module):
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
             hidden_states = hidden_states.view(*output_shape)
         else:
+            assert self.sliding_window is None
+
             batch_size, query_length = query.shape[:-1]
             key_length = key.shape[1]
 
