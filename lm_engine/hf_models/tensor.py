@@ -125,7 +125,7 @@ class PackedTensor(torch.Tensor):
 
         return self._max_seqlen
 
-    def get_cu_seqlens(self, return_none_allowed: bool = False) -> torch.Tensor:
+    def get_cu_seqlens(self, return_none_allowed: bool = True) -> torch.Tensor:
         if return_none_allowed and not self.is_ragged_tensor():
             return None
 

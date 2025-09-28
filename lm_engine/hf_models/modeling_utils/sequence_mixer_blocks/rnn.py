@@ -83,7 +83,7 @@ class RNN(nn.Module):
 
         with x.safe_mode():
             x = self.x_projection(x)
-            x, gate = x.chunk(2, dim=-1)
+            x, g = x.chunk(2, dim=-1)
             x = x.view(T, self.num_heads, self.state_head_dim)
 
             if self.scaling_factor != 1:
@@ -107,12 +107,14 @@ class RNN(nn.Module):
 
         if cache_params is not None:
             cache_params.update(
-                state=x.get_last_element_along_sequence(), num_tokens_added=x.size(1), layer_idx=self.layer_idx
+                state=x.get_last_element_along_sequence(),
+                num_tokens_added=x.get_cu_seqlens(False),
+                layer_idx=self.layer_idx,
             )
 
         with x.safe_mode():
             x = x.view(T, -1)
-            x = x * F.silu(gate)
+            x = x * F.silu(g)
             x = self.norm(x)
             x = self.output_projection(x)
 
