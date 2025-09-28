@@ -11,7 +11,7 @@ from .granite import _export_granite_config, _import_granite_config
 from .granitemoe import export_to_huggingface_granitemoe, import_from_huggingface_granitemoe
 from .granitemoehybrid import export_to_huggingface_granitemoehybrid, import_from_huggingface_granitemoehybrid
 from .granitemoeshared import export_to_huggingface_granitemoeshared, import_from_huggingface_granitemoeshared
-from .llama import _export_llama_state_dict, _import_llama_state_dict, export_to_huggingface_llama
+from .llama import _export_llama_config, _export_llama_state_dict, _import_llama_config, _import_llama_state_dict
 
 
 _MODEL_IMPORT_FUNCTIONS = {
@@ -19,7 +19,7 @@ _MODEL_IMPORT_FUNCTIONS = {
     "granitemoe": import_from_huggingface_granitemoe,
     "granitemoeshared": import_from_huggingface_granitemoeshared,
     "granitemoehybrid": import_from_huggingface_granitemoehybrid,
-    # "llama": import_from_huggingface_llama,
+    "llama": (_import_llama_config, _import_llama_state_dict),
 }
 
 
@@ -59,7 +59,7 @@ _MODEL_EXPORT_FUNCTIONS = {
     "granitemoe": export_to_huggingface_granitemoe,
     "granitemoeshared": export_to_huggingface_granitemoeshared,
     "granitemoehybrid": export_to_huggingface_granitemoehybrid,
-    "llama": export_to_huggingface_llama,
+    "llama": (_export_llama_config, _export_llama_state_dict),
 }
 
 
@@ -76,8 +76,8 @@ def export_to_huggingface(
     state_dict = state_dict_export_function(
         config, safetensors_weights_manager=SafeTensorsWeightsManager(downloaded_model_path)
     )
-    config = config_export_function(config)
 
+    config = config_export_function(config)
     generation_config = GenerationConfig.from_model_config(config)
 
     try:

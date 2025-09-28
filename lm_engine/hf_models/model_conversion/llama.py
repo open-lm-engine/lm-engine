@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, LlamaConfig, LlamaForCausalLM
+from transformers import LlamaConfig, LlamaForCausalLM
 
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible
 from ..modeling_utils import (
@@ -14,7 +14,7 @@ from ..modeling_utils import (
 from ..models import GPTBaseConfig
 
 
-def _import_config_from_huggingface(original_config: LlamaConfig) -> GPTBaseConfig:
+def _import_llama_config(original_config: LlamaConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert original_config.mlp_bias == original_config.attention_bias
 
@@ -130,24 +130,7 @@ def _import_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager:
     return state_dict
 
 
-def export_to_huggingface_llama(pretrained_model_name_or_path: str) -> tuple[LlamaConfig, dict]:
-    config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
-    original_config = _export_config_to_huggingface(config)
-
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-
-    safetensors_weights_manager = SafeTensorsWeightsManager(pretrained_model_name_or_path)
-    state_dict = _export_state_dict_to_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-    )
-
-    return original_config, state_dict
-
-
-def _export_config_to_huggingface(config: GPTBaseConfig) -> LlamaConfig:
+def _export_llama_config(config: GPTBaseConfig) -> LlamaConfig:
     assert config.normalization_function == "rmsnorm"
     assert config.position_embedding_type == "rope"
     assert config.m_emb is None
