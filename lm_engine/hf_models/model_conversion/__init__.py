@@ -2,8 +2,9 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig
+from transformers import AutoConfig, GenerationConfig
 
+from ...utils import SafeTensorsWeightsManager
 from .granite import export_to_huggingface_granite, import_from_huggingface_granite
 from .granitemoe import export_to_huggingface_granitemoe, import_from_huggingface_granitemoe
 from .granitemoehybrid import export_to_huggingface_granitemoehybrid, import_from_huggingface_granitemoehybrid
@@ -28,7 +29,17 @@ def import_from_huggingface(pretrained_model_name_or_path: str, save_path: str) 
         raise NotImplementedError(f"the current model_type ({model_type}) is not yet supported")
 
     import_function = _MODEL_IMPORT_FUNCTIONS[model_type]
-    import_function(pretrained_model_name_or_path, save_path)
+
+    config, tokenizer, state_dict = import_function(pretrained_model_name_or_path)
+    generation_config = GenerationConfig.from_model_config(config)
+
+    config.save_pretrained(save_path)
+    generation_config.save_pretrained(save_path)
+
+    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
+
+    if tokenizer is not None:
+        tokenizer.save_pretrained(save_path, legacy_format=False)
 
 
 _MODEL_EXPORT_FUNCTIONS = {

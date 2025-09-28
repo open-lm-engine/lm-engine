@@ -20,7 +20,9 @@ from ..modeling_utils import (
 from ..models import GPTBaseConfig
 
 
-def import_from_huggingface_granitemoehybrid(pretrained_model_name_or_path: str, save_path: str) -> None:
+def import_from_huggingface_granitemoehybrid(
+    pretrained_model_name_or_path: str,
+) -> tuple[GPTBaseConfig, AutoTokenizer, dict]:
     original_config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
     config = _import_config_from_huggingface(original_config)
     num_attention_heads = config.check_equal_for_all_and_get_value(
@@ -39,14 +41,7 @@ def import_from_huggingface_granitemoehybrid(pretrained_model_name_or_path: str,
         config.hidden_size // num_attention_heads,
     )
 
-    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
-    config.save_pretrained(save_path)
-
-    generation_config = GenerationConfig.from_model_config(config)
-    generation_config.save_pretrained(save_path)
-
-    if tokenizer is not None:
-        tokenizer.save_pretrained(save_path, legacy_format=False)
+    return config, tokenizer, state_dict
 
 
 def _import_config_from_huggingface(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
