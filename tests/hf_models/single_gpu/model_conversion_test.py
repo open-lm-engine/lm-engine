@@ -5,7 +5,7 @@
 import torch
 from parameterized import parameterized
 
-from lm_engine.hf_models.config import _Mamba2Args
+from lm_engine.hf_models.config import _Mamba2Args, _MLPArgs
 
 from ..test_common import TestCommons
 
@@ -116,6 +116,12 @@ class ModelConversionTest(TestCommons):
             shared_expert_gating=True,
             normalized_topk=False,
         )
+
+        for layer_idx in [3, 6]:
+            mlp_block = lm_engine_config.mlp_blocks[layer_idx]
+            lm_engine_config.mlp_blocks[layer_idx] = _MLPArgs(
+                intermediate_size=mlp_block.intermediate_size, activation_function=mlp_block.activation_function
+            )
 
         self.model_conversion_test(
             lm_engine_config=lm_engine_config, model_type="qwen2_moe", device=device, exact_match=False

@@ -18,8 +18,33 @@ from ..models import GPTBaseConfig
 def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert not original_config.use_sliding_window
-    assert original_config.decoder_sparse_step == 1
-    assert original_config.mlp_only_layers in [None, []]
+
+    mlp_blocks = []
+    for layer_idx in range(original_config.num_hidden_layers):
+        # logic copied from HF transformers
+        if (layer_idx not in original_config.mlp_only_layers) and (
+            original_config.num_experts > 0 and (layer_idx + 1) % original_config.decoder_sparse_step == 0
+        ):
+            mlp_block = {
+                "mlp_type": "MoE",
+                "intermediate_size": original_config.moe_intermediate_size,
+                "shared_intermediate_size": original_config.shared_expert_intermediate_size,
+                "shared_expert_gating": True,
+                "num_experts": original_config.num_experts,
+                "num_experts_per_tok": original_config.num_experts_per_tok,
+                "activation_function": "swiglu",
+                "add_bias": False,
+                "normalized_topk": original_config.norm_topk_prob,
+            }
+        else:
+            mlp_block = {
+                "mlp_type": "MLP",
+                "intermediate_size": original_config.intermediate_size,
+                "activation_function": "swiglu",
+                "add_bias": False,
+            }
+
+        mlp_blocks.append(mlp_block)
 
     config = GPTBaseConfig(
         vocab_size=original_config.vocab_size,
@@ -49,20 +74,7 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
             }
             for _ in range(original_config.num_hidden_layers)
         ],
-        mlp_blocks=[
-            {
-                "mlp_type": "MoE",
-                "intermediate_size": original_config.moe_intermediate_size,
-                "shared_intermediate_size": original_config.shared_expert_intermediate_size,
-                "shared_expert_gating": True,
-                "num_experts": original_config.num_experts,
-                "num_experts_per_tok": original_config.num_experts_per_tok,
-                "activation_function": "swiglu",
-                "add_bias": False,
-                "normalized_topk": original_config.norm_topk_prob,
-            }
-            for _ in range(original_config.num_hidden_layers)
-        ],
+        mlp_blocks=mlp_blocks,
     )
 
     return config
@@ -92,45 +104,65 @@ def _import_qwen2_moe_state_dict(
             f"model.layers.{layer_idx}.post_attention_layernorm.weight"
         )
 
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.gate.weight"] = safetensors_weights_manager.get_tensor(
-            f"model.layers.{layer_idx}.mlp.gate.weight"
-        )
-
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = torch.stack(
-            [
-                interleave_up_gate_tensor_for_mlp(
-                    safetensors_weights_manager.get_tensor(
-                        f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.up_proj.weight"
-                    ),
-                    safetensors_weights_manager.get_tensor(
-                        f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.gate_proj.weight"
-                    ),
-                )
-                for expert_idx in range(config.mlp_blocks[layer_idx].num_experts)
-            ]
-        )
-
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = torch.stack(
-            [
-                safetensors_weights_manager.get_tensor(
-                    f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.down_proj.weight"
-                )
-                for expert_idx in range(config.mlp_blocks[layer_idx].num_experts)
-            ]
-        )
-
-        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"):
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = interleave_up_gate_tensor_for_mlp(
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"),
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"),
+        # MoE
+        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.mlp.gate.weight"):
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.gate.weight"] = safetensors_weights_manager.get_tensor(
+                f"model.layers.{layer_idx}.mlp.gate.weight"
             )
 
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight")
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = torch.stack(
+                [
+                    interleave_up_gate_tensor_for_mlp(
+                        safetensors_weights_manager.get_tensor(
+                            f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.up_proj.weight"
+                        ),
+                        safetensors_weights_manager.get_tensor(
+                            f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.gate_proj.weight"
+                        ),
+                    )
+                    for expert_idx in range(config.mlp_blocks[layer_idx].num_experts)
+                ]
             )
 
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.shared_expert_gate.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert_gate.weight")
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = torch.stack(
+                [
+                    safetensors_weights_manager.get_tensor(
+                        f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.down_proj.weight"
+                    )
+                    for expert_idx in range(config.mlp_blocks[layer_idx].num_experts)
+                ]
+            )
+
+            if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"):
+                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = (
+                    interleave_up_gate_tensor_for_mlp(
+                        safetensors_weights_manager.get_tensor(
+                            f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"
+                        ),
+                        safetensors_weights_manager.get_tensor(
+                            f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"
+                        ),
+                    )
+                )
+
+                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
+                    safetensors_weights_manager.get_tensor(
+                        f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight"
+                    )
+                )
+
+                state_dict[f"transformer.h.{layer_idx}.mlp_block.shared_expert_gate.weight"] = (
+                    safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert_gate.weight")
+                )
+        # MLP
+        else:
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.up_proj.weight"),
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.gate_proj.weight"),
+            )
+
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"model.layers.{layer_idx}.mlp.down_proj.weight"
             )
 
         keys = ["weight"] + (["bias"] if qkv_bias else [])
@@ -160,7 +192,10 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
     config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "add_bias", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "add_bias", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "activation_function", "swiglu")
-    config.check_equal_for_all_and_get_value("mlp_blocks", "mlp_type", "MoE")
+
+    mlp_only_layers = [
+        layer_idx for layer_idx, mlp_block in enumerate(config.mlp_blocks) if mlp_block.mlp_type == "MLP"
+    ]
 
     original_config = Qwen2MoeConfig(
         vocab_size=config.vocab_size,
@@ -169,9 +204,12 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
         num_hidden_layers=config.num_layers,
         num_attention_heads=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
         num_key_value_heads=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        moe_intermediate_size=config.check_equal_for_all_and_get_value("mlp_blocks", "intermediate_size"),
+        intermediate_size=config.check_equal_for_all_and_get_value("mlp_blocks", "intermediate_size", mlp_type="MLP"),
+        moe_intermediate_size=config.check_equal_for_all_and_get_value(
+            "mlp_blocks", "intermediate_size", mlp_type="MoE"
+        ),
         shared_expert_intermediate_size=config.check_equal_for_all_and_get_value(
-            "mlp_blocks", "shared_intermediate_size"
+            "mlp_blocks", "shared_intermediate_size", mlp_type="MoE"
         ),
         hidden_act="silu",
         rms_norm_eps=config.layer_norm_epsilon,
@@ -181,15 +219,17 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
         rope_theta=config.rope_theta,
         rope_scaling=config.rope_scaling,
         attention_dropout=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "softmax_dropout"),
-        num_experts=config.check_equal_for_all_and_get_value("mlp_blocks", "num_experts"),
-        num_experts_per_tok=config.check_equal_for_all_and_get_value("mlp_blocks", "num_experts_per_tok"),
+        num_experts=config.check_equal_for_all_and_get_value("mlp_blocks", "num_experts", mlp_type="MoE"),
+        num_experts_per_tok=config.check_equal_for_all_and_get_value(
+            "mlp_blocks", "num_experts_per_tok", mlp_type="MoE"
+        ),
         router_aux_loss_coef=config.router_aux_loss_coef,
         bos_token_id=config.bos_token_id,
         eos_token_id=config.eos_token_id,
         pad_token_id=config.pad_token_id,
         qkv_bias=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "qkv_bias"),
-        mlp_only_layers=None,
-        norm_topk_prob=config.check_equal_for_all_and_get_value("mlp_blocks", "normalized_topk"),
+        mlp_only_layers=mlp_only_layers,
+        norm_topk_prob=config.check_equal_for_all_and_get_value("mlp_blocks", "normalized_topk", mlp_type="MoE"),
         architectures=[Qwen2MoeForCausalLM.__name__],
     )
 
@@ -219,39 +259,55 @@ def _export_qwen2_moe_state_dict(
             safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.ln_2.weight")
         )
 
-        state_dict[f"model.layers.{layer_idx}.mlp.gate.weight"] = safetensors_weights_manager.get_tensor(
-            f"transformer.h.{layer_idx}.mlp_block.gate.weight"
-        )
-
-        for expert_idx in range(config.mlp_blocks[layer_idx].num_experts):
-            up_weight, gate_weight = split_up_gate_tensor_for_mlp(
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight")[expert_idx]
+        # MoE layer
+        if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.gate.weight"):
+            state_dict[f"model.layers.{layer_idx}.mlp.gate.weight"] = safetensors_weights_manager.get_tensor(
+                f"transformer.h.{layer_idx}.mlp_block.gate.weight"
             )
 
-            state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.up_proj.weight"] = up_weight
-            state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.gate_proj.weight"] = gate_weight
-
-            state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.down_proj.weight"] = (
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")[
-                    expert_idx
-                ]
-            )
-
-        if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
-            up_weight, gate_weight = split_up_gate_tensor_for_mlp(
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight")
-            )
-
-            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"] = gate_weight
-            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"] = up_weight
-            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight"] = (
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
-            )
-
-            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert_gate.weight"] = (
-                safetensors_weights_manager.get_tensor(
-                    f"transformer.h.{layer_idx}.mlp_block.shared_expert_gate.weight"
+            for expert_idx in range(config.mlp_blocks[layer_idx].num_experts):
+                up_weight, gate_weight = split_up_gate_tensor_for_mlp(
+                    safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight")[
+                        expert_idx
+                    ]
                 )
+
+                state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.up_proj.weight"] = up_weight
+                state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.gate_proj.weight"] = gate_weight
+
+                state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.down_proj.weight"] = (
+                    safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")[
+                        expert_idx
+                    ]
+                )
+
+            if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
+                up_weight, gate_weight = split_up_gate_tensor_for_mlp(
+                    safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight")
+                )
+
+                state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"] = gate_weight
+                state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"] = up_weight
+                state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight"] = (
+                    safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
+                )
+
+                state_dict[f"model.layers.{layer_idx}.mlp.shared_expert_gate.weight"] = (
+                    safetensors_weights_manager.get_tensor(
+                        f"transformer.h.{layer_idx}.mlp_block.shared_expert_gate.weight"
+                    )
+                )
+        # MLP layer
+        else:
+            up_weight, gate_weight = split_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight")
+            )
+
+            state_dict[f"model.layers.{layer_idx}.mlp.up_proj.weight"] = up_weight
+            state_dict[f"model.layers.{layer_idx}.mlp.gate_proj.weight"] = gate_weight
+
+            state_dict[f"model.layers.{layer_idx}.mlp.down_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"
             )
 
         keys = ["weight"] + (["bias"] if qkv_bias else [])
