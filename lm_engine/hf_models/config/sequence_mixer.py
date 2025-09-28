@@ -14,9 +14,14 @@ class _SoftmaxAttentionArgs(BaseArgs):
     softmax_dropout: float = 0
     dropout: float = 0
     add_bias: bool = False
+    # needed for Qwen 2 MoE
+    qkv_bias: bool = None
     attention_multiplier: float | None = None
 
     def model_post_init(self, __context: Any) -> None:
+        if self.qkv_bias is None:
+            self.qkv_bias = self.add_bias
+
         assert self.sequence_mixer_type == "softmax_attention"
 
 
