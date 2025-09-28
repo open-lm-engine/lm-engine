@@ -16,6 +16,9 @@ from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingfa
 from ..test_common import BaseTestCommons
 
 
+_DEBUG = False
+
+
 class TestCommons(BaseTestCommons):
     @staticmethod
     def get_attention_implementations() -> list[str]:
@@ -93,6 +96,7 @@ class TestCommons(BaseTestCommons):
         m_residual: float = None,
         attention_multiplier: float = None,
         num_attention_heads: int = 4,
+        shared_expert_gating: bool = False,
     ) -> GPTBaseConfig:
         num_key_value_heads = 2
 
@@ -128,6 +132,7 @@ class TestCommons(BaseTestCommons):
                     "activation_function": activation_function,
                     "add_bias": add_bias,
                     "shared_intermediate_size": None if shared_n_inner is None else shared_n_inner,
+                    "shared_expert_gating": shared_expert_gating,
                 }
                 for _ in range(num_layers)
             ],
@@ -171,6 +176,9 @@ class TestCommons(BaseTestCommons):
         lm_engine_model = self.from_config(lm_engine_config).to(device)
         lm_engine_model.eval()
 
+        if _DEBUG:
+            print(lm_engine_model)
+
         with tempfile.TemporaryDirectory() as tmp_path:
             save_path = os.path.join(tmp_path, "save")
             export_path = os.path.join(tmp_path, "export")
@@ -187,6 +195,9 @@ class TestCommons(BaseTestCommons):
             hf_model.eval()
 
         input_ids, attention_mask, labels = self.get_dummy_inputs(device)
+
+        if _DEBUG:
+            print(hf_model)
 
         hf_output = hf_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True)
         hf_logits = hf_output.logits

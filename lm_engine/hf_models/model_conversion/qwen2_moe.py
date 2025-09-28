@@ -50,6 +50,7 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
                 "mlp_type": "MoE",
                 "intermediate_size": original_config.moe_intermediate_size,
                 "shared_intermediate_size": original_config.shared_expert_intermediate_size,
+                "shared_expert_gating": True,
                 "num_experts": original_config.num_experts,
                 "num_experts_per_tok": original_config.num_experts_per_tok,
                 "activation_function": "swiglu",
@@ -120,6 +121,10 @@ def _import_qwen2_moe_state_dict(
 
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
                 safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight")
+            )
+
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.shared_expert_gate.weight"] = (
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert_gate.weight")
             )
 
         state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"] = (
@@ -230,6 +235,12 @@ def _export_qwen2_moe_state_dict(
             state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"] = up_weight
             state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
+            )
+
+            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert_gate.weight"] = (
+                safetensors_weights_manager.get_tensor(
+                    f"transformer.h.{layer_idx}.mlp_block.shared_expert_gate.weight"
+                )
             )
 
         query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(

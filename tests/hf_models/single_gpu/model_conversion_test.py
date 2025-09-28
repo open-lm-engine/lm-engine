@@ -113,6 +113,7 @@ class ModelConversionTest(TestCommons):
             shared_n_inner=36,
             activation_function="swiglu",
             normalization_function="rmsnorm",
+            shared_expert_gating=True,
         )
 
         self.model_conversion_test(

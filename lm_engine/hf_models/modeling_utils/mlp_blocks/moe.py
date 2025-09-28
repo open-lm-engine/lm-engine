@@ -156,6 +156,7 @@ class MoE(nn.Module):
         hidden_size: int,
         intermediate_size: int,
         shared_intermediate_size: int,
+        shared_expert_gating: bool,
         num_experts: int,
         num_experts_per_tok: int,
         activation_function: str,
@@ -176,6 +177,7 @@ class MoE(nn.Module):
         self.hidden_size = hidden_size
         self.intermediate_size = intermediate_size
         self.shared_intermediate_size = shared_intermediate_size
+        self.shared_expert_gating = shared_expert_gating
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
@@ -185,6 +187,13 @@ class MoE(nn.Module):
             bias=False,
             std=std,
         )
+
+        if self.shared_expert_gating:
+            assert shared_intermediate_size is not None
+
+            self.shared_expert_gate = ParameterizedLinear(
+                in_features=self.hidden_size, out_features=1, bias=False, std=std
+            )
 
         self.c_fc = self.linear_class(
             num_experts=num_experts,
@@ -395,9 +404,17 @@ class MoE(nn.Module):
         return hidden_states, expert_frequency
 
     def _compute_shared_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        gate = None
+        if self.shared_expert_gating:
+            gate = self.shared_expert_gate(hidden_states)
+
         hidden_states = self.c_fc_shared(hidden_states)
         hidden_states = self.act(hidden_states)
         hidden_states = self.c_proj_shared(hidden_states)
+
+        if gate is not None:
+            hidden_states = hidden_states * gate
+
         return hidden_states
 
     def _get_topk(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:

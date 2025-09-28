@@ -14,7 +14,7 @@ from safetensors.torch import save_file
 from transformers.modeling_utils import SAFE_WEIGHTS_INDEX_NAME
 
 
-_DEBUG = True
+_DEBUG = False
 
 
 class SafeTensorsWeightsManager:
