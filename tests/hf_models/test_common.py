@@ -175,6 +175,7 @@ class TestCommons(BaseTestCommons):
         loss_atol_float16: float = 1e-5,
         loss_rtol_bfloat16: float = 0,
         loss_atol_bfloat16: float = 1e-5,
+        weight_test_only: bool = False,
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
@@ -198,6 +199,9 @@ class TestCommons(BaseTestCommons):
 
             hf_model = AutoModelForCausalLM.from_pretrained(export_path).to(device)
             hf_model.eval()
+
+        if weight_test_only:
+            return
 
         input_ids, attention_mask, labels = self.get_dummy_inputs(device)
 

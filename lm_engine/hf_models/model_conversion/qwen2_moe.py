@@ -17,7 +17,6 @@ from ..models import GPTBaseConfig
 
 def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
-    assert not original_config.use_sliding_window
 
     mlp_blocks = []
     for layer_idx in range(original_config.num_hidden_layers):
@@ -46,6 +45,26 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
 
         mlp_blocks.append(mlp_block)
 
+    sequence_mixer_blocks = []
+    for layer_idx in range(original_config.num_hidden_layers):
+        sliding_window = None
+        if original_config.use_sliding_window and layer_idx >= original_config.max_window_layers:
+            sliding_window = original_config.sliding_window
+
+        sequence_mixer_block = {
+            "sequence_mixer_type": "softmax_attention",
+            "num_attention_heads": original_config.num_attention_heads,
+            "num_key_value_heads": original_config.num_key_value_heads,
+            "add_bias": False,
+            "sliding_window": sliding_window,
+            "qkv_bias": original_config.qkv_bias,
+            "softmax_dropout": original_config.attention_dropout,
+        }
+
+        sequence_mixer_blocks.append(sequence_mixer_block)
+
+    print(sequence_mixer_blocks)
+
     config = GPTBaseConfig(
         vocab_size=original_config.vocab_size,
         max_position_embeddings=original_config.max_position_embeddings,
@@ -63,17 +82,7 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
         bos_token_id=original_config.bos_token_id,
         eos_token_id=original_config.eos_token_id,
         pad_token_id=original_config.pad_token_id,
-        sequence_mixer_blocks=[
-            {
-                "sequence_mixer_type": "softmax_attention",
-                "num_attention_heads": original_config.num_attention_heads,
-                "num_key_value_heads": original_config.num_key_value_heads,
-                "add_bias": False,
-                "qkv_bias": original_config.qkv_bias,
-                "softmax_dropout": original_config.attention_dropout,
-            }
-            for _ in range(original_config.num_hidden_layers)
-        ],
+        sequence_mixer_blocks=sequence_mixer_blocks,
         mlp_blocks=mlp_blocks,
     )
 
@@ -197,6 +206,15 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
         layer_idx for layer_idx, mlp_block in enumerate(config.mlp_blocks) if mlp_block.mlp_type == "MLP"
     ]
 
+    max_window_layers = None
+    use_sliding_window = False
+    for layer_idx in range(config.num_layers):
+        block = config.sequence_mixer_blocks[layer_idx]
+        if config.sequence_mixer_blocks[layer_idx]:
+            use_sliding_window = use_sliding_window or block.sliding_window is not None
+            if max_window_layers is None and use_sliding_window:
+                max_window_layers = layer_idx
+
     original_config = Qwen2MoeConfig(
         vocab_size=config.vocab_size,
         max_position_embeddings=config.max_position_embeddings,
@@ -214,6 +232,8 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
         hidden_act="silu",
         rms_norm_eps=config.layer_norm_epsilon,
         use_cache=config.use_cache,
+        use_sliding_window=use_sliding_window,
+        max_window_layers=max_window_layers,
         tie_word_embeddings=config.tie_word_embeddings,
         initializer_range=config.initializer_range,
         rope_theta=config.rope_theta,
