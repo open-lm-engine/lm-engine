@@ -59,11 +59,11 @@ class PackedTensor(torch.Tensor):
         return packed_tensor
 
     def to_unpacked_tensor(self) -> torch.Tensor:
-        if self._batch_size is None:
+        if self._cu_seqlens is None:
+            unpacked_tensor = self.view(self._batch_size, -1, *self.size()[1:])
+        else:
             unpacked_tensor = unpack_sequence(
                 inputs=self._packed_tensor, cu_seqlens=self._cu_seqlens, output_shape=self._original_shape
             )
-        else:
-            unpacked_tensor = self.view(self._batch_size, -1, *self.size()[1:])
 
         return unpacked_tensor
