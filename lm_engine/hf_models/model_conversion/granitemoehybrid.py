@@ -3,15 +3,8 @@
 # **************************************************
 
 import torch
-from transformers import (
-    AutoConfig,
-    AutoTokenizer,
-    GenerationConfig,
-    GraniteMoeHybridConfig,
-    GraniteMoeHybridForCausalLM,
-)
+from transformers import AutoConfig, AutoTokenizer, GraniteMoeHybridConfig, GraniteMoeHybridForCausalLM
 
-from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible, download_repo
 from ..modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
@@ -241,7 +234,7 @@ def _import_state_dict_from_huggingface(
     return state_dict
 
 
-def export_to_huggingface_granitemoehybrid(pretrained_model_name_or_path: str, save_path: str) -> None:
+def export_to_huggingface_granitemoehybrid(pretrained_model_name_or_path: str) -> tuple[GraniteMoeHybridConfig, dict]:
     config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
     original_config = _export_config_to_huggingface(config)
 
@@ -254,17 +247,7 @@ def export_to_huggingface_granitemoehybrid(pretrained_model_name_or_path: str, s
         num_key_value_heads=original_config.num_key_value_heads,
     )
 
-    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
-    original_config.save_pretrained(save_path)
-
-    original_generation_config = GenerationConfig.from_model_config(original_config)
-    original_generation_config.save_pretrained(save_path)
-
-    try:
-        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
-        tokenizer.save_pretrained(save_path, legacy_format=False)
-    except:
-        pass
+    return original_config, state_dict
 
 
 def _get_sequence_mixer_block_types(config: GPTBaseConfig) -> list:

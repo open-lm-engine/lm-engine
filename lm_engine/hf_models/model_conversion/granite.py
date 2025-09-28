@@ -4,7 +4,6 @@
 
 from transformers import AutoConfig, AutoTokenizer, GraniteConfig, GraniteForCausalLM
 
-from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
 from ..models import GPTBaseConfig
 from .llama import _export_state_dict_to_huggingface, _import_state_dict_from_huggingface
@@ -75,7 +74,7 @@ def _import_config_from_huggingface(original_config: GraniteConfig) -> GPTBaseCo
     return config
 
 
-def export_to_huggingface_granite(pretrained_model_name_or_path: str) -> tuple[GraniteConfig, AutoTokenizer, dict]:
+def export_to_huggingface_granite(pretrained_model_name_or_path: str) -> tuple[GraniteConfig, dict]:
     config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
     original_config = _export_config_to_huggingface(config)
     num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
@@ -88,12 +87,7 @@ def export_to_huggingface_granite(pretrained_model_name_or_path: str) -> tuple[G
         config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
     )
 
-    try:
-        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
-    except:
-        tokenizer = None
-
-    return original_config, tokenizer, state_dict
+    return original_config, state_dict
 
 
 def _export_config_to_huggingface(config: GPTBaseConfig) -> GraniteConfig:

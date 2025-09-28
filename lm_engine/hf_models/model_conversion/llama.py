@@ -150,7 +150,7 @@ def _import_state_dict_from_huggingface(
     return state_dict
 
 
-def export_to_huggingface_llama(pretrained_model_name_or_path: str) -> tuple[LlamaConfig, AutoTokenizer, dict]:
+def export_to_huggingface_llama(pretrained_model_name_or_path: str) -> tuple[LlamaConfig, dict]:
     config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
     original_config = _export_config_to_huggingface(config)
 
@@ -164,12 +164,7 @@ def export_to_huggingface_llama(pretrained_model_name_or_path: str) -> tuple[Lla
         config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
     )
 
-    try:
-        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
-    except:
-        tokenizer = None
-
-    return original_config, tokenizer, state_dict
+    return original_config, state_dict
 
 
 def _export_config_to_huggingface(config: GPTBaseConfig) -> LlamaConfig:

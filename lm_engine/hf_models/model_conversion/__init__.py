@@ -4,6 +4,7 @@
 
 from transformers import AutoConfig, AutoTokenizer, GenerationConfig
 
+from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager
 from ..models import GPTBaseConfig
 from .granite import export_to_huggingface_granite, import_from_huggingface_granite
@@ -65,8 +66,13 @@ def export_to_huggingface(
 
     export_function = _MODEL_EXPORT_FUNCTIONS[model_type]
 
-    config, tokenizer, state_dict = export_function(pretrained_model_name_or_path, save_path)
+    config, state_dict = export_function(pretrained_model_name_or_path)
     generation_config = GenerationConfig.from_model_config(config)
+
+    try:
+        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
+    except:
+        tokenizer = None
 
     if save_path is not None:
         config.save_pretrained(save_path)
