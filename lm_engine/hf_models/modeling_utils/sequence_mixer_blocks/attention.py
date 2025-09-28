@@ -68,6 +68,7 @@ class Attention(nn.Module):
         num_attention_heads: int,
         num_key_value_heads: int,
         attention_multiplier: float,
+        sliding_window: int | None,
         position_embedding_type: str,
         add_bias: bool,
         qkv_bias: bool,
@@ -90,6 +91,7 @@ class Attention(nn.Module):
         self.add_bias = add_bias
         self.qkv_bias = qkv_bias
         self.use_padding_free_transformer = use_padding_free_transformer
+        self.sliding_window = sliding_window
 
         self.head_dim = divide_if_divisible(
             self.hidden_size,
@@ -202,6 +204,7 @@ class Attention(nn.Module):
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,
+                sliding_window=self.sliding_window,
             )
 
             del query, key, value
@@ -209,6 +212,8 @@ class Attention(nn.Module):
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
             hidden_states = hidden_states.view(*output_shape)
         else:
+            assert self.sliding_window is None
+
             hidden_states = F.scaled_dot_product_attention(
                 query,
                 key,
