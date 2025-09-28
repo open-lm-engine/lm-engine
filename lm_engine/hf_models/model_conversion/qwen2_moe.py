@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import torch
 from transformers import Qwen2MoeConfig, Qwen2MoeForCausalLM
 
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible
@@ -85,16 +86,36 @@ def _import_qwen2_moe_state_dict(
         )
 
         state_dict[f"transformer.h.{layer_idx}.mlp_block.gate.weight"] = safetensors_weights_manager.get_tensor(
-            f"model.layers.{layer_idx}.mlp.gate.layer.weight"
+            f"model.layers.{layer_idx}.mlp.gate.weight"
         )
 
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
-            safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"),
-            dim=1,
+        up_weights = []
+        gate_weights = []
+        down_weights = []
+        for expert_idx in range(config.mlp_blocks[layer_idx].num_experts):
+            up_weights.append(
+                safetensors_weights_manager.get_tensor(
+                    f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.up_proj.weight"
+                )
+            )
+
+            gate_weights.append(
+                safetensors_weights_manager.get_tensor(
+                    f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.gate_proj.weight"
+                )
+            )
+
+            down_weights.append(
+                safetensors_weights_manager.get_tensor(
+                    f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.down_proj.weight"
+                )
+            )
+
+        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
+            torch.cat(up_weights, dim=0), torch.cat(gate_weights, dim=0)
         )
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
-            f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"
-        )
+
+        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = torch.cat(down_weights, dim=0)
 
         if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_expert.gate_proj.weight"):
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = interleave_up_gate_tensor_for_mlp(
@@ -106,7 +127,7 @@ def _import_qwen2_moe_state_dict(
                 dim=0,
             )
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.output_linear.weight")
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.down_proj.weight")
             )
 
         state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"] = (
@@ -187,23 +208,30 @@ def _export_qwen2_moe_state_dict(
             safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.ln_2.weight")
         )
 
-        state_dict[f"model.layers.{layer_idx}.mlp.gate.layer.weight"] = safetensors_weights_manager.get_tensor(
+        state_dict[f"model.layers.{layer_idx}.mlp.gate.weight"] = safetensors_weights_manager.get_tensor(
             f"transformer.h.{layer_idx}.mlp_block.gate.weight"
         )
 
-        state_dict[f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"] = _split_and_reorder_for_glu(
-            safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"), dim=1
-        )
-        state_dict[f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"] = (
-            safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")
-        )
+        for expert_idx in range(config.mlp_blocks[layer_idx].num_experts):
+            up_weight, gate_weight = split_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight")[expert_idx]
+            )
+
+            state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.up_proj.weight"] = up_weight
+            state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.gate_proj.weight"] = gate_weight
+
+            state_dict[f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.down_proj.weight"] = (
+                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")[
+                    expert_idx
+                ]
+            )
 
         if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
             state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"),
                 dim=0,
             )
-            state_dict[f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"] = (
+            state_dict[f"model.layers.{layer_idx}.shared_mlp.down_proj.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
             )
 

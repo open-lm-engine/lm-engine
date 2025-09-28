@@ -106,7 +106,7 @@ class ModelConversionTest(TestCommons):
     #     )
 
     @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
-    def test_llama_model_conversion(self, device: torch.device, add_bias: bool) -> None:
+    def test_qwen2_moe_model_conversion(self, device: torch.device, add_bias: bool) -> None:
         lm_engine_config = self.get_moe_test_config(
             "rope", add_bias=add_bias, activation_function="swiglu", normalization_function="rmsnorm"
         )
