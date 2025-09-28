@@ -3,9 +3,9 @@
 # **************************************************
 
 import torch
-from transformers import AutoConfig, AutoTokenizer, GraniteMoeSharedConfig, GraniteMoeSharedForCausalLM
+from transformers import AutoConfig, GraniteMoeSharedConfig, GraniteMoeSharedForCausalLM
 
-from ...utils import SafeTensorsWeightsManager, download_repo
+from ...utils import SafeTensorsWeightsManager
 from ..modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,
@@ -14,13 +14,12 @@ from ..models import GPTBaseConfig
 
 
 def import_from_huggingface_granitemoeshared(
-    pretrained_model_name_or_path: str,
-) -> tuple[GPTBaseConfig, AutoTokenizer, dict]:
-    original_config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
+    original_config: GraniteMoeSharedConfig, safetensors_weights_manager: SafeTensorsWeightsManager
+) -> tuple[GPTBaseConfig, dict]:
     config = _import_config_from_huggingface(original_config)
+
     num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
 
-    safetensors_weights_manager = SafeTensorsWeightsManager(downloaded_model_path)
     state_dict = _import_state_dict_from_huggingface(
         safetensors_weights_manager,
         config.num_layers,
@@ -29,7 +28,7 @@ def import_from_huggingface_granitemoeshared(
         config.hidden_size // num_attention_heads,
     )
 
-    return config, tokenizer, state_dict
+    return config, state_dict
 
 
 def _import_config_from_huggingface(original_config: GraniteMoeSharedConfig) -> GPTBaseConfig:

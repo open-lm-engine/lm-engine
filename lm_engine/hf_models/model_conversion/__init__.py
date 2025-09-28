@@ -5,7 +5,7 @@
 from transformers import AutoConfig, AutoTokenizer, GenerationConfig
 
 from ...tokenizers import get_tokenizer
-from ...utils import SafeTensorsWeightsManager
+from ...utils import SafeTensorsWeightsManager, download_repo
 from ..models import GPTBaseConfig
 from .granite import export_to_huggingface_granite, import_from_huggingface_granite
 from .granitemoe import export_to_huggingface_granitemoe, import_from_huggingface_granitemoe
@@ -26,15 +26,18 @@ _MODEL_IMPORT_FUNCTIONS = {
 def import_from_huggingface(
     pretrained_model_name_or_path: str, save_path: str | None = None
 ) -> tuple[GPTBaseConfig, GenerationConfig, AutoTokenizer, dict]:
-    config = AutoConfig.from_pretrained(pretrained_model_name_or_path)
-    model_type = config.model_type
+    original_config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
+    model_type = original_config.model_type
 
     if model_type not in _MODEL_IMPORT_FUNCTIONS:
         raise NotImplementedError(f"the current model_type ({model_type}) is not yet supported")
 
     import_function = _MODEL_IMPORT_FUNCTIONS[model_type]
 
-    config, tokenizer, state_dict = import_function(pretrained_model_name_or_path)
+    config, state_dict = import_function(
+        original_config=original_config, safetensors_weights_manager=SafeTensorsWeightsManager(downloaded_model_path)
+    )
+
     generation_config = GenerationConfig.from_model_config(config)
 
     if save_path is not None:
