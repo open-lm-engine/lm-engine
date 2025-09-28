@@ -181,7 +181,7 @@ class TestCommons(BaseTestCommons):
 
             lm_engine_model.save_pretrained(save_path, safe_serialization=True)
 
-            export_to_huggingface(save_path, export_path, model_type=model_type)
+            export_to_huggingface(save_path, model_type, export_path)
             import_from_huggingface(export_path, import_path)
 
             assert self.compare_saved_models(save_path, import_path)

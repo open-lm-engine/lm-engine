@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, AutoTokenizer, GenerationConfig, LlamaConfig, LlamaForCausalLM
+from transformers import AutoConfig, AutoTokenizer, LlamaConfig, LlamaForCausalLM
 
 from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
@@ -150,7 +150,7 @@ def _import_state_dict_from_huggingface(
     return state_dict
 
 
-def export_to_huggingface_llama(pretrained_model_name_or_path: str, save_path: str) -> None:
+def export_to_huggingface_llama(pretrained_model_name_or_path: str) -> tuple[LlamaConfig, AutoTokenizer, dict]:
     config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
     original_config = _export_config_to_huggingface(config)
 
@@ -162,20 +162,14 @@ def export_to_huggingface_llama(pretrained_model_name_or_path: str, save_path: s
         config.num_layers,
         num_attention_heads,
         config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        config.hidden_size // num_attention_heads,
     )
-
-    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
-    original_config.save_pretrained(save_path)
-
-    original_generation_config = GenerationConfig.from_model_config(original_config)
-    original_generation_config.save_pretrained(save_path)
 
     try:
         tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
-        tokenizer.save_pretrained(save_path, legacy_format=False)
     except:
-        pass
+        tokenizer = None
+
+    return original_config, tokenizer, state_dict
 
 
 def _export_config_to_huggingface(config: GPTBaseConfig) -> LlamaConfig:
@@ -216,12 +210,8 @@ def _export_config_to_huggingface(config: GPTBaseConfig) -> LlamaConfig:
 
 
 def _export_state_dict_to_huggingface(
-    safetensors_weights_manager: SafeTensorsWeightsManager,
-    num_layers: int,
-    num_heads: int,
-    num_key_value_heads: int,
-    head_dim: int,
-) -> None:
+    safetensors_weights_manager: SafeTensorsWeightsManager, num_layers: int, num_heads: int, num_key_value_heads: int
+) -> dict:
     state_dict = {
         "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
         "model.norm.weight": safetensors_weights_manager.get_tensor("transformer.ln_f.weight"),
