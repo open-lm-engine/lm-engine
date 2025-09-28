@@ -98,8 +98,20 @@ class TestCommons(BaseTestCommons):
         num_attention_heads: int = 4,
         shared_expert_gating: bool = False,
         normalized_topk: bool = True,
+        qkv_bias: bool = None,
     ) -> GPTBaseConfig:
         num_key_value_heads = 2
+
+        sequence_mixer = {
+            "sequence_mixer_type": "softmax_attention",
+            "add_bias": add_bias,
+            "num_attention_heads": num_attention_heads,
+            "num_key_value_heads": num_key_value_heads,
+            "attention_multiplier": attention_multiplier,
+        }
+
+        if qkv_bias is not None:
+            sequence_mixer["qkv_bias"] = qkv_bias
 
         return GPTBaseConfig(
             vocab_size=2048,
@@ -115,16 +127,7 @@ class TestCommons(BaseTestCommons):
             m_emb=m_emb,
             m_width=m_width,
             m_residual=m_residual,
-            sequence_mixer_blocks=[
-                {
-                    "sequence_mixer_type": "softmax_attention",
-                    "add_bias": add_bias,
-                    "num_attention_heads": num_attention_heads,
-                    "num_key_value_heads": num_key_value_heads,
-                    "attention_multiplier": attention_multiplier,
-                }
-                for _ in range(num_layers)
-            ],
+            sequence_mixer_blocks=[sequence_mixer for _ in range(num_layers)],
             mlp_blocks=[
                 {
                     "mlp_type": "MoE",

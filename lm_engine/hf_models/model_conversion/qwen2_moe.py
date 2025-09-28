@@ -41,6 +41,7 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
                 "num_attention_heads": original_config.num_attention_heads,
                 "num_key_value_heads": original_config.num_key_value_heads,
                 "add_bias": False,
+                "qkv_bias": original_config.qkv_bias,
                 "softmax_dropout": original_config.attention_dropout,
             }
             for _ in range(original_config.num_hidden_layers)
@@ -69,6 +70,7 @@ def _import_qwen2_moe_state_dict(
 ) -> dict:
     num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
     num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+    qkv_bias = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "qkv_bias")
     head_dim = divide_if_divisible(config.hidden_size, num_attention_heads, "")
 
     state_dict = {
@@ -128,16 +130,19 @@ def _import_qwen2_moe_state_dict(
                 safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert_gate.weight")
             )
 
-        state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"] = (
-            interleave_query_key_value_tensor_for_attention(
-                safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.weight"),
-                safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.weight"),
-                safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.weight"),
-                num_attention_heads,
-                num_key_value_heads,
-                head_dim,
+        keys = ["weight"] + (["bias"] if qkv_bias else [])
+        for key in keys:
+            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_attn.{key}"] = (
+                interleave_query_key_value_tensor_for_attention(
+                    safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.{key}"),
+                    safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.{key}"),
+                    safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.{key}"),
+                    num_attention_heads,
+                    num_key_value_heads,
+                    head_dim,
+                )
             )
-        )
+
         state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_proj.weight"] = safetensors_weights_manager.get_tensor(
             f"model.layers.{layer_idx}.self_attn.o_proj.weight"
         )
@@ -193,6 +198,7 @@ def _export_qwen2_moe_state_dict(
 ) -> dict:
     num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
     num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+    qkv_bias = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "qkv_bias")
 
     state_dict = {
         "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
@@ -245,14 +251,16 @@ def _export_qwen2_moe_state_dict(
                 )
             )
 
-        query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
-            safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"),
-            num_attention_heads,
-            num_key_value_heads,
-        )
-        state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.weight"] = query_weight
-        state_dict[f"model.layers.{layer_idx}.self_attn.k_proj.weight"] = key_weight
-        state_dict[f"model.layers.{layer_idx}.self_attn.v_proj.weight"] = value_weight
+        keys = ["weight"] + (["bias"] if qkv_bias else [])
+        for key in keys:
+            query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
+                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.{key}"),
+                num_attention_heads,
+                num_key_value_heads,
+            )
+            state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.{key}"] = query_weight
+            state_dict[f"model.layers.{layer_idx}.self_attn.k_proj.{key}"] = key_weight
+            state_dict[f"model.layers.{layer_idx}.self_attn.v_proj.{key}"] = value_weight
 
         state_dict[f"model.layers.{layer_idx}.self_attn.o_proj.weight"] = safetensors_weights_manager.get_tensor(
             f"transformer.h.{layer_idx}.sequence_mixer.c_proj.weight"
