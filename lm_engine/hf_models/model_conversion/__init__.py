@@ -22,7 +22,12 @@ from .granitemoeshared import (
     _import_granitemoeshared_state_dict,
 )
 from .llama import _export_llama_config, _export_llama_state_dict, _import_llama_config, _import_llama_state_dict
-from .qwen2_moe import _export_qwen2_moe_config, _import_qwen2_moe_config
+from .qwen2_moe import (
+    _export_qwen2_moe_config,
+    _export_qwen2_moe_state_dict,
+    _import_qwen2_moe_config,
+    _import_qwen2_moe_state_dict,
+)
 
 
 _MODEL_IMPORT_FUNCTIONS = {
@@ -31,7 +36,7 @@ _MODEL_IMPORT_FUNCTIONS = {
     "granitemoeshared": (_import_granitemoeshared_config, _import_granitemoeshared_state_dict),
     "granitemoehybrid": (_import_granitemoehybrid_config, _import_granitemoehybrid_state_dict),
     "llama": (_import_llama_config, _import_llama_state_dict),
-    "qwen2_moe": (_import_qwen2_moe_config, _import_granitemoeshared_state_dict),
+    "qwen2_moe": (_import_qwen2_moe_config, _import_qwen2_moe_state_dict),
 }
 
 
@@ -72,7 +77,7 @@ _MODEL_EXPORT_FUNCTIONS = {
     "granitemoeshared": (_export_granitemoeshared_config, _export_granitemoeshared_state_dict),
     "granitemoehybrid": (_export_granitemoehybrid_config, _export_granitemoehybrid_state_dict),
     "llama": (_export_llama_config, _export_llama_state_dict),
-    "qwen2_moe": (_export_qwen2_moe_config, _export_granitemoeshared_state_dict),
+    "qwen2_moe": (_export_qwen2_moe_config, _export_qwen2_moe_state_dict),
 }
 
 

@@ -4,7 +4,15 @@
 
 from transformers import Qwen2MoeConfig, Qwen2MoeForCausalLM
 
+from ...utils import SafeTensorsWeightsManager, divide_if_divisible
+from ..modeling_utils import (
+    interleave_query_key_value_tensor_for_attention,
+    interleave_up_gate_tensor_for_mlp,
+    split_query_key_value_tensor_for_attention,
+    split_up_gate_tensor_for_mlp,
+)
 from ..models import GPTBaseConfig
+from .granitemoeshared import _split_and_reorder_for_glu
 
 
 def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
@@ -53,6 +61,71 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
     return config
 
 
+def _import_qwen2_moe_state_dict(
+    config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager
+) -> dict:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+    head_dim = divide_if_divisible(config.hidden_size, num_attention_heads, "")
+
+    state_dict = {
+        "transformer.wte.weight": safetensors_weights_manager.get_tensor("model.embed_tokens.weight"),
+        "transformer.ln_f.weight": safetensors_weights_manager.get_tensor("model.norm.weight"),
+    }
+
+    if safetensors_weights_manager.has_tensor("lm_head.weight"):
+        state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
+
+    for layer_idx in range(config.num_layers):
+        state_dict[f"transformer.h.{layer_idx}.ln_1.weight"] = safetensors_weights_manager.get_tensor(
+            f"model.layers.{layer_idx}.input_layernorm.weight"
+        )
+        state_dict[f"transformer.h.{layer_idx}.ln_2.weight"] = safetensors_weights_manager.get_tensor(
+            f"model.layers.{layer_idx}.post_attention_layernorm.weight"
+        )
+
+        state_dict[f"transformer.h.{layer_idx}.mlp_block.gate.weight"] = safetensors_weights_manager.get_tensor(
+            f"model.layers.{layer_idx}.mlp.gate.layer.weight"
+        )
+
+        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
+            safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"),
+            dim=1,
+        )
+        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+            f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"
+        )
+
+        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_expert.gate_proj.weight"):
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = interleave_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"),
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"),
+            )
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = _split_and_reorder_for_glu(
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"),
+                dim=0,
+            )
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.output_linear.weight")
+            )
+
+        state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"] = (
+            interleave_query_key_value_tensor_for_attention(
+                safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.weight"),
+                safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.weight"),
+                safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.weight"),
+                num_attention_heads,
+                num_key_value_heads,
+                head_dim,
+            )
+        )
+        state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+            f"model.layers.{layer_idx}.self_attn.o_proj.weight"
+        )
+
+    return state_dict
+
+
 def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
     assert config.normalization_function == "rmsnorm"
     assert config.position_embedding_type == "rope"
@@ -90,3 +163,61 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
     )
 
     return original_config
+
+
+def _export_qwen2_moe_state_dict(
+    config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager
+) -> dict:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+
+    state_dict = {
+        "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
+        "model.norm.weight": safetensors_weights_manager.get_tensor("transformer.ln_f.weight"),
+    }
+
+    if safetensors_weights_manager.has_tensor("lm_head.weight"):
+        state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
+
+    for layer_idx in range(config.num_layers):
+        state_dict[f"model.layers.{layer_idx}.input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
+            f"transformer.h.{layer_idx}.ln_1.weight"
+        )
+        state_dict[f"model.layers.{layer_idx}.post_attention_layernorm.weight"] = (
+            safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.ln_2.weight")
+        )
+
+        state_dict[f"model.layers.{layer_idx}.mlp.gate.layer.weight"] = safetensors_weights_manager.get_tensor(
+            f"transformer.h.{layer_idx}.mlp_block.gate.weight"
+        )
+
+        state_dict[f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"] = _split_and_reorder_for_glu(
+            safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"), dim=1
+        )
+        state_dict[f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"] = (
+            safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")
+        )
+
+        if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
+            state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
+                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"),
+                dim=0,
+            )
+            state_dict[f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"] = (
+                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
+            )
+
+        query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
+            safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"),
+            num_attention_heads,
+            num_key_value_heads,
+        )
+        state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.weight"] = query_weight
+        state_dict[f"model.layers.{layer_idx}.self_attn.k_proj.weight"] = key_weight
+        state_dict[f"model.layers.{layer_idx}.self_attn.v_proj.weight"] = value_weight
+
+        state_dict[f"model.layers.{layer_idx}.self_attn.o_proj.weight"] = safetensors_weights_manager.get_tensor(
+            f"transformer.h.{layer_idx}.sequence_mixer.c_proj.weight"
+        )
+
+    return state_dict
