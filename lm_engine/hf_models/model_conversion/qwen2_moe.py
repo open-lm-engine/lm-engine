@@ -63,8 +63,6 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
 
         sequence_mixer_blocks.append(sequence_mixer_block)
 
-    print(sequence_mixer_blocks)
-
     config = GPTBaseConfig(
         vocab_size=original_config.vocab_size,
         max_position_embeddings=original_config.max_position_embeddings,
