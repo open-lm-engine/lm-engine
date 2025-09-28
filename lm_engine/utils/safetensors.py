@@ -14,6 +14,9 @@ from safetensors.torch import save_file
 from transformers.modeling_utils import SAFE_WEIGHTS_INDEX_NAME
 
 
+_DEBUG = True
+
+
 class SafeTensorsWeightsManager:
     def __init__(self, model_path: str) -> SafeTensorsWeightsManager:
         if model_path.endswith(".safetensors"):
@@ -65,14 +68,29 @@ class SafeTensorsWeightsManager:
         if not isinstance(__value, SafeTensorsWeightsManager):
             return False
 
+        if _DEBUG:
+            for tn1 in self:
+                print(tn1)
+
+            print()
+
+            for tn2 in __value:
+                print(tn2)
+
         if len(self) != len(__value):
+            if _DEBUG:
+                print(f"length mismatch: {len(self)}, {len(__value)}")
             return False
 
         for tn1, tn2 in zip(self, __value):
             if tn1 != tn2:
+                if _DEBUG:
+                    print(f"name mismatch: {tn1}, {tn2}")
                 return False
 
             if not self.get_tensor(tn1).equal(__value.get_tensor(tn2)):
+                if _DEBUG:
+                    print(f"value mismatch: {tn1}, {tn2}")
                 return False
 
         return True

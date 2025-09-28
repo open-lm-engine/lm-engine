@@ -112,14 +112,14 @@ def _import_qwen2_moe_state_dict(
         state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = torch.stack(c_fc_weights)
         state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = torch.stack(down_weights)
 
-        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_expert.gate_proj.weight"):
+        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"):
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = interleave_up_gate_tensor_for_mlp(
                 safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"),
                 safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"),
             )
 
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_expert.down_proj.weight")
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight")
             )
 
         state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"] = (
