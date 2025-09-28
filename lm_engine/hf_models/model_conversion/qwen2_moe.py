@@ -222,12 +222,12 @@ def _export_qwen2_moe_state_dict(
             )
 
         if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
-            gate, up = split_up_gate_tensor_for_mlp(
+            up_weight, gate_weight = split_up_gate_tensor_for_mlp(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight")
             )
 
-            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"] = gate
-            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"] = up
+            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"] = gate_weight
+            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"] = up_weight
             state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
             )
