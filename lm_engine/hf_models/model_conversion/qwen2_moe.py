@@ -91,10 +91,8 @@ def _import_qwen2_moe_state_dict(
             f"model.layers.{layer_idx}.mlp.gate.weight"
         )
 
-        c_fc_weights = []
-        down_weights = []
-        for expert_idx in range(config.mlp_blocks[layer_idx].num_experts):
-            c_fc_weights.append(
+        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = torch.stack(
+            [
                 interleave_up_gate_tensor_for_mlp(
                     safetensors_weights_manager.get_tensor(
                         f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.up_proj.weight"
@@ -103,16 +101,18 @@ def _import_qwen2_moe_state_dict(
                         f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.gate_proj.weight"
                     ),
                 )
-            )
+                for expert_idx in range(config.mlp_blocks[layer_idx].num_experts)
+            ]
+        )
 
-            down_weights.append(
+        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = torch.stack(
+            [
                 safetensors_weights_manager.get_tensor(
                     f"model.layers.{layer_idx}.mlp.experts.{expert_idx}.down_proj.weight"
                 )
-            )
-
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = torch.stack(c_fc_weights)
-        state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = torch.stack(down_weights)
+                for expert_idx in range(config.mlp_blocks[layer_idx].num_experts)
+            ]
+        )
 
         if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"):
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = interleave_up_gate_tensor_for_mlp(
