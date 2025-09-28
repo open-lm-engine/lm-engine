@@ -13,7 +13,6 @@ from ..modeling_utils import (
     split_up_gate_tensor_for_mlp,
 )
 from ..models import GPTBaseConfig
-from .granitemoeshared import _split_and_reorder_for_glu
 
 
 def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
@@ -49,7 +48,8 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
         mlp_blocks=[
             {
                 "mlp_type": "MoE",
-                "intermediate_size": original_config.intermediate_size,
+                "intermediate_size": original_config.moe_intermediate_size,
+                "shared_intermediate_size": original_config.shared_expert_intermediate_size,
                 "num_experts": original_config.num_experts,
                 "num_experts_per_tok": original_config.num_experts_per_tok,
                 "activation_function": "swiglu",
@@ -110,7 +110,6 @@ def _import_qwen2_moe_state_dict(
             )
 
         state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = torch.stack(c_fc_weights)
-
         state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = torch.stack(down_weights)
 
         if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_expert.gate_proj.weight"):
@@ -156,7 +155,10 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
         num_hidden_layers=config.num_layers,
         num_attention_heads=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
         num_key_value_heads=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        intermediate_size=config.check_equal_for_all_and_get_value("mlp_blocks", "intermediate_size"),
+        moe_intermediate_size=config.check_equal_for_all_and_get_value("mlp_blocks", "intermediate_size"),
+        shared_expert_intermediate_size=config.check_equal_for_all_and_get_value(
+            "mlp_blocks", "shared_intermediate_size"
+        ),
         hidden_act="silu",
         rms_norm_eps=config.layer_norm_epsilon,
         use_cache=config.use_cache,
@@ -219,14 +221,14 @@ def _export_qwen2_moe_state_dict(
                 ]
             )
 
-        print(safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight").size())
-
         if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
-            state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"),
-                dim=0,
+            gate, up = split_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight")
             )
-            state_dict[f"model.layers.{layer_idx}.shared_mlp.down_proj.weight"] = (
+
+            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.gate_proj.weight"] = gate
+            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.up_proj.weight"] = up
+            state_dict[f"model.layers.{layer_idx}.mlp.shared_expert.down_proj.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
             )
 

@@ -192,9 +192,6 @@ class TestCommons(BaseTestCommons):
         hf_logits = hf_output.logits
         hf_loss = hf_output.loss
 
-        print(lm_engine_model)
-        print(hf_model)
-
         lm_engine_output = lm_engine_model(
             input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True
         )
@@ -234,6 +231,12 @@ class TestCommons(BaseTestCommons):
     def compare_saved_models(path1: str, path2: str) -> bool:
         config1 = json.load(open(os.path.join(path1, "config.json"), "r"))
         config2 = json.load(open(os.path.join(path2, "config.json"), "r"))
+
+        debug = False
+
+        if debug:
+            json.dump(config1, open("c1.json", "w"), indent=4)
+            json.dump(config2, open("c2.json", "w"), indent=4)
 
         for key in ["architectures", "dtype"]:
             config1.pop(key, None)

@@ -69,7 +69,6 @@ class SafeTensorsWeightsManager:
             return False
 
         for tn1, tn2 in zip(self, __value):
-            print(tn1, tn2)
             if tn1 != tn2:
                 return False
 
