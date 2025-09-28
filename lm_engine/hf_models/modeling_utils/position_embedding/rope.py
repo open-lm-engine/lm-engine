@@ -13,12 +13,7 @@ import torch.nn as nn
 
 
 class RoPE(nn.Module):
-    def __init__(
-        self,
-        head_dim: int,
-        max_position_embeddings: int = 2048,
-        base: int = 10000,
-    ) -> RoPE:
+    def __init__(self, head_dim: int, max_position_embeddings: int = 2048, base: int = 10000) -> RoPE:
         super().__init__()
 
         self.head_dim = head_dim

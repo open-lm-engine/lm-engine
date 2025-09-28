@@ -20,7 +20,6 @@ class TensorParallelTest(TestCommons):
             TestCommons.get_attention_implementations(),
             TestCommons.get_dtypes(),
             [False, True],
-            [False, True],
         )
     )
     @TestCommons.slow_test
@@ -29,7 +28,6 @@ class TensorParallelTest(TestCommons):
         position_embedding_type: str,
         attention_implementation: str,
         dtype: torch.dtype,
-        use_padding_free_transformer: bool,
         sequence_parallel: bool,
     ) -> None:
         self.skip_test_if_device_unavailable(torch.device("cuda"))
@@ -40,7 +38,7 @@ class TensorParallelTest(TestCommons):
         ]:
             self.skipTest("skipping test since running all takes too long")
 
-        if use_padding_free_transformer and attention_implementation != "flash_attention_2":
+        if attention_implementation != "flash_attention_2":
             self.skipTest("skipping test since flash attention is needed for padding free transformer")
 
         gpus_per_node = torch.cuda.device_count()
@@ -60,10 +58,8 @@ class TensorParallelTest(TestCommons):
                 attention_implementation,
                 "--tmp-path",
                 tmp_path,
+                "--use-padding-free-transformer",
             ]
-
-            if use_padding_free_transformer:
-                command.append("--use-padding-free-transformer")
 
             if sequence_parallel:
                 command.append("--sequence-parallel")

@@ -246,7 +246,6 @@ class MoE(nn.Module):
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         original_shape = hidden_states.size()
-
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
         router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
