@@ -172,7 +172,9 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 input_ids.size(-1) if attention_mask is None else attention_mask.sum(dim=-1).min().item()
             )
 
-        kwargs.pop("pad_token_id", self.generation_config.pad_token_id) == self.generation_config.pad_token_id
+        pad_token_id = kwargs.pop(
+            "pad_token_id", self.generation_config.pad_token_id, self.generation_config.eos_token_id
+        )
         kwargs.pop("use_cache", None)
 
         if "do_sample" in kwargs:
@@ -239,7 +241,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 probabilities = F.softmax(lm_logits, dim=-1)
                 next_token = torch.multinomial(probabilities, num_samples=1)
 
-            next_token = next_token.masked_fill(finished.unsqueeze(1), self.generation_config.pad_token_id)
+            next_token = next_token.masked_fill(finished.unsqueeze(1), pad_token_id)
             generated_tokens = torch.cat([generated_tokens, next_token], dim=-1)
 
             finished = finished | (next_token.squeeze(1) == self.generation_config.eos_token_id)
