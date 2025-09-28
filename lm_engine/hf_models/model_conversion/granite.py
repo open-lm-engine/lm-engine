@@ -2,32 +2,12 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, GraniteConfig, GraniteForCausalLM
+from transformers import GraniteConfig, GraniteForCausalLM
 
-from ...utils import SafeTensorsWeightsManager
 from ..models import GPTBaseConfig
-from .llama import _export_state_dict_to_huggingface, _import_state_dict_from_huggingface
 
 
-def import_from_huggingface_granite(
-    original_config: GraniteConfig, safetensors_weights_manager: SafeTensorsWeightsManager
-) -> tuple[GPTBaseConfig, dict]:
-    config = _import_config_from_huggingface(original_config)
-
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-
-    state_dict = _import_state_dict_from_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        config.hidden_size // num_attention_heads,
-    )
-
-    return config, state_dict
-
-
-def _import_config_from_huggingface(original_config: GraniteConfig) -> GPTBaseConfig:
+def _import_granite_config(original_config: GraniteConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert original_config.mlp_bias == original_config.attention_bias
 
@@ -75,23 +55,7 @@ def _import_config_from_huggingface(original_config: GraniteConfig) -> GPTBaseCo
     return config
 
 
-def export_to_huggingface_granite(pretrained_model_name_or_path: str) -> tuple[GraniteConfig, dict]:
-    config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
-    original_config = _export_config_to_huggingface(config)
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-
-    safetensors_weights_manager = SafeTensorsWeightsManager(pretrained_model_name_or_path)
-    state_dict = _export_state_dict_to_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-    )
-
-    return original_config, state_dict
-
-
-def _export_config_to_huggingface(config: GPTBaseConfig) -> GraniteConfig:
+def _export_granite_config(config: GPTBaseConfig) -> GraniteConfig:
     assert config.normalization_function == "rmsnorm"
     assert config.position_embedding_type == "rope"
 

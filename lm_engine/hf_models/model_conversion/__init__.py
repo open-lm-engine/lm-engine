@@ -2,24 +2,24 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, AutoTokenizer, GenerationConfig
+from transformers import AutoTokenizer, GenerationConfig
 
 from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
 from ..models import GPTBaseConfig
-from .granite import export_to_huggingface_granite, import_from_huggingface_granite
+from .granite import _export_granite_config, _import_granite_config
 from .granitemoe import export_to_huggingface_granitemoe, import_from_huggingface_granitemoe
 from .granitemoehybrid import export_to_huggingface_granitemoehybrid, import_from_huggingface_granitemoehybrid
 from .granitemoeshared import export_to_huggingface_granitemoeshared, import_from_huggingface_granitemoeshared
-from .llama import export_to_huggingface_llama, import_from_huggingface_llama
+from .llama import _export_llama_state_dict, _import_llama_state_dict, export_to_huggingface_llama
 
 
 _MODEL_IMPORT_FUNCTIONS = {
-    "granite": import_from_huggingface_granite,
+    "granite": (_import_granite_config, _import_llama_state_dict),
     "granitemoe": import_from_huggingface_granitemoe,
     "granitemoeshared": import_from_huggingface_granitemoeshared,
     "granitemoehybrid": import_from_huggingface_granitemoehybrid,
-    "llama": import_from_huggingface_llama,
+    # "llama": import_from_huggingface_llama,
 }
 
 
@@ -32,10 +32,12 @@ def import_from_huggingface(
     if model_type not in _MODEL_IMPORT_FUNCTIONS:
         raise NotImplementedError(f"the current model_type ({model_type}) is not yet supported")
 
-    import_function = _MODEL_IMPORT_FUNCTIONS[model_type]
+    config_import_function, state_dict_import_function = _MODEL_IMPORT_FUNCTIONS[model_type]
 
-    config, state_dict = import_function(
-        original_config=original_config, safetensors_weights_manager=SafeTensorsWeightsManager(downloaded_model_path)
+    config = config_import_function(original_config)
+
+    state_dict = state_dict_import_function(
+        config=config, safetensors_weights_manager=SafeTensorsWeightsManager(downloaded_model_path)
     )
 
     generation_config = GenerationConfig.from_model_config(config)
@@ -53,7 +55,7 @@ def import_from_huggingface(
 
 
 _MODEL_EXPORT_FUNCTIONS = {
-    "granite": export_to_huggingface_granite,
+    "granite": (_export_granite_config, _export_llama_state_dict),
     "granitemoe": export_to_huggingface_granitemoe,
     "granitemoeshared": export_to_huggingface_granitemoeshared,
     "granitemoehybrid": export_to_huggingface_granitemoehybrid,
@@ -64,12 +66,18 @@ _MODEL_EXPORT_FUNCTIONS = {
 def export_to_huggingface(
     pretrained_model_name_or_path: str, model_type: str, save_path: str | None = None
 ) -> tuple[GPTBaseConfig, GenerationConfig, AutoTokenizer, dict]:
+    config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
+
     if model_type not in _MODEL_EXPORT_FUNCTIONS:
         raise NotImplementedError(f"the current model_type ({model_type}) is not yet supported")
 
-    export_function = _MODEL_EXPORT_FUNCTIONS[model_type]
+    config_export_function, state_dict_export_function = _MODEL_EXPORT_FUNCTIONS[model_type]
 
-    config, state_dict = export_function(pretrained_model_name_or_path)
+    state_dict = state_dict_export_function(
+        config, safetensors_weights_manager=SafeTensorsWeightsManager(downloaded_model_path)
+    )
+    config = config_export_function(config)
+
     generation_config = GenerationConfig.from_model_config(config)
 
     try:

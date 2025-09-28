@@ -4,7 +4,7 @@
 
 from transformers import AutoConfig, LlamaConfig, LlamaForCausalLM
 
-from ...utils import SafeTensorsWeightsManager
+from ...utils import SafeTensorsWeightsManager, divide_if_divisible
 from ..modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
     interleave_up_gate_tensor_for_mlp,
@@ -12,23 +12,6 @@ from ..modeling_utils import (
     split_up_gate_tensor_for_mlp,
 )
 from ..models import GPTBaseConfig
-
-
-def import_from_huggingface_llama(
-    original_config: LlamaConfig, safetensors_weights_manager: SafeTensorsWeightsManager
-) -> tuple[GPTBaseConfig, dict]:
-    config = _import_config_from_huggingface(original_config)
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-
-    state_dict = _import_state_dict_from_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        config.hidden_size // num_attention_heads,
-    )
-
-    return config, state_dict
 
 
 def _import_config_from_huggingface(original_config: LlamaConfig) -> GPTBaseConfig:
@@ -75,13 +58,11 @@ def _import_config_from_huggingface(original_config: LlamaConfig) -> GPTBaseConf
     return config
 
 
-def _import_state_dict_from_huggingface(
-    safetensors_weights_manager: SafeTensorsWeightsManager,
-    num_layers: int,
-    num_heads: int,
-    num_key_value_heads: int,
-    head_dim: int,
-) -> None:
+def _import_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+    head_dim = divide_if_divisible(config.hidden_size, num_attention_heads, "")
+
     state_dict = {
         "transformer.wte.weight": safetensors_weights_manager.get_tensor("model.embed_tokens.weight"),
         "transformer.ln_f.weight": safetensors_weights_manager.get_tensor("model.norm.weight"),
@@ -90,7 +71,7 @@ def _import_state_dict_from_huggingface(
     if safetensors_weights_manager.has_tensor("lm_head.weight"):
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
-    for layer_idx in range(num_layers):
+    for layer_idx in range(config.num_layers):
         state_dict[f"transformer.h.{layer_idx}.ln_1.weight"] = safetensors_weights_manager.get_tensor(
             f"model.layers.{layer_idx}.input_layernorm.weight"
         )
@@ -121,7 +102,7 @@ def _import_state_dict_from_huggingface(
                 safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.weight"),
                 safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.weight"),
                 safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.weight"),
-                num_heads,
+                num_attention_heads,
                 num_key_value_heads,
                 head_dim,
             )
@@ -132,7 +113,7 @@ def _import_state_dict_from_huggingface(
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.bias"),
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.bias"),
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.bias"),
-                    num_heads,
+                    num_attention_heads,
                     num_key_value_heads,
                     head_dim,
                 )
@@ -203,9 +184,10 @@ def _export_config_to_huggingface(config: GPTBaseConfig) -> LlamaConfig:
     return original_config
 
 
-def _export_state_dict_to_huggingface(
-    safetensors_weights_manager: SafeTensorsWeightsManager, num_layers: int, num_heads: int, num_key_value_heads: int
-) -> dict:
+def _export_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager) -> dict:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+
     state_dict = {
         "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
         "model.norm.weight": safetensors_weights_manager.get_tensor("transformer.ln_f.weight"),
@@ -214,7 +196,7 @@ def _export_state_dict_to_huggingface(
     if safetensors_weights_manager.has_tensor("lm_head.weight"):
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
-    for layer_idx in range(num_layers):
+    for layer_idx in range(config.num_layers):
         state_dict[f"model.layers.{layer_idx}.input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
             f"transformer.h.{layer_idx}.ln_1.weight"
         )
@@ -245,7 +227,7 @@ def _export_state_dict_to_huggingface(
 
         query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
             safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"),
-            num_heads,
+            num_attention_heads,
             num_key_value_heads,
         )
         state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.weight"] = query_weight
@@ -255,7 +237,7 @@ def _export_state_dict_to_huggingface(
         if f"transformer.h.{layer_idx}.sequence_mixer.c_attn.bias" in safetensors_weights_manager:
             query_bias, key_bias, value_bias = split_query_key_value_tensor_for_attention(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.bias"),
-                num_heads,
+                num_attention_heads,
                 num_key_value_heads,
             )
             state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.bias"] = query_bias
