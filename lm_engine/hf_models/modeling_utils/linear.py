@@ -88,16 +88,11 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
             self.compile()
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        if self.tp_world_size > 1:
-            input = tensor_to_dtensor(
-                input, device_mesh=self.tp_mesh, current_placement=self.input_placement, desired_placement=Replicate()
-            )
-
+        input = tensor_to_dtensor(
+            input, device_mesh=self.tp_mesh, current_placement=self.input_placement, desired_placement=Replicate()
+        )
         input = super().forward(input)
-
-        if self.tp_world_size > 1:
-            input = dtensor_to_tensor(input, device_mesh=self.tp_mesh, desired_placement=Shard(-1))
-
+        input = dtensor_to_tensor(input, device_mesh=self.tp_mesh, desired_placement=Shard(-1))
         return input
 
     def extra_repr(self) -> str:
