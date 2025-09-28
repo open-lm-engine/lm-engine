@@ -58,7 +58,6 @@ class TensorParallelTest(TestCommons):
                 attention_implementation,
                 "--tmp-path",
                 tmp_path,
-                "--use-padding-free-transformer",
             ]
 
             if sequence_parallel:
