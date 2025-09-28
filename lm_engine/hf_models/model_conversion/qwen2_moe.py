@@ -193,10 +193,9 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
     config.check_equal_for_all_and_get_value("mlp_blocks", "add_bias", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "activation_function", "swiglu")
 
-    mlp_only_layers = []
-    for layer_idx in range(config.num_layers):
-        if config.mlp_blocks[layer_idx].mlp_type == "MLP":
-            mlp_only_layers.append(layer_idx)
+    mlp_only_layers = [
+        layer_idx for layer_idx, mlp_block in enumerate(config.mlp_blocks) if mlp_block.mlp_type == "MLP"
+    ]
 
     original_config = Qwen2MoeConfig(
         vocab_size=config.vocab_size,
