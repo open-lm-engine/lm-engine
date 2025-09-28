@@ -3,7 +3,7 @@
 # **************************************************
 
 import torch
-from transformers import AutoConfig, GraniteMoeHybridConfig, GraniteMoeHybridForCausalLM
+from transformers import GraniteMoeHybridConfig, GraniteMoeHybridForCausalLM
 
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible
 from ..modeling_utils import (
@@ -161,7 +161,7 @@ def _import_granitemoehybrid_state_dict(
                 f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"
             )
 
-        if sequence_mixer_block_types[layer_idx] == "mamba2":
+        if sequence_mixer_block_types[layer_idx] == "mamba":
             state_dict[f"transformer.h.{layer_idx}.sequence_mixer.conv1d.weight"] = (
                 safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.conv1d.weight")
             )
@@ -195,7 +195,7 @@ def _import_granitemoehybrid_state_dict(
             state_dict[f"transformer.h.{layer_idx}.sequence_mixer.norm.weight"] = (
                 safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.norm.weight")
             )
-        elif sequence_mixer_block_types[layer_idx] == "softmax_attention":
+        elif sequence_mixer_block_types[layer_idx] == "attention":
             state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"] = (
                 interleave_query_key_value_tensor_for_attention(
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.weight"),
