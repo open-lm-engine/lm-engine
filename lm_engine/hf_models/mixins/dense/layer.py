@@ -10,6 +10,7 @@ import torch.nn as nn
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import get_mlp_block, get_normalization_function, get_sequence_mixer
+from ...tensor import PackedTensor
 
 
 class Block(nn.Module):
@@ -92,13 +93,16 @@ class Block(nn.Module):
                 hidden_states, cache_params=past_key_values, attention_mask=attention_mask
             )
         elif self.sequence_mixer_type in ["gru", "rnn"]:
-            hidden_states = self.sequence_mixer(
+            hidden_states = PackedTensor.from_unpacked_tensor(
                 hidden_states,
-                cache_params=past_key_values,
-                attention_mask=attention_mask,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
+                batch_size=hidden_states.size(0) if cu_seqlens is None else None,
             )
+
+            hidden_states = self.sequence_mixer(hidden_states, cache_params=past_key_values)
+
+            hidden_states = hidden_states.get_raw_data()
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")
 

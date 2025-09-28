@@ -15,9 +15,10 @@ from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_fma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ...tensor import PackedTensor
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
-from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from .utils import unpack_sequence
 
 
 if is_fma_available():
@@ -28,7 +29,7 @@ if is_fma_available():
 class RNN(nn.Module):
     def __init__(
         self,
-        input_size: int,
+        x_size: int,
         state_size: int,
         output_size: int,
         num_heads: int,
@@ -41,17 +42,15 @@ class RNN(nn.Module):
         scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> RNN:
         super().__init__()
 
-        self.input_size = input_size
+        self.x_size = x_size
         self.state_size = state_size
         self.output_size = output_size
         self.num_heads = num_heads
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
 
         std = initializer_range
@@ -59,7 +58,7 @@ class RNN(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.input_projection = ParameterizedLinear(self.input_size, 2 * self.state_size, bias=add_bias, std=std)
+        self.x_projection = ParameterizedLinear(self.x_size, 2 * self.state_size, bias=add_bias, std=std)
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -72,72 +71,52 @@ class RNN(nn.Module):
         self.scaling_factor = scaling_factor
         self.reset_parameters()
 
-        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
+        mark_parameter_as_mup_learning_rate(self.x_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
 
         mark_parameter_as_no_weight_decay(self.state_weight)
 
-    def forward(
-        self,
-        input: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
-    ) -> torch.Tensor:
-        if self.use_padding_free_transformer:
-            assert cache_params is None
-            assert attention_mask is None
-        else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
+    def forward(self, x: PackedTensor, cache_params: GenerationCache | None = None) -> PackedTensor:
+        state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
+        T = x.get_num_tokens()
 
-            batch_size, sequence_length = input.size()[:2]
+        with x.safe_mode():
+            x = self.x_projection(x)
+            x, gate = x.chunk(2, dim=-1)
+            x = x.view(T, self.num_heads, self.state_head_dim)
 
-            if attention_mask is not None:
-                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
-
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-
-        input = self.input_projection(input)
-        input, gate = input.chunk(2, dim=-1)
-
-        input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
+            if self.scaling_factor != 1:
+                x = x * self.scaling_factor
 
         weight = self.state_weight
-
         if self.scaling_factor != 1:
-            input = input * self.scaling_factor
             weight = weight * self.scaling_factor
 
-        input = rnn(
-            input=input,
-            weight=weight,
-            input_state=input_state,
-            gradient_clipping=self.gradient_clipping,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
+        x = x.with_new_data(
+            rnn(
+                input=x.get_raw_data(),
+                weight=weight,
+                input_state=state,
+                gradient_clipping=self.gradient_clipping,
+                cu_seqlens=x.get_cu_seqlens(),
+                max_seqlen=x.get_max_seqlen(),
+                kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
+            )
         )
 
-        if not self.use_padding_free_transformer and attention_mask is not None:
-            input = unpack_sequence(
-                inputs=input, cu_seqlens=cu_seqlens, output_shape=(batch_size, sequence_length, *input.size()[1:])
+        if cache_params is not None:
+            cache_params.update(
+                state=x.get_last_element_along_sequence(), num_tokens_added=x.size(1), layer_idx=self.layer_idx
             )
 
-        if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+        with x.safe_mode():
+            x = x.view(T, -1)
+            x = x * F.silu(gate)
+            x = self.norm(x)
+            x = self.output_projection(x)
 
-        input = input.view(*input.size()[:-2], -1)
-
-        input = input * F.silu(gate)
-        input = self.norm(input)
-
-        input = self.output_projection(input)
-
-        return input
+        return x
 
     @torch.no_grad()
     def reset_parameters(self) -> None:

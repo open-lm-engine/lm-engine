@@ -59,7 +59,6 @@ def get_sequence_mixer(
             scaling_factor=block.scaling_factor,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
-            use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "mamba2":
         return Mamba2(
