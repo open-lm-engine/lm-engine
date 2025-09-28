@@ -157,6 +157,7 @@ class MoE(nn.Module):
         intermediate_size: int,
         shared_intermediate_size: int,
         shared_expert_gating: bool,
+        normalized_topk: bool,
         num_experts: int,
         num_experts_per_tok: int,
         activation_function: str,
@@ -173,11 +174,11 @@ class MoE(nn.Module):
         self.num_experts = num_experts
         self.top_k = num_experts_per_tok
         self.use_padding_free_transformer = use_padding_free_transformer
-
         self.hidden_size = hidden_size
         self.intermediate_size = intermediate_size
         self.shared_intermediate_size = shared_intermediate_size
         self.shared_expert_gating = shared_expert_gating
+        self.normalized_topk = normalized_topk
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
@@ -284,8 +285,12 @@ class MoE(nn.Module):
         router_logits = self.gate(hidden_states)
         # router_logits -> (total_q, num_experts)
 
-        router_weights, selected_experts = self._get_topk(router_logits)
-        router_weights = F.softmax(router_weights.float(), dim=-1)
+        if self.normalized_topk:
+            router_weights, selected_experts = self._get_topk(router_logits)
+            router_weights = F.softmax(router_weights.float(), dim=-1)
+        else:
+            router_weights = F.softmax(router_logits.float(), dim=-1)
+            router_weights, selected_experts = self._get_topk(router_weights)
 
         # we cast back to the input dtype
         router_weights = router_weights.type_as(hidden_states)
