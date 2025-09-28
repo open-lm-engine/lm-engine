@@ -19,7 +19,7 @@ class PackedTensor(torch.Tensor):
     ) -> PackedTensor:
         self = torch.as_tensor(packed_tensor).as_subclass(cls)
 
-        assert batch_size or cu_seqlens
+        assert batch_size is not None or cu_seqlens is not None
 
         if batch_size is not None:
             assert packed_tensor.size(0) % batch_size == 0
@@ -39,7 +39,7 @@ class PackedTensor(torch.Tensor):
         max_seqlen: int | None = None,
         batch_size: int | None = None,
     ) -> PackedTensor:
-        assert batch_size or cu_seqlens
+        assert batch_size is not None or cu_seqlens is not None
 
         if batch_size is None:
             batch_size = cu_seqlens.size(0) - 1
