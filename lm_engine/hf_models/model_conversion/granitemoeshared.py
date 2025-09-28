@@ -72,7 +72,7 @@ def _import_granitemoeshared_state_dict(
 ) -> dict:
     num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
     num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
-    head_dim = divide_if_divisible(config.hidden_size, num_attention_heads)
+    head_dim = divide_if_divisible(config.hidden_size, num_attention_heads, "")
 
     state_dict = {
         "transformer.wte.weight": safetensors_weights_manager.get_tensor("model.embed_tokens.weight"),
@@ -173,11 +173,11 @@ def _export_granitemoeshared_config(config: GPTBaseConfig) -> GraniteMoeSharedCo
 
 
 def _export_granitemoeshared_state_dict(
-    safetensors_weights_manager: SafeTensorsWeightsManager,
-    num_layers: int,
-    num_heads: int,
-    num_key_value_heads: int,
-) -> None:
+    config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager
+) -> dict:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+
     state_dict = {
         "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
         "model.norm.weight": safetensors_weights_manager.get_tensor("transformer.ln_f.weight"),
@@ -186,7 +186,7 @@ def _export_granitemoeshared_state_dict(
     if safetensors_weights_manager.has_tensor("lm_head.weight"):
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
-    for layer_idx in range(num_layers):
+    for layer_idx in range(config.num_layers):
         state_dict[f"model.layers.{layer_idx}.input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
             f"transformer.h.{layer_idx}.ln_1.weight"
         )
@@ -216,7 +216,7 @@ def _export_granitemoeshared_state_dict(
 
         query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
             safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"),
-            num_heads,
+            num_attention_heads,
             num_key_value_heads,
         )
         state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.weight"] = query_weight
