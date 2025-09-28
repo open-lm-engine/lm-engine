@@ -101,14 +101,4 @@ class PackedTensor(torch.Tensor):
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
-        if kwargs is None:
-            kwargs = {}
-
-        # Example: disallow reductions on dim 0 or dim 1
-        if "dim" in kwargs:
-            dim = kwargs["dim"]
-            if isinstance(dim, int) and dim in (0, 1):
-                raise RuntimeError(f"{func.__name__} on dim {dim} is not valid for PackedTensor")
-
-        # Fallback: run base implementation
-        return super().__torch_function__(func, types, args, kwargs)
+        raise NotImplementedError("unpack the tensor to run ops on it")
