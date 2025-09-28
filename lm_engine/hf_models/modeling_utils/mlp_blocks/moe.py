@@ -417,7 +417,7 @@ class MoE(nn.Module):
         hidden_states = self.c_proj_shared(hidden_states)
 
         if gate is not None:
-            hidden_states = hidden_states * gate
+            hidden_states = hidden_states * F.sigmoid(gate)
 
         return hidden_states
 
