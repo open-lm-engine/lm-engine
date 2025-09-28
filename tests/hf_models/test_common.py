@@ -248,9 +248,7 @@ class TestCommons(BaseTestCommons):
         config1 = json.load(open(os.path.join(path1, "config.json"), "r"))
         config2 = json.load(open(os.path.join(path2, "config.json"), "r"))
 
-        debug = False
-
-        if debug:
+        if _DEBUG:
             json.dump(config1, open("c1.json", "w"), indent=4)
             json.dump(config2, open("c2.json", "w"), indent=4)
 
