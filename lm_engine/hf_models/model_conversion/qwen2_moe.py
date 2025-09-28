@@ -2,39 +2,12 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, AutoTokenizer, GenerationConfig, Qwen2MoeConfig, Qwen2MoeForCausalLM
+from transformers import Qwen2MoeConfig, Qwen2MoeForCausalLM
 
-from ...tokenizers import get_tokenizer
-from ...utils import SafeTensorsWeightsManager, download_repo
 from ..models import GPTBaseConfig
-from .granitemoeshared import _export_state_dict_to_huggingface, _import_state_dict_from_huggingface
 
 
-def import_from_huggingface_qwen2_moe(pretrained_model_name_or_path: str, save_path: str) -> None:
-    original_config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
-    config = _import_config_from_huggingface(original_config)
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-
-    safetensors_weights_manager = SafeTensorsWeightsManager(downloaded_model_path)
-    state_dict = _import_state_dict_from_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        config.hidden_size // num_attention_heads,
-    )
-
-    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
-    config.save_pretrained(save_path)
-
-    generation_config = GenerationConfig.from_model_config(config)
-    generation_config.save_pretrained(save_path)
-
-    if tokenizer is not None:
-        tokenizer.save_pretrained(save_path, legacy_format=False)
-
-
-def _import_config_from_huggingface(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
+def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
 
     config = GPTBaseConfig(
@@ -80,34 +53,7 @@ def _import_config_from_huggingface(original_config: Qwen2MoeConfig) -> GPTBaseC
     return config
 
 
-def export_to_huggingface_qwen2_moe(pretrained_model_name_or_path: str, save_path: str) -> None:
-    config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
-    original_config = _export_config_to_huggingface(config)
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-
-    safetensors_weights_manager = SafeTensorsWeightsManager(pretrained_model_name_or_path)
-    state_dict = _export_state_dict_to_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        config.hidden_size // num_attention_heads,
-    )
-
-    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
-    original_config.save_pretrained(save_path)
-
-    original_generation_config = GenerationConfig.from_model_config(original_config)
-    original_generation_config.save_pretrained(save_path)
-
-    try:
-        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
-        tokenizer.save_pretrained(save_path, legacy_format=False)
-    except:
-        pass
-
-
-def _export_config_to_huggingface(config: GPTBaseConfig) -> Qwen2MoeConfig:
+def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
     assert config.normalization_function == "rmsnorm"
     assert config.position_embedding_type == "rope"
 
