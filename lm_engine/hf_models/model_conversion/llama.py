@@ -58,7 +58,7 @@ def _import_llama_config(original_config: LlamaConfig) -> GPTBaseConfig:
     return config
 
 
-def _import_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
+def _import_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager) -> dict:
     num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
     num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
     head_dim = divide_if_divisible(config.hidden_size, num_attention_heads, "")

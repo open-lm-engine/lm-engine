@@ -100,7 +100,7 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> 
 
 def _import_granitemoehybrid_state_dict(
     config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager
-) -> None:
+) -> dict:
     num_attention_heads = config.check_equal_for_all_and_get_value(
         "sequence_mixer_blocks", "num_attention_heads", sequence_mixer_type="softmax_attention"
     )
@@ -216,7 +216,7 @@ def _import_granitemoehybrid_state_dict(
     return state_dict
 
 
-def _get_sequence_mixer_block_types(config: GPTBaseConfig) -> list:
+def _get_sequence_mixer_block_types(config: GPTBaseConfig) -> list[str]:
     blocks = getattr(config, "sequence_mixer_blocks")
 
     def _get(block, key):
@@ -333,7 +333,7 @@ def _export_granitemoehybrid_config(config: GPTBaseConfig) -> GraniteMoeHybridCo
 
 def _export_granitemoehybrid_state_dict(
     config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager
-) -> None:
+) -> dict:
     num_attention_heads = config.check_equal_for_all_and_get_value(
         "sequence_mixer_blocks", "num_attention_heads", sequence_mixer_type="softmax_attention"
     )
