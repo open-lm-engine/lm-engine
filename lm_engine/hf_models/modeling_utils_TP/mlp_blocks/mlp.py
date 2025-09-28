@@ -8,9 +8,8 @@ import math
 
 import torch.nn as nn
 
-from ...modeling_utils import MLP, get_activation_function, is_glu
+from ...modeling_utils import MLP, Dropout, get_activation_function, is_glu
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
-from ..dropout import Dropout_TP
 from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
@@ -56,7 +55,7 @@ class MLP_TP(MLP):
         self.dropout = (
             nn.Identity()
             if dropout == 0
-            else Dropout_TP(
+            else Dropout(
                 dropout,
                 use_padding_free_transformer=use_padding_free_transformer,
                 sequence_parallel=sequence_parallel,
