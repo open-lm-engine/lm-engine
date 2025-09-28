@@ -8,16 +8,21 @@ from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
 from ..models import GPTBaseConfig
 from .granite import _export_granite_config, _import_granite_config
-from .granitemoe import export_to_huggingface_granitemoe, import_from_huggingface_granitemoe
+from .granitemoe import _export_granitemoe_config, _import_granitemoe_config
 from .granitemoehybrid import export_to_huggingface_granitemoehybrid, import_from_huggingface_granitemoehybrid
-from .granitemoeshared import export_to_huggingface_granitemoeshared, import_from_huggingface_granitemoeshared
+from .granitemoeshared import (
+    _export_granitemoeshared_config,
+    _export_granitemoeshared_state_dict,
+    _import_granitemoeshared_config,
+    _import_granitemoeshared_state_dict,
+)
 from .llama import _export_llama_config, _export_llama_state_dict, _import_llama_config, _import_llama_state_dict
 
 
 _MODEL_IMPORT_FUNCTIONS = {
     "granite": (_import_granite_config, _import_llama_state_dict),
-    "granitemoe": import_from_huggingface_granitemoe,
-    "granitemoeshared": import_from_huggingface_granitemoeshared,
+    "granitemoe": (_import_granitemoe_config, _import_granitemoeshared_state_dict),
+    "granitemoeshared": (_import_granitemoeshared_config, _import_granitemoeshared_state_dict),
     "granitemoehybrid": import_from_huggingface_granitemoehybrid,
     "llama": (_import_llama_config, _import_llama_state_dict),
 }
@@ -56,8 +61,8 @@ def import_from_huggingface(
 
 _MODEL_EXPORT_FUNCTIONS = {
     "granite": (_export_granite_config, _export_llama_state_dict),
-    "granitemoe": export_to_huggingface_granitemoe,
-    "granitemoeshared": export_to_huggingface_granitemoeshared,
+    "granitemoe": (_export_granitemoe_config, _export_granitemoeshared_state_dict),
+    "granitemoeshared": (_export_granitemoeshared_config, _export_granitemoeshared_state_dict),
     "granitemoehybrid": export_to_huggingface_granitemoehybrid,
     "llama": (_export_llama_config, _export_llama_state_dict),
 }
