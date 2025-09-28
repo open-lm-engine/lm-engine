@@ -16,16 +16,7 @@ from .rnn import RNN
 from .utils import flash_attention
 
 
-SEQUENCE_MIXER_TYPE = (
-    Attention
-    | CausalConvolution
-    | GRU
-    | Mamba2
-    | MultiHeadLatentAttention
-    | RNN
-    | SBAttention
-    | PaddingFreeSBAttention
-)
+SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN
 
 
 def get_sequence_mixer(
