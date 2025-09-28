@@ -13,30 +13,7 @@ from ..modeling_utils import (
 from ..models import GPTBaseConfig
 
 
-def import_from_huggingface_granitemoehybrid(
-    original_config: GraniteMoeHybridConfig, safetensors_weights_manager: SafeTensorsWeightsManager
-) -> tuple[GPTBaseConfig, dict]:
-    config = _import_config_from_huggingface(original_config)
-
-    num_attention_heads = config.check_equal_for_all_and_get_value(
-        "sequence_mixer_blocks", "num_attention_heads", sequence_mixer_type="softmax_attention"
-    )
-
-    state_dict = _import_state_dict_from_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        [block.sequence_mixer_type for block in config.sequence_mixer_blocks],
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value(
-            "sequence_mixer_blocks", "num_key_value_heads", sequence_mixer_type="softmax_attention"
-        ),
-        config.hidden_size // num_attention_heads,
-    )
-
-    return config, state_dict
-
-
-def _import_config_from_huggingface(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
+def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert not original_config.attention_bias
 
@@ -121,14 +98,20 @@ def _import_config_from_huggingface(original_config: GraniteMoeHybridConfig) -> 
     return config
 
 
-def _import_state_dict_from_huggingface(
-    safetensors_weights_manager: SafeTensorsWeightsManager,
-    num_layers: int,
-    sequence_mixer_block_types: str,
-    num_heads: int,
-    num_key_value_heads: int,
-    head_dim: int,
+def _import_granitemoehybrid_state_dict(
+    config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager
 ) -> None:
+    num_attention_heads = config.check_equal_for_all_and_get_value(
+        "sequence_mixer_blocks", "num_attention_heads", sequence_mixer_type="softmax_attention"
+    )
+
+    num_key_value_heads = config.check_equal_for_all_and_get_value(
+        "sequence_mixer_blocks", "num_key_value_heads", sequence_mixer_type="softmax_attention"
+    )
+
+    head_dim = divide_if_divisible(config.hidden_size, num_attention_heads, "")
+    sequence_mixer_block_types = _get_sequence_mixer_block_types(config)
+
     state_dict = {
         "transformer.wte.weight": safetensors_weights_manager.get_tensor("model.embed_tokens.weight"),
         "transformer.ln_f.weight": safetensors_weights_manager.get_tensor("model.norm.weight"),
@@ -137,7 +120,7 @@ def _import_state_dict_from_huggingface(
     if safetensors_weights_manager.has_tensor("lm_head.weight"):
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
-    for layer_idx in range(num_layers):
+    for layer_idx in range(config.num_layers):
         state_dict[f"transformer.h.{layer_idx}.ln_1.weight"] = safetensors_weights_manager.get_tensor(
             f"model.layers.{layer_idx}.input_layernorm.weight"
         )
@@ -218,7 +201,7 @@ def _import_state_dict_from_huggingface(
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.weight"),
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.weight"),
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.weight"),
-                    num_heads,
+                    num_attention_heads,
                     num_key_value_heads,
                     head_dim,
                 )
@@ -231,22 +214,6 @@ def _import_state_dict_from_huggingface(
             raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_block_types[layer_idx]})")
 
     return state_dict
-
-
-def export_to_huggingface_granitemoehybrid(pretrained_model_name_or_path: str) -> tuple[GraniteMoeHybridConfig, dict]:
-    config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
-    original_config = _export_config_to_huggingface(config)
-
-    safetensors_weights_manager = SafeTensorsWeightsManager(pretrained_model_name_or_path)
-    state_dict = _export_state_dict_to_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        sequence_mixer_block_types=_get_sequence_mixer_block_types(config),
-        num_heads=original_config.num_attention_heads,
-        num_key_value_heads=original_config.num_key_value_heads,
-    )
-
-    return original_config, state_dict
 
 
 def _get_sequence_mixer_block_types(config: GPTBaseConfig) -> list:
@@ -268,7 +235,7 @@ def _get_sequence_mixer_block_types(config: GPTBaseConfig) -> list:
     return seq_mixer_block_types
 
 
-def _export_config_to_huggingface(config: GPTBaseConfig) -> GraniteMoeHybridConfig:
+def _export_granitemoehybrid_config(config: GPTBaseConfig) -> GraniteMoeHybridConfig:
     assert config.normalization_function == "rmsnorm"
     assert config.position_embedding_type == "nope"
 
@@ -364,13 +331,19 @@ def _export_config_to_huggingface(config: GPTBaseConfig) -> GraniteMoeHybridConf
     return original_config
 
 
-def _export_state_dict_to_huggingface(
-    safetensors_weights_manager: SafeTensorsWeightsManager,
-    num_layers: int,
-    sequence_mixer_block_types: list,
-    num_heads: int,
-    num_key_value_heads: int,
+def _export_granitemoehybrid_state_dict(
+    config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager
 ) -> None:
+    num_attention_heads = config.check_equal_for_all_and_get_value(
+        "sequence_mixer_blocks", "num_attention_heads", sequence_mixer_type="softmax_attention"
+    )
+
+    num_key_value_heads = config.check_equal_for_all_and_get_value(
+        "sequence_mixer_blocks", "num_key_value_heads", sequence_mixer_type="softmax_attention"
+    )
+
+    sequence_mixer_block_types = _get_sequence_mixer_block_types(config)
+
     state_dict = {
         "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
         "model.norm.weight": safetensors_weights_manager.get_tensor("transformer.ln_f.weight"),
@@ -379,7 +352,7 @@ def _export_state_dict_to_huggingface(
     if safetensors_weights_manager.has_tensor("lm_head.weight"):
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
-    for layer_idx in range(num_layers):
+    for layer_idx in range(config.num_layers):
         state_dict[f"model.layers.{layer_idx}.input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
             f"transformer.h.{layer_idx}.ln_1.weight"
         )
@@ -452,7 +425,7 @@ def _export_state_dict_to_huggingface(
         elif sequence_mixer_block_types[layer_idx] == "attention":
             query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"),
-                num_heads,
+                num_attention_heads,
                 num_key_value_heads,
             )
             state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.weight"] = query_weight
