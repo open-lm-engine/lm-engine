@@ -67,11 +67,3 @@ class PackedTensor(torch.Tensor):
             unpacked_tensor = self.view(self._batch_size, -1, *self.size()[1:])
 
         return unpacked_tensor
-
-
-y = torch.randn(5, 4, requires_grad=True)
-# Example usage
-x = PackedTensor.from_unpacked_tensor(y, batch_size=5)
-x.sum().backward()
-
-print(x)
