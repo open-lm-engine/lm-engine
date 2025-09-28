@@ -4,11 +4,15 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import torch
 from fma import pack_sequence, unpack_sequence
 
 
 class PackedTensor(torch.Tensor):
+    _is_safe = False
+
     def __new__(
         cls,
         packed_tensor: torch.Tensor,
@@ -99,6 +103,16 @@ class PackedTensor(torch.Tensor):
 
         return self._cu_seqlens
 
+    @contextmanager
+    @classmethod
+    def safe_mode(cls):
+        cls._is_safe = True
+        yield
+        cls._is_safe = False
+
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
+        if cls._is_safe:
+            return super().__torch_function__(func, types, args, kwargs)
+
         raise NotImplementedError("unpack the tensor to run ops on it")
