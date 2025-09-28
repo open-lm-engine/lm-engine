@@ -288,12 +288,11 @@ class MoE(nn.Module):
         if self.normalized_topk:
             router_weights, selected_experts = self._get_topk(router_logits)
             router_weights = F.softmax(router_weights.float(), dim=-1)
+            router_weights = router_weights.type_as(hidden_states)
         else:
             router_weights = F.softmax(router_logits.float(), dim=-1)
+            router_weights = router_weights.type_as(hidden_states)
             router_weights, selected_experts = self._get_topk(router_weights)
-
-        # we cast back to the input dtype
-        router_weights = router_weights.type_as(hidden_states)
 
         return router_logits, router_weights, selected_experts
 

@@ -114,6 +114,7 @@ class ModelConversionTest(TestCommons):
             activation_function="swiglu",
             normalization_function="rmsnorm",
             shared_expert_gating=True,
+            normalized_topk=False,
         )
 
         self.model_conversion_test(

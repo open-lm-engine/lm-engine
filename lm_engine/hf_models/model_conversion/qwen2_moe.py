@@ -55,6 +55,7 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
                 "num_experts_per_tok": original_config.num_experts_per_tok,
                 "activation_function": "swiglu",
                 "add_bias": False,
+                "normalized_topk": original_config.norm_topk_prob,
             }
             for _ in range(original_config.num_hidden_layers)
         ],
@@ -180,6 +181,7 @@ def _export_qwen2_moe_config(config: GPTBaseConfig) -> Qwen2MoeConfig:
         pad_token_id=config.pad_token_id,
         qkv_bias=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "qkv_bias"),
         mlp_only_layers=None,
+        norm_topk_prob=config.check_equal_for_all_and_get_value("mlp_blocks", "normalized_topk"),
         architectures=[Qwen2MoeForCausalLM.__name__],
     )
 
