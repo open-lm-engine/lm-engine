@@ -17,6 +17,9 @@ from ..models import GPTBaseConfig
 
 def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
+    assert not original_config.use_sliding_window
+    assert original_config.decoder_sparse_step == 1
+    assert original_config.mlp_only_layers in [None, []]
 
     config = GPTBaseConfig(
         vocab_size=original_config.vocab_size,
