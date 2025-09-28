@@ -15,6 +15,7 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import divide_if_divisible
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate
+from ..dropout import Dropout
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
@@ -126,8 +127,8 @@ class Attention(nn.Module):
 
         self.softmax_dropout_p = softmax_dropout
 
-        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else nn.Dropout(softmax_dropout)
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else Dropout(softmax_dropout)
+        self.dropout = nn.Identity() if dropout == 0 else Dropout(dropout)
 
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)

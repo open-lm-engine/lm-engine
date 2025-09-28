@@ -12,7 +12,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
+from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
 from ...utils import convert_padding_free_lists_to_tensors, is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
@@ -103,9 +103,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         self.wte = ParameterizedEmbedding(config.vocab_size, self.embed_dim, std=self.initializer_range)
 
-        self.embedding_dropout = (
-            nn.Identity() if config.embedding_dropout == 0 else nn.Dropout(config.embedding_dropout)
-        )
+        self.embedding_dropout = nn.Identity() if config.embedding_dropout == 0 else Dropout(config.embedding_dropout)
         self.h = nn.ModuleList(
             [
                 self.layer_class(config, use_padding_free_transformer=self.use_padding_free_transformer, layer_idx=i)

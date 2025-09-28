@@ -18,6 +18,7 @@ from ....utils import ProcessGroupManager, is_fma_available
 from ...loss import add_aux_loss
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
+from ..dropout import Dropout
 from ..linear import ParameterizedLinear
 from .mlp import _get_std_for_linear
 
@@ -232,7 +233,7 @@ class MoE(nn.Module):
                 std=std,
             )
 
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.dropout = nn.Identity() if dropout == 0 else Dropout(dropout)
 
         self.is_hopper_or_newer_gpu = torch.cuda.is_available() and torch.cuda.get_device_capability(
             torch.cuda.current_device()

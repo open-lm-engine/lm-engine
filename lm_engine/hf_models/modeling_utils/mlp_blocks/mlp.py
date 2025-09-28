@@ -14,6 +14,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import get_activation_function, is_glu
+from ..dropout import Dropout
 from ..linear import ParameterizedLinear
 
 
@@ -47,7 +48,7 @@ class MLP(nn.Module):
             intermediate_size, hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
         )
 
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.dropout = nn.Identity() if dropout == 0 else Dropout(dropout)
 
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
