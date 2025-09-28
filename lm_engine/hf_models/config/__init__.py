@@ -18,7 +18,6 @@ from .sequence_mixer import (
     _MultiHeadLatentAttentionArgs,
     _RNNArgs,
     _SoftmaxAttentionArgs,
-    _StickbreakingAttentionArgs,
 )
 
 
@@ -71,7 +70,6 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "mamba2": _Mamba2Args,
     "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
-    "stickbreaking_attention": _StickbreakingAttentionArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
 }
 
@@ -214,7 +212,6 @@ class CommonConfig(PretrainedConfig):
             | _MultiHeadLatentAttentionArgs
             | _RNNArgs
             | _SoftmaxAttentionArgs
-            | _StickbreakingAttentionArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])
