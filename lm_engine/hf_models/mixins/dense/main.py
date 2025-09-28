@@ -172,9 +172,10 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 input_ids.size(-1) if attention_mask is None else attention_mask.sum(dim=-1).min().item()
             )
 
-        pad_token_id = kwargs.pop(
-            "pad_token_id", self.generation_config.pad_token_id, self.generation_config.eos_token_id
-        )
+        pad_token_id = kwargs.pop("pad_token_id", self.generation_config.pad_token_id)
+        if pad_token_id is None:
+            pad_token_id = self.generation_config.eos_token_id
+
         kwargs.pop("use_cache", None)
 
         if "do_sample" in kwargs:
