@@ -32,6 +32,22 @@ class PackedTensor(torch.Tensor):
 
         return self
 
+    def __init__(
+        self,
+        tensor: torch.Tensor,
+        original_shape: tuple[int],
+        assume_ragged: bool,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
+        batch_size: int | None = None,
+    ) -> PackedTensor:
+        self._tensor = tensor
+        self._original_shape = original_shape
+        self._assume_ragged = assume_ragged
+        self._cu_seqlens = cu_seqlens
+        self._max_seqlen = max_seqlen
+        self._batch_size = batch_size
+
     @staticmethod
     def from_torch_tensor(
         tensor: torch.Tensor,
