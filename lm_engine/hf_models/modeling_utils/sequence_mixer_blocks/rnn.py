@@ -18,7 +18,6 @@ from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_
 from ...tensor import PackedTensor
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
-from .utils import unpack_sequence
 
 
 if is_fma_available():
@@ -58,7 +57,7 @@ class RNN(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.x_projection = ParameterizedLinear(self.input_size, 2 * self.state_size, bias=add_bias, std=std)
+        self.input_projection = ParameterizedLinear(self.input_size, 2 * self.state_size, bias=add_bias, std=std)
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -71,7 +70,7 @@ class RNN(nn.Module):
         self.scaling_factor = scaling_factor
         self.reset_parameters()
 
-        mark_parameter_as_mup_learning_rate(self.x_projection.weight)
+        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
 
@@ -82,7 +81,7 @@ class RNN(nn.Module):
         T = x.get_num_tokens()
 
         with x.safe_mode():
-            x = self.x_projection(x)
+            x = self.input_projection(x)
             x, g = x.chunk(2, dim=-1)
             x = x.view(T, self.num_heads, self.state_head_dim)
 
