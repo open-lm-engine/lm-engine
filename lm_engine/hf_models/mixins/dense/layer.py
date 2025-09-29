@@ -93,7 +93,7 @@ class Block(nn.Module):
                 hidden_states, cache_params=past_key_values, attention_mask=attention_mask
             )
         elif self.sequence_mixer_type in ["gru", "rnn"]:
-            hidden_states = PackedTensor.from_unpacked_tensor(
+            hidden_states = PackedTensor.from_torch_tensor(
                 hidden_states,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,

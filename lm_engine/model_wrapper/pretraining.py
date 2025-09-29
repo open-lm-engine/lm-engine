@@ -251,7 +251,7 @@ class ModelWrapperForPretraining(ModelWrapper):
             max_seqlen = self.sequence_length
             position_ids = self.position_ids
 
-        batch["input_ids"] = PackedTensor.from_unpacked_tensor(
+        batch["input_ids"] = PackedTensor.from_torch_tensor(
             unpacked_tensor=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
         )
 

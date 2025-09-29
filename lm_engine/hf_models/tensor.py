@@ -34,11 +34,12 @@ class PackedTensor(torch.Tensor):
         return self
 
     @staticmethod
-    def from_unpacked_tensor(
-        unpacked_tensor: torch.Tensor,
+    def from_torch_tensor(
+        tensor: torch.Tensor,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
         batch_size: int | None = None,
+        is_packed: bool = False,
     ) -> PackedTensor:
         assert batch_size is not None or cu_seqlens is not None
         assume_ragged = cu_seqlens is not None
@@ -51,20 +52,20 @@ class PackedTensor(torch.Tensor):
 
             assert cu_seqlens.size(0) - 1 == batch_size
 
-            packed_tensor = pack_sequence(inputs=unpacked_tensor, cu_seqlens=cu_seqlens)
+            packed_tensor = pack_sequence(inputs=tensor, cu_seqlens=cu_seqlens) if is_packed else tensor
         else:
-            assert unpacked_tensor.size(0) % batch_size == 0
+            assert tensor.size(0) == batch_size
 
             if max_seqlen is None:
-                max_seqlen = unpacked_tensor.size(1)
+                max_seqlen = tensor.size(1)
 
-            assert unpacked_tensor.size(1) == max_seqlen
+            assert tensor.size(1) == max_seqlen
 
-            packed_tensor = unpacked_tensor
+            packed_tensor = tensor
 
         packed_tensor = PackedTensor(
             packed_tensor=packed_tensor,
-            original_shape=unpacked_tensor.size(),
+            original_shape=tensor.size(),
             assume_ragged=assume_ragged,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
@@ -72,6 +73,16 @@ class PackedTensor(torch.Tensor):
         )
 
         return packed_tensor
+
+    def to_torch_tensor(self) -> torch.Tensor:
+        if self.is_ragged_tensor():
+            tensor = unpack_sequence(
+                inputs=self.get_raw_data(), cu_seqlens=self._cu_seqlens, output_shape=self._original_shape
+            )
+        else:
+            tensor = self.get_raw_data()
+
+        return tensor
 
     def get_num_tokens(self) -> int:
         T = self.get_raw_data().size(0)
@@ -89,16 +100,6 @@ class PackedTensor(torch.Tensor):
             max_seqlen=self._max_seqlen,
             batch_size=self._batch_size,
         )
-
-    def to_unpacked_tensor(self) -> torch.Tensor:
-        if self.is_ragged_tensor():
-            unpacked_tensor = unpack_sequence(
-                inputs=self.get_raw_data(), cu_seqlens=self._cu_seqlens, output_shape=self._original_shape
-            )
-        else:
-            unpacked_tensor = self.get_raw_data()
-
-        return unpacked_tensor
 
     def get_raw_data(self) -> torch.Tensor:
         return self._tensor
