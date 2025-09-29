@@ -29,6 +29,7 @@ from .parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from .register_hf import get_model_parallel_class, is_custom_model, register_model_classes
+from .tensor import PackedTensor
 from .unshard import fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
 from .utils import convert_padding_free_lists_to_tensors, disable_generation_cache
 

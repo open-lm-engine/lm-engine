@@ -12,6 +12,7 @@ from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..hf_models import (
     CausalLMOutputWithPast,
+    PackedTensor,
     PipelineParallelInput,
     PipelineParallelOutput,
     get_autoregressive_language_modeling_loss,
@@ -246,15 +247,15 @@ class ModelWrapperForPretraining(ModelWrapper):
             else:
                 position_ids = self.position_ids
         else:
-            cu_seqlens = self.cu_seqlens
+            cu_seqlens = None
             max_seqlen = self.sequence_length
             position_ids = self.position_ids
 
-        batch["cu_seqlens"] = cu_seqlens
-        batch["max_seqlen"] = max_seqlen
-        batch["position_ids"] = position_ids
+        batch["input_ids"] = PackedTensor.from_unpacked_tensor(
+            unpacked_tensor=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+        )
 
-        batch["input_ids"] = input_ids
+        batch["position_ids"] = position_ids
 
         if ProcessGroupManager.is_tensor_parallel_enabled():
             batch["output_parallel_lm_logits"] = True
@@ -266,18 +267,18 @@ class ModelWrapperForPretraining(ModelWrapper):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        if not self.reset_attention_mask:
-            self.register_buffer(
-                "cu_seqlens",
-                torch.arange(
-                    0,
-                    self.micro_batch_size * self.sequence_length + 1,
-                    self.sequence_length,
-                    dtype=torch.int32,
-                    device=torch.cuda.current_device(),
-                ),
-                persistent=False,
-            )
+        # if not self.reset_attention_mask:
+        #     self.register_buffer(
+        #         "cu_seqlens",
+        #         torch.arange(
+        #             0,
+        #             self.micro_batch_size * self.sequence_length + 1,
+        #             self.sequence_length,
+        #             dtype=torch.int32,
+        #             device=torch.cuda.current_device(),
+        #         ),
+        #         persistent=False,
+        #     )
 
         if self.reset_position_ids:
             assert self.reset_attention_mask, "reset_attention_mask should be specified with reset_position_ids"
