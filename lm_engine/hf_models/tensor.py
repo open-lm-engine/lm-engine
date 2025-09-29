@@ -137,8 +137,8 @@ class PackedTensor(torch.Tensor):
 
         return self._cu_seqlens
 
-    @contextmanager
     @classmethod
+    @contextmanager
     def safe_mode(cls):
         cls._is_safe = True
         yield
