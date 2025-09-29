@@ -16,7 +16,6 @@ class PackedTensor(torch.Tensor):
     def __new__(
         cls,
         tensor: torch.Tensor,
-        original_shape: tuple[int],
         assume_ragged: bool,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
@@ -24,7 +23,6 @@ class PackedTensor(torch.Tensor):
     ) -> PackedTensor:
         self = torch.as_tensor(tensor).as_subclass(cls)
 
-        self._original_shape = original_shape
         self._assume_ragged = assume_ragged
         self._cu_seqlens = cu_seqlens
         self._max_seqlen = max_seqlen
@@ -35,14 +33,12 @@ class PackedTensor(torch.Tensor):
     def __init__(
         self,
         tensor: torch.Tensor,
-        original_shape: tuple[int],
         assume_ragged: bool,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
         batch_size: int | None = None,
     ) -> PackedTensor:
         self._tensor = tensor
-        self._original_shape = original_shape
         self._assume_ragged = assume_ragged
         self._cu_seqlens = cu_seqlens
         self._max_seqlen = max_seqlen
@@ -80,7 +76,6 @@ class PackedTensor(torch.Tensor):
 
         packed_tensor = PackedTensor(
             tensor=packed_tensor,
-            original_shape=tensor.size(),
             assume_ragged=assume_ragged,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
@@ -89,10 +84,10 @@ class PackedTensor(torch.Tensor):
 
         return packed_tensor
 
-    def to_torch_tensor(self) -> torch.Tensor:
+    def to_torch_tensor(self, output_shape: tuple[int]) -> torch.Tensor:
         if self.is_ragged_tensor():
             tensor = unpack_sequence(
-                inputs=self.get_raw_data(), cu_seqlens=self._cu_seqlens, output_shape=self._original_shape
+                inputs=self.get_raw_data(), cu_seqlens=self._cu_seqlens, output_shape=output_shape
             )
         else:
             tensor = self.get_raw_data()
@@ -109,7 +104,6 @@ class PackedTensor(torch.Tensor):
     def with_new_data(self, tensor: torch.Tensor) -> PackedTensor:
         return PackedTensor(
             tensor=tensor,
-            original_shape=self._original_shape,
             assume_ragged=self._assume_ragged,
             cu_seqlens=self._cu_seqlens,
             max_seqlen=self._max_seqlen,
@@ -177,27 +171,3 @@ class PackedTensor(torch.Tensor):
             return super().__torch_dispatch__(func, types, args, kwargs)
 
         raise NotImplementedError("unpack the tensor to run ops on it")
-
-    def __tensor_flatten__(self):
-        ctx = {
-            "_tensor": self._tensor,
-            "_original_shape": self._original_shape,
-            "_assume_ragged": self._assume_ragged,
-            "_cu_seqlens": self._cu_seqlens,
-            "_max_seqlen": self._max_seqlen,
-            "_batch_size": self._batch_size,
-        }
-
-        return ["data"], ctx
-
-    @staticmethod
-    def __tensor_unflatten__(inner_tensors: dict, metadata, outer_size, outer_stride):
-        assert len(inner_tensors) == 2
-        return PackedTensor(
-            tensor=inner_tensors["data"],
-            original_shape=metadata["_original_shape"],
-            assume_ragged=metadata["_assume_ragged"],
-            cu_seqlens=metadata["_cu_seqlens"],
-            max_seqlen=metadata["_max_seqlen"],
-            batch_size=metadata["_batch_size"],
-        )
