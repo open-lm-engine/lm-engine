@@ -29,7 +29,7 @@ if is_fma_available():
 class RNN(nn.Module):
     def __init__(
         self,
-        x_size: int,
+        input_size: int,
         state_size: int,
         output_size: int,
         num_heads: int,
@@ -45,7 +45,7 @@ class RNN(nn.Module):
     ) -> RNN:
         super().__init__()
 
-        self.x_size = x_size
+        self.input_size = input_size
         self.state_size = state_size
         self.output_size = output_size
         self.num_heads = num_heads
@@ -58,7 +58,7 @@ class RNN(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.x_projection = ParameterizedLinear(self.x_size, 2 * self.state_size, bias=add_bias, std=std)
+        self.x_projection = ParameterizedLinear(self.input_size, 2 * self.state_size, bias=add_bias, std=std)
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
