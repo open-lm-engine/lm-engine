@@ -17,7 +17,6 @@ from .packages import (
     is_flash_attention_3_available,
     is_fma_available,
     is_mamba_2_ssm_available,
-    is_stickbreaking_available,
     is_torchao_available,
     is_triton_available,
     is_zstandard_available,

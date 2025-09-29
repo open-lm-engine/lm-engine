@@ -21,7 +21,6 @@ _CACHE_CLASSES = {
     "multihead_latent_attention": _SoftmaxAttentionCache,
     "rnn": _RNNCache,
     "softmax_attention": _SoftmaxAttentionCache,
-    "stickbreaking_attention": _SoftmaxAttentionCache,
 }
 
 CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None

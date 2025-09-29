@@ -49,18 +49,6 @@ class _MultiHeadLatentAttentionArgs(BaseArgs):
         assert self.head_dim is not None
 
 
-class _StickbreakingAttentionArgs(BaseArgs):
-    sequence_mixer_type: str = "stickbreaking_attention"
-    num_attention_heads: int = 12
-    num_key_value_heads: int = 1
-    dropout: float = 0
-    add_bias: bool = False
-    attention_multiplier: float | None = None
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "stickbreaking_attention"
-
-
 class _Mamba2Args(BaseArgs):
     sequence_mixer_type: str = "mamba2"
     state_size: int = 128
