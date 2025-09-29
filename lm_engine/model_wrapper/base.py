@@ -28,7 +28,6 @@ class ModelWrapper(nn.Module):
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
         dtype: torch.dtype,
         efficient_initialization: bool,
-        use_padding_free_transformer: bool,
         sequence_parallel: bool,
         num_pipeline_stages: int,
         pipeline_stage_id: int,
@@ -45,7 +44,6 @@ class ModelWrapper(nn.Module):
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
             dtype (torch.dtype): dtype for the model
             efficient_initialization (bool): whether to use efficient initialization for the model initialization, saves CPU memory
-            use_padding_free_transformer (bool): whether to use padding free transformer
             sequence_parallel (bool): whether to use sequence parallel
             num_pipeline_stages (int): number of stages for the pipeline
             pipeline_stage_id (int): current pipeline stage id
@@ -62,7 +60,6 @@ class ModelWrapper(nn.Module):
         self.model_class = model_class
         self.efficient_initialization = efficient_initialization
         self.dtype = dtype
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
         self.tokenizer_name = self.model_name if tokenizer_name is None else tokenizer_name
         self.trust_remote_code = trust_remote_code
@@ -87,9 +84,6 @@ class ModelWrapper(nn.Module):
         if use_model_parallelism:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
             self.model_class = get_model_parallel_class(self.config.model_type)
-
-        if self.use_padding_free_transformer:
-            assert self.is_custom_model, "padding free transformer is not supported with the specified model"
 
         self._setup_tokenizer()
         self._setup_model()
@@ -148,8 +142,7 @@ class ModelWrapper(nn.Module):
                 "flash_attention_2" if is_kernel_allowed(Kernel.flash_attention_2) else "sdpa"
             )
 
-        if self.use_padding_free_transformer:
-            model_kwargs["use_padding_free_transformer"] = True
+        model_kwargs["use_padding_free_transformer"] = True
         if self.sequence_parallel:
             model_kwargs["sequence_parallel"] = True
         if self.trust_remote_code:
