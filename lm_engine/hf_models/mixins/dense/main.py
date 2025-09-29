@@ -83,8 +83,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             attention_mask=attention_mask,
             position_ids=position_ids,
             use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         hidden_states = transformer_outputs.last_hidden_state

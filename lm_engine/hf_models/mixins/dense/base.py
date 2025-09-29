@@ -13,7 +13,8 @@ from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
-from ...utils import convert_padding_free_lists_to_tensors, is_generation_cache_enabled
+from ...tensor import PackedTensor
+from ...utils import is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
 
@@ -87,13 +88,11 @@ class BaseModelMixin(PreTrainedModelMixin):
 
     def forward(
         self,
-        input_ids: torch.Tensor | None = None,
+        input_ids: PackedTensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> BaseModelOutputWithPast:
         (
             use_cache,
@@ -108,8 +107,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             attention_mask=attention_mask,
             position_ids=position_ids,
             use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         if is_generation_cache_enabled():
@@ -220,26 +217,16 @@ class BaseModelMixin(PreTrainedModelMixin):
 
     def _prepare_a_bunch_of_stuff(
         self,
-        input_ids: torch.Tensor | None = None,
+        input_ids: PackedTensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> tuple[bool, torch.Tensor, torch.Tensor, torch.Tensor | None, GenerationCache | None]:
         if use_cache is None:
             use_cache = False if self.use_padding_free_transformer else self.config.use_cache
 
-        input_shape = input_ids.size()
-
-        # special handling for padding free transformer with list inputs
-        if self.use_padding_free_transformer:
-            # for flash attention, there is no padding and we do packing
-            # so, input_ids is of shape (s1 + s2 + ... + sb)
-            batch_size = cu_seqlens.shape[0] - 1
-        else:
-            batch_size = input_shape[0]
+        batch_size = input_ids.get_batch_size()
 
         if self.use_padding_free_transformer:
             assert position_ids is not None, (
@@ -249,13 +236,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         past_length = None
         query_length = None
-        key_length = None
-        if self.use_padding_free_transformer:
-            key_length = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
-        else:
-            past_length = 0 if past_key_values is None else past_key_values.get_seq_length()
-            query_length = input_shape[-1]
-            key_length = past_length + query_length
+        key_length = input_ids.get_max_seqlen()
 
         if position_ids is None:
             position_ids = self._get_position_ids(
