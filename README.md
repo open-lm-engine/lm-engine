@@ -30,9 +30,6 @@ _Yikang Shen, Matthew Stallone, Mayank Mishra, Gaoyuan Zhang, Shawn Tan, Aditya 
 1. [Scattered Mixture-of-Experts Implementation](https://arxiv.org/abs/2403.08245)  
 _Shawn Tan, Yikang Shen, Rameswar Panda, Aaron Courville_  
 ![image][Mixture of Experts] ![image][Efficient Training] ![image][Efficient Inference]
-1. [Stick-breaking Attention](https://arxiv.org/abs/2410.17980)  
-_Shawn Tan, Yikang Shen, Songlin Yang, Aaron Courville, Rameswar Panda_  
-![image][Model Architecture]
 
 # Discord Server
 Join the [discord server](https://discord.gg/AFDxmjH5RV) if you are interested in LLM architecture or distributed training/inference research.
