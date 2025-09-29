@@ -129,8 +129,6 @@ class BaseModelMixin(PreTrainedModelMixin):
                 past_key_values=past_key_values,
                 attention_mask=mamba_mask if is_linear_layer else causal_mask,
                 rope_cos_sin=rope_cos_sin,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
             )
 
         hidden_states = self.ln_f(hidden_states)
