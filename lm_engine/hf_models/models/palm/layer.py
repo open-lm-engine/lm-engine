@@ -24,9 +24,7 @@ class PaLMBlock(nn.Module):
             config.normalization_function, config.hidden_size, eps=config.layer_norm_epsilon
         )
         self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
-        self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
-        )
+        self.mlp_block = get_mlp_block(config, layer_idx=layer_idx)
 
     def forward(
         self,
