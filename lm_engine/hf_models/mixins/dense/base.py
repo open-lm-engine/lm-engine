@@ -243,7 +243,8 @@ class BaseModelMixin(PreTrainedModelMixin):
                 attention_mask, past_length, query_length, key_length, input_ids.device
             )
 
-        hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
+        with input_ids.safe_mode():
+            hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
 
         rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
