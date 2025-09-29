@@ -156,20 +156,11 @@ class BaseModelMixin(PreTrainedModelMixin):
                 GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
             )
 
-        mamba_mask = None
-        mamba_mask_computed = False
-
         for sequence_mixer_type, block in zip(self.sequence_mixer_block_types, self.h):
-            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
-
-            if is_linear_layer and not mamba_mask_computed:
-                mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)
-                mamba_mask_computed = True
-
             hidden_states = block(
                 hidden_states,
                 past_key_values=past_key_values,
-                attention_mask=mamba_mask if is_linear_layer else causal_mask,
+                attention_mask=attention_mask if sequence_mixer_type in ["mamba2", "rnn", "gru"] else causal_mask,
                 rope_cos_sin=rope_cos_sin,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
@@ -378,16 +369,3 @@ class BaseModelMixin(PreTrainedModelMixin):
                 )
 
         return attention_mask
-
-    def _get_mamba_mask(
-        self, attention_mask: torch.Tensor | None, past_key_values: GenerationCache
-    ) -> torch.Tensor | None:
-        mamba_mask = attention_mask
-        if (
-            past_key_values is None
-            or past_key_values.get_seq_length() > 0
-            or (attention_mask is not None and torch.all(attention_mask == 1))
-        ):
-            mamba_mask = None
-
-        return mamba_mask
