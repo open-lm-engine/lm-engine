@@ -137,6 +137,14 @@ class PackedTensor(torch.Tensor):
 
         return self._cu_seqlens
 
+    def get_dtype(self) -> torch.dtype:
+        with self.safe_mode():
+            return self.dtype
+
+    def get_device(self) -> torch.device:
+        with self.safe_mode():
+            return super().get_device()
+
     @classmethod
     @contextmanager
     def safe_mode(cls):
