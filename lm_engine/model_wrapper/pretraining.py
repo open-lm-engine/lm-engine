@@ -224,9 +224,9 @@ class ModelWrapperForPretraining(ModelWrapper):
             batch = {"labels": tokens[:, 1:]}
 
         batch_size, sequence_length = input_ids.shape
-        input_ids = input_ids.reshape(-1)
 
         if self.reset_attention_mask:
+            input_ids = input_ids.flatten()
             num_tokens_in_batch = batch_size * sequence_length
 
             document_end_positions = input_ids == self.eos_token_id
@@ -252,7 +252,7 @@ class ModelWrapperForPretraining(ModelWrapper):
             position_ids = self.position_ids
 
         batch["input_ids"] = PackedTensor.from_torch_tensor(
-            unpacked_tensor=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+            tensor=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, batch_size=batch_size
         )
 
         batch["position_ids"] = position_ids

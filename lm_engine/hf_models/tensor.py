@@ -64,7 +64,7 @@ class PackedTensor(torch.Tensor):
             packed_tensor = tensor
 
         packed_tensor = PackedTensor(
-            packed_tensor=packed_tensor,
+            tensor=packed_tensor,
             original_shape=tensor.size(),
             assume_ragged=assume_ragged,
             cu_seqlens=cu_seqlens,
