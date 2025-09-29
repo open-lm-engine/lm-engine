@@ -164,22 +164,6 @@ def is_torchao_available() -> bool:
 
 
 try:
-    import stickbreaking_attention
-
-    _IS_STICKBREAKING_AVAILABLE = True
-except ImportError:
-    _IS_STICKBREAKING_AVAILABLE = False
-
-    warn_rank_0(
-        "stickbreaking-attention is not available, install from https://github.com/shawntan/stickbreaking-attention"
-    )
-
-
-def is_stickbreaking_available():
-    return _IS_STICKBREAKING_AVAILABLE
-
-
-try:
     import zstandard
 
     _IS_ZSTANDARD_AVAILABLE = True
@@ -190,7 +174,7 @@ except ImportError:
 
 
 def is_zstandard_available():
-    return _IS_STICKBREAKING_AVAILABLE
+    return _IS_ZSTANDARD_AVAILABLE
 
 
 @run_rank_n
