@@ -172,9 +172,9 @@ class PackedTensor(torch.Tensor):
         cls._is_safe = enable
 
     @classmethod
-    def __torch_function__(cls, func, types, args=(), kwargs=None):
+    def __torch_dispatch__(cls, func, types, args=(), kwargs=None):
         if cls._is_safe:
-            return super().__torch_function__(func, types, args, kwargs)
+            return super().__torch_dispatch__(func, types, args, kwargs)
 
         raise NotImplementedError("unpack the tensor to run ops on it")
 
