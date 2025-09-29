@@ -153,6 +153,10 @@ class PackedTensor(torch.Tensor):
         cls._is_safe = False
 
     @classmethod
+    def set_safe_mode(cls, enable: bool = False) -> None:
+        cls._is_safe = enable
+
+    @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if cls._is_safe:
             return super().__torch_function__(func, types, args, kwargs)
