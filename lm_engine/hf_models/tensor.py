@@ -24,7 +24,6 @@ class PackedTensor(torch.Tensor):
     ) -> PackedTensor:
         self = torch.as_tensor(tensor).as_subclass(cls)
 
-        self._tensor = tensor
         self._original_shape = original_shape
         self._assume_ragged = assume_ragged
         self._cu_seqlens = cu_seqlens
@@ -32,22 +31,6 @@ class PackedTensor(torch.Tensor):
         self._batch_size = batch_size
 
         return self
-
-    def __init__(
-        self,
-        tensor: torch.Tensor,
-        original_shape: tuple[int],
-        assume_ragged: bool,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
-        batch_size: int | None = None,
-    ) -> PackedTensor:
-        self._tensor = tensor
-        self._original_shape = original_shape
-        self._assume_ragged = assume_ragged
-        self._cu_seqlens = cu_seqlens
-        self._max_seqlen = max_seqlen
-        self._batch_size = batch_size
 
     @staticmethod
     def from_torch_tensor(
@@ -118,7 +101,7 @@ class PackedTensor(torch.Tensor):
         )
 
     def get_raw_data(self) -> torch.Tensor:
-        return self._tensor
+        return self.as_subclass(torch.Tensor)
 
     def get_last_element_along_sequence(self) -> torch.Tensor:
         output = self.get_raw_data()
@@ -178,3 +161,27 @@ class PackedTensor(torch.Tensor):
             return super().__torch_function__(func, types, args, kwargs)
 
         raise NotImplementedError("unpack the tensor to run ops on it")
+
+    def __tensor_flatten__(self):
+        ctx = {
+            "_tensor": self._tensor,
+            "_original_shape": self._original_shape,
+            "_assume_ragged": self._assume_ragged,
+            "_cu_seqlens": self._cu_seqlens,
+            "_max_seqlen": self._max_seqlen,
+            "_batch_size": self._batch_size,
+        }
+
+        return ["data"], ctx
+
+    @staticmethod
+    def __tensor_unflatten__(inner_tensors: dict, metadata, outer_size, outer_stride):
+        assert len(inner_tensors) == 2
+        return PackedTensor(
+            tensor=inner_tensors["data"],
+            original_shape=metadata["_original_shape"],
+            assume_ragged=metadata["_assume_ragged"],
+            cu_seqlens=metadata["_cu_seqlens"],
+            max_seqlen=metadata["_max_seqlen"],
+            batch_size=metadata["_batch_size"],
+        )
