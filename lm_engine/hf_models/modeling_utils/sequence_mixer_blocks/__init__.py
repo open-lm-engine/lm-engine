@@ -13,20 +13,10 @@ from .gru import GRU
 from .mamba2 import Mamba2
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
-from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
 from .utils import flash_attention
 
 
-SEQUENCE_MIXER_TYPE = (
-    Attention
-    | CausalConvolution
-    | GRU
-    | Mamba2
-    | MultiHeadLatentAttention
-    | RNN
-    | SBAttention
-    | PaddingFreeSBAttention
-)
+SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN
 
 
 def get_sequence_mixer(
@@ -140,10 +130,5 @@ def get_sequence_mixer(
                 softmax_dropout=block.softmax_dropout,
                 use_padding_free_transformer=use_padding_free_transformer,
             )
-        elif sequence_mixer_type == "stickbreaking_attention":
-            if use_padding_free_transformer:
-                return PaddingFreeSBAttention(**sequence_mixer_kwargs)
-            else:
-                return SBAttention(**sequence_mixer_kwargs)
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")

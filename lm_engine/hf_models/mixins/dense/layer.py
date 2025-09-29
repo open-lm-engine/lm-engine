@@ -80,7 +80,7 @@ class Block(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        if self.sequence_mixer_type in ["softmax_attention", "stickbreaking_attention", "multihead_latent_attention"]:
+        if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
             hidden_states = self.sequence_mixer(
                 hidden_states,
                 past_key_values=past_key_values,
