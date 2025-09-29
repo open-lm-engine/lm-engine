@@ -145,16 +145,14 @@ class PackedTensor(torch.Tensor):
         with self.safe_mode():
             return super().get_device()
 
-    @classmethod
     @contextmanager
-    def safe_mode(cls):
-        cls._is_safe = True
+    def safe_mode(self):
+        self._is_safe = True
         yield
-        cls._is_safe = False
+        self._is_safe = False
 
-    @classmethod
-    def set_safe_mode(cls, enable: bool = False) -> None:
-        cls._is_safe = enable
+    def set_safe_mode(self, enable: bool = False) -> None:
+        self._is_safe = enable
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
