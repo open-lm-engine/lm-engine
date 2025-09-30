@@ -116,6 +116,9 @@ class BaseModelMixin(PreTrainedModelMixin):
             )
 
         mamba_mask_computed = False
+        attention_mask_info = AttentionMaskInfo(
+            cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
+        )
 
         for sequence_mixer_type, block in zip(self.sequence_mixer_block_types, self.h):
             is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
@@ -126,9 +129,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
             hidden_states: torch.Tensor = block(
                 hidden_states,
-                attention_mask_info=AttentionMaskInfo(
-                    cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
-                ),
+                attention_mask_info=attention_mask_info,
                 past_key_values=past_key_values,
                 # attention_mask=mamba_mask if is_linear_layer else causal_mask,
                 rope_cos_sin=rope_cos_sin,
