@@ -13,7 +13,6 @@ from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
-from ...tensor import PackedTensor
 from ...utils import is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
@@ -88,7 +87,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
     def forward(
         self,
-        input_ids: PackedTensor | None = None,
+        input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
@@ -124,7 +123,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)
                 mamba_mask_computed = True
 
-            hidden_states: PackedTensor = block(
+            hidden_states: torch.Tensor = block(
                 hidden_states,
                 past_key_values=past_key_values,
                 attention_mask=mamba_mask if is_linear_layer else causal_mask,
@@ -215,7 +214,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
     def _prepare_a_bunch_of_stuff(
         self,
-        input_ids: PackedTensor | None = None,
+        input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
