@@ -224,7 +224,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         if use_cache is None:
             use_cache = False if self.use_padding_free_transformer else self.config.use_cache
 
-        batch_size = input_ids.get_batch_size()
+        B = input_ids.batch_size
 
         if self.use_padding_free_transformer:
             assert position_ids is not None, (
@@ -247,7 +247,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=input_ids.get_dtype())
 
         attention_mask = self._get_maybe_causal_mask(
-            attention_mask, batch_size, query_length, key_length, input_ids.get_dtype(), input_ids.get_device()
+            attention_mask, B, query_length, key_length, input_ids.tensor.dtype, input_ids.tensor.device
         )
 
         return (
