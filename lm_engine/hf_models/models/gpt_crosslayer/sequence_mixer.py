@@ -10,11 +10,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .....enums import Kernel
-from .....kernels import is_kernel_allowed
-from .....utils import divide_if_divisible
-from ....mask import AttentionMaskInfo
-from ....modeling_utils import ParameterizedLinear, apply_rotary_pos_emb, flash_attention, get_normalization_function
+from ....enums import Kernel
+from ....kernels import is_kernel_allowed
+from ....utils import divide_if_divisible
+from ...mask import AttentionMaskInfo
+from ...modeling_utils import ParameterizedLinear, apply_rotary_pos_emb, flash_attention, get_normalization_function
+from .config import GPTCrossLayerConfig
 
 
 class CrossLayerAttention(nn.Module):
@@ -157,7 +158,6 @@ class KeyValueProjection(nn.Module):
         initializer_range: float,
         normalization_function: str,
         layer_norm_epsilon: float,
-        use_padding_free_transformer: bool,
     ) -> KeyValueProjection:
         super().__init__()
 
@@ -172,28 +172,31 @@ class KeyValueProjection(nn.Module):
             std=initializer_range,
         )
 
-        self.use_padding_free_transformer = use_padding_free_transformer
-
     def forward(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         hidden_states = self.ln(hidden_states)
         hidden_states = self.kv_attn(hidden_states)
 
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-
-            if self.num_key_value_heads == 1:
-                hidden_states = hidden_states.unsqueeze(1)
-            else:
-                hidden_states = hidden_states.view(total_q, self.num_key_value_heads, -1)
-        else:
-            batch_size, query_length = hidden_states.shape[:2]
-
-            if self.num_key_value_heads == 1:
-                hidden_states = hidden_states.unsqueeze(1)
-            else:
-                hidden_states = hidden_states.view(batch_size, query_length, self.num_key_value_heads, -1)
-                hidden_states = hidden_states.transpose(1, 2)
-
+        hidden_states = hidden_states.view(*hidden_states.size()[:-1], self.num_key_value_heads, -1)
         key, value = hidden_states.chunk(2, -1)
 
         return key, value
+
+
+def get_sequence_mixer(config: GPTCrossLayerConfig, causal: bool, layer_idx: int) -> CrossLayerAttention:
+    block = config.sequence_mixer_blocks[layer_idx]
+    assert block.sequence_mixer_type == "softmax_attention"
+
+    return CrossLayerAttention(
+        hidden_size=config.hidden_size,
+        num_attention_heads=block.num_attention_heads,
+        num_key_value_heads=block.num_key_value_heads,
+        attention_multiplier=block.attention_multiplier,
+        position_embedding_type=config.position_embedding_type,
+        add_bias=block.add_bias,
+        softmax_dropout=block.softmax_dropout,
+        dropout=block.dropout,
+        initializer_range=config.initializer_range,
+        num_layers=config.num_layers,
+        causal=causal,
+        layer_idx=layer_idx,
+    )
