@@ -79,9 +79,9 @@ class CrossLayerAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask_info: AttentionMaskInfo,
         key: torch.Tensor,
         value: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
         rope_cos_sin: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
