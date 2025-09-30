@@ -125,8 +125,9 @@ class AttentionMaskInfo:
             _, Q, K = attention_mask.size()
             L = K - Q
 
+            device = attention_mask.device
+
             if Q > 1:
-                device = attention_mask.device
 
                 causal_mask = torch.empty((Q, K), dtype=torch.bool, device=device)
                 causal_mask[:, L:] = torch.tril(torch.ones(Q, K, dtype=torch.bool, device=device))
