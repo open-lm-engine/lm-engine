@@ -15,7 +15,7 @@ class PackedTensor:
     tensor: torch.Tensor
     batch_size: int | None = None
 
-    _assume_ragged: bool
+    _assume_ragged: bool | None = None
     _cu_seqlens: torch.Tensor | None = None
     _max_seqlen: int | None = None
 
