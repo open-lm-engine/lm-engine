@@ -100,23 +100,15 @@ class BaseModelMixin(PreTrainedModelMixin):
                 GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
             )
 
-        mamba_mask_computed = False
         attention_mask_info = AttentionMaskInfo(
             cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
         )
 
-        for sequence_mixer_type, block in zip(self.sequence_mixer_block_types, self.h):
-            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
-
-            if is_linear_layer and not mamba_mask_computed:
-                self._get_mamba_mask(attention_mask, past_key_values)
-                mamba_mask_computed = True
-
+        for block in self.h:
             hidden_states: torch.Tensor = block(
                 hidden_states,
                 attention_mask_info=attention_mask_info,
                 past_key_values=past_key_values,
-                # attention_mask=mamba_mask if is_linear_layer else causal_mask,
                 rope_cos_sin=rope_cos_sin,
             )
 
