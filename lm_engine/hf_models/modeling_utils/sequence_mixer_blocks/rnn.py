@@ -77,31 +77,29 @@ class RNN(nn.Module):
         mark_parameter_as_no_weight_decay(self.state_weight)
 
     def forward(self, x: PackedTensor, cache_params: GenerationCache | None = None) -> PackedTensor:
-        state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-        T = x.get_num_tokens()
+        cu_seqlens = x.cu_seqlens
+        max_seqlen = x.max_seqlen
+        x: torch.Tensor = x.tensor
 
-        with x.safe_mode():
-            x = self.input_projection(x)
-            x, g = x.chunk(2, dim=-1)
-            x = x.view(T, self.num_heads, self.state_head_dim)
+        x = self.input_projection(x)
+        x, g = x.tensor.chunk(2, dim=-1)
+        x = x.view(*x.size()[:-1], self.num_heads, self.state_head_dim)
 
-            if self.scaling_factor != 1:
-                x = x * self.scaling_factor
+        if self.scaling_factor != 1:
+            x = x * self.scaling_factor
 
         weight = self.state_weight
         if self.scaling_factor != 1:
             weight = weight * self.scaling_factor
 
-        x = x.with_new_data(
-            rnn(
-                input=x.get_raw_data(),
-                weight=weight,
-                input_state=state,
-                gradient_clipping=self.gradient_clipping,
-                cu_seqlens=x.get_cu_seqlens(),
-                max_seqlen=x.get_max_seqlen(),
-                kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
-            )
+        x = rnn(
+            input=x,
+            weight=weight,
+            input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
+            gradient_clipping=self.gradient_clipping,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
         )
 
         if cache_params is not None:
@@ -111,11 +109,10 @@ class RNN(nn.Module):
                 layer_idx=self.layer_idx,
             )
 
-        with x.safe_mode():
-            x = x.view(T, -1)
-            x = x * F.silu(g)
-            x = self.norm(x)
-            x = self.output_projection(x)
+        x = x.flatten(-2, -1)
+        x = x * F.silu(g)
+        x = self.norm(x)
+        x = self.output_projection(x)
 
         return x
 

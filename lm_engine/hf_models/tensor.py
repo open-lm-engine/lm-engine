@@ -82,15 +82,23 @@ class PackedTensor:
             batch_size=self.batch_size,
         )
 
-    def get_last_element_along_sequence(self) -> torch.Tensor:
-        output = self.tensor
+    def get_last_element_along_sequence(
+        self, tensor: torch.Tensor | None = None, cu_seqlens: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        if tensor is None:
+            assert cu_seqlens is None
+
+            tensor = self.tensor
+            cu_seqlens = self.cu_seqlens
+        else:
+            assert cu_seqlens is not None
 
         if self.assume_ragged:
-            output = output[self.getcu_seqlens()[1:] - 1]
+            tensor = tensor[cu_seqlens[1:] - 1]
         else:
-            output = output[:, -1]
+            tensor = tensor[:, -1]
 
-        return output
+        return tensor
 
     def get_max_seqlen(self, return_none_allowed: bool = True) -> int:
         if return_none_allowed and not self.assume_ragged:
