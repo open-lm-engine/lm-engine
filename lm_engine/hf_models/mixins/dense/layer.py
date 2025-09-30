@@ -13,9 +13,7 @@ from ...modeling_utils import get_mlp_block, get_normalization_function, get_seq
 
 
 class Block(nn.Module):
-    def __init__(
-        self, config: CommonConfig, use_padding_free_transformer: bool, layer_idx: int | None = None
-    ) -> Block:
+    def __init__(self, config: CommonConfig, layer_idx: int | None = None) -> Block:
         super().__init__()
 
         hidden_size = config.hidden_size
@@ -25,7 +23,7 @@ class Block(nn.Module):
         self.ln_1 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
-        self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
+        self.sequence_mixer = get_sequence_mixer(config, True, layer_idx)
         self.ln_2 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
