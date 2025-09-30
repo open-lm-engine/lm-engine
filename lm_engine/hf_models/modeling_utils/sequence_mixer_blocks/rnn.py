@@ -76,10 +76,10 @@ class RNN(nn.Module):
 
         mark_parameter_as_no_weight_decay(self.state_weight)
 
-    def forward(self, x: PackedTensor, cache_params: GenerationCache | None = None) -> PackedTensor:
-        cu_seqlens = x.get_cu_seqlens()
-        max_seqlen = x.get_max_seqlen()
-        x: torch.Tensor = x.tensor
+    def forward(self, x_packed: PackedTensor, cache_params: GenerationCache | None = None) -> PackedTensor:
+        cu_seqlens = x_packed.get_cu_seqlens()
+        max_seqlen = x_packed.get_max_seqlen()
+        x: torch.Tensor = x_packed.get_underlying_tensor(True)
 
         x = self.input_projection(x)
         x, g = x.chunk(2, dim=-1)
@@ -114,7 +114,9 @@ class RNN(nn.Module):
         x = self.norm(x)
         x = self.output_projection(x)
 
-        return x
+        x_packed = x_packed.with_new_data(x)
+
+        return x_packed
 
     @torch.no_grad()
     def reset_parameters(self) -> None:

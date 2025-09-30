@@ -101,6 +101,14 @@ class PackedTensor:
 
         return tensor
 
+    def get_underlying_tensor(self, set_to_none: bool = False) -> torch.Tensor:
+        tensor = self.tensor
+
+        if set_to_none:
+            self.tensor = None
+
+        return tensor
+
     def get_max_seqlen(self, return_none_allowed: bool = True) -> int:
         if return_none_allowed and not self._assume_ragged:
             return None
