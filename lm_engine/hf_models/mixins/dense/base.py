@@ -217,6 +217,7 @@ class BaseModelMixin(PreTrainedModelMixin):
     def _prepare_a_bunch_of_stuff(
         self,
         input_ids: torch.Tensor | None = None,
+        cu_seqlens: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
@@ -225,7 +226,11 @@ class BaseModelMixin(PreTrainedModelMixin):
         if use_cache is None:
             use_cache = False if self.use_padding_free_transformer else self.config.use_cache
 
-        B = input_ids.batch_size
+        if cu_seqlens is None:
+            assert input_ids.dim() == 2
+            B = input_ids.size(0)
+        else:
+            B = cu_seqlens.size(0) - 1
 
         if self.use_padding_free_transformer:
             assert position_ids is not None, (

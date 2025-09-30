@@ -247,7 +247,7 @@ class ModelWrapperForPretraining(ModelWrapper):
                 position_ids = self.position_ids
         else:
             cu_seqlens = None
-            max_seqlen = self.sequence_length
+            max_seqlen = None
             position_ids = self.position_ids
 
         batch["input_ids"] = input_ids
