@@ -142,7 +142,6 @@ class ModelWrapper(nn.Module):
                 "flash_attention_2" if is_kernel_allowed(Kernel.flash_attention_2) else "sdpa"
             )
 
-        model_kwargs["use_padding_free_transformer"] = True
         if self.sequence_parallel:
             model_kwargs["sequence_parallel"] = True
         if self.trust_remote_code:
