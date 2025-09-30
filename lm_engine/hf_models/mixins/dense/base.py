@@ -95,7 +95,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             past_key_values,
         ) = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
-            cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
@@ -172,19 +171,12 @@ class BaseModelMixin(PreTrainedModelMixin):
     def _prepare_a_bunch_of_stuff(
         self,
         input_ids: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
         max_seqlen: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
     ) -> tuple[bool, torch.Tensor, torch.Tensor, torch.Tensor | None, GenerationCache | None]:
-        if cu_seqlens is None:
-            assert input_ids.dim() == 2
-            input_ids.size(0)
-        else:
-            cu_seqlens.size(0) - 1
-
         assert position_ids is not None, (
             "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] " "inputs"
         )
