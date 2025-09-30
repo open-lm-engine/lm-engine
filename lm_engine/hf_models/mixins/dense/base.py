@@ -87,16 +87,9 @@ class BaseModelMixin(PreTrainedModelMixin):
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
     ) -> BaseModelOutputWithPast:
-        (
-            use_cache,
-            hidden_states,
-            position_ids,
-            rope_cos_sin,
-            past_key_values,
-        ) = self._prepare_a_bunch_of_stuff(
+        use_cache, hidden_states, position_ids, rope_cos_sin = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
             max_seqlen=max_seqlen,
-            past_key_values=past_key_values,
             attention_mask=attention_mask,
             position_ids=position_ids,
             use_cache=use_cache,
@@ -172,11 +165,10 @@ class BaseModelMixin(PreTrainedModelMixin):
         self,
         input_ids: torch.Tensor | None = None,
         max_seqlen: torch.Tensor | None = None,
-        past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
-    ) -> tuple[bool, torch.Tensor, torch.Tensor, torch.Tensor | None, GenerationCache | None]:
+    ) -> tuple[bool, torch.Tensor, torch.Tensor, torch.Tensor | None]:
         assert position_ids is not None, (
             "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] " "inputs"
         )
@@ -193,13 +185,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
         rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
-        return (
-            use_cache,
-            hidden_states,
-            position_ids,
-            rope_cos_sin,
-            past_key_values,
-        )
+        return use_cache, hidden_states, position_ids, rope_cos_sin
 
     def _setup_positional_encoding(self) -> None:
         max_position_embeddings = self.config.max_position_embeddings
