@@ -15,7 +15,6 @@ from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_fma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
-from ...tensor import PackedTensor
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 
@@ -76,11 +75,13 @@ class RNN(nn.Module):
 
         mark_parameter_as_no_weight_decay(self.state_weight)
 
-    def forward(self, x_packed: PackedTensor, cache_params: GenerationCache | None = None) -> PackedTensor:
-        cu_seqlens = x_packed.get_cu_seqlens()
-        max_seqlen = x_packed.get_max_seqlen()
-        x: torch.Tensor = x_packed.get_underlying_tensor(True)
-
+    def forward(
+        self,
+        x: torch.Tensor,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
+        cache_params: GenerationCache | None = None,
+    ) -> torch.Tensor:
         x = self.input_projection(x)
         x, g = x.chunk(2, dim=-1)
         x = x.view(*x.size()[:-1], self.num_heads, self.state_head_dim)
@@ -114,9 +115,7 @@ class RNN(nn.Module):
         x = self.norm(x)
         x = self.output_projection(x)
 
-        x_packed = x_packed.with_new_data(x)
-
-        return x_packed
+        return x
 
     @torch.no_grad()
     def reset_parameters(self) -> None:

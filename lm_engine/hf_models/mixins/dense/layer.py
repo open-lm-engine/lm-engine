@@ -89,7 +89,14 @@ class Block(nn.Module):
                 hidden_states, cache_params=past_key_values, attention_mask=attention_mask
             )
         elif self.sequence_mixer_type in ["gru", "rnn"]:
-            hidden_states = self.sequence_mixer(hidden_states, cache_params=past_key_values)
+            hidden_states = hidden_states.with_new_data(
+                self.sequence_mixer(
+                    x=hidden_states.tensor,
+                    cu_seqlens=hidden_states.get_cu_seqlens(),
+                    max_seqlen=hidden_states.get_max_seqlen(),
+                    cache_params=past_key_values,
+                )
+            )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")
 
