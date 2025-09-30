@@ -241,13 +241,14 @@ class BaseModelMixin(PreTrainedModelMixin):
                 attention_mask, past_length, query_length, key_length, input_ids.device
             )
 
-        with input_ids.safe_mode():
-            hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
+        hidden_states = self._get_initial_hidden_state(input_ids.tensor, position_ids)
+        hidden_states = input_ids.with_new_data(hidden_states)
+        del input_ids
 
-        rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=input_ids.get_dtype())
+        rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.tensor.dtype)
 
         attention_mask = self._get_maybe_causal_mask(
-            attention_mask, B, query_length, key_length, input_ids.tensor.dtype, input_ids.tensor.device
+            attention_mask, B, query_length, key_length, hidden_states.tensor.dtype, hidden_states.tensor.device
         )
 
         return (
