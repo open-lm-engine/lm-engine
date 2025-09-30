@@ -112,11 +112,12 @@ class GRU(nn.Module):
         )
 
         if cache_params is not None:
-            cache_params.update(
-                state=x.get_last_element_along_sequence(),
-                num_tokens_added=x.get_cu_seqlens(False),
-                layer_idx=self.layer_idx,
-            )
+            if cu_seqlens is None:
+                cache_params.update(state=x[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+            else:
+                cache_params.update(
+                    state=x[cu_seqlens[1:] - 1], num_tokens_added=cu_seqlens[1:], layer_idx=self.layer_idx
+                )
 
         x = x.flatten(-2, -1)
         x = x * F.silu(g)
