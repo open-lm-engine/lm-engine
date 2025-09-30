@@ -104,6 +104,8 @@ class BaseModelMixin(PreTrainedModelMixin):
             past_key_values,
         ) = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -218,6 +220,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         self,
         input_ids: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
@@ -240,7 +243,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         past_length = None
         query_length = None
-        key_length = input_ids.get_max_seqlen()
+        key_length = max_seqlen
 
         if position_ids is None:
             position_ids = self._get_position_ids(
