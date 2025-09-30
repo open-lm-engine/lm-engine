@@ -75,19 +75,21 @@ class GRU(nn.Module):
 
         mark_parameter_as_no_weight_decay(self.state_weight)
 
-    def forward(self, x: torch.Tensor, cache_params: GenerationCache | None = None) -> torch.Tensor:
-        state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-        T = x.get_num_tokens()
+    def forward(
+        self,
+        x: torch.Tensor,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
+        cache_params: GenerationCache | None = None,
+    ) -> torch.Tensor:
+        x = self.input_projection(x)
+        x, g = x.split((3 * self.state_size, self.state_size), dim=-1)
 
-        with x.safe_mode():
-            x = self.input_projection(x)
-            x, g = x.split((3 * self.state_size, self.state_size), dim=-1)
+        if self.scaling_factor != 1:
+            x = x * self.scaling_factor
 
-            if self.scaling_factor != 1:
-                x = x * self.scaling_factor
-
-            x, x_forget, x_reset = x.chunk(3, dim=-1)
-            x, x_forget, x_reset = [i.view(T, self.num_heads, self.state_head_dim) for i in (x, x_forget, x_reset)]
+        x, x_forget, x_reset = x.chunk(3, dim=-1)
+        x, x_forget, x_reset = [i.view(T, self.num_heads, self.state_head_dim) for i in (x, x_forget, x_reset)]
 
         weight = self.state_weight
         if self.scaling_factor != 1:
@@ -95,20 +97,18 @@ class GRU(nn.Module):
 
         weight, forget_weight, reset_weight = weight.chunk(3, dim=0)
 
-        x = x.with_new_data(
-            gru(
-                input=x,
-                weight=weight,
-                forget_input=x_forget,
-                forget_weight=forget_weight,
-                reset_input=x_reset,
-                reset_weight=reset_weight,
-                input_state=state,
-                gradient_clipping=self.gradient_clipping,
-                cu_seqlens=x.get_cu_seqlens(),
-                max_seqlen=x.get_max_seqlen(),
-                kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
-            )
+        x = gru(
+            input=x,
+            weight=weight,
+            forget_input=x_forget,
+            forget_weight=forget_weight,
+            reset_input=x_reset,
+            reset_weight=reset_weight,
+            input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
+            gradient_clipping=self.gradient_clipping,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 
         if cache_params is not None:
@@ -118,11 +118,10 @@ class GRU(nn.Module):
                 layer_idx=self.layer_idx,
             )
 
-        with x.safe_mode():
-            x = x.view(T, -1)
-            x = x * F.silu(g)
-            x = self.norm(x)
-            x = self.output_projection(x)
+        x = x.flatten(-2, -1)
+        x = x * F.silu(g)
+        x = self.norm(x)
+        x = self.output_projection(x)
 
         return x
 
