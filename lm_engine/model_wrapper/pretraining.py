@@ -250,10 +250,9 @@ class ModelWrapperForPretraining(ModelWrapper):
             max_seqlen = self.sequence_length
             position_ids = self.position_ids
 
-        batch["input_ids"] = PackedTensor.from_torch_tensor(
-            tensor=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, batch_size=batch_size
-        )
-
+        batch["input_ids"] = input_ids
+        batch["cu_seqlens"] = cu_seqlens
+        batch["max_seqlen"] = max_seqlen
         batch["position_ids"] = position_ids
 
         if ProcessGroupManager.is_tensor_parallel_enabled():
