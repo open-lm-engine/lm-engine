@@ -88,8 +88,10 @@ class BaseModelMixin(PreTrainedModelMixin):
     def forward(
         self,
         input_ids: torch.Tensor | None = None,
-        past_key_values: GenerationCache | None = None,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
         attention_mask: torch.Tensor | None = None,
+        past_key_values: GenerationCache | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
     ) -> BaseModelOutputWithPast:

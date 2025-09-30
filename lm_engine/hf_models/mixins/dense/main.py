@@ -64,6 +64,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         labels: torch.Tensor | None = None,
         use_cache: bool | None = None,
         return_dict: bool = True,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
         reduction: str = "mean",
     ) -> CausalLMOutputWithPast:
         assert return_dict
@@ -78,8 +80,10 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids,
-            past_key_values=past_key_values,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
             attention_mask=attention_mask,
+            past_key_values=past_key_values,
             position_ids=position_ids,
             use_cache=use_cache,
         )
