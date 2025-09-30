@@ -80,8 +80,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         clear_aux_loss()
 
-        attention_mask_info = AttentionMaskInfo(
-            cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
+        attention_mask_info = self._get_attention_mask_info(
+            x=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
         )
 
         if is_generation_cache_enabled():
@@ -260,3 +260,19 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             )
 
         return generated_tokens
+
+    def _get_attention_mask_info(
+        self,
+        x: torch.Tensor,
+        cu_seqlens: torch.Tensor | None,
+        max_seqlen: torch.Tensor,
+        attention_mask: torch.Tensor | None,
+    ) -> AttentionMaskInfo:
+        if cu_seqlens is None:
+            attention_mask_info = AttentionMaskInfo(
+                batch_size=x.size(0), max_seqlen=x.size(1), attention_mask=attention_mask
+            )
+        else:
+            attention_mask_info = AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
+
+        return attention_mask_info
