@@ -14,9 +14,10 @@ from fma import pack_sequence, unpack_sequence
 class PackedTensor:
     tensor: torch.Tensor
     assume_ragged: bool
-    cu_seqlens: torch.Tensor | None = None
-    max_seqlen: int | None = None
     batch_size: int | None = None
+
+    _cu_seqlens: torch.Tensor | None = None
+    _max_seqlen: int | None = None
 
     @staticmethod
     def from_torch_tensor(
@@ -60,7 +61,7 @@ class PackedTensor:
 
     def to_torch_tensor(self, output_shape: tuple[int]) -> torch.Tensor:
         if self.assume_ragged:
-            tensor = unpack_sequence(inputs=self.tensor, cu_seqlens=self.cu_seqlens, output_shape=output_shape)
+            tensor = unpack_sequence(inputs=self.tensor, cu_seqlens=self._cu_seqlens, output_shape=output_shape)
         else:
             tensor = self.tensor
 
@@ -77,8 +78,8 @@ class PackedTensor:
         return PackedTensor(
             tensor=tensor,
             assume_ragged=self.assume_ragged,
-            cu_seqlens=self.cu_seqlens,
-            max_seqlen=self.max_seqlen,
+            cu_seqlens=self._cu_seqlens,
+            max_seqlen=self._max_seqlen,
             batch_size=self.batch_size,
         )
 
@@ -89,7 +90,7 @@ class PackedTensor:
             assert cu_seqlens is None
 
             tensor = self.tensor
-            cu_seqlens = self.cu_seqlens
+            cu_seqlens = self._cu_seqlens
         else:
             assert cu_seqlens is not None
 
@@ -104,15 +105,15 @@ class PackedTensor:
         if return_none_allowed and not self.assume_ragged:
             return None
 
-        return self.max_seqlen
+        return self._max_seqlen
 
     def get_cu_seqlens(self, return_none_allowed: bool = True) -> torch.Tensor:
         if return_none_allowed and not self.assume_ragged:
             return None
 
-        if self.cu_seqlens is None:
-            self.cu_seqlens = torch.arange(
-                0, self.batch_size * self.max_seqlen + 1, self.max_seqlen, device=self.tensor.device
+        if self._cu_seqlens is None:
+            self._cu_seqlens = torch.arange(
+                0, self.batch_size * self._max_seqlen + 1, self._max_seqlen, device=self.tensor.device
             )
 
-        return self.cu_seqlens
+        return self._cu_seqlens
