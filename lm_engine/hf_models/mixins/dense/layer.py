@@ -9,6 +9,7 @@ import torch.nn as nn
 
 from ...cache import GenerationCache
 from ...config import CommonConfig
+from ...mask import AttentionMaskInfo
 from ...modeling_utils import get_mlp_block, get_normalization_function, get_sequence_mixer
 
 
@@ -91,7 +92,9 @@ class Block(nn.Module):
             )
         elif self.sequence_mixer_type in ["gru", "rnn"]:
             hidden_states = self.sequence_mixer(
-                x=hidden_states, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, cache_params=past_key_values
+                x=hidden_states,
+                attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
+                cache_params=past_key_values,
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")

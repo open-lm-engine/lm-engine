@@ -14,6 +14,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_fma_available
 from ...cache import GenerationCache
+from ...mask import AttentionMaskInfo
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
@@ -76,11 +77,7 @@ class GRU(nn.Module):
         mark_parameter_as_no_weight_decay(self.state_weight)
 
     def forward(
-        self,
-        x: torch.Tensor,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
-        cache_params: GenerationCache | None = None,
+        self, x: torch.Tensor, attention_mask_info: AttentionMaskInfo, cache_params: GenerationCache | None = None
     ) -> torch.Tensor:
         x = self.input_projection(x)
         x, g = x.split((3 * self.state_size, self.state_size), dim=-1)
@@ -97,6 +94,8 @@ class GRU(nn.Module):
 
         weight, forget_weight, reset_weight = weight.chunk(3, dim=0)
 
+        cu_seqlens = attention_mask_info.get_cu_seqlens()
+
         x = gru(
             input=x,
             weight=weight,
@@ -107,7 +106,7 @@ class GRU(nn.Module):
             input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
+            max_seqlen=attention_mask_info.get_max_seqlen(),
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 

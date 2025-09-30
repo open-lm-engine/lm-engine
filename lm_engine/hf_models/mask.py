@@ -9,9 +9,9 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 
-from ...enums import Kernel
-from ...kernels import is_kernel_allowed
-from ...utils import is_fma_available
+from ..enums import Kernel
+from ..kernels import is_kernel_allowed
+from ..utils import is_fma_available
 
 
 if is_fma_available():
