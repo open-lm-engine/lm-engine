@@ -168,6 +168,39 @@ class PackedTensor(torch.Tensor):
     @classmethod
     def __torch_dispatch__(cls, func, types, args=(), kwargs=None):
         if cls._is_safe:
-            return super().__torch_dispatch__(func, types, args, kwargs)
+            output = super().__torch_dispatch__(func, types, args, kwargs)
+
+            if isinstance(output, PackedTensor):
+                return output
+            else:
+                arg_packed = None
+
+                for arg in args:
+                    if isinstance(arg, PackedTensor):
+                        arg_packed = arg
+                        break
+
+                if arg_packed is None:
+                    for arg in kwargs.values():
+                        if isinstance(arg, PackedTensor):
+                            arg_packed = arg
+                            break
+
+                if isinstance(output, torch.Tensor):
+                    return arg_packed.with_new_data(output)
+                elif isinstance(output, (tuple, list)):
+                    output_packed = []
+                    for i in output:
+                        if isinstance(i, PackedTensor):
+                            output_packed.append(i)
+                        elif isinstance(i, torch.Tensor):
+                            i = arg_packed.with_new_data(i)
+                            output_packed.append(i)
+                        else:
+                            output_packed.append(i)
+
+                    return output_packed
+                else:
+                    raise ValueError("unexpected output type")
 
         raise NotImplementedError("unpack the tensor to run ops on it")
