@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from .....enums import Kernel
 from .....kernels import is_kernel_allowed
 from .....utils import divide_if_divisible
+from ....mask import AttentionMaskInfo
 from ....modeling_utils import ParameterizedLinear, apply_rotary_pos_emb, flash_attention, get_normalization_function
 
 
@@ -77,12 +78,10 @@ class CrossLayerAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
         key: torch.Tensor,
         value: torch.Tensor,
-        attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
             query = self.q_attn(hidden_states)
@@ -96,9 +95,7 @@ class CrossLayerAttention(nn.Module):
                     q=query,
                     k=key,
                     v=value,
-                    attention_mask=attention_mask,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
+                    attention_mask_info=attention_mask_info,
                     causal=self.causal,
                     dropout=self.softmax_dropout_p if self.training else 0,
                     softmax_scale=self.attention_multiplier,
@@ -114,9 +111,7 @@ class CrossLayerAttention(nn.Module):
                     q=query,
                     k=key,
                     v=value,
-                    attention_mask=attention_mask,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
+                    attention_mask_info=attention_mask_info,
                     causal=self.causal,
                     dropout=self.softmax_dropout_p if self.training else 0,
                     softmax_scale=self.attention_multiplier,
@@ -127,6 +122,8 @@ class CrossLayerAttention(nn.Module):
 
             if self.position_embedding_type == "rope":
                 query = apply_rotary_pos_emb(query, rope_cos_sin)
+
+            attention_mask = attention_mask_info.get_attention_mask()
 
             hidden_states = F.scaled_dot_product_attention(
                 query,

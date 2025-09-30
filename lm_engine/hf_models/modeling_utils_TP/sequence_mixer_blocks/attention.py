@@ -14,6 +14,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
+from ...mask import AttentionMaskInfo
 from ...modeling_utils import Attention, apply_rotary_pos_emb, flash_attention
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
 from ..dropout import Dropout_TP
@@ -127,11 +128,9 @@ class Attention_TP(Attention):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
         past_key_values: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
@@ -192,9 +191,7 @@ class Attention_TP(Attention):
                 q=query,
                 k=key,
                 v=value,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-                attention_mask=attention_mask,
+                attention_mask_info=attention_mask_info,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,
@@ -205,6 +202,8 @@ class Attention_TP(Attention):
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
             hidden_states = hidden_states.view(*output_shape)
         else:
+            attention_mask = attention_mask_info.get_attention_mask()
+
             hidden_states = F.scaled_dot_product_attention(
                 query,
                 key,
