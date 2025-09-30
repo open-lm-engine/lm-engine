@@ -31,7 +31,6 @@ class CrossLayerAttention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> CrossLayerAttention:
         super().__init__()
 
@@ -41,7 +40,6 @@ class CrossLayerAttention(nn.Module):
         self.num_heads = num_attention_heads
         self.num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
 
         assert (
             self.hidden_size % self.num_heads == 0
@@ -87,12 +85,10 @@ class CrossLayerAttention(nn.Module):
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
         if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
+            query = self.q_attn(hidden_states)
+            query = query.view(*hidden_states.size()[:-1], self.num_heads, -1)
+
             if self.use_padding_free_transformer:
-                total_q = hidden_states.shape[0]
-
-                query = self.q_attn(hidden_states)
-                query = query.view(total_q, self.num_heads, -1)
-
                 if self.position_embedding_type == "rope":
                     query = apply_rotary_pos_emb(query, rope_cos_sin)
 
@@ -107,16 +103,7 @@ class CrossLayerAttention(nn.Module):
                     dropout=self.softmax_dropout_p if self.training else 0,
                     softmax_scale=self.attention_multiplier,
                 )
-
-                del query, key, value
-
-                hidden_states = hidden_states.view(-1, self.hidden_size)
             else:
-                batch_size, query_length = hidden_states.shape[:2]
-
-                query = self.q_attn(hidden_states)
-                query = query.view(batch_size, query_length, self.num_heads, -1)
-
                 if self.position_embedding_type == "rope":
                     # TODO avoid this extra transpose
                     query = query.transpose(1, 2)
@@ -134,15 +121,8 @@ class CrossLayerAttention(nn.Module):
                     dropout=self.softmax_dropout_p if self.training else 0,
                     softmax_scale=self.attention_multiplier,
                 )
-
-                del query, key, value
-
-                hidden_states = hidden_states.view(batch_size, query_length, -1)
         else:
-            batch_size, query_length = hidden_states.shape[:2]
-
-            query = self.q_attn(hidden_states)
-            query = query.view(batch_size, query_length, self.num_heads, -1)
+            query = query.view(*query.size()[:-1], self.num_heads, -1)
             query = query.transpose(1, 2)
 
             if self.position_embedding_type == "rope":
@@ -162,8 +142,8 @@ class CrossLayerAttention(nn.Module):
             del query, key, value
 
             hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = hidden_states.reshape(batch_size, -1, self.num_heads * self.head_dim)
 
+        hidden_states = hidden_states.flatten(-2, -1)
         hidden_states = self.c_proj(hidden_states)
         hidden_states = self.dropout(hidden_states)
 
