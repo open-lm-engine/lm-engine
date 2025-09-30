@@ -47,6 +47,8 @@ class Block(nn.Module):
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             rope_cos_sin=rope_cos_sin,
+            cu_seqlens=hidden_states.get_cu_seqlens(),
+            max_seqlen=hidden_states.get_max_seqlen(),
         )
 
         if self.m_residual is not None:
@@ -68,7 +70,7 @@ class Block(nn.Module):
 
     def _sequence_mixer_forward(
         self,
-        hidden_states: PackedTensor,
+        hidden_states: torch.Tensor,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
@@ -89,13 +91,8 @@ class Block(nn.Module):
                 hidden_states, cache_params=past_key_values, attention_mask=attention_mask
             )
         elif self.sequence_mixer_type in ["gru", "rnn"]:
-            hidden_states = hidden_states.with_new_data(
-                self.sequence_mixer(
-                    x=hidden_states.tensor,
-                    cu_seqlens=hidden_states.get_cu_seqlens(),
-                    max_seqlen=hidden_states.get_max_seqlen(),
-                    cache_params=past_key_values,
-                )
+            hidden_states = self.sequence_mixer(
+                x=hidden_states.tensor, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, cache_params=past_key_values
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")
