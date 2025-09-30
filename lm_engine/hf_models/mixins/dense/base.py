@@ -36,9 +36,7 @@ class PreTrainedModelMixin(PreTrainedModel):
         assert self.config_class is not None
         self.generation_config = GenerationConfig.from_model_config(self.config)
 
-        self.use_padding_free_transformer = kwargs.get("use_padding_free_transformer", False)
         self._tied_word_embeddings = config.tie_word_embeddings
-
         self._has_mamba2 = any([block.sequence_mixer_type == "mamba2" for block in self.config.sequence_mixer_blocks])
 
     def _init_weights(self, module: nn.Module) -> None:
@@ -66,12 +64,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         self.embedding_dropout = (
             nn.Identity() if config.embedding_dropout == 0 else nn.Dropout(config.embedding_dropout)
         )
-        self.h = nn.ModuleList(
-            [
-                self.layer_class(config, use_padding_free_transformer=self.use_padding_free_transformer, layer_idx=i)
-                for i in range(config.num_layers)
-            ]
-        )
+        self.h = nn.ModuleList([self.layer_class(config, layer_idx=i) for i in range(config.num_layers)])
         self.ln_f = get_normalization_function(
             config.normalization_function, self.embed_dim, eps=config.layer_norm_epsilon
         )
@@ -186,20 +179,15 @@ class BaseModelMixin(PreTrainedModelMixin):
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
     ) -> tuple[bool, torch.Tensor, torch.Tensor, torch.Tensor | None, GenerationCache | None]:
-        if use_cache is None:
-            use_cache = False if self.use_padding_free_transformer else self.config.use_cache
-
         if cu_seqlens is None:
             assert input_ids.dim() == 2
             input_ids.size(0)
         else:
             cu_seqlens.size(0) - 1
 
-        if self.use_padding_free_transformer:
-            assert position_ids is not None, (
-                "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] "
-                "inputs"
-            )
+        assert position_ids is not None, (
+            "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] " "inputs"
+        )
 
         past_length = None
         query_length = None
