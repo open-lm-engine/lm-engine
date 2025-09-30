@@ -33,11 +33,9 @@ class Block(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
         past_key_values: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
@@ -45,10 +43,8 @@ class Block(nn.Module):
         hidden_states = self._sequence_mixer_forward(
             hidden_states=hidden_states,
             past_key_values=past_key_values,
-            attention_mask=attention_mask,
+            attention_mask_info=attention_mask_info,
             rope_cos_sin=rope_cos_sin,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         if self.m_residual is not None:
@@ -71,11 +67,9 @@ class Block(nn.Module):
     def _sequence_mixer_forward(
         self,
         hidden_states: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
         past_key_values: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
             hidden_states = self.sequence_mixer(
@@ -92,9 +86,7 @@ class Block(nn.Module):
             )
         elif self.sequence_mixer_type in ["gru", "rnn"]:
             hidden_states = self.sequence_mixer(
-                x=hidden_states,
-                attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
-                cache_params=past_key_values,
+                x=hidden_states, attention_mask_info=attention_mask_info, cache_params=past_key_values
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")

@@ -8,10 +8,9 @@ import torch
 import torch.nn as nn
 from transformers import GenerationConfig, PreTrainedModel
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
+from ...mask import AttentionMaskInfo
 from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
 from ...utils import is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
@@ -98,7 +97,6 @@ class BaseModelMixin(PreTrainedModelMixin):
         (
             use_cache,
             hidden_states,
-            causal_mask,
             position_ids,
             rope_cos_sin,
             past_key_values,
@@ -117,20 +115,22 @@ class BaseModelMixin(PreTrainedModelMixin):
                 GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
             )
 
-        mamba_mask = None
         mamba_mask_computed = False
 
         for sequence_mixer_type, block in zip(self.sequence_mixer_block_types, self.h):
             is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
 
             if is_linear_layer and not mamba_mask_computed:
-                mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)
+                self._get_mamba_mask(attention_mask, past_key_values)
                 mamba_mask_computed = True
 
             hidden_states: torch.Tensor = block(
                 hidden_states,
+                attention_mask_info=AttentionMaskInfo(
+                    cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
+                ),
                 past_key_values=past_key_values,
-                attention_mask=mamba_mask if is_linear_layer else causal_mask,
+                # attention_mask=mamba_mask if is_linear_layer else causal_mask,
                 rope_cos_sin=rope_cos_sin,
             )
 
@@ -162,47 +162,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             sin = sin[position_ids].unsqueeze(1)
             return cos, sin
 
-    def _prepare_causal_attention_mask(
-        self,
-        attention_mask: torch.Tensor | None,
-        batch_size: int,
-        query_length: int,
-        key_length: int,
-        device: torch.device,
-    ) -> torch.Tensor:
-        past_length = key_length - query_length
-
-        if query_length > 1:
-            # (query_length, key_length)
-            causal_mask = torch.empty((query_length, key_length), dtype=torch.bool, device=device)
-            causal_mask[:, past_length:] = torch.tril(
-                torch.ones(query_length, query_length, dtype=torch.bool, device=device)
-            )
-
-            if past_length > 0:
-                causal_mask[:, :past_length] = True
-
-            # (query_length, key_length) -> (1, query_length, key_length)
-            causal_mask = causal_mask.unsqueeze(0)
-
-            if attention_mask is None:
-                # (1, query_length, key_length) -> (batch_size, query_length, key_length)
-                causal_mask = causal_mask.expand(batch_size, -1, -1)
-            else:
-                # (1, query_length, key_length) & (batch_size, 1, key_length) -> (batch_size, query_length, key_length)
-                causal_mask = causal_mask & attention_mask.unsqueeze(1).to(torch.bool)
-        else:
-            if attention_mask is None:
-                # (batch_size, query_length, key_length)
-                causal_mask = torch.ones(batch_size, query_length, key_length, dtype=torch.bool, device=device)
-            else:
-                # (batch_size, query_length, key_length)
-                causal_mask = attention_mask.unsqueeze(1).to(dtype=torch.bool, device=device)
-
-        causal_mask = causal_mask.unsqueeze(1)
-
-        return causal_mask
-
     def _get_initial_hidden_state(self, input_ids: torch.Tensor, position_ids: torch.Tensor | None) -> torch.Tensor:
         hidden_state = self.wte(input_ids)
 
@@ -231,9 +190,9 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         if cu_seqlens is None:
             assert input_ids.dim() == 2
-            B = input_ids.size(0)
+            input_ids.size(0)
         else:
-            B = cu_seqlens.size(0) - 1
+            cu_seqlens.size(0) - 1
 
         if self.use_padding_free_transformer:
             assert position_ids is not None, (
@@ -253,14 +212,9 @@ class BaseModelMixin(PreTrainedModelMixin):
         hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
         rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
-        attention_mask = self._get_maybe_causal_mask(
-            attention_mask, B, query_length, key_length, hidden_states.dtype, hidden_states.device
-        )
-
         return (
             use_cache,
             hidden_states,
-            attention_mask,
             position_ids,
             rope_cos_sin,
             past_key_values,
@@ -290,42 +244,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             pass
         else:
             raise NotImplementedError()
-
-    def _get_mask_value(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
-        # torch.where expects a tensor. We use a cache to avoid recreating it every time.
-        if self.mask_value is None or self.mask_value.dtype != dtype or self.mask_value.device != device:
-            self.mask_value = torch.full([], torch.finfo(dtype).min, dtype=dtype, device=device)
-        return self.mask_value
-
-    def _get_maybe_causal_mask(
-        self,
-        attention_mask: torch.Tensor | None,
-        batch_size: int,
-        query_length: int,
-        key_length: int,
-        dtype: torch.dtype,
-        device: torch.device,
-    ) -> torch.Tensor:
-        if not (is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3)):
-            # we use the causal/non-causal argument of SDPA for attention in this case
-            if attention_mask is not None:
-                attention_mask = self._prepare_causal_attention_mask(
-                    attention_mask, batch_size, query_length, key_length, device
-                )
-
-                attention_mask = torch.where(
-                    attention_mask,
-                    ~attention_mask,
-                    self._get_mask_value(attention_mask.device, dtype),
-                )
-
-                # this is needed to prevent NaN since SDPA
-                # see issue: https://github.com/pytorch/pytorch/issues/110213
-                attention_mask = attention_mask * ~torch.all(
-                    attention_mask == self._get_mask_value(attention_mask.device, dtype), dim=-1, keepdim=True
-                )
-
-        return attention_mask
 
     def _get_mamba_mask(
         self, attention_mask: torch.Tensor | None, past_key_values: GenerationCache
