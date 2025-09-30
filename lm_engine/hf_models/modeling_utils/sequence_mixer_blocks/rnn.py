@@ -82,7 +82,7 @@ class RNN(nn.Module):
         x: torch.Tensor = x.tensor
 
         x = self.input_projection(x)
-        x, g = x.tensor.chunk(2, dim=-1)
+        x, g = x.chunk(2, dim=-1)
         x = x.view(*x.size()[:-1], self.num_heads, self.state_head_dim)
 
         if self.scaling_factor != 1:
