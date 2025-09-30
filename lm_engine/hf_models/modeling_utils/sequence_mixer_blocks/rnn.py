@@ -77,8 +77,8 @@ class RNN(nn.Module):
         mark_parameter_as_no_weight_decay(self.state_weight)
 
     def forward(self, x: PackedTensor, cache_params: GenerationCache | None = None) -> PackedTensor:
-        cu_seqlens = x.cu_seqlens
-        max_seqlen = x.max_seqlen
+        cu_seqlens = x.get_cu_seqlens()
+        max_seqlen = x.get_max_seqlen()
         x: torch.Tensor = x.tensor
 
         x = self.input_projection(x)
