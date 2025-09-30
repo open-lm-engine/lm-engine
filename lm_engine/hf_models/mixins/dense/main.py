@@ -15,6 +15,7 @@ from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
 from ...mask import AttentionMaskInfo
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
+from ...utils import is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
@@ -83,12 +84,16 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
         )
 
+        if is_generation_cache_enabled():
+            past_key_values = (
+                GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
+            )
+
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids=input_ids,
             attention_mask_info=attention_mask_info,
             past_key_values=past_key_values,
             position_ids=position_ids,
-            use_cache=use_cache,
         )
 
         hidden_states = transformer_outputs.last_hidden_state

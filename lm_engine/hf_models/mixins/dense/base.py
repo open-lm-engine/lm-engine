@@ -12,7 +12,6 @@ from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...mask import AttentionMaskInfo
 from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
-from ...utils import is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
 
@@ -83,19 +82,11 @@ class BaseModelMixin(PreTrainedModelMixin):
         attention_mask_info: AttentionMaskInfo,
         past_key_values: GenerationCache | None = None,
         position_ids: torch.Tensor | None = None,
-        use_cache: bool | None = None,
     ) -> BaseModelOutputWithPast:
-        use_cache, hidden_states, position_ids, rope_cos_sin = self._prepare_a_bunch_of_stuff(
-            input_ids=input_ids,
-            max_seqlen=attention_mask_info.get_max_seqlen(),
-            position_ids=position_ids,
-            use_cache=use_cache,
+        hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
+        rope_cos_sin = self._get_rope_cos_sin(
+            attention_mask_info.get_max_seqlen(), position_ids, dtype=hidden_states.dtype
         )
-
-        if is_generation_cache_enabled():
-            past_key_values = (
-                GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
-            )
 
         for block in self.h:
             hidden_states: torch.Tensor = block(
@@ -145,24 +136,6 @@ class BaseModelMixin(PreTrainedModelMixin):
             hidden_state = hidden_state * self.m_emb
 
         return hidden_state
-
-    def _prepare_a_bunch_of_stuff(
-        self,
-        input_ids: torch.Tensor | None = None,
-        max_seqlen: torch.Tensor | None = None,
-        position_ids: torch.Tensor | None = None,
-        use_cache: bool | None = None,
-    ) -> tuple[bool, torch.Tensor, torch.Tensor, torch.Tensor | None]:
-        assert position_ids is not None, (
-            "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] " "inputs"
-        )
-
-        key_length = max_seqlen
-
-        hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
-        rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
-
-        return use_cache, hidden_states, position_ids, rope_cos_sin
 
     def _setup_positional_encoding(self) -> None:
         max_position_embeddings = self.config.max_position_embeddings
