@@ -12,7 +12,6 @@ from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..hf_models import (
     CausalLMOutputWithPast,
-    PackedTensor,
     PipelineParallelInput,
     PipelineParallelOutput,
     get_autoregressive_language_modeling_loss,

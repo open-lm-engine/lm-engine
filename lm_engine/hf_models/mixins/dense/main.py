@@ -14,7 +14,6 @@ from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
-from ...tensor import PackedTensor
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
@@ -57,7 +56,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
     def forward(
         self,
-        input_ids: PackedTensor | torch.Tensor | None = None,
+        input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,

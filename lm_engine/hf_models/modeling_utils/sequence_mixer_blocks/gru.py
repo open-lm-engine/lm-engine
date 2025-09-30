@@ -15,7 +15,6 @@ from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_fma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
-from ...tensor import PackedTensor
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 
@@ -76,7 +75,7 @@ class GRU(nn.Module):
 
         mark_parameter_as_no_weight_decay(self.state_weight)
 
-    def forward(self, x: PackedTensor, cache_params: GenerationCache | None = None) -> PackedTensor:
+    def forward(self, x: torch.Tensor, cache_params: GenerationCache | None = None) -> torch.Tensor:
         state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
         T = x.get_num_tokens()
 
