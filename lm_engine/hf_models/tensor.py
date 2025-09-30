@@ -13,9 +13,9 @@ from fma import pack_sequence, unpack_sequence
 @dataclass
 class PackedTensor:
     tensor: torch.Tensor
-    assume_ragged: bool
     batch_size: int | None = None
 
+    _assume_ragged: bool
     _cu_seqlens: torch.Tensor | None = None
     _max_seqlen: int | None = None
 
@@ -51,16 +51,16 @@ class PackedTensor:
 
         packed_tensor = PackedTensor(
             tensor=packed_tensor,
-            assume_ragged=assume_ragged,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
             batch_size=batch_size,
+            _assume_ragged=assume_ragged,
+            _cu_seqlens=cu_seqlens,
+            _max_seqlen=max_seqlen,
         )
 
         return packed_tensor
 
     def to_torch_tensor(self, output_shape: tuple[int]) -> torch.Tensor:
-        if self.assume_ragged:
+        if self._assume_ragged:
             tensor = unpack_sequence(inputs=self.tensor, cu_seqlens=self._cu_seqlens, output_shape=output_shape)
         else:
             tensor = self.tensor
@@ -69,7 +69,7 @@ class PackedTensor:
 
     def get_num_tokens(self) -> int:
         T = self.tensor.size(0)
-        if not self.assume_ragged:
+        if not self._assume_ragged:
             T *= self.tensor.size(1)
 
         return T
@@ -77,10 +77,10 @@ class PackedTensor:
     def with_new_data(self, tensor: torch.Tensor) -> PackedTensor:
         return PackedTensor(
             tensor=tensor,
-            assume_ragged=self.assume_ragged,
-            cu_seqlens=self._cu_seqlens,
-            max_seqlen=self._max_seqlen,
             batch_size=self.batch_size,
+            _assume_ragged=self._assume_ragged,
+            _cu_seqlens=self._cu_seqlens,
+            _max_seqlen=self._max_seqlen,
         )
 
     def get_last_element_along_sequence(
@@ -94,7 +94,7 @@ class PackedTensor:
         else:
             assert cu_seqlens is not None
 
-        if self.assume_ragged:
+        if self._assume_ragged:
             tensor = tensor[cu_seqlens[1:] - 1]
         else:
             tensor = tensor[:, -1]
@@ -102,13 +102,13 @@ class PackedTensor:
         return tensor
 
     def get_max_seqlen(self, return_none_allowed: bool = True) -> int:
-        if return_none_allowed and not self.assume_ragged:
+        if return_none_allowed and not self._assume_ragged:
             return None
 
         return self._max_seqlen
 
     def get_cu_seqlens(self, return_none_allowed: bool = True) -> torch.Tensor:
-        if return_none_allowed and not self.assume_ragged:
+        if return_none_allowed and not self._assume_ragged:
             return None
 
         if self._cu_seqlens is None:
