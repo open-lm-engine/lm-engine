@@ -124,14 +124,14 @@ class BaseModelMixin(PreTrainedModelMixin):
                 mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)
                 mamba_mask_computed = True
 
-            hidden_states = block(
+            hidden_states: PackedTensor = block(
                 hidden_states,
                 past_key_values=past_key_values,
                 attention_mask=mamba_mask if is_linear_layer else causal_mask,
                 rope_cos_sin=rope_cos_sin,
             )
 
-        hidden_states = self.ln_f(hidden_states)
+        hidden_states.tensor = self.ln_f(hidden_states.tensor)
 
         return BaseModelOutputWithPast(last_hidden_state=hidden_states, past_key_values=past_key_values)
 

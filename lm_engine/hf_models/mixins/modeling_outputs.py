@@ -7,10 +7,12 @@ from dataclasses import dataclass
 import torch
 from transformers.modeling_outputs import ModelOutput
 
+from ..tensor import PackedTensor
+
 
 @dataclass
 class BaseModelOutputWithPast(ModelOutput):
-    last_hidden_state: torch.Tensor | None = None
+    last_hidden_state: PackedTensor | None = None
     past_key_values: tuple[tuple[torch.Tensor]] | None = None
 
 

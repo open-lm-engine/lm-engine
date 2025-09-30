@@ -95,26 +95,26 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         if labels is None:
             if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
                 if self.m_width is not None:
-                    hidden_states = hidden_states / self.m_width
+                    hidden_states.tensor = hidden_states.tensor / self.m_width
             else:
-                lm_logits = self.get_lm_logits(hidden_states)
+                lm_logits = hidden_states.with_new_data(self.get_lm_logits(hidden_states.tensor))
 
                 if self.m_width is not None:
-                    lm_logits = lm_logits / self.m_width
+                    lm_logits.tensor = lm_logits.tensor / self.m_width
         else:
             assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
-            lm_logits = self.get_lm_logits(hidden_states)
+            lm_logits = hidden_states.with_new_data(self.get_lm_logits(hidden_states.tensor))
 
             if self.m_width is not None:
-                lm_logits = lm_logits / self.m_width
+                lm_logits.tensor = lm_logits.tensor / self.m_width
 
             loss = get_autoregressive_language_modeling_loss(
                 lm_logits=lm_logits,
                 labels=labels,
                 hidden_states=None,
                 vocab_weight=None,
-                cu_seqlens=cu_seqlens,
+                cu_seqlens=lm_logits.get_cu_seqlens(),
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 reduction=reduction,
                 shift_logits_and_labels=True,
