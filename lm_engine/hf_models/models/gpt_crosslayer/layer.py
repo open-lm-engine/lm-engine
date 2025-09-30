@@ -12,7 +12,7 @@ from ...cache import GenerationCache
 from ...mask import AttentionMaskInfo
 from ...modeling_utils import apply_rotary_pos_emb, get_mlp_block, get_normalization_function
 from .config import GPTCrossLayerConfig
-from .sequence_mixers import KeyValueProjection, get_sequence_mixer
+from .sequence_mixer import KeyValueProjection, get_sequence_mixer
 
 
 class GPTCrossLayerBlock(nn.Module):
