@@ -51,6 +51,9 @@ def unpack_sequence(
     return inputs
 
 
+_ERROR_MESSAGE = "code is not supposed to reach here"
+
+
 # NOTE using dataclass here since pydantic doesn't work with torch.compile
 @dataclass
 class AttentionMaskInfo:
@@ -69,7 +72,7 @@ class AttentionMaskInfo:
         elif self.attention_mask is not None:
             self.batch_size = self.attention_mask.size(0)
         else:
-            raise NotImplementedError("code is not supposed to reach here")
+            raise NotImplementedError(_ERROR_MESSAGE)
 
         return self.batch_size
 
@@ -139,7 +142,7 @@ class AttentionMaskInfo:
             elif Q == 1:
                 causal_mask = attention_mask[:, None, ...].to(dtype=torch.bool, device=device)
             else:
-                raise NotImplementedError("code is not expected to reach here")
+                raise NotImplementedError(_ERROR_MESSAGE)
 
             causal_mask = causal_mask[:, None, ...]
             causal_mask = torch.where(causal_mask, ~causal_mask, AttentionMaskInfo._get_mask_value(device, dtype))
