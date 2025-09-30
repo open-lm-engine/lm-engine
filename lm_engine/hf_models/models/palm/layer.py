@@ -13,9 +13,7 @@ from .config import PaLMConfig
 
 
 class PaLMBlock(nn.Module):
-    def __init__(
-        self, config: PaLMConfig, use_padding_free_transformer: bool, layer_idx: int | None = None
-    ) -> PaLMBlock:
+    def __init__(self, config: PaLMConfig, layer_idx: int | None = None) -> PaLMBlock:
         super().__init__()
 
         self.m_residual = config.m_residual
@@ -23,7 +21,7 @@ class PaLMBlock(nn.Module):
         self.ln = get_normalization_function(
             config.normalization_function, config.hidden_size, eps=config.layer_norm_epsilon
         )
-        self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
+        self.sequence_mixer = get_sequence_mixer(config, True, layer_idx)
         self.mlp_block = get_mlp_block(config, layer_idx=layer_idx)
 
     def forward(
