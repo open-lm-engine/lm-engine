@@ -39,12 +39,8 @@ class Block(nn.Module):
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        PackedTensor.set_safe_mode(False)
-
-        residual = hidden_states
-
-        with hidden_states.safe_mode():
-            hidden_states = self.ln_1(hidden_states)
+        residual = hidden_states.tensor
+        hidden_states.tensor = self.ln_1(hidden_states.tensor)
 
         hidden_states = self._sequence_mixer_forward(
             hidden_states=hidden_states,
@@ -54,19 +50,19 @@ class Block(nn.Module):
         )
 
         if self.m_residual is not None:
-            hidden_states = hidden_states * self.m_residual
+            hidden_states.tensor = hidden_states.tensor * self.m_residual
 
-        hidden_states = hidden_states + residual
+        hidden_states.tensor = hidden_states.tensor + residual
 
-        residual = hidden_states
-        hidden_states = self.ln_2(hidden_states)
+        residual = hidden_states.tensor
+        hidden_states.tensor = self.ln_2(hidden_states.tensor)
 
-        hidden_states = self.mlp_block(hidden_states)
+        hidden_states.tensor = self.mlp_block(hidden_states.tensor)
 
         if self.m_residual is not None:
-            hidden_states = hidden_states * self.m_residual
+            hidden_states.tensor = hidden_states.tensor * self.m_residual
 
-        hidden_states = hidden_states + residual
+        hidden_states.tensor = hidden_states.tensor + residual
 
         return hidden_states
 
