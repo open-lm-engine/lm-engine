@@ -134,7 +134,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 rope_cos_sin=rope_cos_sin,
             )
 
-        hidden_states.tensor = self.ln_f(hidden_states.tensor)
+        hidden_states = self.ln_f(hidden_states)
 
         return BaseModelOutputWithPast(last_hidden_state=hidden_states, past_key_values=past_key_values)
 
@@ -250,14 +250,11 @@ class BaseModelMixin(PreTrainedModelMixin):
                 attention_mask, past_length, query_length, key_length, input_ids.device
             )
 
-        hidden_states = self._get_initial_hidden_state(input_ids.tensor, position_ids)
-        hidden_states = input_ids.with_new_data(hidden_states)
-        del input_ids
-
-        rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.tensor.dtype)
+        hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
+        rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
         attention_mask = self._get_maybe_causal_mask(
-            attention_mask, B, query_length, key_length, hidden_states.tensor.dtype, hidden_states.tensor.device
+            attention_mask, B, query_length, key_length, hidden_states.dtype, hidden_states.device
         )
 
         return (
