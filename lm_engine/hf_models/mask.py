@@ -67,9 +67,23 @@ class AttentionMaskInfo:
     def __post_init__(self) -> None:
         self._is_ragged = self.cu_seqlens is not None
 
-        if self.batch_size is None:
-            assert self.max_seqlen is None
-            assert self.cu_seqlens is not None or self.attention_mask is not None
+        if self.batch_size is not None:
+            assert self.max_seqlen is not None
+            assert self.cu_seqlens is None
+            assert self.attention_mask is None
+            assert self.device is None
+        elif self.cu_seqlens is not None:
+            assert self.batch_size is None
+            assert self.max_seqlen is not None
+            assert self.attention_mask is None
+            self.device = self.cu_seqlens.device
+        elif self.attention_mask is not None:
+            assert self.batch_size is None
+            assert self.cu_seqlens is None
+            assert self.max_seqlen is not None
+            self.device = self.attention_mask.device
+
+        assert self.device is not None
 
     def get_batch_size(self) -> int:
         if self.batch_size is None:
@@ -117,9 +131,7 @@ class AttentionMaskInfo:
 
         return self.max_seqlen
 
-    def get_attention_mask(
-        self, return_none_allowed: bool = True, device: torch.device | None = None
-    ) -> torch.Tensor | None:
+    def get_attention_mask(self, return_none_allowed: bool = True) -> torch.Tensor | None:
         if return_none_allowed:
             return self.attention_mask
 
@@ -130,9 +142,9 @@ class AttentionMaskInfo:
             assert max_seqlen is not None
 
             if cu_seqlens is None:
-                self.attention_mask = torch.ones(batch_size, max_seqlen, device=device, dtype=torch.int32)
+                self.attention_mask = torch.ones(batch_size, max_seqlen, device=self.device, dtype=torch.int32)
             else:
-                attention_mask_flat = torch.ones_like(cu_seqlens, device=device, dtype=torch.int32)
+                attention_mask_flat = torch.ones_like(cu_seqlens, device=self.device, dtype=torch.int32)
                 self.attention_mask = unpack_sequence(
                     inputs=attention_mask_flat, cu_seqlens=cu_seqlens, output_shape=(batch_size, max_seqlen)
                 )
@@ -148,11 +160,9 @@ class AttentionMaskInfo:
             _, Q, K = attention_mask.size()
             L = K - Q
 
-            device = attention_mask.device
-
             if Q > 1:
-                causal_mask = torch.empty((Q, K), dtype=torch.bool, device=device)
-                causal_mask[:, L:] = torch.tril(torch.ones(Q, K, dtype=torch.bool, device=device))
+                causal_mask = torch.empty((Q, K), dtype=torch.bool, device=self.device)
+                causal_mask[:, L:] = torch.tril(torch.ones(Q, K, dtype=torch.bool, device=self.device))
 
                 if L > 0:
                     causal_mask[:, :L] = True
@@ -160,17 +170,17 @@ class AttentionMaskInfo:
                 causal_mask = causal_mask[None, ...]
                 causal_mask = causal_mask & attention_mask[:, None, ...].to(torch.bool)
             elif Q == 1:
-                causal_mask = attention_mask[:, None, ...].to(dtype=torch.bool, device=device)
+                causal_mask = attention_mask[:, None, ...].to(dtype=torch.bool, device=self.device)
             else:
                 raise NotImplementedError(_ERROR_MESSAGE)
 
             causal_mask = causal_mask[:, None, ...]
-            causal_mask = torch.where(causal_mask, ~causal_mask, AttentionMaskInfo._get_mask_value(device, dtype))
+            causal_mask = torch.where(causal_mask, ~causal_mask, AttentionMaskInfo._get_mask_value(self.device, dtype))
 
             # this is needed to prevent NaN since SDPA
             # see issue: https://github.com/pytorch/pytorch/issues/110213
             causal_mask = causal_mask * ~torch.all(
-                causal_mask == AttentionMaskInfo._get_mask_value(device, dtype), dim=-1, keepdim=True
+                causal_mask == AttentionMaskInfo._get_mask_value(self.device, dtype), dim=-1, keepdim=True
             )
 
         return attention_mask
