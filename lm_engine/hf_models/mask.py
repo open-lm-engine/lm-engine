@@ -71,7 +71,6 @@ class AttentionMaskInfo:
             assert self.max_seqlen is not None
             assert self.cu_seqlens is None
             assert self.attention_mask is None
-            assert self.device is None
         elif self.cu_seqlens is not None:
             assert self.batch_size is None
             assert self.max_seqlen is not None
