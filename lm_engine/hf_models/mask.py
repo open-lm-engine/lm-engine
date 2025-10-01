@@ -61,39 +61,59 @@ class AttentionMaskInfo:
     cu_seqlens: torch.Tensor | None = None
     max_seqlen: int | None = None
     attention_mask: torch.Tensor | None = None
-    causal_mask: torch.Tensor | None = None
+    _causal_mask: torch.Tensor | None = None
+    device: torch.device | None = None
+
+    def __post_init__(self) -> None:
+        self._is_ragged = self.cu_seqlens is not None
+
+        if self.batch_size is None:
+            assert self.max_seqlen is None
+            assert self.cu_seqlens is not None or self.attention_mask is not None
 
     def get_batch_size(self) -> int:
-        if self.batch_size is not None:
-            return self.batch_size
-
-        if self.cu_seqlens is not None:
-            self.batch_size = self.cu_seqlens.size(0) - 1
-        elif self.attention_mask is not None:
-            self.batch_size = self.attention_mask.size(0)
-        else:
-            raise NotImplementedError(_ERROR_MESSAGE)
+        if self.batch_size is None:
+            if self._is_ragged:
+                self.batch_size = self.cu_seqlens.size(0) - 1
+            elif self.attention_mask is not None:
+                self.batch_size = self.attention_mask.size(0)
+            else:
+                raise NotImplementedError(_ERROR_MESSAGE)
 
         return self.batch_size
 
     def get_cu_seqlens(self, return_none_allowed: bool = True) -> torch.Tensor | None:
-        if return_none_allowed:
+        if self._is_ragged:
             return self.cu_seqlens
 
+        if return_none_allowed:
+            return None
+
         if self.cu_seqlens is None:
-            seqlens = self.attention_mask.sum(dim=-1, dtype=torch.int32)
-            self.cu_seqlens = F.pad(torch.cumsum(seqlens, dim=0, dtype=torch.int32), (1, 0))
-            self.max_seqlen = seqlens.max().item()
+            if self.attention_mask is None:
+                B = self.get_batch_size()
+                S = self.get_max_seqlen(False)
+
+                self.cu_seqlens = torch.arange(0, B * S, S, dtype=torch.int32, device=self.device)
+            else:
+                seqlens = self.attention_mask.sum(dim=-1, dtype=torch.int32)
+                self.cu_seqlens = F.pad(torch.cumsum(seqlens, dim=0, dtype=torch.int32), (1, 0))
+                self.max_seqlen = seqlens.max().item()
 
         return self.cu_seqlens
 
     def get_max_seqlen(self, return_none_allowed: bool = True) -> int | None:
-        if return_none_allowed:
+        if self._is_ragged:
             return self.max_seqlen
 
+        if return_none_allowed:
+            return None
+
+        # this will cache the max_seqlen
+        self.get_cu_seqlens(False)
+
         if self.max_seqlen is None:
-            # this will cache the max_seqlen
-            self.get_cu_seqlens(False)
+            raise NotImplementedError(_ERROR_MESSAGE)
 
         return self.max_seqlen
 
