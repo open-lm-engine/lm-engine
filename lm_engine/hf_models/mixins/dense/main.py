@@ -268,11 +268,16 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         max_seqlen: torch.Tensor,
         attention_mask: torch.Tensor | None,
     ) -> AttentionMaskInfo:
+        kwargs = {}
         if cu_seqlens is None:
-            attention_mask_info = AttentionMaskInfo(
-                batch_size=x.size(0), max_seqlen=x.size(1), attention_mask=attention_mask
-            )
+            if attention_mask is None:
+                kwargs["batch_size"] = x.size(0)
+                kwargs["max_seqlen"] = x.size(1)
+                kwargs["device"] = x.device
+            else:
+                kwargs["attention_mask"] = attention_mask
         else:
-            attention_mask_info = AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
+            kwargs["cu_seqlens"] = cu_seqlens
+            kwargs["max_seqlen"] = max_seqlen
 
-        return attention_mask_info
+        return AttentionMaskInfo(**kwargs)
