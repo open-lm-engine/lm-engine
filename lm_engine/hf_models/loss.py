@@ -26,7 +26,7 @@ def get_autoregressive_language_modeling_loss(
     hidden_states: torch.Tensor | None = None,
     vocab_weight: torch.Tensor | None = None,
     cu_seqlens: torch.Tensor | None = None,
-    use_padding_free_transformer: bool = False,
+    use_padding_free_transformer: bool = True,
     reduction: str = "mean",
     shift_logits_and_labels: bool = True,
     tensor_parallel_enabled: bool = False,

@@ -38,7 +38,6 @@ class MultiHeadLatentAttention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
         normalization_function: str,
         layer_norm_epsilon: float = 1e-5,
     ) -> MultiHeadLatentAttention:
@@ -49,7 +48,6 @@ class MultiHeadLatentAttention(nn.Module):
         self.num_heads = num_attention_heads
         self.head_dim = head_dim
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.query_compression_size = query_compression_size
         self.key_value_compression_size = key_value_compression_size
         self.position_embedding_type = position_embedding_type

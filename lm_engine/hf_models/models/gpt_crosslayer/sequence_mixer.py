@@ -88,37 +88,25 @@ class CrossLayerAttention(nn.Module):
             query = self.q_attn(hidden_states)
             query = query.view(*hidden_states.size()[:-1], self.num_heads, -1)
 
-            if self.use_padding_free_transformer:
-                if self.position_embedding_type == "rope":
+            if self.position_embedding_type == "rope":
+                if self.use_padding_free_transformer:
                     query = apply_rotary_pos_emb(query, rope_cos_sin)
-
-                hidden_states = flash_attention(
-                    q=query,
-                    k=key,
-                    v=value,
-                    attention_mask_info=attention_mask_info,
-                    causal=self.causal,
-                    dropout=self.softmax_dropout_p if self.training else 0,
-                    softmax_scale=self.attention_multiplier,
-                )
-            else:
-                if self.position_embedding_type == "rope":
+                else:
                     # TODO avoid this extra transpose
                     query = query.transpose(1, 2)
                     query = apply_rotary_pos_emb(query, rope_cos_sin)
                     query = query.transpose(1, 2)
 
-                hidden_states = flash_attention(
-                    q=query,
-                    k=key,
-                    v=value,
-                    attention_mask_info=attention_mask_info,
-                    causal=self.causal,
-                    dropout=self.softmax_dropout_p if self.training else 0,
-                    softmax_scale=self.attention_multiplier,
-                )
+            hidden_states = flash_attention(
+                q=query,
+                k=key,
+                v=value,
+                attention_mask_info=attention_mask_info,
+                causal=self.causal,
+                dropout=self.softmax_dropout_p if self.training else 0,
+                softmax_scale=self.attention_multiplier,
+            )
         else:
-            query = query.view(*query.size()[:-1], self.num_heads, -1)
             query = query.transpose(1, 2)
 
             if self.position_embedding_type == "rope":
