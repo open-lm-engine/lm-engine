@@ -14,6 +14,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import divide_if_divisible
 from ...cache import GenerationCache
+from ...mask import AttentionMaskInfo
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
@@ -80,7 +81,6 @@ class Attention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> Attention:
         super().__init__()
 
@@ -90,7 +90,6 @@ class Attention(nn.Module):
         self.num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
         self.qkv_bias = qkv_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.sliding_window = sliding_window
 
         self.head_dim = divide_if_divisible(
@@ -135,11 +134,10 @@ class Attention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
@@ -194,13 +192,10 @@ class Attention(nn.Module):
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
 
             hidden_states = flash_attention(
-                query=query,
-                key=key,
-                value=value,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-                attention_mask=attention_mask,
-                use_padding_free_transformer=self.use_padding_free_transformer,
+                q=query,
+                k=key,
+                v=value,
+                attention_mask_info=attention_mask_info,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,

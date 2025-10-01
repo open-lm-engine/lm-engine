@@ -13,7 +13,9 @@ from ....kernels import is_kernel_allowed
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
+from ...mask import AttentionMaskInfo
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
+from ...utils import is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
@@ -56,12 +58,12 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
     def forward(
         self,
-        input_ids: torch.Tensor | list[list[int]] | None = None,
+        input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        position_ids: torch.Tensor | list[list[int]] | None = None,
-        inputs_embeds: torch.Tensor | list[list[float]] | None = None,
-        labels: torch.Tensor | list[list[int]] | None = None,
+        position_ids: torch.Tensor | None = None,
+        inputs_embeds: torch.Tensor | None = None,
+        labels: torch.Tensor | None = None,
         use_cache: bool | None = None,
         return_dict: bool = True,
         cu_seqlens: torch.Tensor | None = None,
@@ -70,28 +72,28 @@ class CausalLMModelMixin(PreTrainedModelMixin):
     ) -> CausalLMOutputWithPast:
         assert return_dict
         assert inputs_embeds is None
+        assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+        assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
 
-        input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
-            input_ids=input_ids,
-            position_ids=position_ids,
-            labels=labels,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            use_cache=use_cache,
-        )
+        if use_cache or past_key_values is not None:
+            raise NotImplementedError("KV caching is not supported with padding_free transformer")
 
         clear_aux_loss()
 
+        attention_mask_info = self._get_attention_mask_info(
+            x=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
+        )
+
+        if is_generation_cache_enabled():
+            past_key_values = (
+                GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
+            )
+
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
-            input_ids,
+            input_ids=input_ids,
+            attention_mask_info=attention_mask_info,
             past_key_values=past_key_values,
-            attention_mask=attention_mask,
             position_ids=position_ids,
-            use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         hidden_states = transformer_outputs.last_hidden_state
@@ -124,7 +126,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 hidden_states=None,
                 vocab_weight=None,
                 cu_seqlens=cu_seqlens,
-                use_padding_free_transformer=self.use_padding_free_transformer,
+                use_padding_free_transformer=True,
                 reduction=reduction,
                 shift_logits_and_labels=True,
                 tensor_parallel_enabled=False,
@@ -258,3 +260,24 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             )
 
         return generated_tokens
+
+    def _get_attention_mask_info(
+        self,
+        x: torch.Tensor,
+        cu_seqlens: torch.Tensor | None,
+        max_seqlen: torch.Tensor,
+        attention_mask: torch.Tensor | None,
+    ) -> AttentionMaskInfo:
+        kwargs = {}
+        if cu_seqlens is None:
+            if attention_mask is None:
+                kwargs["batch_size"] = x.size(0)
+                kwargs["max_seqlen"] = x.size(1)
+                kwargs["device"] = x.device
+            else:
+                kwargs["attention_mask"] = attention_mask
+        else:
+            kwargs["cu_seqlens"] = cu_seqlens
+            kwargs["max_seqlen"] = max_seqlen
+
+        return AttentionMaskInfo(**kwargs)

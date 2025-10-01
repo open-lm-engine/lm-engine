@@ -38,7 +38,6 @@ class MultiHeadLatentAttention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
         normalization_function: str,
         layer_norm_epsilon: float = 1e-5,
     ) -> MultiHeadLatentAttention:
@@ -49,7 +48,6 @@ class MultiHeadLatentAttention(nn.Module):
         self.num_heads = num_attention_heads
         self.head_dim = head_dim
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.query_compression_size = query_compression_size
         self.key_value_compression_size = key_value_compression_size
         self.position_embedding_type = position_embedding_type
@@ -170,13 +168,12 @@ class MultiHeadLatentAttention(nn.Module):
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
 
             hidden_states = flash_attention(
-                query=query,
-                key=key,
-                value=value,
+                q=query,
+                k=key,
+                v=value,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 attention_mask=attention_mask,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,
