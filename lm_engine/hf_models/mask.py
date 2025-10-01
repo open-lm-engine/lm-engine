@@ -122,10 +122,9 @@ class AttentionMaskInfo:
         if return_none_allowed:
             return None
 
-        # this will cache the max_seqlen
-        self.get_cu_seqlens(False)
-
         if self.max_seqlen is None:
+            # this will cache the max_seqlen
+            self.get_cu_seqlens(False)
             raise NotImplementedError(_ERROR_MESSAGE)
 
         return self.max_seqlen

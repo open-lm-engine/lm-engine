@@ -85,7 +85,7 @@ class BaseModelMixin(PreTrainedModelMixin):
     ) -> BaseModelOutputWithPast:
         hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
         rope_cos_sin = self._get_rope_cos_sin(
-            attention_mask_info.get_max_seqlen(), position_ids, dtype=hidden_states.dtype
+            attention_mask_info.get_max_seqlen(False), position_ids, dtype=hidden_states.dtype
         )
 
         for block in self.h:
