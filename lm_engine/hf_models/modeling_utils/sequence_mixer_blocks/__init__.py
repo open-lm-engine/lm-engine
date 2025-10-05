@@ -15,6 +15,7 @@ from .mamba2 import Mamba2
 from .msu import MSU
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
+from .rsa import RSA
 from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
 from .utils import flash_attention
 
@@ -87,7 +88,7 @@ def get_sequence_mixer(
             layer_idx=layer_idx,
             use_padding_free_transformer=use_padding_free_transformer,
         )
-    elif sequence_mixer_type == "fru":
+    elif sequence_mixer_type in ["fru", "rsa"]:
         return FRU(
             input_size=config.hidden_size,
             state_size=block.state_size,
