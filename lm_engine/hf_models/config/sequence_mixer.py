@@ -111,6 +111,13 @@ class _FRUArgs(_GRUArgs):
         assert self.sequence_mixer_type == "fru"
 
 
+class _RSAArgs(_FRUArgs):
+    sequence_mixer_type: str = "rsa"
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "rsa"
+
+
 class _CausalConvolution(BaseArgs):
     sequence_mixer_type: str = "causal_convolution"
     activation_function: str = "silu"

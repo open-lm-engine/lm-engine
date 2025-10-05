@@ -15,7 +15,7 @@ from ..parameter import mark_parameter_as_no_weight_decay
 
 
 if is_fma_available():
-    from fma import p_norm, rmsnorm
+    from fma import rmsnorm
 
 
 class RMSNorm(nn.RMSNorm):
