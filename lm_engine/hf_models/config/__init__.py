@@ -19,6 +19,7 @@ from .sequence_mixer import (
     _MSUArgs,
     _MultiHeadLatentAttentionArgs,
     _RNNArgs,
+    _RSAArgs,
     _SoftmaxAttentionArgs,
     _StickbreakingAttentionArgs,
 )
@@ -75,7 +76,7 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "msu": _MSUArgs,
     "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
-    "rsa": _FRUArgs,
+    "rsa": _RSAArgs,
     "stickbreaking_attention": _StickbreakingAttentionArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
 }
