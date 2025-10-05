@@ -89,7 +89,7 @@ def get_sequence_mixer(
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type in ["fru", "rsa"]:
-        return FRU(
+        return (FRU if sequence_mixer_type == "fru" else RSA)(
             input_size=config.hidden_size,
             state_size=block.state_size,
             output_size=config.hidden_size,
