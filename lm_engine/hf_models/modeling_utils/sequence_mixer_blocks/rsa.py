@@ -82,7 +82,6 @@ class RSA(FRU):
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            do_sigmoid_forget=True,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 
