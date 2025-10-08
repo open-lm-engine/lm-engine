@@ -180,8 +180,6 @@ class MultiHeadLatentAttention(nn.Module):
                 sliding_window=self.sliding_window,
             )
 
-            del query, key, value
-
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
             hidden_states = hidden_states.view(*output_shape)
         else:
@@ -204,8 +202,6 @@ class MultiHeadLatentAttention(nn.Module):
                 scale=self.attention_multiplier,
                 enable_gqa=True,
             )
-
-            del query, key, value
 
             batch_size = hidden_states.shape[0]
             hidden_states = hidden_states.transpose(1, 2)
