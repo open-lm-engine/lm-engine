@@ -142,33 +142,16 @@ class Attention(nn.Module):
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
-        if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
-            assert past_key_values is None
-
-            total_q = hidden_states.shape[0]
-            input_shape = (total_q, self.num_key_value_heads, -1)
-            output_shape = (total_q, -1, self.head_dim)
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-
-            input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
-            output_shape = (batch_size, query_length, -1, self.head_dim)
+        T = hidden_states.size(0)
 
         hidden_states = self.c_attn(hidden_states)
-
-        hidden_states = hidden_states.view(*input_shape)
+        hidden_states = hidden_states.view(T, self.num_key_value_heads, -1)
 
         query, key, value = hidden_states.split(
             ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
         )
 
-        query = query.reshape(*output_shape)
-
-        if not self.use_padding_free_transformer:
-            query = query.transpose(1, 2)
-            key = key.transpose(1, 2)
-            value = value.transpose(1, 2)
+        query = query.reshape(T, -1, self.head_dim)
 
         if self.position_embedding_type == "rope":
             query = apply_rotary_pos_emb(query, rope_cos_sin)
@@ -178,15 +161,6 @@ class Attention(nn.Module):
             key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
 
         if use_flash_attention_2 or use_flash_attention_3:
-            if self.use_padding_free_transformer:
-                output_shape = (-1, self.hidden_size)
-            else:
-                query = query.transpose(1, 2)
-                key = key.transpose(1, 2)
-                value = value.transpose(1, 2)
-
-                output_shape = (batch_size, query_length, -1)
-
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
@@ -203,7 +177,7 @@ class Attention(nn.Module):
             )
 
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(*output_shape)
+            hidden_states = hidden_states.view(-1, self.hidden_size)
         else:
             assert self.sliding_window is None
 

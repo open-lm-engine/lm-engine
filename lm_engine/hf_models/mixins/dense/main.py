@@ -75,9 +75,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
         assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
 
-        if use_cache or past_key_values is not None:
-            raise NotImplementedError("KV caching is not supported with padding_free transformer")
-
         clear_aux_loss()
 
         attention_mask_info = self._get_attention_mask_info(
@@ -163,8 +160,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         top_p: float | None = None,
         **kwargs,
     ) -> torch.Tensor:
-        assert not self.use_padding_free_transformer
-
         has_attention_mask = attention_mask is not None
         min_tokens_to_keep = 1
 
