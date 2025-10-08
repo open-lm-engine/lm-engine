@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Any, Iterable
 
 import torch
 
@@ -53,3 +53,22 @@ class GenerationCache:
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:
         for cache in self.cache:
             cache.reorder_cache(beam_idx)
+
+
+_IS_GENERATION_CACHE_ENABLED: bool = True
+
+
+class disable_generation_cache:
+    def __enter__(self) -> Any:
+        global _IS_GENERATION_CACHE_ENABLED
+        self.original = _IS_GENERATION_CACHE_ENABLED
+
+        _IS_GENERATION_CACHE_ENABLED = False
+
+    def __exit__(self, exception_type, exception_value, exception_traceback) -> Any:
+        global _IS_GENERATION_CACHE_ENABLED
+        _IS_GENERATION_CACHE_ENABLED = self.original
+
+
+def is_generation_cache_enabled() -> bool:
+    return _IS_GENERATION_CACHE_ENABLED
