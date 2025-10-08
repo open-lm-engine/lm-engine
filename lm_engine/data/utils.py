@@ -26,7 +26,7 @@ def _flatten_and_convert_to_tensors(x: list[int], device: torch.device) -> torch
     return torch.tensor(y, device=device)
 
 
-def convert_padding_free_lists_to_tensors(
+def _convert_padding_free_lists_to_tensors(
     input_ids: list[list[int]] | None = None,
     position_ids: list[list[int]] | None = None,
     labels: list[list[int]] | None = None,
@@ -104,7 +104,7 @@ def collate_fn(
     input_ids[-1].extend([eos_token_id] * tokens_to_add)
     labels[-1].extend([labels_mask_value] * tokens_to_add)
 
-    input_ids, position_ids, _, labels, cu_seqlens, max_seqlen = convert_padding_free_lists_to_tensors(
+    input_ids, position_ids, _, labels, cu_seqlens, max_seqlen = _convert_padding_free_lists_to_tensors(
         input_ids=input_ids, labels=labels, device=device
     )
 
