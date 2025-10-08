@@ -3,7 +3,7 @@
 # **************************************************
 
 load_args:
-  load_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-mamba2-2.5b
+  load_path: checkpoints
   iteration: 5000
 
 mixed_precision_args:
@@ -12,4 +12,4 @@ mixed_precision_args:
   dtype: bf16
 
 # where to save the HF safetensors checkpoint
-unsharded_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-mamba2-2.5b/unsharded_model
+unsharded_path: unsharded_model
