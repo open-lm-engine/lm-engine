@@ -43,8 +43,7 @@ class RSA(FRU):
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
                 input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
 
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-        conv_state = None
+        conv_state, rsa_state = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         input = self.input_projection(input)
         input, gate = input.split((self.conv_dim, self.g_shape), dim=-1)
@@ -73,25 +72,23 @@ class RSA(FRU):
         k = self.norm(k)
         f = (2 * torch.sigmoid(self.forget_multiplier[..., None])) * (f + self.forget_bias)
 
-        input, _ = rsa(
+        input, rsa_state = rsa(
             query=q,
             key=k,
             value=v,
             weight=self.state_weight,
             forget_input=f,
-            input_state=input_state,
+            input_state=rsa_state,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 
-        # FIXME
-        # if not self.use_padding_free_transformer and attention_mask is not None:
-        #     input = unpack_sequence(inputs=input, cu_seqlens=cu_seqlens, output_shape=(B, S, *input.size()[1:]))
-
-        # if cache_params is not None:
-        #     cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+        if cache_params is not None:
+            cache_params.update(
+                conv_state=rsa_state, ssm_state=conv_state, num_tokens_added=input.size(1), layer_idx=self.layer_idx
+            )
 
         input = input.flatten(-2, -1)
         input = input * F.silu(gate)

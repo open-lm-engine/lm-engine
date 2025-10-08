@@ -20,7 +20,7 @@ _CACHE_CLASSES = {
     "mamba2": _Mamba2Cache,
     "multihead_latent_attention": _SoftmaxAttentionCache,
     "rnn": _RNNCache,
-    "rsa": _RNNCache,
+    "rsa": _Mamba2Cache,
     "softmax_attention": _SoftmaxAttentionCache,
     "stickbreaking_attention": _SoftmaxAttentionCache,
 }
