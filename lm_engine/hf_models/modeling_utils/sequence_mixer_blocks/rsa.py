@@ -13,7 +13,7 @@ from ....utils import is_fma_available
 from ...cache import GenerationCache
 from .causal_convolution import causal_convolution
 from .fru import FRU
-from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence
 
 
 if is_fma_available():
@@ -30,19 +30,6 @@ class RSA(FRU):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        if self.use_padding_free_transformer:
-            assert cache_params is None
-            assert attention_mask is None
-        else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
-
-            B, S = input.size()[:2]
-
-            if attention_mask is not None:
-                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
-
         conv_state, rsa_state = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         input = self.input_projection(input)
@@ -87,7 +74,7 @@ class RSA(FRU):
 
         if cache_params is not None:
             cache_params.update(
-                conv_state=rsa_state, ssm_state=conv_state, num_tokens_added=input.size(1), layer_idx=self.layer_idx
+                conv_state=conv_state, ssm_state=rsa_state, num_tokens_added=input.size(1), layer_idx=self.layer_idx
             )
 
         input = input.flatten(-2, -1)
