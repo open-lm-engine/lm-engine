@@ -16,39 +16,7 @@ from ..utils import is_fma_available
 
 if is_fma_available():
     from fma import KernelBackend
-    from fma import pack_sequence as _pack_sequence
-    from fma import unpack_sequence as _unpack_sequence
-
-
-def pack_sequence(
-    inputs: torch.Tensor | list[torch.Tensor], cu_seqlens: torch.Tensor
-) -> torch.Tensor | list[torch.Tensor]:
-    kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence) else KernelBackend.torch
-
-    inputs = _pack_sequence(
-        inputs=inputs,
-        cu_seqlens=cu_seqlens,
-        kernel_backend_forward=kernel_backend,
-        kernel_backend_backward=kernel_backend,
-    )
-
-    return inputs
-
-
-def unpack_sequence(
-    inputs: torch.Tensor | list[torch.Tensor], cu_seqlens: torch.Tensor, output_shape: tuple[int]
-) -> torch.Tensor | list[torch.Tensor]:
-    kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
-
-    inputs = _unpack_sequence(
-        inputs=inputs,
-        cu_seqlens=cu_seqlens,
-        output_shape=output_shape,
-        kernel_backend_forward=kernel_backend,
-        kernel_backend_backward=kernel_backend,
-    )
-
-    return inputs
+    from fma import unpack_sequence as unpack_sequence
 
 
 _ERROR_MESSAGE = "code is not supposed to reach here"
@@ -142,9 +110,16 @@ class AttentionMaskInfo:
             if cu_seqlens is None:
                 self.attention_mask = torch.ones(batch_size, max_seqlen, device=self.device, dtype=torch.int32)
             else:
-                attention_mask_flat = torch.ones_like(cu_seqlens, device=self.device, dtype=torch.int32)
+                kernel_backend = (
+                    KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
+                )
+
                 self.attention_mask = unpack_sequence(
-                    inputs=attention_mask_flat, cu_seqlens=cu_seqlens, output_shape=(batch_size, max_seqlen)
+                    inputs=torch.ones_like(cu_seqlens, device=self.device, dtype=torch.int32),
+                    cu_seqlens=cu_seqlens,
+                    output_shape=(batch_size, max_seqlen),
+                    kernel_backend_forward=kernel_backend,
+                    kernel_backend_backward=kernel_backend,
                 )
 
         return self.attention_mask
