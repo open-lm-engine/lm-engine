@@ -89,13 +89,7 @@ class CrossLayerAttention(nn.Module):
             query = query.view(*hidden_states.size()[:-1], self.num_heads, -1)
 
             if self.position_embedding_type == "rope":
-                if self.use_padding_free_transformer:
-                    query = apply_rotary_pos_emb(query, rope_cos_sin)
-                else:
-                    # TODO avoid this extra transpose
-                    query = query.transpose(1, 2)
-                    query = apply_rotary_pos_emb(query, rope_cos_sin)
-                    query = query.transpose(1, 2)
+                query = apply_rotary_pos_emb(query, rope_cos_sin)
 
             hidden_states = flash_attention(
                 q=query,
