@@ -114,9 +114,6 @@ class MultiHeadLatentAttention(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
-        use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-
         query = self.query_down_projection(hidden_states)
         query = self.query_ln(query)
 
@@ -140,24 +137,12 @@ class MultiHeadLatentAttention(nn.Module):
             key = self.key_up_projection(key)
             value = self.value_up_projection(value)
 
-        if use_flash_attention_2 or use_flash_attention_3:
-            if self.use_padding_free_transformer:
-                total_q = query.shape[0]
+        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
+            T = query.size(0)
 
-                query = query.view(total_q, self.num_heads, -1)
-                key = key.view(total_q, self.num_heads, -1)
-                value = value.view(total_q, self.num_heads, -1)
-
-                output_shape = (-1, self.hidden_size)
-            else:
-                batch_size, query_length = query.shape[:-1]
-                key_length = key.shape[1]
-
-                query = query.view(batch_size, query_length, self.num_heads, -1)
-                key = key.view(batch_size, key_length, self.num_heads, -1)
-                value = value.view(batch_size, key_length, self.num_heads, -1)
-
-                output_shape = (batch_size, query_length, -1)
+            query = query.view(T, self.num_heads, -1)
+            key = key.view(T, self.num_heads, -1)
+            value = value.view(T, self.num_heads, -1)
 
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
@@ -177,7 +162,7 @@ class MultiHeadLatentAttention(nn.Module):
             )
 
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(*output_shape)
+            hidden_states = hidden_states.view(-1, self.hidden_size)
         else:
             assert self.sliding_window is None
 
