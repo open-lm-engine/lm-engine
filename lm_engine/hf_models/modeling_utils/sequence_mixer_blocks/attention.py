@@ -139,9 +139,6 @@ class Attention(nn.Module):
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
-        use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-
         T = hidden_states.size(0)
 
         hidden_states = self.c_attn(hidden_states)
@@ -160,7 +157,7 @@ class Attention(nn.Module):
         if past_key_values is not None:
             key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
 
-        if use_flash_attention_2 or use_flash_attention_3:
+        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
