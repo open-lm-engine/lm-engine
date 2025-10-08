@@ -73,7 +73,8 @@ class RSA(FRU):
         k = self.norm(k)
         f = (2 * torch.sigmoid(self.forget_multiplier[..., None])) * (f + self.forget_bias)
 
-        input = rsa(
+        input, _ = rsa(
+            query=q,
             key=k,
             value=v,
             weight=self.state_weight,
@@ -92,8 +93,7 @@ class RSA(FRU):
         # if cache_params is not None:
         #     cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
 
-        input = q.unsqueeze(-2) @ input
-        input = input.squeeze(-2).flatten(-2, -1)
+        input = input.flatten(-2, -1)
         input = input * F.silu(gate)
         input = self.g_norm(input)
 
