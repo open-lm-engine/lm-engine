@@ -125,8 +125,6 @@ class CrossLayerAttention(nn.Module):
                 enable_gqa=True,
             )
 
-            del query, key, value
-
             hidden_states = hidden_states.transpose(1, 2)
 
         hidden_states = hidden_states.flatten(-2, -1)
