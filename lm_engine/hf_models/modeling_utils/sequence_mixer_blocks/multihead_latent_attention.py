@@ -117,10 +117,6 @@ class MultiHeadLatentAttention(nn.Module):
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
-        if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
-            assert past_key_values is None
-
         query = self.query_down_projection(hidden_states)
         query = self.query_ln(query)
 
