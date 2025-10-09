@@ -13,3 +13,6 @@ dependencies = [
     "torch>=2.8.0",
     "transformers>=4.57.0",
 ]
+
+[tool.setuptools]
+packages = ["lm_engine"]
