@@ -15,8 +15,7 @@ from ..utils import is_fma_available
 
 
 if is_fma_available():
-    from fma import KernelBackend
-    from fma import unpack_sequence as unpack_sequence
+    from fma import KernelBackend, pack_sequence, unpack_sequence
 
 
 _ERROR_MESSAGE = "code is not supposed to reach here"
@@ -112,16 +111,9 @@ class AttentionMaskInfo:
             if cu_seqlens is None:
                 self.attention_mask = torch.ones(batch_size, max_seqlen, device=self.device, dtype=torch.int32)
             else:
-                kernel_backend = (
-                    KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
-                )
-
-                self.attention_mask = unpack_sequence(
+                self.attention_mask = self.unpack_sequence(
                     inputs=torch.ones_like(cu_seqlens, device=self.device, dtype=torch.int32),
-                    cu_seqlens=cu_seqlens,
                     output_shape=(batch_size, max_seqlen),
-                    kernel_backend_forward=kernel_backend,
-                    kernel_backend_backward=kernel_backend,
                 )
 
         return self.attention_mask
@@ -164,6 +156,33 @@ class AttentionMaskInfo:
             )
 
         return attention_mask
+
+    def pack_sequence(self, inputs: torch.Tensor | list[torch.Tensor]) -> torch.Tensor | list[torch.Tensor]:
+        kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence) else KernelBackend.torch
+
+        inputs = pack_sequence(
+            inputs=inputs,
+            cu_seqlens=self.get_cu_seqlens(False),
+            kernel_backend_forward=kernel_backend,
+            kernel_backend_backward=kernel_backend,
+        )
+
+        return inputs
+
+    def unpack_sequence(
+        self, inputs: torch.Tensor | list[torch.Tensor], output_shape: tuple[int]
+    ) -> torch.Tensor | list[torch.Tensor]:
+        kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
+
+        inputs = unpack_sequence(
+            inputs=inputs,
+            cu_seqlens=self.get_cu_seqlens(False),
+            output_shape=output_shape,
+            kernel_backend_forward=kernel_backend,
+            kernel_backend_backward=kernel_backend,
+        )
+
+        return inputs
 
     @classmethod
     def _get_mask_value(cls, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
