@@ -77,7 +77,7 @@ class AttentionMaskInfo:
                 B = self.get_batch_size()
                 S = self.get_max_seqlen()
 
-                self.cu_seqlens = torch.arange(0, B * S, S, dtype=torch.int32, device=self.device)
+                self.cu_seqlens = torch.arange(0, B * S + 1, S, dtype=torch.int32, device=self.device)
             else:
                 seqlens = self.attention_mask.sum(dim=-1, dtype=torch.int32)
                 self.cu_seqlens = F.pad(torch.cumsum(seqlens, dim=0, dtype=torch.int32), (1, 0))
