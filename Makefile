@@ -16,7 +16,7 @@ test:
 	RUN_SLOW=True uv run pytest tests
 
 test-fast:
-	RUN_SLOW=False pytest tests
+	RUN_SLOW=False uv run pytest tests
 
 update-precommit:
 	uv run pre-commit autoupdate
