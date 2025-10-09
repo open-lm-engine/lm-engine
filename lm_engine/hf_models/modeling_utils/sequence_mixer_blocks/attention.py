@@ -157,9 +157,7 @@ class Attention(nn.Module):
             k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
 
         if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
-            q = wait_for_ACT(q, wait_in_forward=True, wait_in_backward=False)
-            k = wait_for_ACT(k, wait_in_forward=True, wait_in_backward=False)
-            v = wait_for_ACT(v, wait_in_forward=True, wait_in_backward=False)
+            q, k, v = [wait_for_ACT(i, wait_in_forward=True, wait_in_backward=False) for i in (q, k, v)]
 
             x = flash_attention(
                 q=q,
@@ -177,9 +175,7 @@ class Attention(nn.Module):
             assert self.sliding_window is None
 
             q, k, v = attention_mask_info.unpack_sequence((q, k, v))
-            q = q.transpose(1, 2)
-            k = k.transpose(1, 2)
-            v = v.transpose(1, 2)
+            q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
 
             attention_mask = attention_mask_info.get_causal_mask(query_length=q.size(-2), dtype=q.dtype)
 

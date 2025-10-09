@@ -33,7 +33,7 @@ class AttentionMaskInfo:
     mask_value: torch.Tensor | None = None
 
     def __post_init__(self) -> None:
-        self._is_ragged = self.cu_seqlens is not None
+        self._has_cu_seqlens = self.cu_seqlens is not None
 
         if self.batch_size is not None:
             assert self.max_seqlen is not None
@@ -54,12 +54,12 @@ class AttentionMaskInfo:
 
         assert self.device is not None
 
-    def is_ragged(self) -> bool:
-        return self._is_ragged
+    def has_cu_seqlens(self) -> bool:
+        return self._has_cu_seqlens
 
     def get_batch_size(self) -> int:
         if self.batch_size is None:
-            if self.is_ragged():
+            if self.has_cu_seqlens():
                 self.batch_size = self.cu_seqlens.size(0) - 1
             elif self.attention_mask is not None:
                 self.batch_size = self.attention_mask.size(0)
@@ -69,7 +69,7 @@ class AttentionMaskInfo:
         return self.batch_size
 
     def get_cu_seqlens(self) -> torch.Tensor | None:
-        if self.is_ragged():
+        if self.has_cu_seqlens():
             return self.cu_seqlens
 
         if self.cu_seqlens is None:
@@ -86,7 +86,7 @@ class AttentionMaskInfo:
         return self.cu_seqlens
 
     def get_max_seqlen(self) -> int | None:
-        if self.is_ragged():
+        if self.has_cu_seqlens():
             return self.max_seqlen
 
         if self.max_seqlen is None:
@@ -99,7 +99,7 @@ class AttentionMaskInfo:
         return self.max_seqlen
 
     def get_attention_mask(self) -> torch.Tensor | None:
-        if self.is_ragged() and self.attention_mask is None:
+        if self.has_cu_seqlens() and self.attention_mask is None:
             B = self.get_batch_size()
             S = self.get_max_seqlen()
 
@@ -111,7 +111,7 @@ class AttentionMaskInfo:
         return self.attention_mask
 
     def get_position_ids(self) -> torch.Tensor:
-        if self.is_ragged():
+        if self.has_cu_seqlens():
             attention_mask = self.get_attention_mask()
             position_ids = attention_mask.cumsum(-1)
         else:
@@ -149,7 +149,7 @@ class AttentionMaskInfo:
         return self._causal_mask
 
     def pack_sequence(self, inputs: torch.Tensor | list[torch.Tensor]) -> torch.Tensor | list[torch.Tensor]:
-        if self.is_ragged():
+        if self.has_cu_seqlens():
             kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence) else KernelBackend.torch
             inputs = pack_sequence(
                 inputs=inputs,
@@ -169,7 +169,7 @@ class AttentionMaskInfo:
         B = self.get_batch_size()
         S = self.get_max_seqlen()
 
-        if self.is_ragged():
+        if self.has_cu_seqlens():
             kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
             other_shape = inputs.size()[1:] if isinstance(inputs, torch.Tensor) else inputs[0].size()[1:]
 
