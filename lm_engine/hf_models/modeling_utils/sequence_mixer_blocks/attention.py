@@ -184,9 +184,9 @@ class Attention(nn.Module):
             attention_mask = attention_mask_info.get_causal_mask(query_length=q.size(-2), dtype=q.dtype)
 
             x = F.scaled_dot_product_attention(
-                q,
-                k,
-                v,
+                query=q,
+                key=k,
+                value=v,
                 attn_mask=attention_mask,
                 dropout_p=self.softmax_dropout_p if self.training else 0,
                 is_causal=self.causal if attention_mask is None else False,
