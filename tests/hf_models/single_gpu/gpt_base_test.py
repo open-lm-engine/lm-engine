@@ -33,7 +33,7 @@ class GPTBaseAttentionTest(TestCommons):
         config = self.get_dense_test_config(position_embedding_type, num_layers=1)
 
         sdpa_model = self.from_config(config, dtype=dtype).to(device)
-        flash_model = self.from_config(config, dtype=dtype, use_padding_free_transformer=True).to(device)
+        flash_model = self.from_config(config, dtype=dtype).to(device)
 
         sdpa_model.eval()
         flash_model.eval()
@@ -120,7 +120,7 @@ class GPTBaseAttentionTest(TestCommons):
 
         config = self.get_dense_test_config(position_embedding_type, num_layers=1)
 
-        model = self.from_config(config, dtype=dtype, use_padding_free_transformer=True).to(device)
+        model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
         with enable_kernels([Kernel.flash_attention_2]):
