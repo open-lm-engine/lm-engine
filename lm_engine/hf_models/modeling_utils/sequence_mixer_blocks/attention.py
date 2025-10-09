@@ -175,11 +175,12 @@ class Attention(nn.Module):
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             assert self.sliding_window is None
-            q, k, v = attention_mask_info.unpack_sequence((q, k, v))
 
+            q, k, v = attention_mask_info.unpack_sequence((q, k, v))
             q = q.transpose(1, 2)
             k = k.transpose(1, 2)
             v = v.transpose(1, 2)
+
             attention_mask = attention_mask_info.get_causal_mask(query_length=q.size(-2), dtype=q.dtype)
 
             x = F.scaled_dot_product_attention(

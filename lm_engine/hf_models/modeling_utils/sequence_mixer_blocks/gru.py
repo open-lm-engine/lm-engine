@@ -94,10 +94,11 @@ class GRU(nn.Module):
 
         weight, forget_weight, reset_weight = weight.chunk(3, dim=0)
 
-        cu_seqlens = attention_mask_info.get_cu_seqlens()
+        cu_seqlens = None if attention_mask_info.is_ragged() else attention_mask_info.get_cu_seqlens()
+        max_seqlen = None if attention_mask_info.is_ragged() else attention_mask_info.get_max_seqlen()
 
         x = gru(
-            input=x,
+            input=attention_mask_info.unpack_sequence(x),
             weight=weight,
             forget_input=x_forget,
             forget_weight=forget_weight,
@@ -106,7 +107,7 @@ class GRU(nn.Module):
             input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
-            max_seqlen=attention_mask_info.get_max_seqlen(),
+            max_seqlen=max_seqlen,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 

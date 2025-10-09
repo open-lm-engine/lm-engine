@@ -90,15 +90,16 @@ class RNN(nn.Module):
         if self.scaling_factor != 1:
             weight = weight * self.scaling_factor
 
-        cu_seqlens = attention_mask_info.get_cu_seqlens()
+        cu_seqlens = None if attention_mask_info.is_ragged() else attention_mask_info.get_cu_seqlens()
+        max_seqlen = None if attention_mask_info.is_ragged() else attention_mask_info.get_max_seqlen()
 
         x = rnn(
-            input=x,
+            input=attention_mask_info.unpack_sequence(x),
             weight=weight,
             input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
-            max_seqlen=attention_mask_info.get_max_seqlen(),
+            max_seqlen=max_seqlen,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
         )
 
