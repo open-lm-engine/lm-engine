@@ -71,13 +71,15 @@ class CausalLMModelMixin(PreTrainedModelMixin):
     ) -> CausalLMOutputWithPast:
         assert return_dict
         assert inputs_embeds is None
-        assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
 
         clear_aux_loss()
 
         attention_mask_info = self._get_attention_mask_info(
             x=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
         )
+
+        if position_ids is None:
+            position_ids = attention_mask_info.get_position_ids()
 
         if is_generation_cache_enabled():
             past_key_values = (
