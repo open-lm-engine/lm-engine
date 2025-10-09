@@ -5,10 +5,12 @@
 install:
 	git submodule update --init --recursive
 	cd flash-model-architectures && make install
+	uv pip install .
 
 install-dev:
 	git submodule update --init --recursive
 	cd flash-model-architectures && make install
+	uv pip install -e .
 
 test:
 	RUN_SLOW=True uv run pytest tests
