@@ -72,7 +72,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         assert return_dict
         assert inputs_embeds is None
         assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-        assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
 
         clear_aux_loss()
 

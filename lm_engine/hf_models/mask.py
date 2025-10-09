@@ -124,6 +124,11 @@ class AttentionMaskInfo:
 
         return self.attention_mask
 
+    def get_position_ids(self) -> torch.Tensor:
+        attention_mask = self.get_attention_mask()
+        position_ids = attention_mask.sum(-1)
+        return position_ids
+
     def get_causal_mask(
         self, return_none_allowed: bool = True, dtype: torch.dtype | None = None
     ) -> torch.Tensor | None:
