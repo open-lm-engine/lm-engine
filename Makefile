@@ -3,12 +3,10 @@
 # **************************************************
 
 install:
-	pip install -r requirements.txt
 	git submodule update --init --recursive
 	cd flash-model-architectures && make install
 
 install-dev:
-	pip install -r requirements-dev.txt
 	git submodule update --init --recursive
 	cd flash-model-architectures && make install
 
