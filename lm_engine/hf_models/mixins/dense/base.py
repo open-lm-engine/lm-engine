@@ -84,9 +84,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         position_ids: torch.Tensor | None = None,
     ) -> BaseModelOutputWithPast:
         hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
-        rope_cos_sin = self._get_rope_cos_sin(
-            attention_mask_info.get_max_seqlen(), position_ids, dtype=hidden_states.dtype
-        )
+        rope_cos_sin = self._get_rope_cos_sin(attention_mask_info, position_ids, dtype=hidden_states.dtype)
 
         for block in self.h:
             hidden_states: torch.Tensor = block(
@@ -116,10 +114,10 @@ class BaseModelMixin(PreTrainedModelMixin):
         return position_ids
 
     def _get_rope_cos_sin(
-        self, key_length: int, position_ids: torch.Tensor, dtype: torch.dtype
+        self, attention_mask_info: AttentionMaskInfo, position_ids: torch.Tensor, dtype: torch.dtype
     ) -> tuple[torch.Tensor, torch.Tensor]:
         if self.position_embedding_type == "rope":
-            cos, sin = self.rope(key_length, dtype=dtype)
+            cos, sin = self.rope(attention_mask_info.get_max_seqlen(False), dtype=dtype)
             cos = cos[position_ids].unsqueeze(1)
             sin = sin[position_ids].unsqueeze(1)
             return cos, sin
