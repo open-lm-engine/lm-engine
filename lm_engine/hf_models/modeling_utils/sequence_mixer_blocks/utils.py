@@ -39,15 +39,18 @@ def flash_attention(
     if sliding_window is not None and k.size(1) > sliding_window:
         window_size = (sliding_window, sliding_window)
 
+    assert q.dim() == 3
+    assert k.dim() == 3
+    assert v.dim() == 3
+
     if attention_mask_info.is_ragged():
         assert sliding_window is None
-        assert q.dim() == 3
 
         cu_seqlens = attention_mask_info.get_cu_seqlens()
         max_seqlen = attention_mask_info.get_max_seqlen()
 
         if use_flash_attention_3:
-            attn_output, _ = flash_attention_3_varlen(
+            x, _ = flash_attention_3_varlen(
                 q=q,
                 k=k,
                 v=v,
@@ -59,7 +62,7 @@ def flash_attention(
                 causal=causal,
             )
         else:
-            attn_output = flash_attention_2_varlen(
+            x = flash_attention_2_varlen(
                 q=q,
                 k=k,
                 v=v,
@@ -72,10 +75,10 @@ def flash_attention(
                 causal=causal,
             )
     else:
-        assert q.dim() == 4
+        q, k, v = attention_mask_info.unpack_sequence(q, k, v)
 
         if use_flash_attention_3:
-            attn_output, _ = flash_attention_3(
+            x, _ = flash_attention_3(
                 q=q,
                 k=k,
                 v=v,
@@ -85,7 +88,7 @@ def flash_attention(
                 softcap=softcap,
             )
         else:
-            attn_output = flash_attention_2(
+            x = flash_attention_2(
                 q=q,
                 k=k,
                 v=v,
@@ -96,4 +99,6 @@ def flash_attention(
                 softcap=softcap,
             )
 
-    return attn_output
+        x = attention_mask_info.pack_sequence(x)
+
+    return x
