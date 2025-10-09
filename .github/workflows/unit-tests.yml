@@ -24,6 +24,7 @@ jobs:
 
       - name: Installation
         run: |
+          wget -qO- https://astral.sh/uv/install.sh | sh
           make install-dev
 
       - name: Unit Tests
