@@ -4,10 +4,12 @@
 
 install:
 	git submodule update --init --recursive
+	uv venv
 	uv pip install .
 
 install-dev:
 	git submodule update --init --recursive
+	uv venv
 	uv pip install -e .
 
 test:
