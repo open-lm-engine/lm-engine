@@ -75,10 +75,8 @@ class Block(nn.Module):
             hidden_states = self.sequence_mixer(
                 hidden_states,
                 past_key_values=past_key_values,
-                attention_mask=attention_mask,
+                attention_mask_info=attention_mask_info,
                 rope_cos_sin=rope_cos_sin,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
             )
         elif self.sequence_mixer_type in ["causal_convolution", "mamba2"]:
             hidden_states = self.sequence_mixer(
