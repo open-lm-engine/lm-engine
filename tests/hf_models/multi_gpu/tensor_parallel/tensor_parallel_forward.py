@@ -22,7 +22,6 @@ parser.add_argument("--position-embedding-type", type=str)
 parser.add_argument("--attention-implementation", type=str)
 parser.add_argument("--dtype", type=str)
 parser.add_argument("--tmp-path", type=str)
-parser.add_argument("--use-padding-free-transformer", action="store_true")
 parser.add_argument("--sequence-parallel", action="store_true")
 args = parser.parse_args()
 
@@ -81,9 +80,7 @@ with torch.device("meta"):
     # try sharding vocab matrices if really struggling for memory
 
     model_tp = get_model_parallel_class(config.model_type)._from_config(
-        config,
-        use_padding_free_transformer=args.use_padding_free_transformer,
-        sequence_parallel=args.sequence_parallel,
+        config, use_padding_free_transformer=True, sequence_parallel=args.sequence_parallel
     )
 
 # copy to device without copying storage
@@ -109,21 +106,18 @@ labels = torch.randint(
     0, 50255, (batch_size, sequence_length), device=torch.cuda.current_device(), requires_grad=False
 )
 
-if args.use_padding_free_transformer:
-    cu_seqlens = torch.arange(
-        0, input_ids.numel() + 1, sequence_length, dtype=torch.int32, device=torch.cuda.current_device()
-    )
-    position_ids = torch.arange(0, sequence_length, 1, device=torch.cuda.current_device()).repeat(batch_size)
+cu_seqlens = torch.arange(
+    0, input_ids.numel() + 1, sequence_length, dtype=torch.int32, device=torch.cuda.current_device()
+)
+position_ids = torch.arange(0, sequence_length, 1, device=torch.cuda.current_device()).repeat(batch_size)
 
-    output_tp = model_tp(
-        input_ids=input_ids.view(-1),
-        labels=labels.view(-1),
-        cu_seqlens=cu_seqlens,
-        max_seqlen=sequence_length,
-        position_ids=position_ids,
-    )
-else:
-    output_tp = model_tp(input_ids=input_ids, labels=labels)
+output_tp = model_tp(
+    input_ids=input_ids.view(-1),
+    labels=labels.view(-1),
+    cu_seqlens=cu_seqlens,
+    max_seqlen=sequence_length,
+    position_ids=position_ids,
+)
 
 loss_tp = output_tp.loss
 logits_tp = output_tp.logits[..., : config.vocab_size]
@@ -135,9 +129,7 @@ if torch.distributed.get_rank() == 0:
 
     loss = output.loss
     logits = output.logits
-
-    if args.use_padding_free_transformer:
-        logits_tp = logits_tp.reshape(batch_size, sequence_length, -1)
+    logits_tp = logits_tp.reshape(batch_size, sequence_length, -1)
 
     error = (logits - logits_tp).abs().max()
     assert error < 5e-4, f"logits don't match for normal and tensor parallel model, error is ({error})"

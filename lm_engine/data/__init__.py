@@ -134,7 +134,6 @@ def get_finetuning_dataloader(
             use_output=use_output,
             loss_mask=args.training_parameters.loss_mask,
             eos_token_id=tokenizer.eos_token_id,
-            use_padding_free_transformer=args.model_args.use_padding_free_transformer,
             pad_to_multiple_of=ProcessGroupManager.get_tensor_parallel_world_size(),
         ),
     )

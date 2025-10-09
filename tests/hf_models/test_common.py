@@ -269,19 +269,8 @@ class TestCommons(BaseTestCommons):
         return False
 
     def from_config(self, config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
-        use_padding_free_transformer = kwargs.pop("use_padding_free_transformer", False)
-
-        model = AutoModelForCausalLM.from_config(
-            config,
-            use_padding_free_transformer=use_padding_free_transformer,
-            dtype=kwargs.pop("dtype", None),
-        )
-
-        if use_padding_free_transformer:
-            assert model.use_padding_free_transformer
-
+        model = AutoModelForCausalLM.from_config(config, dtype=kwargs.pop("dtype", None))
         assert len(kwargs) == 0
-
         return model
 
     def assert_equal_tensors(
