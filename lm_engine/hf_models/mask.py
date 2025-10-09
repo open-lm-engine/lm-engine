@@ -95,9 +95,9 @@ class AttentionMaskInfo:
         if self.max_seqlen is None:
             # this will cache the max_seqlen
             self.get_cu_seqlens(False)
+            return self.max_seqlen
+        else:
             raise NotImplementedError(_ERROR_MESSAGE)
-
-        return self.max_seqlen
 
     def get_attention_mask(self, return_none_allowed: bool = True) -> torch.Tensor | None:
         if return_none_allowed:
