@@ -128,7 +128,7 @@ class AttentionMaskInfo:
 
     def get_position_ids(self) -> torch.Tensor:
         attention_mask = self.get_attention_mask(False)
-        position_ids = attention_mask.sum(-1)
+        position_ids = attention_mask.cumsum(-1)
         return position_ids
 
     def get_causal_mask(
