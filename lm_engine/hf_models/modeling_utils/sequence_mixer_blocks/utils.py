@@ -39,36 +39,12 @@ def flash_attention(
     if sliding_window is not None and k.size(1) > sliding_window:
         window_size = (sliding_window, sliding_window)
 
-    cu_seqlens = attention_mask_info.get_cu_seqlens()
-    max_seqlen = attention_mask_info.get_max_seqlen()
-
-    if cu_seqlens is None:
-        assert q.dim() == 4
-
-        if use_flash_attention_3:
-            attn_output, _ = flash_attention_3(
-                q=q,
-                k=k,
-                v=v,
-                softmax_scale=softmax_scale,
-                causal=causal,
-                window_size=window_size,
-                softcap=softcap,
-            )
-        else:
-            attn_output = flash_attention_2(
-                q=q,
-                k=k,
-                v=v,
-                dropout_p=dropout,
-                softmax_scale=softmax_scale,
-                causal=causal,
-                window_size=window_size,
-                softcap=softcap,
-            )
-    else:
+    if attention_mask_info.is_ragged():
         assert sliding_window is None
         assert q.dim() == 3
+
+        cu_seqlens = attention_mask_info.get_cu_seqlens()
+        max_seqlen = attention_mask_info.get_max_seqlen()
 
         if use_flash_attention_3:
             attn_output, _ = flash_attention_3_varlen(
@@ -94,6 +70,30 @@ def flash_attention(
                 dropout_p=dropout,
                 softmax_scale=softmax_scale,
                 causal=causal,
+            )
+    else:
+        assert q.dim() == 4
+
+        if use_flash_attention_3:
+            attn_output, _ = flash_attention_3(
+                q=q,
+                k=k,
+                v=v,
+                softmax_scale=softmax_scale,
+                causal=causal,
+                window_size=window_size,
+                softcap=softcap,
+            )
+        else:
+            attn_output = flash_attention_2(
+                q=q,
+                k=k,
+                v=v,
+                dropout_p=dropout,
+                softmax_scale=softmax_scale,
+                causal=causal,
+                window_size=window_size,
+                softcap=softcap,
             )
 
     return attn_output
