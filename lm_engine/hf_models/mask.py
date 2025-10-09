@@ -144,14 +144,7 @@ class AttentionMaskInfo:
         else:
             raise NotImplementedError(_ERROR_MESSAGE)
 
-        causal_mask = causal_mask[:, None, ...]
-        causal_mask = torch.where(causal_mask, ~causal_mask, AttentionMaskInfo._get_mask_value(self.device, dtype))
-
-        # this is needed to prevent NaN since SDPA
-        # see issue: https://github.com/pytorch/pytorch/issues/110213
-        self._causal_mask = causal_mask * ~torch.all(
-            causal_mask == AttentionMaskInfo._get_mask_value(self.device, dtype), dim=-1, keepdim=True
-        )
+        self._causal_mask = causal_mask[:, None, ...]
 
         return self._causal_mask
 
