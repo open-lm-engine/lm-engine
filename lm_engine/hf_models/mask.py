@@ -30,6 +30,7 @@ class AttentionMaskInfo:
     attention_mask: torch.Tensor | None = None
     _causal_mask: torch.Tensor | None = None
     device: torch.device | None = None
+    mask_value: torch.Tensor | None = None
 
     def __post_init__(self) -> None:
         self._is_ragged = self.cu_seqlens is not None
@@ -53,9 +54,12 @@ class AttentionMaskInfo:
 
         assert self.device is not None
 
+    def is_ragged(self) -> bool:
+        return self._is_ragged
+
     def get_batch_size(self) -> int:
         if self.batch_size is None:
-            if self._is_ragged:
+            if self.is_ragged():
                 self.batch_size = self.cu_seqlens.size(0) - 1
             elif self.attention_mask is not None:
                 self.batch_size = self.attention_mask.size(0)
@@ -64,17 +68,14 @@ class AttentionMaskInfo:
 
         return self.batch_size
 
-    def get_cu_seqlens(self, return_none_allowed: bool = True) -> torch.Tensor | None:
-        if self._is_ragged:
+    def get_cu_seqlens(self) -> torch.Tensor | None:
+        if self.is_ragged():
             return self.cu_seqlens
-
-        if return_none_allowed:
-            return None
 
         if self.cu_seqlens is None:
             if self.attention_mask is None:
                 B = self.get_batch_size()
-                S = self.get_max_seqlen(False)
+                S = self.get_max_seqlen()
 
                 self.cu_seqlens = torch.arange(0, B * S, S, dtype=torch.int32, device=self.device)
             else:
@@ -84,103 +85,113 @@ class AttentionMaskInfo:
 
         return self.cu_seqlens
 
-    def get_max_seqlen(self, return_none_allowed: bool = True) -> int | None:
-        if self._is_ragged:
+    def get_max_seqlen(self) -> int | None:
+        if self.is_ragged():
             return self.max_seqlen
-
-        if return_none_allowed:
-            return None
 
         if self.max_seqlen is None:
             # this will cache the max_seqlen
-            self.get_cu_seqlens(False)
-            return self.max_seqlen
-        else:
-            raise NotImplementedError(_ERROR_MESSAGE)
+            self.get_cu_seqlens()
 
-    def get_attention_mask(self, return_none_allowed: bool = True) -> torch.Tensor | None:
-        if return_none_allowed:
-            return self.attention_mask
+            if self.max_seqlen is None:
+                raise NotImplementedError(_ERROR_MESSAGE)
 
-        if self.attention_mask is None:
-            cu_seqlens = self.get_cu_seqlens()
-            batch_size = self.get_batch_size()
-            max_seqlen = self.get_max_seqlen()
-            assert max_seqlen is not None
+        return self.max_seqlen
 
-            if cu_seqlens is None:
-                self.attention_mask = torch.ones(batch_size, max_seqlen, device=self.device, dtype=torch.int32)
-            else:
-                self.attention_mask = self.unpack_sequence(
-                    inputs=torch.ones_like(cu_seqlens, device=self.device, dtype=torch.int32),
-                    output_shape=(batch_size, max_seqlen),
-                )
+    def get_attention_mask(self) -> torch.Tensor | None:
+        if self.is_ragged() and self.attention_mask is None:
+            B = self.get_batch_size()
+            S = self.get_max_seqlen()
+
+            self.attention_mask = self.unpack_sequence(
+                inputs=torch.ones_like(self.get_cu_seqlens(), device=self.device, dtype=torch.int32),
+                output_shape=(B, S),
+            )
 
         return self.attention_mask
 
     def get_position_ids(self) -> torch.Tensor:
-        attention_mask = self.get_attention_mask(False)
-        position_ids = attention_mask.cumsum(-1)
+        if self.is_ragged():
+            attention_mask = self.get_attention_mask()
+            position_ids = attention_mask.cumsum(-1)
+        else:
+            position_ids = torch.arange(0, self.get_max_seqlen(), device=self.device)
+            position_ids = position_ids[None, ...].repeat(self.get_batch_size(), 1)
+
         return position_ids
 
-    def get_causal_mask(
-        self, return_none_allowed: bool = True, dtype: torch.dtype | None = None
-    ) -> torch.Tensor | None:
-        attention_mask = self.get_attention_mask(return_none_allowed)
+    def get_causal_mask(self, query_length: int, dtype: torch.dtype) -> torch.Tensor | None:
+        attention_mask = self.get_attention_mask()
 
-        if attention_mask is not None:
-            _, Q, K = attention_mask.size()
-            L = K - Q
+        if attention_mask is None:
+            return None
 
-            if Q > 1:
-                causal_mask = torch.empty((Q, K), dtype=torch.bool, device=self.device)
-                causal_mask[:, L:] = torch.tril(torch.ones(Q, K, dtype=torch.bool, device=self.device))
+        Q = query_length
+        K = attention_mask.size(1)
+        L = K - Q
 
-                if L > 0:
-                    causal_mask[:, :L] = True
+        if Q > 1:
+            causal_mask = torch.empty((Q, K), dtype=torch.bool, device=self.device)
+            causal_mask[:, L:] = torch.tril(torch.ones(Q, K, dtype=torch.bool, device=self.device))
 
-                causal_mask = causal_mask[None, ...]
-                causal_mask = causal_mask & attention_mask[:, None, ...].to(torch.bool)
-            elif Q == 1:
-                causal_mask = attention_mask[:, None, ...].to(dtype=torch.bool, device=self.device)
-            else:
-                raise NotImplementedError(_ERROR_MESSAGE)
+            if L > 0:
+                causal_mask[:, :L] = True
 
-            causal_mask = causal_mask[:, None, ...]
-            causal_mask = torch.where(causal_mask, ~causal_mask, AttentionMaskInfo._get_mask_value(self.device, dtype))
+            causal_mask = causal_mask[None, ...]
+            causal_mask = causal_mask & attention_mask[:, None, ...].to(torch.bool)
+        elif Q == 1:
+            causal_mask = attention_mask[:, None, ...].to(dtype=torch.bool, device=self.device)
+        else:
+            raise NotImplementedError(_ERROR_MESSAGE)
 
-            # this is needed to prevent NaN since SDPA
-            # see issue: https://github.com/pytorch/pytorch/issues/110213
-            causal_mask = causal_mask * ~torch.all(
-                causal_mask == AttentionMaskInfo._get_mask_value(self.device, dtype), dim=-1, keepdim=True
-            )
+        causal_mask = causal_mask[:, None, ...]
+        causal_mask = torch.where(causal_mask, ~causal_mask, AttentionMaskInfo._get_mask_value(self.device, dtype))
 
-        return attention_mask
+        # this is needed to prevent NaN since SDPA
+        # see issue: https://github.com/pytorch/pytorch/issues/110213
+        self._causal_mask = causal_mask * ~torch.all(
+            causal_mask == AttentionMaskInfo._get_mask_value(self.device, dtype), dim=-1, keepdim=True
+        )
+
+        return self._causal_mask
 
     def pack_sequence(self, inputs: torch.Tensor | list[torch.Tensor]) -> torch.Tensor | list[torch.Tensor]:
-        kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence) else KernelBackend.torch
-
-        inputs = pack_sequence(
-            inputs=inputs,
-            cu_seqlens=self.get_cu_seqlens(False),
-            kernel_backend_forward=kernel_backend,
-            kernel_backend_backward=kernel_backend,
-        )
+        if self.is_ragged():
+            kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence) else KernelBackend.torch
+            inputs = pack_sequence(
+                inputs=inputs,
+                cu_seqlens=self.get_cu_seqlens(False),
+                kernel_backend_forward=kernel_backend,
+                kernel_backend_backward=kernel_backend,
+            )
+        else:
+            if isinstance(inputs, torch.Tensor):
+                inputs = inputs.flatten(0, 1)
+            else:
+                inputs = [i.flatten(0, 1) for i in inputs]
 
         return inputs
 
-    def unpack_sequence(
-        self, inputs: torch.Tensor | list[torch.Tensor], output_shape: tuple[int]
-    ) -> torch.Tensor | list[torch.Tensor]:
-        kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
+    def unpack_sequence(self, inputs: torch.Tensor | list[torch.Tensor]) -> torch.Tensor | list[torch.Tensor]:
+        B = self.get_batch_size()
+        S = self.get_max_seqlen()
 
-        inputs = unpack_sequence(
-            inputs=inputs,
-            cu_seqlens=self.get_cu_seqlens(False),
-            output_shape=output_shape,
-            kernel_backend_forward=kernel_backend,
-            kernel_backend_backward=kernel_backend,
-        )
+        if self.is_ragged():
+            kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
+            other_shape = inputs.size()[1:] if isinstance(inputs, torch.Tensor) else inputs[0].size()[1:]
+
+            inputs = unpack_sequence(
+                inputs=inputs,
+                cu_seqlens=self.get_cu_seqlens(False),
+                output_shape=(B, S, *other_shape),
+                kernel_backend_forward=kernel_backend,
+                kernel_backend_backward=kernel_backend,
+            )
+        else:
+            if isinstance(inputs, torch.Tensor):
+                inputs = inputs.reshape(B, S, *inputs.size()[1:])
+            else:
+                inputs = [i.reshape(B, S, *i.size()[1:]) for i in inputs]
 
         return inputs
 

@@ -133,39 +133,38 @@ class Attention(nn.Module):
 
     def forward(
         self,
-        hidden_states: torch.Tensor,
+        x: torch.Tensor,
         attention_mask_info: AttentionMaskInfo,
         past_key_values: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        T = hidden_states.size(0)
+        T = x.size(0)
 
-        hidden_states = self.c_attn(hidden_states)
-        hidden_states = hidden_states.view(T, self.num_key_value_heads, -1)
+        x = self.c_attn(x)
+        x = x.view(T, self.num_key_value_heads, -1)
 
-        query, key, value = hidden_states.split(
+        q, k, v = x.split(
             ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
         )
 
-        query = query.reshape(T, -1, self.head_dim)
+        q = q.reshape(T, -1, self.head_dim)
 
         if self.position_embedding_type == "rope":
-            query = apply_rotary_pos_emb(query, rope_cos_sin)
-            key = apply_rotary_pos_emb(key, rope_cos_sin)
+            q = apply_rotary_pos_emb(q, rope_cos_sin)
+            k = apply_rotary_pos_emb(k, rope_cos_sin)
 
         if past_key_values is not None:
-            key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
+            k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
 
         if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
-            query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
-            key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
-            value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
+            q = wait_for_ACT(q, wait_in_forward=True, wait_in_backward=False)
+            k = wait_for_ACT(k, wait_in_forward=True, wait_in_backward=False)
+            v = wait_for_ACT(v, wait_in_forward=True, wait_in_backward=False)
 
-            hidden_states = flash_attention(
-                q=query,
-                k=key,
-                v=value,
+            x = flash_attention(
+                q=q,
+                k=k,
+                v=v,
                 attention_mask_info=attention_mask_info,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
@@ -173,15 +172,20 @@ class Attention(nn.Module):
                 sliding_window=self.sliding_window,
             )
 
-            hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(-1, self.hidden_size)
+            x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             assert self.sliding_window is None
+            q, k, v = attention_mask_info.unpack_sequence((q, k, v))
 
-            hidden_states = F.scaled_dot_product_attention(
-                query,
-                key,
-                value,
+            q = q.transpose(1, 2)
+            k = k.transpose(1, 2)
+            v = v.transpose(1, 2)
+            attention_mask = attention_mask_info.get_causal_mask(query_length=q.size(-2), dtype=q.dtype)
+
+            x = F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
                 attn_mask=attention_mask,
                 dropout_p=self.softmax_dropout_p if self.training else 0,
                 is_causal=self.causal if attention_mask is None else False,
@@ -189,11 +193,11 @@ class Attention(nn.Module):
                 enable_gqa=True,
             )
 
-            batch_size = hidden_states.shape[0]
-            hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = hidden_states.reshape(batch_size, -1, self.num_heads * self.head_dim)
+            x = x.transpose(1, 2)
+            x = attention_mask_info.pack_sequence(x)
 
-        hidden_states = self.c_proj(hidden_states)
-        hidden_states = self.dropout(hidden_states)
+        x = x.flatten(-2, -1)
+        x = self.c_proj(x)
+        x = self.dropout(x)
 
-        return hidden_states
+        return x
