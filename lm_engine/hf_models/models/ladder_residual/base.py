@@ -4,9 +4,8 @@
 
 import torch
 
-from ...cache import GenerationCache
+from ...cache import GenerationCache, is_generation_cache_enabled
 from ...mixins import BaseModelMixin, BaseModelOutputWithPast, PreTrainedModelMixin
-from ...utils import is_generation_cache_enabled
 from .config import LadderResidualConfig
 from .layer import LadderResidualBlock
 
