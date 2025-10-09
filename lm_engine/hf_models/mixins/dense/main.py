@@ -10,12 +10,11 @@ from transformers import StoppingCriteriaList
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ...cache import GenerationCache
+from ...cache import GenerationCache, is_generation_cache_enabled
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
 from ...mask import AttentionMaskInfo
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
-from ...utils import is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
