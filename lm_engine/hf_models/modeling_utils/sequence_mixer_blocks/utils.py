@@ -75,7 +75,7 @@ def flash_attention(
                 causal=causal,
             )
     else:
-        q, k, v = attention_mask_info.unpack_sequence(q, k, v)
+        q, k, v = attention_mask_info.unpack_sequence((q, k, v))
 
         if use_flash_attention_3:
             x, _ = flash_attention_3(
