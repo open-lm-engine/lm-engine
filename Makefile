@@ -4,12 +4,12 @@
 
 install:
 	git submodule update --init --recursive
-	cd flash-model-architectures && make install
+	make -C flash-model-architectures install
 	uv pip install .
 
 install-dev:
 	git submodule update --init --recursive
-	cd flash-model-architectures && make install
+	make -C flash-model-architectures install
 	uv pip install -e .
 
 test:
