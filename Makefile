@@ -19,7 +19,7 @@ test-fast:
 	RUN_SLOW=False pytest tests
 
 update-precommit:
-	pre-commit autoupdate
+	uv run pre-commit autoupdate
 
 style:
 	uv run python copyright/copyright.py --repo ./ --exclude copyright-exclude.txt --header "Copyright (c) 2025, Mayank Mishra"

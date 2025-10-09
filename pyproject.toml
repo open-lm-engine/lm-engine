@@ -1,7 +1,7 @@
 [project]
 name = "lm-engine"
 version = "0.1.0"
-description = "Add your description here"
+description = "lm-engine is a open source LLM training framework"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
