@@ -14,6 +14,7 @@ from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..utils import ProcessGroupManager, is_fma_available
+from .mask import AttentionMaskInfo
 
 
 if is_fma_available():
@@ -23,10 +24,9 @@ if is_fma_available():
 def get_autoregressive_language_modeling_loss(
     lm_logits: torch.Tensor,
     labels: torch.Tensor,
+    attention_mask_info: AttentionMaskInfo,
     hidden_states: torch.Tensor | None = None,
     vocab_weight: torch.Tensor | None = None,
-    cu_seqlens: torch.Tensor | None = None,
-    use_padding_free_transformer: bool = True,
     reduction: str = "mean",
     shift_logits_and_labels: bool = True,
     tensor_parallel_enabled: bool = False,
@@ -40,15 +40,13 @@ def get_autoregressive_language_modeling_loss(
 
         labels = labels[..., 1:]
 
-    if use_padding_free_transformer:
-        if shift_logits_and_labels:
-            assert cu_seqlens is not None
+    if shift_logits_and_labels:
+        cu_seqlens = attention_mask_info.get_cu_seqlens()
 
+        if cu_seqlens is not None:
             # this is needed so that the last token of current example doesn't predict first token of next example
             drop_loss_positions = cu_seqlens[1:-1] - 1
             labels[drop_loss_positions] = -100
-    else:
-        assert cu_seqlens is None
 
     if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
         assert lm_logits is None
