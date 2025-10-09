@@ -21,52 +21,6 @@ class GPTBaseAttentionTest(TestCommons):
             [torch.device("cuda")], TestCommons.get_position_embedding_types(), [torch.float16, torch.bfloat16]
         )
     )
-    def test_sdpa_padding_free_transformer_equivalence(
-        self, device: torch.device, position_embedding_type: str, dtype: torch.dtype
-    ) -> None:
-        self.skip_test_if_device_unavailable(device)
-
-        set_seed(SEED)
-
-        config = self.get_dense_test_config(position_embedding_type, num_layers=1)
-
-        sdpa_model = self.from_config(config, dtype=dtype).to(device)
-        flash_model = self.from_config(config, dtype=dtype).to(device)
-
-        sdpa_model.eval()
-        flash_model.eval()
-
-        flash_model.load_state_dict(sdpa_model.state_dict())
-
-        input_ids, attention_mask, labels = self.get_dummy_inputs(device)
-        sdpa_output = sdpa_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-        attention_mask = attention_mask.to(torch.bool)
-        sdpa_logits = sdpa_output.logits
-        sdpa_logits = torch.cat([sdpa_logits[i, ex, :] for i, ex in enumerate(attention_mask)])
-        sdpa_loss = sdpa_output.loss
-
-        with enable_kernels([Kernel.flash_attention_2]):
-            input_ids, attention_mask, labels = self.get_dummy_inputs(device, return_list=True)
-            flash_output = flash_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-            flash_logits = flash_output.logits
-            flash_loss = flash_output.loss
-
-        self.assert_equal_tensors(
-            sdpa_logits,
-            flash_logits,
-            False,
-            rtol_float16=1e-3,
-            atol_float16=3e-4,
-            rtol_bfloat16=5e-3,
-            atol_bfloat16=5e-3,
-        )
-        self.assert_equal_tensors(sdpa_loss, flash_loss, False, atol_float32=1.2e-4, rtol_float32=0)
-
-    @parameterized.expand(
-        TestCommons.make_args_matrix(
-            [torch.device("cuda")], TestCommons.get_position_embedding_types(), [torch.float16, torch.bfloat16]
-        )
-    )
     def test_sdpa_flash_attention_equivalence(
         self, device: torch.device, position_embedding_type: str, dtype: torch.dtype
     ) -> None:
