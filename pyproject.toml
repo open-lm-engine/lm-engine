@@ -15,4 +15,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["lm_engine", "flash-model-architectures/fma"]
+packages = ["flash-model-architectures/fma"]
+
+[tool.setuptools]
+packages = ["lm_engine"]
