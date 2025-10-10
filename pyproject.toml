@@ -18,6 +18,7 @@ dev = [
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
 ]
+flash-attn = ["flash-attn"]
 
 [tool.uv.workspace]
 members = [
@@ -29,6 +30,3 @@ flash-model-architectures = { workspace = true }
 
 [tool.setuptools]
 packages = ["lm_engine"]
-
-[project.optional-dependencies]
-flash-attn = ["flash-attn"]
