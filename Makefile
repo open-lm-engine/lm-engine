@@ -4,13 +4,11 @@
 
 install:
 	git submodule update --init --recursive
-	uv venv
-	uv pip install .
+	uv sync
 
 install-dev:
 	git submodule update --init --recursive
-	uv venv
-	uv pip install -e .
+	uv sync
 
 test:
 	RUN_SLOW=True uv run pytest tests
