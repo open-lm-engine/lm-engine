@@ -22,3 +22,6 @@ members = [
 
 [tool.uv.sources]
 flash-model-architectures = { workspace = true }
+
+[tool.setuptools]
+packages = ["lm_engine"]
