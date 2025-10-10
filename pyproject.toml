@@ -3,7 +3,7 @@ name = "lm-engine"
 version = "0.1.0"
 description = "lm-engine is a open source LLM training framework"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "datasets>=4.2.0",
     "flash-model-architectures",
@@ -25,3 +25,6 @@ flash-model-architectures = { workspace = true }
 
 [tool.setuptools]
 packages = ["lm_engine"]
+
+[project.optional-dependencies]
+flash-attn = ["flash-attn"]
