@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "datasets>=4.2.0",
+    "flash-model-architectures",
     "parameterized>=0.9.0",
     "pre-commit>=4.3.0",
     "pydantic>=2.12.0",
@@ -14,8 +15,10 @@ dependencies = [
     "transformers>=4.57.0",
 ]
 
-[tool.setuptools]
-packages = ["flash-model-architectures/fma"]
+[tool.uv.workspace]
+members = [
+    "flash-model-architectures",
+]
 
-[tool.setuptools]
-packages = ["lm_engine"]
+[tool.uv.sources]
+flash-model-architectures = { workspace = true }
