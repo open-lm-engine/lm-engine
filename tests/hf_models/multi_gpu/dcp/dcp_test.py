@@ -21,7 +21,7 @@ class DCPTest(TestCommons):
 
         with tempfile.TemporaryDirectory() as tmp_path:
             command = [
-                "torchrun",
+                "uv run torchrun",
                 "--nproc_per_node",
                 str(gpus_per_node),
                 "-m",
