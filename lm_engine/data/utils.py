@@ -8,7 +8,52 @@ from typing import Iterable
 import torch
 
 from ..enums import LossMask
-from ..hf_models import convert_padding_free_lists_to_tensors
+
+
+def _check_list_type(list_of_list: list[list[int | float]] | None, error_message: str) -> None:
+    if list_of_list is None:
+        return
+
+    assert isinstance(list_of_list, list), error_message
+    assert isinstance(list_of_list[0], list), error_message
+
+
+def _flatten_and_convert_to_tensors(x: list[int], device: torch.device) -> torch.Tensor:
+    y = []
+    for sequence in x:
+        y.extend(sequence)
+
+    return torch.tensor(y, device=device)
+
+
+def _convert_padding_free_lists_to_tensors(
+    input_ids: list[list[int]] | None = None,
+    position_ids: list[list[int]] | None = None,
+    labels: list[list[int]] | None = None,
+    device: torch.device = None,
+) -> tuple[torch.Tensor | int]:
+
+    # check input types are correct
+    error_message = "{variable} should be of type List[List[{dtype}]]"
+    _check_list_type(input_ids, error_message.format(variable="input_ids", dtype="int"))
+    _check_list_type(position_ids, error_message.format(variable="position_ids", dtype="int"))
+    _check_list_type(labels, error_message.format(variable="labels", dtype="int"))
+
+    # prepare inputs for the model
+    seqlens = torch.tensor([0] + [len(x) for x in input_ids], device=device)
+    cu_seqlens = seqlens.cumsum(dim=-1).to(torch.int32)
+    max_seqlen = seqlens.max().item()
+
+    if position_ids is None:
+        position_ids = [list(range(len(x))) for x in input_ids]
+    position_ids = _flatten_and_convert_to_tensors(position_ids, device)
+
+    input_ids = _flatten_and_convert_to_tensors(input_ids, device)
+
+    if labels is not None:
+        labels = _flatten_and_convert_to_tensors(labels, device)
+
+    return input_ids, position_ids, labels, cu_seqlens, max_seqlen
 
 
 def collate_fn(
@@ -16,7 +61,6 @@ def collate_fn(
     use_output: bool,
     loss_mask: LossMask,
     eos_token_id: int,
-    use_padding_free_transformer: bool,
     labels_mask_value: int = -100,
     pad_to_multiple_of: int = 1,
     device: torch.device = None,
@@ -38,64 +82,40 @@ def collate_fn(
 
     device = torch.cuda.current_device() if device is None else device
 
-    if use_padding_free_transformer:
-        input_ids = inputs
-        attention_mask = None
+    input_ids = inputs
 
-        if loss_mask == LossMask.output_only:
-            labels = [
-                [labels_mask_value] * (len(array_in) - len(array_out)) + array_out
-                for array_in, array_out in zip(inputs, outputs)
-            ]
-        elif loss_mask == LossMask.no_mask:
-            labels = inputs
-        else:
-            raise ValueError(f"unexpected loss_mask ({loss_mask})")
-
-        tokens_to_add = 0
-        if pad_to_multiple_of > 1:
-            total_tokens = sum([len(array) for array in input_ids])
-            tokens_to_add = (math.ceil(total_tokens / pad_to_multiple_of) * pad_to_multiple_of) - total_tokens
-
-        # we pad the last example in the batch on the right
-        # NOTE this can be done since the attention is causal
-        input_ids[-1].extend([eos_token_id] * tokens_to_add)
-        labels[-1].extend([labels_mask_value] * tokens_to_add)
-
-        input_ids, position_ids, _, labels, cu_seqlens, max_seqlen = convert_padding_free_lists_to_tensors(
-            input_ids=input_ids, labels=labels, device=device
-        )
-
-        result = {
-            "input_ids": input_ids,
-            "position_ids": position_ids,
-            "cu_seqlens": cu_seqlens,
-            "max_seqlen": max_seqlen,
-        }
-        if labels is not None:
-            result["labels"] = labels
+    if loss_mask == LossMask.output_only:
+        labels = [
+            [labels_mask_value] * (len(array_in) - len(array_out)) + array_out
+            for array_in, array_out in zip(inputs, outputs)
+        ]
+    elif loss_mask == LossMask.no_mask:
+        labels = inputs
     else:
-        max_length = max(list(map(len, inputs)))
-        if pad_to_multiple_of > 1:
-            max_length = math.ceil(max_length / pad_to_multiple_of) * pad_to_multiple_of
+        raise ValueError(f"unexpected loss_mask ({loss_mask})")
 
-        input_ids = [[eos_token_id] * (max_length - len(array)) + array for array in inputs]
-        attention_mask = [[0] * (max_length - len(array)) + [1] * len(array) for array in inputs]
+    tokens_to_add = 0
+    if pad_to_multiple_of > 1:
+        total_tokens = sum([len(array) for array in input_ids])
+        tokens_to_add = (math.ceil(total_tokens / pad_to_multiple_of) * pad_to_multiple_of) - total_tokens
 
-        if outputs is not None:
-            if loss_mask == LossMask.output_only:
-                labels = [[labels_mask_value] * (max_length - len(array)) + array for array in outputs]
-            elif loss_mask == LossMask.no_mask:
-                labels = inputs
-            else:
-                raise ValueError(f"unexpected loss_mask ({loss_mask})")
+    # we pad the last example in the batch on the right
+    # NOTE this can be done since the attention is causal
+    input_ids[-1].extend([eos_token_id] * tokens_to_add)
+    labels[-1].extend([labels_mask_value] * tokens_to_add)
 
-        result = {
-            "input_ids": torch.tensor(input_ids, device=device),
-            "attention_mask": torch.tensor(attention_mask, device=device),
-        }
-        if labels is not None:
-            result["labels"] = torch.tensor(labels, device=device)
+    input_ids, position_ids, _, labels, cu_seqlens, max_seqlen = _convert_padding_free_lists_to_tensors(
+        input_ids=input_ids, labels=labels, device=device
+    )
+
+    result = {
+        "input_ids": input_ids,
+        "position_ids": position_ids,
+        "cu_seqlens": cu_seqlens,
+        "max_seqlen": max_seqlen,
+    }
+    if labels is not None:
+        result["labels"] = labels
 
     return result
 
