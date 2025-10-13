@@ -80,7 +80,7 @@ with torch.device("meta"):
     # try sharding vocab matrices if really struggling for memory
 
     model_tp = get_model_parallel_class(config.model_type)._from_config(
-        config, use_padding_free_transformer=True, sequence_parallel=args.sequence_parallel
+        config, sequence_parallel=args.sequence_parallel
     )
 
 # copy to device without copying storage
