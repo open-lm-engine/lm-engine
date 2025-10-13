@@ -96,16 +96,9 @@ class _RNNArgs(_GRUArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
-class _FRUArgs(_GRUArgs):
-    sequence_mixer_type: str = "fru"
-    intermediate_size: int = 256
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "fru"
-
-
-class _RSAArgs(_FRUArgs):
+class _RSAArgs(_GRUArgs):
     sequence_mixer_type: str = "rsa"
+    intermediate_size: int = 256
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rsa"

@@ -9,7 +9,6 @@ from .attention import (
     split_query_key_value_tensor_for_attention,
 )
 from .causal_convolution import CausalConvolution
-from .fru import FRU
 from .gru import GRU
 from .mamba2 import Mamba2
 from .multihead_latent_attention import MultiHeadLatentAttention
@@ -87,8 +86,8 @@ def get_sequence_mixer(
             layer_idx=layer_idx,
             use_padding_free_transformer=use_padding_free_transformer,
         )
-    elif sequence_mixer_type in ["fru", "rsa"]:
-        return (FRU if sequence_mixer_type == "fru" else RSA)(
+    elif sequence_mixer_type == "rsa":
+        return RSA(
             input_size=config.hidden_size,
             state_size=block.state_size,
             output_size=config.hidden_size,
