@@ -20,7 +20,7 @@ from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
-from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence
 
 
 if is_fma_available():
@@ -68,7 +68,7 @@ class FRU(nn.Module):
         self.num_f_heads = self.num_heads
 
         self.qk_head_dim = self.state_head_dim
-        self.v_head_dim = self.state_head_dim
+        self.v_head_dim = self.state_head_dim * 2
 
         self.q_shape = self.num_q_heads * self.qk_head_dim
         self.k_shape = self.num_k_heads * self.qk_head_dim
@@ -103,10 +103,13 @@ class FRU(nn.Module):
                 std=std,
             )
 
+        self.D = nn.Parameter(torch.empty(self.num_v_heads, self.v_head_dim))
+        mark_parameter_as_no_weight_decay(self.D)
+
         self.logistic_factor = nn.Parameter(torch.empty(self.num_v_heads))
         mark_parameter_as_no_weight_decay(self.logistic_factor)
 
-        self.state_weight = nn.Parameter(torch.empty(self.num_v_heads, self.state_head_dim, self.state_head_dim))
+        self.state_weight = nn.Parameter(torch.empty(self.num_v_heads, self.v_head_dim, self.v_head_dim))
 
         self.forget_multiplier = nn.Parameter(torch.empty(self.num_f_heads))
         mark_parameter_as_no_weight_decay(self.forget_multiplier)
@@ -123,7 +126,7 @@ class FRU(nn.Module):
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
 
         self.norm = get_normalization_function("p_norm", self.state_head_dim, p=2, elementwise_affine=False)
-        self.g_norm = get_normalization_function(normalization_function, self.state_size)
+        self.g_norm = get_normalization_function(normalization_function, self.num_v_heads * self.v_head_dim)
 
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
@@ -229,6 +232,7 @@ class FRU(nn.Module):
         nn.init.zeros_(self.forget_bias)
         nn.init.zeros_(self.logistic_factor)
         nn.init.zeros_(self.log_activation_range)
+        nn.init.ones_(self.D)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"

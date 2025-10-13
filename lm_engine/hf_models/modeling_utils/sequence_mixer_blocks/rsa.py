@@ -13,7 +13,6 @@ from ....utils import is_fma_available
 from ...cache import GenerationCache
 from .causal_convolution import causal_convolution
 from .fru import FRU
-from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence
 
 
 if is_fma_available():
@@ -71,6 +70,8 @@ class RSA(FRU):
             max_seqlen=max_seqlen,
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
+
+        input = input + v * self.D
 
         if cache_params is not None:
             cache_params.update(
