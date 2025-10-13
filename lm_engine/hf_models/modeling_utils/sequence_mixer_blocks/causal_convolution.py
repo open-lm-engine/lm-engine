@@ -120,6 +120,7 @@ def causal_convolution(
             input_state[..., -1] = hidden_states[:, 0]
 
             hidden_states = (input_state * conv1d_weight.squeeze(1)).sum(dim=-1)
+            hidden_states = hidden_states[:, None, :]
             if conv1d_bias is not None:
                 hidden_states = hidden_states + conv1d_bias
 
