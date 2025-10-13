@@ -72,8 +72,8 @@ class _Mamba2Args(BaseArgs):
         assert self.sequence_mixer_type == "mamba2"
 
 
-class _MSUArgs(BaseArgs):
-    sequence_mixer_type: str = "msu"
+class _GRUArgs(BaseArgs):
+    sequence_mixer_type: str = "gru"
     state_size: int = 2048
     num_heads: int = 128
     add_bias: bool = True
@@ -83,13 +83,6 @@ class _MSUArgs(BaseArgs):
     kernel_size: int | None = None
     activation_function: str | None = None
     low_rank: int | None = None
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "msu"
-
-
-class _GRUArgs(_MSUArgs):
-    sequence_mixer_type: str = "gru"
     low_rank_norm: bool = False
 
     def model_post_init(self, __context: Any) -> None:
