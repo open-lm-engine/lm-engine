@@ -102,6 +102,8 @@ class RSA(nn.Module):
                 std=std,
             )
 
+            mark_parameter_as_mup_learning_rate(self.conv1d.weight)
+
         self.D = nn.Parameter(torch.empty(self.num_v_heads, self.v_head_dim))
         mark_parameter_as_no_weight_decay(self.D)
 
@@ -121,7 +123,6 @@ class RSA(nn.Module):
         self.norm = get_normalization_function("p_norm", self.state_head_dim, p=2, elementwise_affine=False)
         self.g_norm = get_normalization_function(normalization_function, self.num_v_heads * self.v_head_dim)
 
-        mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
