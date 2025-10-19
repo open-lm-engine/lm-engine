@@ -3,11 +3,11 @@
 # **************************************************
 
 import logging
-from functools import partial
 from typing import Callable
 
 import torch
 import torch.nn as nn
+import torch_xla
 from torch.distributed._composable.fsdp import CPUOffloadPolicy
 from torch.distributed._composable.fsdp import MixedPrecisionPolicy as MixedPrecision2
 from torch.distributed._composable.fsdp import OffloadPolicy, fully_shard
@@ -25,6 +25,7 @@ from torch.distributed.pipelining.schedules import (
     _PipelineSchedule,
     get_schedule_class,
 )
+from torch_xla.distributed.fsdp import XlaFullyShardedDataParallel as FSDP
 
 from .arguments import TrainingArgs
 from .containers import ModelContainer
@@ -209,10 +210,10 @@ def wrap_model_container_for_distributed_training(
                 **args.distributed_args.gradient_checkpointing_args,
             )
 
-    marker_maps = _get_parameter_marker_maps(model_container)
+    _get_parameter_marker_maps(model_container)
 
     # for PP, we use FSDP-2 always
-    use_ddp = (stage == 0 or data_parallel_sharding_world_size == 1) and num_pipeline_stages == 1
+    use_ddp = (stage == 0) and num_pipeline_stages == 1
 
     mixed_precision_policy = _get_fsdp_mixed_precision(
         dtype=dtype,
@@ -332,17 +333,18 @@ def wrap_model_container_for_distributed_training(
         for i, model in enumerate(model_container):
             model_container[i] = FSDP(
                 model,
-                sharding_strategy=sharding_strategy,
-                cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
-                mixed_precision=mixed_precision_policy,
-                auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
-                device_id=torch.cuda.current_device(),
-                limit_all_gathers=True,
-                use_orig_params=True,
-                # https://github.com/meta-llama/llama-recipes/blob/492455dc080f6c25f356e283e443be0cce86aaeb/src/llama_recipes/finetuning.py#L191
-                sync_module_states=efficient_initialization,
+                # sharding_strategy=sharding_strategy,
+                # cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
+                # mixed_precision=mixed_precision_policy,
+                compute_dtype=torch.bfloat16,
+                buffer_dtype=torch.bfloat16,
+                # auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
+                # device_id=torch_xla.device(),
+                # limit_all_gathers=True,
+                # use_orig_params=True,
+                # sync_module_states=efficient_initialization,
                 param_init_fn=_param_init if efficient_initialization else None,
-                device_mesh=dp_mesh,
+                # device_mesh=dp_mesh,
             )
     else:
         raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
@@ -353,7 +355,7 @@ def wrap_model_container_for_distributed_training(
         for i, model in enumerate(model_container):
             model_container[i] = torch.compile(model)
 
-    _set_parameter_marker_maps(model_container, marker_maps)
+    # _set_parameter_marker_maps(model_container, marker_maps)
 
     pipeline_stages = []
     pipeline_schedule = None
