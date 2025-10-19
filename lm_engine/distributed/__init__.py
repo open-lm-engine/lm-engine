@@ -26,14 +26,14 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
 )
 
-from .arguments import TrainingArgs
-from .containers import ModelContainer
-from .enums import Kernel
-from .gradient_checkpointing import apply_gradient_checkpointing
-from .hf_models import CausalLMOutputWithPast
-from .hf_models.parameter import _ALL_MARKERS
-from .kernels import is_kernel_allowed
-from .utils import (
+from ..arguments import TrainingArgs
+from ..containers import ModelContainer
+from ..enums import Kernel
+from ..gradient_checkpointing import apply_gradient_checkpointing
+from ..hf_models import CausalLMOutputWithPast
+from ..hf_models.parameter import _ALL_MARKERS
+from ..kernels import is_kernel_allowed
+from ..utils import (
     ProcessGroupManager,
     get_module_class_from_name,
     is_torchao_available,
@@ -45,7 +45,7 @@ from .utils import (
 if is_torchao_available():
     from torchao.float8 import ScalingType
 
-    from .fp8 import FP8Manager
+    from ..fp8 import FP8Manager
 
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
