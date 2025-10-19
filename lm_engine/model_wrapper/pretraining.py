@@ -222,7 +222,7 @@ class ModelWrapperForPretraining(ModelWrapper):
                 )
             else:
                 tokens = batch["text"]
-                tokens = tokens.to(torch.cuda.current_device())
+                tokens = tokens.to(xm.xla_device())
 
             input_ids = tokens[:, :-1]
             batch = {"labels": tokens[:, 1:]}

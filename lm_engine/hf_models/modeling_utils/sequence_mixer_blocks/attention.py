@@ -9,6 +9,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch_xla.experimental.custom_kernel import flash_attention
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
@@ -213,6 +214,19 @@ class Attention(nn.Module):
             hidden_states = hidden_states.view(*output_shape)
         else:
             assert self.sliding_window is None
+
+            # hidden_states = flash_attention(
+            #     query.transpose(1, 2),
+            #     key.transpose(1, 2),
+            #     value.transpose(1, 2),
+            #     # attn_mask=attention_mask,
+            #     # dropout_p=self.softmax_dropout_p if self.training else 0,
+            #     causal=self.causal if attention_mask is None else False,
+            #     # scale=self.attention_multiplier,
+            #     # enable_gqa=True,
+            # )
+
+            # print(hidden_states.dtype)
 
             hidden_states = F.scaled_dot_product_attention(
                 query,
