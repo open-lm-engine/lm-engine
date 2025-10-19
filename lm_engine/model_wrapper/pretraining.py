@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import torch
+import torch_xla
+import torch_xla.core.xla_model as xm
 from torch.distributed._tensor.placement_types import Replicate
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
@@ -279,7 +281,7 @@ class ModelWrapperForPretraining(ModelWrapper):
                         self.micro_batch_size * self.sequence_length + 1,
                         self.sequence_length,
                         dtype=torch.int32,
-                        device=torch.cuda.current_device(),
+                        device=xm.xla_device(),
                     ),
                     persistent=False,
                 )
@@ -289,9 +291,7 @@ class ModelWrapperForPretraining(ModelWrapper):
             else:
                 self.register_buffer(
                     "position_ids",
-                    torch.arange(0, self.sequence_length, 1, device=torch.cuda.current_device()).repeat(
-                        self.micro_batch_size
-                    ),
+                    torch.arange(0, self.sequence_length, 1, device=xm.xla_device()).repeat(self.micro_batch_size),
                     persistent=False,
                 )
         else:
