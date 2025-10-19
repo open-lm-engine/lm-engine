@@ -40,6 +40,7 @@ from ..utils import (
     log_rank_0,
     string_to_torch_dtype,
 )
+from .ddp import DDP
 
 
 if is_torchao_available():
