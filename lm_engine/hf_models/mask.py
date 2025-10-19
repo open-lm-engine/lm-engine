@@ -101,7 +101,7 @@ class AttentionMaskInfo:
 
         if self.max_seqlen is None:
             # this will cache the max_seqlen but causes synchronization with CPU
-            self.get_cu_seqlens()
+            self.get_cu_seqlens(False)
 
             if self.max_seqlen is None:
                 raise NotImplementedError(_ERROR_MESSAGE)
