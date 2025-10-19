@@ -18,27 +18,21 @@ class DDP(nn.Module):
         self,
         model: nn.Module,
         device_mesh: DeviceMesh | None = None,
-        sync_parameters: bool = False,
-        sync_buffers: bool = False,
-        overlap_all_reduce: bool = False,
+        sync_module_states: bool = False,
+        overlap_communication: bool = False,
     ) -> DDP:
         super().__init__()
 
         self.model = model
         self.device_mesh = ProcessGroupManager.get_data_parallel_mesh() if device_mesh is None else device_mesh
         self.process_group = self.device_mesh.get_group()
-        self.overlap_all_reduce = overlap_all_reduce
+        self.overlap_communication = overlap_communication
 
-        if self.overlap_all_reduce:
+        if self.overlap_communication:
             raise NotImplementedError()
 
-        if sync_parameters:
-            for parameter in self.parameters():
-                torch.distributed.broadcast(parameter, src=0, group=self.process_group)
-
-        if sync_buffers:
-            for parameter in self.buffers():
-                torch.distributed.broadcast(parameter, src=0, group=self.process_group)
+        if sync_module_states:
+            self._sync_module_states(list(self.parameters()) + list(self.buffers()))
 
         for parameter in self.parameters():
             if parameter.requires_grad:
@@ -50,3 +44,8 @@ class DDP(nn.Module):
     def _all_reduce_hook(self, grad: torch.Tensor) -> torch.Tensor:
         torch.distributed.all_reduce(grad, op=ReduceOp.AVG, group=self.process_group)
         return grad
+
+    def _sync_module_states(self, tensors: list[torch.Tensor]) -> None:
+        torch.distributed._broadcast_coalesced(
+            process_group=self.process_group, tensors=tensors, buffer_size=250 * (1024**2), src=0
+        )
