@@ -43,7 +43,7 @@ def flash_attention(
     assert k.dim() == 3
     assert v.dim() == 3
 
-    if attention_mask_info.is_ragged():
+    if attention_mask_info.has_cu_seqlens():
         assert sliding_window is None
 
         cu_seqlens = attention_mask_info.get_cu_seqlens()
