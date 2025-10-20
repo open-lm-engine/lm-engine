@@ -190,7 +190,7 @@ class AttentionMaskInfo:
 
     def unpack_sequence(self, inputs: torch.Tensor | list[torch.Tensor]) -> torch.Tensor | list[torch.Tensor]:
         B = self.get_batch_size()
-        S = self.get_max_seqlen()
+        S = self.get_max_seqlen(False)
 
         if self.has_cu_seqlens():
             kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
