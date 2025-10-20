@@ -79,9 +79,11 @@ class RNN(nn.Module):
     def forward(
         self, x: torch.Tensor, attention_mask_info: AttentionMaskInfo, cache_params: GenerationCache | None = None
     ) -> torch.Tensor:
+        T = x.size(0)
+
         x = self.input_projection(x)
         x, g = x.chunk(2, dim=-1)
-        x = x.view(*x.size()[:-1], self.num_heads, self.state_head_dim)
+        x = x.view(T, self.num_heads, self.state_head_dim)
 
         if self.scaling_factor != 1:
             x = x * self.scaling_factor
@@ -90,26 +92,25 @@ class RNN(nn.Module):
         if self.scaling_factor != 1:
             weight = weight * self.scaling_factor
 
-        cu_seqlens = None if attention_mask_info.is_ragged() else attention_mask_info.get_cu_seqlens()
-        max_seqlen = None if attention_mask_info.is_ragged() else attention_mask_info.get_max_seqlen()
+        has_padding = attention_mask_info.has_padding()
 
-        x = rnn(
-            input=attention_mask_info.unpack_sequence(x),
+        x, s = rnn(
+            input=x if has_padding else attention_mask_info.unpack_sequence(x),
             weight=weight,
             input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             gradient_clipping=self.gradient_clipping,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
+            cu_seqlens=attention_mask_info.get_cu_seqlens(),
+            max_seqlen=attention_mask_info.get_max_seqlen(),
             kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
         )
 
+        if not has_padding:
+            x = attention_mask_info.pack_sequence(x)
+
         if cache_params is not None:
-            if cu_seqlens is None:
-                cache_params.update(state=x[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
-            else:
-                cache_params.update(
-                    state=x[cu_seqlens[1:] - 1], num_tokens_added=cu_seqlens[1:], layer_idx=self.layer_idx
-                )
+            cache_params.update(
+                state=s, num_tokens_added=attention_mask_info.get_batch_size(), layer_idx=self.layer_idx
+            )
 
         x = x.flatten(-2, -1)
         x = x * F.silu(g)

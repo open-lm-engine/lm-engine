@@ -62,6 +62,9 @@ class AttentionMaskInfo:
     def has_attention_mask(self) -> bool:
         return self._has_attention_mask
 
+    def has_padding(self) -> bool:
+        return self.has_cu_seqlens() or self.has_attention_mask()
+
     def get_batch_size(self) -> int:
         if self.batch_size is None:
             if self.has_cu_seqlens():
