@@ -177,7 +177,7 @@ class Attention(nn.Module):
             q, k, v = attention_mask_info.unpack_sequence((q, k, v))
             q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
 
-            attention_mask = attention_mask_info.get_causal_mask(query_length=q.size(-2), dtype=q.dtype)
+            attention_mask = attention_mask_info.get_causal_mask(query_length=q.size(-2))
 
             x = F.scaled_dot_product_attention(
                 query=q,
