@@ -131,7 +131,8 @@ class AttentionMaskInfo:
     def get_position_ids(self) -> torch.Tensor:
         if self.has_cu_seqlens() or self.has_attention_mask():
             attention_mask = self.get_attention_mask(False)
-            position_ids = attention_mask.cumsum(-1)
+            position_ids = attention_mask.cumsum(-1) - 1
+            position_ids.masked_fill_(attention_mask == 0, 0)
         else:
             B = self.get_batch_size()
             S = self.get_max_seqlen(False)
