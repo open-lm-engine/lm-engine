@@ -144,7 +144,12 @@ class AttentionMaskInfo:
 
         return position_ids
 
-    def get_causal_mask(self, query_length: int, return_none_allowed: bool = True) -> torch.Tensor | None:
+    def get_causal_mask(
+        self, query_length: int, return_none_allowed: bool = True, dtype: torch.dtype | None = None
+    ) -> torch.Tensor | None:
+        if self.causal_mask is not None:
+            return self.causal_mask
+
         if self.has_cu_seqlens() or self.has_attention_mask():
             attention_mask = self.get_attention_mask()
         elif return_none_allowed:
@@ -168,7 +173,16 @@ class AttentionMaskInfo:
         else:
             raise NotImplementedError(_ERROR_MESSAGE)
 
-        self.causal_mask = causal_mask[:, None, ...]
+        causal_mask = causal_mask[:, None, ...]
+        causal_mask = torch.where(causal_mask, ~causal_mask, self._get_mask_value(attention_mask.device, dtype))
+
+        # this is needed to prevent NaN since SDPA
+        # see issue: https://github.com/pytorch/pytorch/issues/110213
+        causal_mask = causal_mask * ~torch.all(
+            causal_mask == self._get_mask_value(self.device, dtype), dim=-1, keepdim=True
+        )
+
+        self.causal_mask = causal_mask
 
         return self.causal_mask
 
