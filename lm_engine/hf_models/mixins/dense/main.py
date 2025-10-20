@@ -122,10 +122,9 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             loss = get_autoregressive_language_modeling_loss(
                 lm_logits=lm_logits,
                 labels=labels,
+                attention_mask_info=attention_mask_info,
                 hidden_states=None,
                 vocab_weight=None,
-                cu_seqlens=cu_seqlens,
-                use_padding_free_transformer=True,
                 reduction=reduction,
                 shift_logits_and_labels=True,
                 tensor_parallel_enabled=False,
