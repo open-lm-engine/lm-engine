@@ -22,7 +22,7 @@ from ..normalization import get_normalization_function
 
 if is_fma_available():
     from fma import KernelBackend
-    from fma.modules.gru import gru
+    from fma.layers.gru import gru
 
 
 class GRU(nn.Module):

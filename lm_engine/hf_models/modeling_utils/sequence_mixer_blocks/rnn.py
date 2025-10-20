@@ -22,7 +22,7 @@ from ..normalization import get_normalization_function
 
 if is_fma_available():
     from fma import KernelBackend
-    from fma.modules.rnn import rnn
+    from fma.layers.rnn import rnn
 
 
 class RNN(nn.Module):
