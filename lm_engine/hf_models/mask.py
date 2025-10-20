@@ -191,7 +191,7 @@ class AttentionMaskInfo:
         if inputs is None:
             return None
 
-        if self.has_cu_seqlens():
+        if self.has_cu_seqlens() or self.has_attention_mask():
             kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence) else KernelBackend.torch
             inputs = pack_sequence(
                 inputs=inputs,
@@ -213,7 +213,7 @@ class AttentionMaskInfo:
         B = self.get_batch_size()
         S = self.get_max_seqlen(False)
 
-        if self.has_cu_seqlens():
+        if self.has_cu_seqlens() or self.has_attention_mask():
             kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.unpack_sequence) else KernelBackend.torch
             other_shape = inputs.size()[1:] if isinstance(inputs, torch.Tensor) else inputs[0].size()[1:]
 
