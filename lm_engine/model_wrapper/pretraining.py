@@ -124,6 +124,8 @@ class ModelWrapperForPretraining(ModelWrapper):
 
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
+        attention_mask_info = batch["attention_mask_info"]
+
         output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)
 
         if self.is_pipeline_parallel_enabled:
@@ -144,12 +146,18 @@ class ModelWrapperForPretraining(ModelWrapper):
             if use_aux_loss:
                 output = (output, aux_loss)
         else:
-            output = self.get_loss(output, labels, lm_loss_multiplier=lm_loss_multiplier)
+            output = self.get_loss(
+                output, labels, attention_mask_info=attention_mask_info, lm_loss_multiplier=lm_loss_multiplier
+            )
 
         return output
 
     def get_loss(
-        self, model_outputs: CausalLMOutputWithPast, labels: torch.Tensor, lm_loss_multiplier: float = 1
+        self,
+        model_outputs: CausalLMOutputWithPast,
+        labels: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
+        lm_loss_multiplier: float = 1,
     ) -> torch.Tensor | dict:
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
@@ -157,10 +165,9 @@ class ModelWrapperForPretraining(ModelWrapper):
         lm_loss = get_autoregressive_language_modeling_loss(
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
             labels=labels,
+            attention_mask_info=attention_mask_info,
             hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
             vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
-            cu_seqlens=None,
-            use_padding_free_transformer=True,
             reduction="sum",
             shift_logits_and_labels=False,
             tensor_parallel_enabled=tensor_parallel_enabled,
