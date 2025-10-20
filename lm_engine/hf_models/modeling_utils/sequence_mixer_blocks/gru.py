@@ -22,7 +22,7 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 
 if is_fma_available():
     from fma import KernelBackend
-    from fma.modules.gru import gru
+    from fma.layers.gru import gru
 
 
 class GRU(nn.Module):
