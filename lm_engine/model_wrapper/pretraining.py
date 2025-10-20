@@ -292,11 +292,7 @@ class ModelWrapperForPretraining(ModelWrapper):
             )
 
     def _get_attention_mask_info(
-        self,
-        x: torch.Tensor,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: torch.Tensor,
-        attention_mask: torch.Tensor | None,
+        self, x: torch.Tensor, cu_seqlens: torch.Tensor | None, max_seqlen: torch.Tensor
     ) -> AttentionMaskInfo:
         kwargs = {}
         if cu_seqlens is None:
