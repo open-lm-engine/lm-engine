@@ -86,7 +86,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
             )
 
-        input_ids = input_ids.flatten()
+        input_ids = attention_mask_info.pack_sequence(input_ids)
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids=input_ids,
@@ -119,7 +119,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             if self.m_width is not None:
                 lm_logits = lm_logits / self.m_width
 
-            labels = labels.flatten()
+            labels = attention_mask_info.pack_sequence(labels)
 
             loss = get_autoregressive_language_modeling_loss(
                 lm_logits=lm_logits,
