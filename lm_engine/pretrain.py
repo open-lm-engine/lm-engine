@@ -177,10 +177,9 @@ def train_step_without_pipeline_parallel(
 
     fsdp_algorithm = 2 if hasattr(model, "set_requires_gradient_sync") else 1
 
-    no_sync = nullcontext
     if not sync_every_gradient_accumulation_step:
         if fsdp_algorithm == 1:
-            no_sync = model.no_sync
+            model.no_sync
         else:
             model.set_requires_gradient_sync(False)
 
@@ -198,7 +197,7 @@ def train_step_without_pipeline_parallel(
     else:
         batches = None
 
-    with no_sync(), torch_xla.step(), torch.autocast("xla"):
+    with torch_xla.step():
         for step in range(gradient_accumulation_steps - 1):
             batch = get_next_batch(train_dataloader) if batches is None else batches[step]
             with forward_context():
