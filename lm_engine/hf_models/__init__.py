@@ -5,6 +5,7 @@
 from .cache import disable_generation_cache
 from .config import CommonConfig
 from .loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
+from .mask import AttentionMaskInfo
 from .mixins import CausalLMOutputWithPast, PipelineParallelInput, PipelineParallelOutput
 from .model_conversion import export_to_huggingface, import_from_huggingface
 from .models import (

@@ -65,8 +65,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         labels: torch.Tensor | None = None,
         use_cache: bool | None = None,
         return_dict: bool = True,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
         reduction: str = "mean",
     ) -> CausalLMOutputWithPast:
         assert return_dict
@@ -74,9 +73,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         clear_aux_loss()
 
-        attention_mask_info = self._get_attention_mask_info(
-            x=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen, attention_mask=attention_mask
-        )
+        if attention_mask_info is None:
+            attention_mask_info = self._get_attention_mask_info(x=input_ids, attention_mask=attention_mask)
 
         if position_ids is None:
             position_ids = attention_mask_info.get_position_ids()
@@ -262,23 +260,13 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         return generated_tokens
 
-    def _get_attention_mask_info(
-        self,
-        x: torch.Tensor,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: torch.Tensor,
-        attention_mask: torch.Tensor | None,
-    ) -> AttentionMaskInfo:
+    def _get_attention_mask_info(self, x: torch.Tensor, attention_mask: torch.Tensor | None) -> AttentionMaskInfo:
         kwargs = {}
-        if cu_seqlens is None:
-            if attention_mask is None:
-                kwargs["batch_size"] = x.size(0)
-                kwargs["max_seqlen"] = x.size(1)
-                kwargs["device"] = x.device
-            else:
-                kwargs["attention_mask"] = attention_mask
+        if attention_mask is None:
+            kwargs["batch_size"] = x.size(0)
+            kwargs["max_seqlen"] = x.size(1)
+            kwargs["device"] = x.device
         else:
-            kwargs["cu_seqlens"] = cu_seqlens
-            kwargs["max_seqlen"] = max_seqlen
+            kwargs["attention_mask"] = attention_mask
 
         return AttentionMaskInfo(**kwargs)

@@ -11,6 +11,7 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..hf_models import (
+    AttentionMaskInfo,
     CausalLMOutputWithPast,
     PipelineParallelInput,
     PipelineParallelOutput,
@@ -251,8 +252,9 @@ class ModelWrapperForPretraining(ModelWrapper):
             position_ids = self.position_ids
 
         batch["input_ids"] = input_ids
-        batch["cu_seqlens"] = cu_seqlens
-        batch["max_seqlen"] = max_seqlen
+        batch["attention_mask_info"] = self._get_attention_mask_info(
+            x=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+        )
         batch["position_ids"] = position_ids
 
         if ProcessGroupManager.is_tensor_parallel_enabled():
@@ -288,6 +290,24 @@ class ModelWrapperForPretraining(ModelWrapper):
                 ),
                 persistent=False,
             )
+
+    def _get_attention_mask_info(
+        self,
+        x: torch.Tensor,
+        cu_seqlens: torch.Tensor | None,
+        max_seqlen: torch.Tensor,
+        attention_mask: torch.Tensor | None,
+    ) -> AttentionMaskInfo:
+        kwargs = {}
+        if cu_seqlens is None:
+            kwargs["batch_size"] = x.size(0)
+            kwargs["max_seqlen"] = x.size(1)
+            kwargs["device"] = x.device
+        else:
+            kwargs["cu_seqlens"] = cu_seqlens
+            kwargs["max_seqlen"] = max_seqlen
+
+        return AttentionMaskInfo(**kwargs)
 
 
 class _F(torch.autograd.Function):
