@@ -119,6 +119,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             if self.m_width is not None:
                 lm_logits = lm_logits / self.m_width
 
+            labels = labels.flatten()
+
             loss = get_autoregressive_language_modeling_loss(
                 lm_logits=lm_logits,
                 labels=labels,
