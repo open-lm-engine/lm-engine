@@ -22,7 +22,7 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 
 if is_fma_available():
     from fma import KernelBackend
-    from fma.modules.rnn import rnn
+    from fma.layers.rnn import rnn
 
 
 class RNN(nn.Module):
