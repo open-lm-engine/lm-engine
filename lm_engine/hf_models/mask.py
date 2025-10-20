@@ -191,6 +191,10 @@ class AttentionMaskInfo:
         if inputs is None:
             return None
 
+        is_tensor = isinstance(inputs, torch.Tensor)
+        if is_tensor:
+            inputs = [inputs]
+
         if self.has_cu_seqlens() or self.has_attention_mask():
             kernel_backend = KernelBackend.cuda if is_kernel_allowed(Kernel.pack_sequence) else KernelBackend.torch
             cu_seqlens = self.get_cu_seqlens(False)
@@ -202,16 +206,21 @@ class AttentionMaskInfo:
                 kernel_backend_forward=kernel_backend,
                 kernel_backend_backward=kernel_backend,
             )
-        elif isinstance(inputs, torch.Tensor):
-            inputs = inputs.flatten(0, 1)
         else:
             inputs = [i.flatten(0, 1) for i in inputs]
+
+        if is_tensor:
+            inputs = inputs[0]
 
         return inputs
 
     def unpack_sequence(self, inputs: torch.Tensor | list[torch.Tensor]) -> torch.Tensor | list[torch.Tensor]:
         if inputs is None:
             return None
+
+        is_tensor = isinstance(inputs, torch.Tensor)
+        if is_tensor:
+            inputs = [inputs]
 
         B = self.get_batch_size()
         S = self.get_max_seqlen(False)
@@ -227,10 +236,11 @@ class AttentionMaskInfo:
                 kernel_backend_forward=kernel_backend,
                 kernel_backend_backward=kernel_backend,
             )
-        elif isinstance(inputs, torch.Tensor):
-            inputs = inputs.reshape(B, S, *inputs.size()[1:])
         else:
             inputs = [i.reshape(B, S, *i.size()[1:]) for i in inputs]
+
+        if is_tensor:
+            inputs = inputs[0]
 
         return inputs
 
