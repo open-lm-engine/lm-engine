@@ -10,10 +10,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .....enums import Kernel
-from .....kernels import is_kernel_allowed
-from .....utils import divide_if_divisible
-from ....modeling_utils import ParameterizedLinear, apply_rotary_pos_emb, flash_attention, get_normalization_function
+from ....enums import Kernel
+from ....kernels import is_kernel_allowed
+from ....utils import divide_if_divisible
+from ...mask import AttentionMaskInfo
+from ...modeling_utils import ParameterizedLinear, apply_rotary_pos_emb, flash_attention, get_normalization_function
+from .config import GPTCrossLayerConfig
 
 
 class CrossLayerAttention(nn.Module):
@@ -31,7 +33,6 @@ class CrossLayerAttention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> CrossLayerAttention:
         super().__init__()
 
@@ -41,7 +42,6 @@ class CrossLayerAttention(nn.Module):
         self.num_heads = num_attention_heads
         self.num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
 
         assert (
             self.hidden_size % self.num_heads == 0
@@ -81,74 +81,32 @@ class CrossLayerAttention(nn.Module):
         hidden_states: torch.Tensor,
         key: torch.Tensor,
         value: torch.Tensor,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo,
         rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
-            if self.use_padding_free_transformer:
-                total_q = hidden_states.shape[0]
-
-                query = self.q_attn(hidden_states)
-                query = query.view(total_q, self.num_heads, -1)
-
-                if self.position_embedding_type == "rope":
-                    query = apply_rotary_pos_emb(query, rope_cos_sin)
-
-                hidden_states = flash_attention(
-                    query=query,
-                    key=key,
-                    value=value,
-                    attention_mask=attention_mask,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
-                    causal=self.causal,
-                    dropout=self.softmax_dropout_p if self.training else 0,
-                    softmax_scale=self.attention_multiplier,
-                )
-
-                del query, key, value
-
-                hidden_states = hidden_states.view(-1, self.hidden_size)
-            else:
-                batch_size, query_length = hidden_states.shape[:2]
-
-                query = self.q_attn(hidden_states)
-                query = query.view(batch_size, query_length, self.num_heads, -1)
-
-                if self.position_embedding_type == "rope":
-                    # TODO avoid this extra transpose
-                    query = query.transpose(1, 2)
-                    query = apply_rotary_pos_emb(query, rope_cos_sin)
-                    query = query.transpose(1, 2)
-
-                hidden_states = flash_attention(
-                    query=query,
-                    key=key,
-                    value=value,
-                    attention_mask=attention_mask,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
-                    causal=self.causal,
-                    dropout=self.softmax_dropout_p if self.training else 0,
-                    softmax_scale=self.attention_multiplier,
-                )
-
-                del query, key, value
-
-                hidden_states = hidden_states.view(batch_size, query_length, -1)
-        else:
-            batch_size, query_length = hidden_states.shape[:2]
-
             query = self.q_attn(hidden_states)
-            query = query.view(batch_size, query_length, self.num_heads, -1)
+            query = query.view(*hidden_states.size()[:-1], self.num_heads, -1)
+
+            if self.position_embedding_type == "rope":
+                query = apply_rotary_pos_emb(query, rope_cos_sin)
+
+            hidden_states = flash_attention(
+                q=query,
+                k=key,
+                v=value,
+                attention_mask_info=attention_mask_info,
+                causal=self.causal,
+                dropout=self.softmax_dropout_p if self.training else 0,
+                softmax_scale=self.attention_multiplier,
+            )
+        else:
             query = query.transpose(1, 2)
 
             if self.position_embedding_type == "rope":
                 query = apply_rotary_pos_emb(query, rope_cos_sin)
+
+            attention_mask = attention_mask_info.get_attention_mask()
 
             hidden_states = F.scaled_dot_product_attention(
                 query,
@@ -161,11 +119,9 @@ class CrossLayerAttention(nn.Module):
                 enable_gqa=True,
             )
 
-            del query, key, value
-
             hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = hidden_states.reshape(batch_size, -1, self.num_heads * self.head_dim)
 
+        hidden_states = hidden_states.flatten(-2, -1)
         hidden_states = self.c_proj(hidden_states)
         hidden_states = self.dropout(hidden_states)
 
@@ -182,7 +138,6 @@ class KeyValueProjection(nn.Module):
         initializer_range: float,
         normalization_function: str,
         layer_norm_epsilon: float,
-        use_padding_free_transformer: bool,
     ) -> KeyValueProjection:
         super().__init__()
 
@@ -197,28 +152,31 @@ class KeyValueProjection(nn.Module):
             std=initializer_range,
         )
 
-        self.use_padding_free_transformer = use_padding_free_transformer
-
     def forward(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         hidden_states = self.ln(hidden_states)
         hidden_states = self.kv_attn(hidden_states)
 
-        if self.use_padding_free_transformer:
-            total_q = hidden_states.shape[0]
-
-            if self.num_key_value_heads == 1:
-                hidden_states = hidden_states.unsqueeze(1)
-            else:
-                hidden_states = hidden_states.view(total_q, self.num_key_value_heads, -1)
-        else:
-            batch_size, query_length = hidden_states.shape[:2]
-
-            if self.num_key_value_heads == 1:
-                hidden_states = hidden_states.unsqueeze(1)
-            else:
-                hidden_states = hidden_states.view(batch_size, query_length, self.num_key_value_heads, -1)
-                hidden_states = hidden_states.transpose(1, 2)
-
+        hidden_states = hidden_states.view(*hidden_states.size()[:-1], self.num_key_value_heads, -1)
         key, value = hidden_states.chunk(2, -1)
 
         return key, value
+
+
+def get_sequence_mixer(config: GPTCrossLayerConfig, causal: bool, layer_idx: int) -> CrossLayerAttention:
+    block = config.sequence_mixer_blocks[layer_idx]
+    assert block.sequence_mixer_type == "softmax_attention"
+
+    return CrossLayerAttention(
+        hidden_size=config.hidden_size,
+        num_attention_heads=block.num_attention_heads,
+        num_key_value_heads=block.num_key_value_heads,
+        attention_multiplier=block.attention_multiplier,
+        position_embedding_type=config.position_embedding_type,
+        add_bias=block.add_bias,
+        softmax_dropout=block.softmax_dropout,
+        dropout=block.dropout,
+        initializer_range=config.initializer_range,
+        num_layers=config.num_layers,
+        causal=causal,
+        layer_idx=layer_idx,
+    )

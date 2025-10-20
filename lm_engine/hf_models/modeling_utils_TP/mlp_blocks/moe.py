@@ -23,7 +23,7 @@ from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
 if is_fma_available():
-    from fma.modules.moe import scattered_experts
+    from fma.layers.moe import scattered_experts
 
 
 class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
