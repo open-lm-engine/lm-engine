@@ -43,11 +43,11 @@ def flash_attention(
     assert k.dim() == 3
     assert v.dim() == 3
 
-    if attention_mask_info.has_cu_seqlens():
+    if attention_mask_info.has_cu_seqlens() or attention_mask_info.has_attention_mask():
         assert sliding_window is None
 
-        cu_seqlens = attention_mask_info.get_cu_seqlens()
-        max_seqlen = attention_mask_info.get_max_seqlen()
+        cu_seqlens = attention_mask_info.get_cu_seqlens(False)
+        max_seqlen = attention_mask_info.get_max_seqlen(False)
 
         if use_flash_attention_3:
             x, _ = flash_attention_3_varlen(
@@ -75,7 +75,7 @@ def flash_attention(
                 causal=causal,
             )
     else:
-        q, k, v = attention_mask_info.unpack_sequence((q, k, v))
+        q, k, v = attention_mask_info.unpack_sequence([q, k, v])
 
         if use_flash_attention_3:
             x, _ = flash_attention_3(
