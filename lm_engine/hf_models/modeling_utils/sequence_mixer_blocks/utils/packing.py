@@ -33,6 +33,7 @@ def pack_sequence(
     inputs = _pack_sequence(
         inputs=inputs,
         cu_seqlens=cu_seqlens,
+        total_tokens=cu_seqlens[-1].item(),
         kernel_backend_forward=kernel_backend,
         kernel_backend_backward=kernel_backend,
     )
@@ -48,7 +49,8 @@ def unpack_sequence(
     inputs = _unpack_sequence(
         inputs=inputs,
         cu_seqlens=cu_seqlens,
-        output_shape=output_shape,
+        batch_size=output_shape[0],
+        sequence_length=output_shape[1],
         kernel_backend_forward=kernel_backend,
         kernel_backend_backward=kernel_backend,
     )
