@@ -132,6 +132,12 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 tensor_parallel_enabled=False,
             )
 
+        if lm_logits is not None:
+            lm_logits = attention_mask_info.unpack_sequence(lm_logits)
+
+        if hidden_states is not None:
+            hidden_states = attention_mask_info.unpack_sequence(hidden_states)
+
         aux_loss = get_aux_loss()
 
         if loss is not None and not is_aux_loss_zero(aux_loss):
