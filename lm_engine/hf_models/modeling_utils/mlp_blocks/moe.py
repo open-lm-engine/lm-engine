@@ -24,7 +24,7 @@ from .mlp import _get_std_for_linear
 
 if is_fma_available():
     from fma import continuous_count
-    from fma.modules.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
+    from fma.layers.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
 
 
 # TODO add support for combileable bincount in PyTorch directly
