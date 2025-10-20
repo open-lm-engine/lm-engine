@@ -31,6 +31,7 @@ class AttentionMaskInfo:
     device: torch.device | None = None
     mask_value: torch.Tensor | None = None
     causal_mask: torch.Tensor | None = None
+    _mask_value: torch.Tensor | None = None
 
     def __post_init__(self) -> None:
         self._has_cu_seqlens = self.cu_seqlens is not None
@@ -229,3 +230,9 @@ class AttentionMaskInfo:
             inputs = [i.reshape(B, S, *i.size()[1:]) for i in inputs]
 
         return inputs
+
+    def _get_mask_value(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        # torch.where expects a tensor. We use a cache to avoid recreating it every time.
+        if self.mask_value is None or self.mask_value.dtype != dtype or self.mask_value.device != device:
+            self.mask_value = torch.full([], torch.finfo(dtype).min, dtype=dtype, device=device)
+        return self.mask_value
