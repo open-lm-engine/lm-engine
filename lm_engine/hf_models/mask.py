@@ -184,11 +184,10 @@ class AttentionMaskInfo:
                 kernel_backend_forward=kernel_backend,
                 kernel_backend_backward=kernel_backend,
             )
+        elif isinstance(inputs, torch.Tensor):
+            inputs = inputs.flatten(0, 1)
         else:
-            if isinstance(inputs, torch.Tensor):
-                inputs = inputs.flatten(0, 1)
-            else:
-                inputs = [i.flatten(0, 1) for i in inputs]
+            inputs = [i.flatten(0, 1) for i in inputs]
 
         return inputs
 
@@ -210,10 +209,9 @@ class AttentionMaskInfo:
                 kernel_backend_forward=kernel_backend,
                 kernel_backend_backward=kernel_backend,
             )
+        elif isinstance(inputs, torch.Tensor):
+            inputs = inputs.reshape(B, S, *inputs.size()[1:])
         else:
-            if isinstance(inputs, torch.Tensor):
-                inputs = inputs.reshape(B, S, *inputs.size()[1:])
-            else:
-                inputs = [i.reshape(B, S, *i.size()[1:]) for i in inputs]
+            inputs = [i.reshape(B, S, *i.size()[1:]) for i in inputs]
 
         return inputs
