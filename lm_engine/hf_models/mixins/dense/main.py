@@ -86,6 +86,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
                 GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
             )
 
+        input_ids = input_ids.flatten()
+
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids=input_ids,
             attention_mask_info=attention_mask_info,
