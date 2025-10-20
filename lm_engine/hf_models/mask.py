@@ -141,7 +141,7 @@ class AttentionMaskInfo:
             position_ids = torch.arange(0, S, device=self.device)
             position_ids = position_ids[None, ...].expand(B, -1)
 
-        position_ids = position_ids.flatten()
+        position_ids = self.pack_sequence(position_ids)
 
         return position_ids
 
