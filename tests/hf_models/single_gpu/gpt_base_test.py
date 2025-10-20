@@ -18,17 +18,23 @@ SEED = 1234
 class GPTBaseAttentionTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [torch.device("cuda")], TestCommons.get_position_embedding_types(), [torch.float16, torch.bfloat16]
+            [torch.device("cuda")],
+            TestCommons.get_position_embedding_types(),
+            [torch.float16, torch.bfloat16],
+            [False, True],
         )
     )
     def test_sdpa_flash_attention_equivalence(
-        self, device: torch.device, position_embedding_type: str, dtype: torch.dtype
+        self, device: torch.device, position_embedding_type: str, dtype: torch.dtype, has_attention_mask: bool
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
         set_seed(SEED)
 
         input_ids, attention_mask, labels = self.get_dummy_inputs(device)
+        if not has_attention_mask:
+            attention_mask = None
+
         config = self.get_dense_test_config(position_embedding_type, num_layers=1)
 
         model = self.from_config(config, dtype=dtype).to(device)
