@@ -228,7 +228,7 @@ class Attention(nn.Module):
                     key,
                     value,
                     causal=self.causal if attention_mask is None else False,
-                    sm_scale=self.attention_multiplier,
+                    sm_scale=1 if self.attention_multiplier is None else self.attention_multiplier,
                 )
             else:
                 hidden_states = F.scaled_dot_product_attention(
