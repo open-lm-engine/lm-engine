@@ -1,7 +1,12 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 from __future__ import annotations
 
+from enum import Enum
+
 import torch
-from enums import Enum
 
 
 class Accelerator(Enum):
