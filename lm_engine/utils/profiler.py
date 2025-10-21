@@ -40,10 +40,12 @@ class TorchProfiler:
             )
 
     def __enter__(self):
-        return None
+        if self._profiler is not None:
+            self._profiler.__enter__()
 
     def __exit__(self):
-        return None
+        if self._profiler is not None:
+            self._profiler.__exit__()
 
     def step(self) -> None:
         if self._profiler is not None:
