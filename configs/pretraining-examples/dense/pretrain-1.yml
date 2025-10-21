@@ -12,19 +12,19 @@ datasets:
       data_cache_path: cache
       # Option 1: data loading using --data-path with single file
       data_path:
-        - data_text
+        - data/lang=Matlab
       split: 98,1,1
-      sequence_length: 4096
+      sequence_length: 2048
 
 tokenizer_args:
-  tokenizer_name: ibm-granite/granite-3b-code-base-2k
+  tokenizer_name: bigcode/starcoder
 
 model_args:
   model_class: AutoModelForCausalLM
   pretrained_config:
     model_type: gpt_base
-    vocab_size: 50176
-    max_position_embeddings: 4096
+    vocab_size: 50257
+    max_position_embeddings: 2048
     hidden_size: 768
     num_layers: 12
     normalization_function: layernorm
@@ -120,20 +120,19 @@ model_args:
         intermediate_size: 3072
         add_bias: true
     position_embedding_type: learned_absolute
-  # use_padding_free_transformer: true
+  use_padding_free_transformer: true
 
 tuning_args:
   tuning_method: pretraining
 
 save_args:
   save_path: checkpoints
-  save_interval: 5000
+  save_interval: 50
 
 training_parameters:
-  num_training_steps: 5000
+  num_training_steps: 100
   eval_interval: 50
-  micro_batch_size: 32
-  eval_during_training: false
+  micro_batch_size: 6
 
 optimizer_args:
   class_name: TorchAdamW
@@ -145,15 +144,8 @@ optimizer_args:
       - 0.95
     eps: 1e-10
 
-# logging_args:
-#   torch_profiler_trace_path: tmp
-
 lr_scheduler_args:
   lr_decay_style: cosine
 
 mixed_precision_args:
   dtype: bf16
-
-distributed_args:
-  fsdp_algorithm: 1
-  # torch_compile: true
