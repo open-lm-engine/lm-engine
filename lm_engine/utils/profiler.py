@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 from __future__ import annotations
 
 import torch

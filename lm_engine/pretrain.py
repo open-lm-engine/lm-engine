@@ -34,6 +34,7 @@ from .utils import (
     MetricsTrackingDict,
     ProcessGroupManager,
     StepTracker,
+    TorchProfiler,
     init_distributed,
     is_torchao_available,
     log_rank_0,
@@ -373,10 +374,8 @@ def train(
     forward_context = nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
 
-    torch_profiler = get_torch_profiler(args.logging_args.torch_profiler_trace_path)
-
-    if torch_profiler is not None:
-        torch_profiler.__enter__()
+    torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
+    torch_profiler.__enter__()
 
     start_time = time.perf_counter()
     steps_since_start_time = 0
