@@ -28,7 +28,7 @@ from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
 from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
-from .train_utils import all_reduce_metrics_tracker, get_model_tflops, get_torch_profiler, track_metrics
+from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import (
     ExperimentsTracker,
     MetricsTrackingDict,

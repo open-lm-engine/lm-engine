@@ -37,3 +37,9 @@ class TorchProfiler:
                 record_shapes=True,
                 profile_memory=True,
             )
+
+    def __enter__(self):
+        return None
+
+    def __exit__(self):
+        return None
