@@ -44,3 +44,6 @@ class TorchProfiler:
 
     def __exit__(self):
         return None
+
+    def step(self) -> None:
+        self.torch_profiler.step()
