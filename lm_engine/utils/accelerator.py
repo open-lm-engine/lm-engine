@@ -17,3 +17,7 @@ class Accelerator(Enum):
     def get_accelerator_from_tensor(x: torch.Tensor) -> Accelerator:
         device = x.device.type
         return Accelerator.cuda if device == "cuda" else Accelerator.tpu
+
+    @staticmethod
+    def get_accelerator() -> Accelerator:
+        return Accelerator.cuda if torch.cuda.is_available() else Accelerator.tpu
