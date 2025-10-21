@@ -14,6 +14,7 @@ class TorchProfiler:
     def __init__(self, path: str | None) -> TorchProfiler:
         if path is None:
             self.torch_profiler = None
+            return
 
         self.accelerator = Accelerator.get_accelerator()
 
