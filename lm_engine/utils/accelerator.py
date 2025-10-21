@@ -13,7 +13,7 @@ class Accelerator(Enum):
     cuda = "cuda"
     tpu = "tpu"
 
-    @classmethod
+    @staticmethod
     def get_accelerator_from_tensor(x: torch.Tensor) -> Accelerator:
         device = x.device.type
         return Accelerator.cuda if device == "cuda" else Accelerator.tpu
