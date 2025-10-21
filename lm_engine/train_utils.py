@@ -55,22 +55,6 @@ def track_metrics(
     log_metrics(logging.INFO, message)
 
 
-def get_torch_profiler(torch_profiler_trace_path: str) -> torch.profiler.profile:
-    torch_profiler = None
-    if torch_profiler_trace_path is not None:
-        torch_profiler = torch.profiler.profile(
-            activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-            schedule=torch.profiler.schedule(
-                wait=5 if ProcessGroupManager.get_global_rank() == 0 else 150000, warmup=5, active=1, repeat=1
-            ),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler(torch_profiler_trace_path),
-            record_shapes=True,
-            profile_memory=True,
-        )
-
-    return torch_profiler
-
-
 def _get_linear_flops(m: int, k: int, n: int, gradient_checkpointing: bool = False) -> int:
     forward_flops = 2 * m * k * n
     backward_flops = 2 * forward_flops
