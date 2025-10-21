@@ -411,9 +411,7 @@ def train(
             )
 
         metrics_tracker = metrics_tracker + loss_step_dict
-
-        if torch_profiler is not None:
-            torch_profiler.step()
+        torch_profiler.step()
 
         if global_step % log_interval == 0:
             metrics_tracker = metrics_tracker / log_interval
@@ -483,9 +481,7 @@ def train(
         )
 
     ensure_last_checkpoint_is_saved()
-
-    if torch_profiler is not None:
-        torch_profiler.__exit__(None, None, None)
+    torch_profiler.__exit__(None, None, None)
 
 
 @torch.no_grad()
