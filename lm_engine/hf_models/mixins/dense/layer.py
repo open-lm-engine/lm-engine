@@ -25,14 +25,11 @@ class Block(nn.Module):
         self.ln_1 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
-        # self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
+        self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
         self.ln_2 = get_normalization_function(
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
         self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
-        )
-        self.sequence_mixer = get_mlp_block(
             config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
         )
 
@@ -86,11 +83,11 @@ class Block(nn.Module):
         if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
             hidden_states = self.sequence_mixer(
                 hidden_states,
-                # past_key_values=past_key_values,
-                # attention_mask=attention_mask,
-                # rope_cos_sin=rope_cos_sin,
-                # cu_seqlens=cu_seqlens,
-                # max_seqlen=max_seqlen,
+                past_key_values=past_key_values,
+                attention_mask=attention_mask,
+                rope_cos_sin=rope_cos_sin,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
             )
         elif self.sequence_mixer_type in ["causal_convolution", "mamba2"]:
             hidden_states = self.sequence_mixer(

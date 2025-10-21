@@ -9,11 +9,11 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_xla.experimental.custom_kernel import flash_attention
+from torch_xla.experimental.custom_kernel import flash_attention as flash_attention_tpu
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import divide_if_divisible
+from ....utils import Accelerator, divide_if_divisible
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
@@ -144,6 +144,7 @@ class Attention(nn.Module):
     ) -> torch.Tensor:
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
+        accelerator = Accelerator.get_accelerator_from_tensor(hidden_states)
 
         if self.use_padding_free_transformer:
             assert use_flash_attention_2 or use_flash_attention_3
@@ -181,6 +182,8 @@ class Attention(nn.Module):
             key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
 
         if use_flash_attention_2 or use_flash_attention_3:
+            assert accelerator == Accelerator.cuda
+
             if self.use_padding_free_transformer:
                 output_shape = (-1, self.hidden_size)
             else:
@@ -214,30 +217,30 @@ class Attention(nn.Module):
             hidden_states = hidden_states.view(*output_shape)
         else:
             assert self.sliding_window is None
+            assert self.softmax_dropout_p == 0
 
-            # hidden_states = flash_attention(
-            #     query.transpose(1, 2),
-            #     key.transpose(1, 2),
-            #     value.transpose(1, 2),
-            #     # attn_mask=attention_mask,
-            #     # dropout_p=self.softmax_dropout_p if self.training else 0,
-            #     causal=self.causal if attention_mask is None else False,
-            #     # scale=self.attention_multiplier,
-            #     # enable_gqa=True,
-            # )
+            if accelerator == Accelerator.tpu:
+                assert attention_mask is None
+                assert self.softmax_dropout_p == 0
 
-            # print(hidden_states.dtype)
-
-            hidden_states = F.scaled_dot_product_attention(
-                query,
-                key,
-                value,
-                attn_mask=attention_mask,
-                dropout_p=self.softmax_dropout_p if self.training else 0,
-                is_causal=self.causal if attention_mask is None else False,
-                scale=self.attention_multiplier,
-                enable_gqa=True,
-            )
+                hidden_states = flash_attention_tpu(
+                    query,
+                    key,
+                    value,
+                    causal=self.causal if attention_mask is None else False,
+                    scale=self.attention_multiplier,
+                )
+            else:
+                hidden_states = F.scaled_dot_product_attention(
+                    query,
+                    key,
+                    value,
+                    attn_mask=attention_mask,
+                    dropout_p=self.softmax_dropout_p if self.training else 0,
+                    is_causal=self.causal if attention_mask is None else False,
+                    scale=self.attention_multiplier,
+                    enable_gqa=True,
+                )
 
             del query, key, value
 
