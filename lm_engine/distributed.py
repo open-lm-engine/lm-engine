@@ -327,15 +327,17 @@ def wrap_model_container_for_distributed_training(
             for i, model in enumerate(model_container):
                 model_container[i] = FSDP(
                     model,
-                    compute_dtype=torch.bfloat16,
-                    buffer_dtype=torch.bfloat16,
-                    sharding_groups=[
-                        torch.distributed.get_process_group_ranks(ProcessGroupManager.get_data_parallel_group())
-                    ],
-                    sharding_rank=ProcessGroupManager.get_data_parallel_rank(),
-                    sharding_world_size=ProcessGroupManager.get_data_parallel_sharding_world_size(),
+                    sharding_strategy=sharding_strategy,
+                    cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
+                    mixed_precision=mixed_precision_policy,
                     auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
+                    device_id=torch.cuda.current_device(),
+                    limit_all_gathers=True,
+                    use_orig_params=True,
+                    # https://github.com/meta-llama/llama-recipes/blob/492455dc080f6c25f356e283e443be0cce86aaeb/src/llama_recipes/finetuning.py#L191
+                    sync_module_states=efficient_initialization,
                     param_init_fn=_param_init_fsdp_1 if efficient_initialization else None,
+                    device_mesh=dp_mesh,
                 )
         else:
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
@@ -345,7 +347,21 @@ def wrap_model_container_for_distributed_training(
             == ProcessGroupManager.get_data_parallel_sharding_world_size()
         )
 
-        use_ddp = stage == 0 and num_pipeline_stages == 1
+        assert num_pipeline_stages == 1
+
+        for i, model in enumerate(model_container):
+            model_container[i] = XLA_FSDP(
+                model,
+                compute_dtype=torch.bfloat16,
+                buffer_dtype=torch.bfloat16,
+                sharding_groups=[
+                    torch.distributed.get_process_group_ranks(ProcessGroupManager.get_data_parallel_group())
+                ],
+                sharding_rank=ProcessGroupManager.get_data_parallel_rank(),
+                sharding_world_size=ProcessGroupManager.get_data_parallel_sharding_world_size(),
+                auto_wrap_policy=partial(xla_transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
+                param_init_fn=_param_init_fsdp_1 if efficient_initialization else None,
+            )
     else:
         raise ValueError(f"unexpected accelerator ({accelerator})")
 
