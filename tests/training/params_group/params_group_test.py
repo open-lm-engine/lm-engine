@@ -5,6 +5,7 @@
 import json
 import os
 
+import torch
 from parameterized import parameterized
 
 from lm_engine.distributed import wrap_model_container_for_distributed_training
@@ -26,7 +27,9 @@ class ParamsGroupTest(TestCommons):
         self, use_fsdp: bool, use_torch_compile: bool, filename_method: tuple[str, ParamsGroupMethod | None]
     ) -> None:
         expected_groups_filename, params_group_method = filename_method
+
         args = TestCommons.load_training_args_for_unit_tests("params_group/training_config.yml")
+        args.distributed_args.torch_compile = use_torch_compile
 
         if not ProcessGroupManager.is_initialized():
             os.environ["MASTER_ADDR"] = "localhost"
@@ -38,8 +41,10 @@ class ParamsGroupTest(TestCommons):
 
         model_container = get_model_container(args, efficient_initialization=False, keep_in_fp32=False)
 
-        if use_fsdp or use_torch_compile:
+        if use_fsdp:
             wrap_model_container_for_distributed_training(args, model_container)
+        elif use_torch_compile:
+            model_container = [torch.compile(model) for model in model_container]
 
         params_groups = get_param_groups_list(model_container, args.optimizer_args.class_args, params_group_method)[0]
 
