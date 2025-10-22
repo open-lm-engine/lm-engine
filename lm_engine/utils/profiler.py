@@ -24,6 +24,7 @@ class TorchProfiler:
 
         self.accelerator = Accelerator.get_accelerator()
         self._path = path
+        self._step = 0
 
         self._profiler = None
         if self.accelerator == Accelerator.cuda:
@@ -39,16 +40,19 @@ class TorchProfiler:
 
     def __enter__(self):
         if self._path is not None and self.accelerator == Accelerator.tpu:
+            self._step = 0
             xla_start_trace(self._path)
         elif self._profiler is not None:
             self._profiler.__enter__()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._path is not None and self.accelerator == Accelerator.tpu:
-            xla_stop_trace()
-        elif self._profiler is not None:
+        if self._profiler is not None:
             self._profiler.__exit__(exc_type, exc_val, exc_tb)
 
     def step(self) -> None:
-        if self._profiler is not None:
+        if self._path is not None and self.accelerator == Accelerator.tpu:
+            self._step += 1
+            if self._step == 15:
+                xla_stop_trace()
+        elif self._profiler is not None:
             self._profiler.step()
