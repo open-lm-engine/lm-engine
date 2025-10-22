@@ -65,7 +65,11 @@ class ProcessGroupManager:
         accelerator = Accelerator.get_accelerator()
 
         torch.distributed.init_process_group(
-            backend="cpu:gloo,cuda:nccl" if accelerator == Accelerator.cuda else "xla",
+            backend=(
+                "cpu:gloo,cuda:nccl"
+                if accelerator == Accelerator.cuda
+                else ("xla" if accelerator == Accelerator.tpu else "cpu:gloo")
+            ),
             init_method="xla://" if accelerator == Accelerator.tpu else None,
             rank=ProcessGroupManager.get_global_rank(),
             world_size=ProcessGroupManager.get_world_size(),
