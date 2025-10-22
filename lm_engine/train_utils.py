@@ -32,10 +32,10 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
     accelerator = Accelerator.get_accelerator_from_tensor(tensor)
 
     if accelerator == Accelerator.cuda:
+        torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
+    elif accelerator == Accelerator.tpu:
         torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
         tensor = tensor / ProcessGroupManager.get_data_parallel_world_size()
-    elif accelerator == Accelerator.tpu:
-        torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
     else:
         raise ValueError(f"unexpected accelerator ({accelerator})")
 
