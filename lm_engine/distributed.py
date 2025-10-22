@@ -34,6 +34,7 @@ from .hf_models import CausalLMOutputWithPast
 from .hf_models.parameter import _ALL_MARKERS
 from .kernels import is_kernel_allowed
 from .utils import (
+    Accelerator,
     ProcessGroupManager,
     get_module_class_from_name,
     is_torch_xla_available,
@@ -216,9 +217,19 @@ def wrap_model_container_for_distributed_training(
             )
 
     _get_parameter_marker_maps(model_container)
+    accelerator = Accelerator.get_accelerator()
 
-    # for PP, we use FSDP-2 always
-    use_ddp = (stage == 0) and num_pipeline_stages == 1
+    if accelerator == Accelerator.cuda:
+        use_ddp = (stage == 0 or data_parallel_sharding_world_size == 1) and num_pipeline_stages == 1
+    elif accelerator == Accelerator.tpu:
+        assert (
+            ProcessGroupManager.get_data_parallel_world_size()
+            == ProcessGroupManager.get_data_parallel_sharding_world_size()
+        )
+
+        use_ddp = stage == 0 and num_pipeline_stages == 1
+    else:
+        raise ValueError(f"unexpected accelerator ({accelerator})")
 
     mixed_precision_policy = _get_fsdp_mixed_precision(
         dtype=dtype,
@@ -334,11 +345,6 @@ def wrap_model_container_for_distributed_training(
             else:
                 if ProcessGroupManager.get_data_parallel_rank() != 0:
                     module = module.to_empty(device=torch.cuda.current_device())
-
-        assert (
-            ProcessGroupManager.get_data_parallel_world_size()
-            == ProcessGroupManager.get_data_parallel_sharding_world_size()
-        )
 
         for i, model in enumerate(model_container):
             model_container[i] = FSDP(
