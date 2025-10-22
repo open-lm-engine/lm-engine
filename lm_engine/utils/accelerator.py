@@ -16,13 +16,24 @@ if is_torch_xla_available():
 
 
 class Accelerator(Enum):
+    cpu = "cpu"
     cuda = "cuda"
     tpu = "tpu"
 
     @staticmethod
     def get_accelerator_from_tensor(x: torch.Tensor) -> Accelerator:
         device = x.device.type
-        return Accelerator.cuda if device == "cuda" else Accelerator.tpu
+
+        if device == "cpu":
+            accelerator = Accelerator.cpu
+        elif device == "cuda":
+            accelerator = Accelerator.cuda
+        elif device == "xla":
+            accelerator = Accelerator.tpu
+        else:
+            raise ValueError(f"unexpected device ({device})")
+
+        return accelerator
 
     @staticmethod
     def get_accelerator() -> Accelerator:
@@ -36,6 +47,8 @@ class Accelerator(Enum):
             device = torch.cuda.current_device()
         elif accelerator == Accelerator.tpu:
             device = xla_device()
+        elif accelerator == Accelerator.cpu:
+            device = "cpu"
 
         return device
 
