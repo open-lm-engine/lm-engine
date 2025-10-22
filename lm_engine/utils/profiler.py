@@ -36,18 +36,16 @@ class TorchProfiler:
             )
 
     def __enter__(self):
-        if self._profiler is not None:
-            if self.accelerator == Accelerator.tpu:
-                xp.start_trace(self._path)
-            else:
-                self._profiler.__enter__()
+        if self._path is not None and self.accelerator == Accelerator.tpu:
+            xp.start_trace(self._path)
+        elif self._profiler is not None:
+            self._profiler.__enter__()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._profiler is not None:
-            if self.accelerator == Accelerator.tpu:
-                xp.stop_trace()
-            else:
-                self._profiler.__exit__(exc_type, exc_val, exc_tb)
+        if self._path is not None and self.accelerator == Accelerator.tpu:
+            xp.stop_trace()
+        elif self._profiler is not None:
+            self._profiler.__exit__(exc_type, exc_val, exc_tb)
 
     def step(self) -> None:
         if self._profiler is not None:
