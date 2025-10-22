@@ -43,9 +43,9 @@ class TorchProfiler:
         if self._profiler is not None:
             self._profiler.__enter__()
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         if self._profiler is not None:
-            self._profiler.__exit__()
+            self._profiler.__exit__(exc_type, exc_val, exc_tb)
 
     def step(self) -> None:
         if self._profiler is not None:
