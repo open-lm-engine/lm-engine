@@ -364,8 +364,6 @@ def wrap_model_container_for_distributed_training(
                 auto_wrap_policy=partial(xla_transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
                 param_init_fn=_param_init_fsdp_1 if efficient_initialization else None,
             )
-    else:
-        raise ValueError(f"unexpected accelerator ({accelerator})")
 
     if torch_compile:
         log_rank_0(logging.INFO, "using torch compile")
