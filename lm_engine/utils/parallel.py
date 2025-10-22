@@ -23,6 +23,7 @@ _MESH: DeviceMesh | None = None
 _GLOBAL_RANK: int | None = None
 _LOCAL_RANK: int | None = None
 _WORLD_SIZE: int | None = None
+_CPU_GROUP: ProcessGroup | None = None
 
 # tensor parallel
 _TENSOR_PARALLEL_MESH: DeviceMesh | None = None
@@ -59,6 +60,8 @@ class ProcessGroupManager:
     ) -> ProcessGroupManager:
         from .accelerator import Accelerator
 
+        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE, _CPU_GROUP
+
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
 
@@ -75,6 +78,9 @@ class ProcessGroupManager:
             world_size=ProcessGroupManager.get_world_size(),
             timeout=timeout_minutes,
         )
+
+        if accelerator == Accelerator.tpu:
+            _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo", init_method="xla://")
 
         total_gpus = int(os.getenv("WORLD_SIZE", 1))
         data_parallel_size = total_gpus // (tensor_parallel_world_size * pipeline_parallel_world_size)
@@ -96,8 +102,6 @@ class ProcessGroupManager:
                 assert data_parallel_sharding_world_size is not None
 
         assert data_parallel_replication_world_size * data_parallel_sharding_world_size == data_parallel_size
-
-        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE
 
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
@@ -371,6 +375,11 @@ class ProcessGroupManager:
 
             Communication.barrier()
             torch.distributed.destroy_process_group()
+
+    @staticmethod
+    def get_cpu_group() -> None:
+        global _CPU_GROUP
+        return _CPU_GROUP
 
 
 def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable:
