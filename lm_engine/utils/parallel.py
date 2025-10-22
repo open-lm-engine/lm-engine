@@ -79,7 +79,7 @@ class ProcessGroupManager:
             _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
         else:
             torch.distributed.init_process_group(
-                backend="cpu:gloo,cuda:nccl",
+                backend="cpu:gloo" + (",cuda:nccl" if accelerator == Accelerator.cuda else ""),
                 rank=ProcessGroupManager.get_global_rank(),
                 world_size=ProcessGroupManager.get_world_size(),
                 timeout=timeout_minutes,
