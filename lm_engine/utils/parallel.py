@@ -15,7 +15,6 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
-from .accelerator import Accelerator
 from .miscellaneous import divide_if_divisible
 
 
@@ -58,6 +57,8 @@ class ProcessGroupManager:
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
+        from .accelerator import Accelerator
+
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
 
