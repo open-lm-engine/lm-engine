@@ -38,3 +38,8 @@ class Accelerator(Enum):
             device = xla_device()
 
         return device
+
+    @staticmethod
+    def set_device(device: int) -> None:
+        if Accelerator.get_accelerator() == Accelerator.cuda:
+            torch.cuda.set_device(device)
