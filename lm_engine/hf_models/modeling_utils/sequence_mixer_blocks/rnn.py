@@ -21,7 +21,6 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 
 
 if is_fma_available():
-    from fma import KernelBackend
     from fma.layers.rnn import rnn
 
 
@@ -119,7 +118,6 @@ class RNN(nn.Module):
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
         )
 
         if not self.use_padding_free_transformer and attention_mask is not None:
