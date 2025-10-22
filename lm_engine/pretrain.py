@@ -234,11 +234,12 @@ def train_step_without_pipeline_parallel(
         with torch.inference_mode():
             metrics_tracker = metrics_tracker + loss_micro_step_dict
 
-        if gradient_clipping is not None:
-            if fsdp_algorithm == 1:
-                model.clip_grad_norm_(gradient_clipping)
-            else:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
+        if gradient_clipping is None:
+            grad_norm = None
+        elif fsdp_algorithm == 1:
+            grad_norm = model.clip_grad_norm_(gradient_clipping)
+        else:
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
 
         if is_torchao_available():
             FP8Manager.sync_float8_amax_and_scale_history([model])
@@ -254,7 +255,11 @@ def train_step_without_pipeline_parallel(
 
     with torch.inference_mode():
         metrics_tracker = metrics_tracker / gradient_accumulation_steps
-        metrics_tracker["grad_norm"] = torch.zeros((), device=Accelerator.get_current_device(), dtype=torch.float32)
+        metrics_tracker["grad_norm"] = (
+            torch.zeros((), device=Accelerator.get_current_device(), dtype=torch.float32)
+            if grad_norm is None
+            else grad_norm
+        )
 
         for key in metrics_tracker:
             metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
