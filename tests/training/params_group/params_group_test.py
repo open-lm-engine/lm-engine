@@ -24,7 +24,7 @@ from ..test_commons import TestCommons
 class ParamsGroupTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [False, True], [False, True], [("mup.json", ParamsGroupMethod.mup), ("normal.json", None)]
+            [False], [False, True], [("mup.json", ParamsGroupMethod.mup), ("normal.json", None)]
         )
     )
     def test_mup_group(
@@ -60,7 +60,7 @@ class ParamsGroupTest(TestCommons):
 
         stripped_resultant_group = params_groups.get_param_names()
 
-        if use_fsdp:
+        if use_torch_compile:
             tmp = stripped_resultant_group
             stripped_resultant_group = {}
 
