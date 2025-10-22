@@ -25,8 +25,6 @@ from torch.distributed.pipelining.schedules import (
     _PipelineSchedule,
     get_schedule_class,
 )
-from torch_xla.distributed.fsdp import XlaFullyShardedDataParallel as FSDP
-from torch_xla.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 from .arguments import TrainingArgs
 from .containers import ModelContainer
@@ -38,10 +36,16 @@ from .kernels import is_kernel_allowed
 from .utils import (
     ProcessGroupManager,
     get_module_class_from_name,
+    is_torch_xla_available,
     is_torchao_available,
     log_rank_0,
     string_to_torch_dtype,
 )
+
+
+if is_torch_xla_available():
+    from torch_xla.distributed.fsdp import XlaFullyShardedDataParallel as XLA_FSDP
+    from torch_xla.distributed.fsdp.wrap import transformer_auto_wrap_policy as xla_transformer_auto_wrap_policy
 
 
 if is_torchao_available():
