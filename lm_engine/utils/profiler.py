@@ -18,12 +18,13 @@ if is_torch_xla_available():
 
 class TorchProfiler:
     def __init__(self, path: str | None) -> TorchProfiler:
+        self._path = path
+
         if path is None:
             self._profiler = None
             return
 
         self.accelerator = Accelerator.get_accelerator()
-        self._path = path
         self._step = 0
 
         self._profiler = None
@@ -52,7 +53,7 @@ class TorchProfiler:
     def step(self) -> None:
         if self._path is not None and self.accelerator == Accelerator.tpu:
             self._step += 1
-            if self._step == 15:
+            if self._step == 75:
                 xla_stop_trace()
         elif self._profiler is not None:
             self._profiler.step()
