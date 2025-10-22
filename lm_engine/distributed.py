@@ -69,6 +69,9 @@ _STAGE_HYBRID_SHARDING_STRATEGY_MAP = {
 
 _FSDP_1_STRING = "_fsdp_wrapped_module"
 _TORCH_COMPILE_STRING = "_orig_mod"
+_FSDP_TPU_SHARD_SEPARATOR = "_FSDP_SHARD_SEPARATOR_"
+_FSDP_TPU_SHARD = "_fsdp_shard"
+_FSDP_TPU_FPW = "_fpw_module"
 
 
 def _get_pipeline_parallel_schedule(
@@ -131,14 +134,19 @@ def _get_parameter_marker_maps(model_container: ModelContainer) -> list[dict]:
 
 def _set_parameter_marker_maps(model_container: ModelContainer, marker_maps: list[dict]) -> None:
     for model, _marker_map in zip(model_container, marker_maps):
-        for new_param_name, parameter in model.named_parameters():
+        for param_name, parameter in model.named_parameters():
+            # handle FSDP for TPU
+            param_name = param_name.replace(_FSDP_TPU_SHARD_SEPARATOR, ".")
+            param_name = param_name.replace(f"{_FSDP_TPU_SHARD}.", "")
+            param_name = param_name.replace(f"{_FSDP_TPU_FPW}.", "")
+
             # handle FSDP-1
-            original_param_name = new_param_name.replace(f"{_FSDP_1_STRING}.", "")
+            param_name = param_name.replace(f"{_FSDP_1_STRING}.", "")
 
             # handle torch compile
-            original_param_name = original_param_name.replace(f"{_TORCH_COMPILE_STRING}.", "")
+            param_name = param_name.replace(f"{_TORCH_COMPILE_STRING}.", "")
 
-            for marker, value in _marker_map[original_param_name].items():
+            for marker, value in _marker_map[param_name].items():
                 setattr(parameter, marker, value)
 
 
