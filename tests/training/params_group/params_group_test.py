@@ -58,15 +58,16 @@ class ParamsGroupTest(TestCommons):
             open(os.path.join(os.path.dirname(__file__), "groups", expected_groups_filename), "r")
         )
 
-        stripped_resultant_group = params_groups.get_param_names()
+        tmp = params_groups.get_param_names()
 
-        if use_torch_compile:
-            tmp = stripped_resultant_group
+        if use_fsdp or use_torch_compile:
             stripped_resultant_group = {}
 
             for group_name in tmp:
                 stripped_resultant_group[group_name] = [
                     param_name.split("_orig_mod.")[-1] for param_name in tmp[group_name]
                 ]
+        else:
+            stripped_resultant_group = tmp
 
         assert expected_group == stripped_resultant_group
