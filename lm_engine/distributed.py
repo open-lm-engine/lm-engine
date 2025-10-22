@@ -3,11 +3,11 @@
 # **************************************************
 
 import logging
+from functools import partial
 from typing import Callable
 
 import torch
 import torch.nn as nn
-import torch_xla
 from torch.distributed._composable.fsdp import CPUOffloadPolicy
 from torch.distributed._composable.fsdp import MixedPrecisionPolicy as MixedPrecision2
 from torch.distributed._composable.fsdp import OffloadPolicy, fully_shard
@@ -26,6 +26,7 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
 )
 from torch_xla.distributed.fsdp import XlaFullyShardedDataParallel as FSDP
+from torch_xla.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 from .arguments import TrainingArgs
 from .containers import ModelContainer
@@ -338,9 +339,6 @@ def wrap_model_container_for_distributed_training(
         for i, model in enumerate(model_container):
             model_container[i] = FSDP(
                 model,
-                # sharding_strategy=sharding_strategy,
-                # cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
-                # mixed_precision=mixed_precision_policy,
                 compute_dtype=torch.bfloat16,
                 buffer_dtype=torch.bfloat16,
                 sharding_groups=[
@@ -348,13 +346,8 @@ def wrap_model_container_for_distributed_training(
                 ],
                 sharding_rank=ProcessGroupManager.get_data_parallel_rank(),
                 sharding_world_size=ProcessGroupManager.get_data_parallel_sharding_world_size(),
-                # auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
-                # device_id=torch_xla.device(),
-                # limit_all_gathers=True,
-                # use_orig_params=True,
-                # sync_module_states=efficient_initialization,
+                auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
                 param_init_fn=_param_init if efficient_initialization else None,
-                # device_mesh=dp_mesh,
             )
     else:
         raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
