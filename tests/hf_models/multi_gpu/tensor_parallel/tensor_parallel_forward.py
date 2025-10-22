@@ -9,6 +9,7 @@ import torch
 import torch.distributed
 from transformers import set_seed
 
+from lm_engine.communication import Communication
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig, get_model_parallel_class
 from lm_engine.kernels import enable_kernels
@@ -74,7 +75,7 @@ if torch.distributed.get_rank() == 0:
     model.save_pretrained(args.tmp_path, safe_serialization=True)
     model = model.to(dtype)
 
-torch.distributed.barrier()
+Communication.barrier()
 
 # use dummy tensors to avoid initializing model here
 with torch.device("meta"):

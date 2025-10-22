@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torch.distributed
 
+from ...communication import Communication
 from ...tokenizers import TOKENIZER_TYPE
 from ...utils import ProcessGroupManager
 from .blended_dataset import BlendedDataset
@@ -342,7 +343,7 @@ class BlendedMegatronDatasetBuilder:
                     )
                     raise Exception(log) from err
 
-            torch.distributed.barrier()
+            Communication.barrier()
 
             # After, build on other ranks
             if not caching_allowed and self.config.is_built_on_rank:

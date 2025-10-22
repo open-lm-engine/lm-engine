@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from torch.utils.cpp_extension import load as load_cpp_extension
 
+from ....communication import Communication
 from ....utils import ProcessGroupManager, log_rank_0
 
 
@@ -34,7 +35,7 @@ def compile_helpers() -> None:
             verbose=True,
         )
 
-    torch.distributed.barrier()
+    Communication.barrier()
 
 
 def build_blending_indices(
