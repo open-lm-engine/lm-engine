@@ -216,7 +216,7 @@ def wrap_model_container_for_distributed_training(
                 **args.distributed_args.gradient_checkpointing_args,
             )
 
-    marker_maps = _get_parameter_marker_maps(model_container)
+    _get_parameter_marker_maps(model_container)
     accelerator = Accelerator.get_accelerator()
 
     if accelerator == Accelerator.cuda:
@@ -349,6 +349,7 @@ def wrap_model_container_for_distributed_training(
 
         assert num_pipeline_stages == 1
         assert fsdp_algorithm == 1
+        assert not torch_compile
 
         for i, model in enumerate(model_container):
             model_container[i] = XLA_FSDP(
@@ -372,7 +373,7 @@ def wrap_model_container_for_distributed_training(
         for i, model in enumerate(model_container):
             model_container[i] = torch.compile(model)
 
-    _set_parameter_marker_maps(model_container, marker_maps)
+    # _set_parameter_marker_maps(model_container, marker_maps)
 
     pipeline_stages = []
     pipeline_schedule = None
