@@ -37,7 +37,14 @@ class Accelerator(Enum):
 
     @staticmethod
     def get_accelerator() -> Accelerator:
-        return Accelerator.cuda if torch.cuda.is_available() else Accelerator.tpu
+        if torch.cuda.is_available():
+            accelerator = Accelerator.cuda
+        elif is_torch_xla_available():
+            accelerator = Accelerator.tpu
+        else:
+            accelerator = Accelerator.cpu
+
+        return accelerator
 
     @staticmethod
     def get_current_device() -> int:
