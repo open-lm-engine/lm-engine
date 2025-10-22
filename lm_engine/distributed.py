@@ -324,19 +324,6 @@ def wrap_model_container_for_distributed_training(
                 else _STAGE_HYBRID_SHARDING_STRATEGY_MAP[stage]
             )
 
-            def _param_init(module: nn.Module) -> None:
-                assert len(teacher_block_names) == 0, "efficient initialization doesn't support distillation"
-
-                if model_name is None:
-                    module = module.to_empty(device=torch.cuda.current_device())
-
-                    if hasattr(module, "reset_parameters"):
-                        with torch.no_grad():
-                            module.reset_parameters()
-                else:
-                    if ProcessGroupManager.get_data_parallel_rank() != 0:
-                        module = module.to_empty(device=torch.cuda.current_device())
-
             for i, model in enumerate(model_container):
                 model_container[i] = FSDP(
                     model,
@@ -348,7 +335,7 @@ def wrap_model_container_for_distributed_training(
                     sharding_rank=ProcessGroupManager.get_data_parallel_rank(),
                     sharding_world_size=ProcessGroupManager.get_data_parallel_sharding_world_size(),
                     auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
-                    param_init_fn=_param_init if efficient_initialization else None,
+                    param_init_fn=_param_init_fsdp_1 if efficient_initialization else None,
                 )
         else:
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
@@ -439,3 +426,17 @@ def wrap_model_container_for_distributed_training(
         )
 
     return model_container, pipeline_schedule
+
+
+def _param_init_fsdp_1(module: nn.Module, teacher_block_names: list[str], model_name: str) -> None:
+    assert len(teacher_block_names) == 0, "efficient initialization doesn't support distillation"
+
+    if model_name is None:
+        module = module.to_empty(device=torch.cuda.current_device())
+
+        if hasattr(module, "reset_parameters"):
+            with torch.no_grad():
+                module.reset_parameters()
+    else:
+        if ProcessGroupManager.get_data_parallel_rank() != 0:
+            module = module.to_empty(device=torch.cuda.current_device())
