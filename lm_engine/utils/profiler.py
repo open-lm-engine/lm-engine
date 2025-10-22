@@ -34,16 +34,6 @@ class TorchProfiler:
                 record_shapes=True,
                 profile_memory=True,
             )
-        elif self.accelerator == Accelerator.tpu:
-            self._profiler = torch.profiler.profile(
-                activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-                schedule=torch.profiler.schedule(
-                    wait=5 if ProcessGroupManager.get_global_rank() == 0 else 150000, warmup=5, active=1, repeat=1
-                ),
-                on_trace_ready=torch.profiler.tensorboard_trace_handler(path),
-                record_shapes=True,
-                profile_memory=True,
-            )
 
     def __enter__(self):
         if self._profiler is not None:
