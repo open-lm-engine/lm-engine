@@ -325,7 +325,7 @@ class BlendedMegatronDatasetBuilder:
         """
         if torch.distributed.is_initialized():
             rank = ProcessGroupManager.get_global_rank()
-            caching_allowed = rank == 0 or (torch.cuda.current_device() == 0 and self.config.node_uses_local_storage)
+            caching_allowed = rank == 0 or (self.config.node_uses_local_storage and torch.cuda.current_device() == 0)
 
             dataset = None
 

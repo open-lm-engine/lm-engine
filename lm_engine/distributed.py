@@ -330,6 +330,11 @@ def wrap_model_container_for_distributed_training(
                 if ProcessGroupManager.get_data_parallel_rank() != 0:
                     module = module.to_empty(device=torch.cuda.current_device())
 
+        assert (
+            ProcessGroupManager.get_data_parallel_world_size()
+            == ProcessGroupManager.get_data_parallel_sharding_world_size()
+        )
+
         for i, model in enumerate(model_container):
             model_container[i] = FSDP(
                 model,
@@ -338,6 +343,11 @@ def wrap_model_container_for_distributed_training(
                 # mixed_precision=mixed_precision_policy,
                 compute_dtype=torch.bfloat16,
                 buffer_dtype=torch.bfloat16,
+                sharding_groups=[
+                    torch.distributed.get_process_group_ranks(ProcessGroupManager.get_data_parallel_group())
+                ],
+                sharding_rank=ProcessGroupManager.get_data_parallel_rank(),
+                sharding_world_size=ProcessGroupManager.get_data_parallel_sharding_world_size(),
                 # auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
                 # device_id=torch_xla.device(),
                 # limit_all_gathers=True,

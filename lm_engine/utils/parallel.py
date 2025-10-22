@@ -11,6 +11,7 @@ from typing import Callable
 
 import torch
 import torch.distributed
+import torch_xla
 from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
@@ -61,7 +62,8 @@ class ProcessGroupManager:
             timeout_minutes = timedelta(timeout_minutes)
 
         torch.distributed.init_process_group(
-            backend="cpu:gloo" + (",cuda:nccl" if torch.cuda.is_available() else ""),
+            backend="xla" + (",cuda:nccl" if torch.cuda.is_available() else ""),
+            init_method="xla://",
             rank=ProcessGroupManager.get_global_rank(),
             world_size=ProcessGroupManager.get_world_size(),
             timeout=timeout_minutes,
@@ -104,8 +106,9 @@ class ProcessGroupManager:
             mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
         )
 
+        local_rank = int(os.getenv("LOCAL_RANK", 0))
+
         if torch.cuda.is_available():
-            local_rank = int(os.getenv("LOCAL_RANK", 0))
             torch.cuda.set_device(local_rank)
 
         if use_async_tensor_parallel:

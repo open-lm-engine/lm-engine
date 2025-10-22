@@ -14,6 +14,6 @@ export NCCL_IB_CUDA_SUPPORT=1
 TOKENIZERS_PARALLELISM=false \
 torchrun --nnodes=1 \
     --node_rank=0 \
-    --nproc_per_node=1 \
+    --nproc_per_node=4 \
     -m lm_engine.pretrain \
     --config ${1}
