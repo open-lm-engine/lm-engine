@@ -67,20 +67,23 @@ class ProcessGroupManager:
 
         accelerator = Accelerator.get_accelerator()
 
-        torch.distributed.init_process_group(
-            backend=(
-                "cpu:gloo,cuda:nccl"
-                if accelerator == Accelerator.cuda
-                else ("xla" if accelerator == Accelerator.tpu else "cpu:gloo")
-            ),
-            init_method="xla://" if accelerator == Accelerator.tpu else None,
-            rank=ProcessGroupManager.get_global_rank(),
-            world_size=ProcessGroupManager.get_world_size(),
-            timeout=timeout_minutes,
-        )
-
         if accelerator == Accelerator.tpu:
+            torch.distributed.init_process_group(
+                backend="xla",
+                init_method="xla://",
+                rank=ProcessGroupManager.get_global_rank(),
+                world_size=ProcessGroupManager.get_world_size(),
+                timeout=timeout_minutes,
+            )
+
             _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo", init_method="xla://")
+        else:
+            torch.distributed.init_process_group(
+                backend="cpu:gloo,cuda:nccl",
+                rank=ProcessGroupManager.get_global_rank(),
+                world_size=ProcessGroupManager.get_world_size(),
+                timeout=timeout_minutes,
+            )
 
         total_gpus = int(os.getenv("WORLD_SIZE", 1))
         data_parallel_size = total_gpus // (tensor_parallel_world_size * pipeline_parallel_world_size)

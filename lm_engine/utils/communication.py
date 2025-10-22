@@ -25,11 +25,7 @@ class Communication:
 
     @staticmethod
     def barrier() -> None:
-        accelerator = Accelerator.get_accelerator()
+        torch.distributed.barrier()
 
-        if accelerator == Accelerator.cuda:
-            torch.distributed.barrier()
-        elif accelerator == Accelerator.tpu:
+        if Accelerator.get_accelerator() == Accelerator.tpu:
             torch.distributed.barrier(ProcessGroupManager.get_cpu_group())
-        else:
-            raise ValueError(f"unexpected accelerator ({accelerator})")
