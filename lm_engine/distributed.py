@@ -348,6 +348,7 @@ def wrap_model_container_for_distributed_training(
         )
 
         assert num_pipeline_stages == 1
+        assert fsdp_algorithm == 1
 
         for i, model in enumerate(model_container):
             model_container[i] = XLA_FSDP(
