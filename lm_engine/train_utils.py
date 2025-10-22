@@ -11,7 +11,14 @@ from transformers import AutoConfig
 from .enums import GradientCheckpointingMethod
 from .hf_models import CommonConfig, is_custom_model
 from .hf_models.modeling_utils import is_glu
-from .utils import ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager, divide_if_divisible, log_metrics
+from .utils import (
+    Accelerator,
+    ExperimentsTracker,
+    MetricsTrackingDict,
+    ProcessGroupManager,
+    divide_if_divisible,
+    log_metrics,
+)
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
@@ -21,8 +28,17 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
     # tensor = torch.stack(tensor) / ProcessGroupManager.get_data_parallel_world_size()
     # tensor = tensor.cpu()
     # gloo op doesn't support averaging so we do sum and divide by world size above
-    torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
-    tensor = tensor / ProcessGroupManager.get_data_parallel_world_size()
+
+    accelerator = Accelerator.get_accelerator_from_tensor(tensor)
+
+    if accelerator == Accelerator.cuda:
+        torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
+        tensor = tensor / ProcessGroupManager.get_data_parallel_world_size()
+    elif accelerator == Accelerator.tpu:
+        torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
+    else:
+        raise ValueError(f"unexpected accelerator ({accelerator})")
+
     tensor = tensor.tolist()
 
     for i, key in enumerate(metrics_tracker):
