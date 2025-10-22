@@ -216,7 +216,7 @@ def wrap_model_container_for_distributed_training(
                 **args.distributed_args.gradient_checkpointing_args,
             )
 
-    _get_parameter_marker_maps(model_container)
+    marker_maps = _get_parameter_marker_maps(model_container)
     accelerator = Accelerator.get_accelerator()
 
     if accelerator == Accelerator.cuda:
@@ -352,82 +352,6 @@ def wrap_model_container_for_distributed_training(
                 )
         else:
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
-
-        if torch_compile:
-            log_rank_0(logging.INFO, "using torch compile")
-
-            for i, model in enumerate(model_container):
-                model_container[i] = torch.compile(model)
-
-        # _set_parameter_marker_maps(model_container, marker_maps)
-
-        pipeline_stages = []
-        pipeline_schedule = None
-
-        if num_pipeline_stages > 1:
-            micro_batch_size = args.training_parameters.micro_batch_size
-            sequence_length = args.datasets[0].class_args.get("sequence_length")
-
-            pipeline_parallel_schedule = args.distributed_args.pipeline_parallel_schedule
-            gradient_accumulation_steps = args.training_parameters.gradient_accumulation_steps
-
-            if pipeline_parallel_schedule == "1F1B":
-                assert (
-                    gradient_accumulation_steps % num_pipeline_stages == 0
-                ), f"gradient_accumulation_steps ({gradient_accumulation_steps}) should be divisible by num_pipeline_stages ({num_pipeline_stages})"
-
-            for model in model_container:
-                intermediate_dtype = string_to_torch_dtype(args.mixed_precision_args.dtype)
-
-                dummy_input_tensor = model.model.get_dummy_input_tensor(
-                    micro_batch_size, sequence_length, intermediate_dtype=intermediate_dtype
-                )
-                dummy_output_tensor = model.model.get_dummy_output_tensor(
-                    micro_batch_size,
-                    sequence_length,
-                    intermediate_dtype=intermediate_dtype,
-                    output_parallel_lm_logits_if_possible=True,
-                )
-
-                stage = PipelineStage(
-                    model,
-                    stage_index=model.pipeline_stage_id,
-                    num_stages=num_pipeline_stages,
-                    device=torch.cuda.current_device(),
-                    input_args=dummy_input_tensor,
-                    output_args=dummy_output_tensor,
-                    group=ProcessGroupManager.get_pipeline_parallel_group(),
-                )
-
-                pipeline_stages.append(stage)
-
-            lm_loss_multiplier = 1 / (
-                args.training_parameters.micro_batch_size * args.datasets[0].class_args.get("sequence_length")
-            )
-
-            def _pipeline_parallel_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-                use_fused_linear_cross_entropy = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
-
-                if isinstance(input, tuple):
-                    input, aux_loss = input
-                else:
-                    aux_loss = 0
-
-                output = CausalLMOutputWithPast(
-                    logits=None if use_fused_linear_cross_entropy else input,
-                    aux_loss=aux_loss,
-                    last_hidden_state=input if use_fused_linear_cross_entropy else None,
-                )
-                loss = model.get_loss(output, target, lm_loss_multiplier)
-
-                return loss
-
-            pipeline_schedule = _get_pipeline_parallel_schedule(
-                pipeline_parallel_schedule=args.distributed_args.pipeline_parallel_schedule,
-                gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
-                pipeline_stages=pipeline_stages,
-                loss_fn=_pipeline_parallel_loss,
-            )
     elif accelerator == Accelerator.tpu:
         assert (
             ProcessGroupManager.get_data_parallel_world_size()
@@ -437,5 +361,81 @@ def wrap_model_container_for_distributed_training(
         use_ddp = stage == 0 and num_pipeline_stages == 1
     else:
         raise ValueError(f"unexpected accelerator ({accelerator})")
+
+    if torch_compile:
+        log_rank_0(logging.INFO, "using torch compile")
+
+        for i, model in enumerate(model_container):
+            model_container[i] = torch.compile(model)
+
+    _set_parameter_marker_maps(model_container, marker_maps)
+
+    pipeline_stages = []
+    pipeline_schedule = None
+
+    if num_pipeline_stages > 1:
+        micro_batch_size = args.training_parameters.micro_batch_size
+        sequence_length = args.datasets[0].class_args.get("sequence_length")
+
+        pipeline_parallel_schedule = args.distributed_args.pipeline_parallel_schedule
+        gradient_accumulation_steps = args.training_parameters.gradient_accumulation_steps
+
+        if pipeline_parallel_schedule == "1F1B":
+            assert (
+                gradient_accumulation_steps % num_pipeline_stages == 0
+            ), f"gradient_accumulation_steps ({gradient_accumulation_steps}) should be divisible by num_pipeline_stages ({num_pipeline_stages})"
+
+        for model in model_container:
+            intermediate_dtype = string_to_torch_dtype(args.mixed_precision_args.dtype)
+
+            dummy_input_tensor = model.model.get_dummy_input_tensor(
+                micro_batch_size, sequence_length, intermediate_dtype=intermediate_dtype
+            )
+            dummy_output_tensor = model.model.get_dummy_output_tensor(
+                micro_batch_size,
+                sequence_length,
+                intermediate_dtype=intermediate_dtype,
+                output_parallel_lm_logits_if_possible=True,
+            )
+
+            stage = PipelineStage(
+                model,
+                stage_index=model.pipeline_stage_id,
+                num_stages=num_pipeline_stages,
+                device=torch.cuda.current_device(),
+                input_args=dummy_input_tensor,
+                output_args=dummy_output_tensor,
+                group=ProcessGroupManager.get_pipeline_parallel_group(),
+            )
+
+            pipeline_stages.append(stage)
+
+        lm_loss_multiplier = 1 / (
+            args.training_parameters.micro_batch_size * args.datasets[0].class_args.get("sequence_length")
+        )
+
+        def _pipeline_parallel_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+            use_fused_linear_cross_entropy = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
+
+            if isinstance(input, tuple):
+                input, aux_loss = input
+            else:
+                aux_loss = 0
+
+            output = CausalLMOutputWithPast(
+                logits=None if use_fused_linear_cross_entropy else input,
+                aux_loss=aux_loss,
+                last_hidden_state=input if use_fused_linear_cross_entropy else None,
+            )
+            loss = model.get_loss(output, target, lm_loss_multiplier)
+
+            return loss
+
+        pipeline_schedule = _get_pipeline_parallel_schedule(
+            pipeline_parallel_schedule=args.distributed_args.pipeline_parallel_schedule,
+            gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
+            pipeline_stages=pipeline_stages,
+            loss_fn=_pipeline_parallel_loss,
+        )
 
     return model_container, pipeline_schedule
