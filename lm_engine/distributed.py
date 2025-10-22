@@ -67,6 +67,9 @@ _STAGE_HYBRID_SHARDING_STRATEGY_MAP = {
     3: ShardingStrategy.HYBRID_SHARD,
 }
 
+_FSDP_1_STRING = "_fsdp_wrapped_module"
+_TORCH_COMPILE_STRING = "_orig_mod"
+
 
 def _get_pipeline_parallel_schedule(
     pipeline_parallel_schedule: str,
@@ -127,18 +130,10 @@ def _get_parameter_marker_maps(model_container: ModelContainer) -> list[dict]:
 
 
 def _set_parameter_marker_maps(model_container: ModelContainer, marker_maps: list[dict]) -> None:
-    for original_param_name in marker_maps[0]:
-        break
-
-    for new_param_name, _ in model_container[0].named_parameters():
-        break
-
-    # handle torch compile
-    prefix = new_param_name.split(original_param_name)[0]
-
     for model, _marker_map in zip(model_container, marker_maps):
         for new_param_name, parameter in model.named_parameters():
-            original_param_name = new_param_name.split(prefix)[-1] if len(prefix) > 0 else new_param_name
+            # handle torch compile
+            original_param_name = new_param_name.replace(f"{_TORCH_COMPILE_STRING}.", "")
 
             for marker, value in _marker_map[original_param_name].items():
                 setattr(parameter, marker, value)
