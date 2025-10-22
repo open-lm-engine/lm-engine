@@ -132,8 +132,11 @@ def _get_parameter_marker_maps(model_container: ModelContainer) -> list[dict]:
 def _set_parameter_marker_maps(model_container: ModelContainer, marker_maps: list[dict]) -> None:
     for model, _marker_map in zip(model_container, marker_maps):
         for new_param_name, parameter in model.named_parameters():
+            # handle FSDP-1
+            original_param_name = new_param_name.replace(f"{_FSDP_1_STRING}.", "")
+
             # handle torch compile
-            original_param_name = new_param_name.replace(f"{_TORCH_COMPILE_STRING}.", "")
+            original_param_name = original_param_name.replace(f"{_TORCH_COMPILE_STRING}.", "")
 
             for marker, value in _marker_map[original_param_name].items():
                 setattr(parameter, marker, value)
