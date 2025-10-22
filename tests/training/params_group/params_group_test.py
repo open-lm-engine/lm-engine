@@ -58,8 +58,10 @@ class ParamsGroupTest(TestCommons):
             open(os.path.join(os.path.dirname(__file__), "groups", expected_groups_filename), "r")
         )
 
+        stripped_resultant_group = params_groups.get_param_names()
+
         if use_torch_compile:
-            tmp = params_groups.get_param_names()
+            tmp = stripped_resultant_group
             stripped_resultant_group = {}
 
             for group_name in tmp:
