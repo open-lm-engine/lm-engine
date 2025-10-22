@@ -7,7 +7,12 @@ from __future__ import annotations
 import torch
 
 from .accelerator import Accelerator
+from .packages import is_torch_xla_available
 from .parallel import ProcessGroupManager
+
+
+if is_torch_xla_available():
+    import torch_xla.debug.profiler as xp
 
 
 class TorchProfiler:
@@ -17,6 +22,7 @@ class TorchProfiler:
             return
 
         self.accelerator = Accelerator.get_accelerator()
+        self._path = path
 
         if self.accelerator == Accelerator.cuda:
             self._profiler = torch.profiler.profile(
@@ -41,11 +47,17 @@ class TorchProfiler:
 
     def __enter__(self):
         if self._profiler is not None:
-            self._profiler.__enter__()
+            if self.accelerator == Accelerator.tpu:
+                xp.start_trace(self._path)
+            else:
+                self._profiler.__enter__()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._profiler is not None:
-            self._profiler.__exit__(exc_type, exc_val, exc_tb)
+            if self.accelerator == Accelerator.tpu:
+                xp.stop_trace()
+            else:
+                self._profiler.__exit__(exc_type, exc_val, exc_tb)
 
     def step(self) -> None:
         if self._profiler is not None:
