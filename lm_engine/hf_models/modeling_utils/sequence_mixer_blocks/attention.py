@@ -220,7 +220,6 @@ class Attention(nn.Module):
             hidden_states = hidden_states.view(*output_shape)
         else:
             assert self.sliding_window is None
-            assert self.softmax_dropout_p == 0
 
             if accelerator == Accelerator.tpu:
                 assert attention_mask is None
