@@ -15,7 +15,7 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
-from ..communication import Communication
+from .communication import Communication
 from .miscellaneous import divide_if_divisible
 
 

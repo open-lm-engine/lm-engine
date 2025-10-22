@@ -10,9 +10,8 @@ import numpy as np
 import torch
 import torch.distributed
 
-from ...communication import Communication
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import ProcessGroupManager
+from ...utils import Communication, ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
