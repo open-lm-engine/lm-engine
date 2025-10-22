@@ -76,7 +76,7 @@ class ProcessGroupManager:
                 timeout=timeout_minutes,
             )
 
-            _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo", init_method="xla://")
+            _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
         else:
             torch.distributed.init_process_group(
                 backend="cpu:gloo,cuda:nccl",
