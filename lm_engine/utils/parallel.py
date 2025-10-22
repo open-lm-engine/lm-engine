@@ -61,9 +61,11 @@ class ProcessGroupManager:
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
 
+        accelerator = Accelerator.get_accelerator()
+
         torch.distributed.init_process_group(
-            backend="xla" + (",cuda:nccl" if torch.cuda.is_available() else ""),
-            init_method="xla://",
+            backend="cpu:gloo,cuda:nccl" if accelerator == Accelerator.cuda else "xla",
+            init_method="xla://" if accelerator == Accelerator.tpu else None,
             rank=ProcessGroupManager.get_global_rank(),
             world_size=ProcessGroupManager.get_world_size(),
             timeout=timeout_minutes,
@@ -96,7 +98,7 @@ class ProcessGroupManager:
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
         _MESH = init_device_mesh(
-            "cuda" if Accelerator.get_accelerator() == Accelerator.cuda else "cpu",
+            "cuda" if accelerator == Accelerator.cuda else "cpu",
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
