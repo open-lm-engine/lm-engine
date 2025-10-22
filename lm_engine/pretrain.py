@@ -8,8 +8,6 @@ from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
 import torch
-import torch_xla
-import torch_xla.core.xla_model as xm
 from git import Repo
 from torch.distributed.pipelining.schedules import _PipelineSchedule
 from torch.distributed.tensor.parallel import loss_parallel
@@ -30,17 +28,23 @@ from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
 from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import (
+    Accelerator,
     ExperimentsTracker,
     MetricsTrackingDict,
     ProcessGroupManager,
     StepTracker,
     TorchProfiler,
     init_distributed,
+    is_torch_xla_available,
     is_torchao_available,
     log_rank_0,
     setup_tf32,
 )
 
+
+if is_torch_xla_available():
+    import torch_xla
+    import torch_xla.core.xla_model as xm
 
 if is_torchao_available():
     from .distributed import FP8Manager
@@ -199,7 +203,9 @@ def train_step_without_pipeline_parallel(
     else:
         batches = None
 
-    with torch_xla.step():
+    accelerator = Accelerator.get_accelerator()
+
+    with (torch_xla.step if accelerator == Accelerator.tpu else nullcontext)():
         with no_sync():
             for step in range(gradient_accumulation_steps - 1):
                 batch = get_next_batch(train_dataloader) if batches is None else batches[step]
@@ -241,7 +247,8 @@ def train_step_without_pipeline_parallel(
         optimizer_container.step()
         lr_scheduler_container.step()
 
-    torch_xla.sync()
+    if accelerator == Accelerator.tpu:
+        torch_xla.sync()
 
     if is_torchao_available():
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp([model])
