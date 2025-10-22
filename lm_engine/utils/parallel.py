@@ -380,7 +380,7 @@ class ProcessGroupManager:
             torch.distributed.destroy_process_group()
 
     @staticmethod
-    def get_cpu_group() -> None:
+    def get_cpu_group() -> ProcessGroup | None:
         global _CPU_GROUP
         return _CPU_GROUP
 
