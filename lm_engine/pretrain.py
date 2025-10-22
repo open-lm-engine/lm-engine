@@ -254,8 +254,7 @@ def train_step_without_pipeline_parallel(
 
     with torch.inference_mode():
         metrics_tracker = metrics_tracker / gradient_accumulation_steps
-        q = torch.zeros((), device=Accelerator.get_current_device(), dtype=torch.float32)
-        metrics_tracker["grad_norm"] = q
+        metrics_tracker["grad_norm"] = torch.zeros((), device=Accelerator.get_current_device(), dtype=torch.float32)
 
         for key in metrics_tracker:
             metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
