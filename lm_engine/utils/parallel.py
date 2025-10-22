@@ -15,7 +15,6 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
-from .communication import Communication
 from .miscellaneous import divide_if_divisible
 
 
@@ -368,6 +367,8 @@ class ProcessGroupManager:
     @staticmethod
     def destroy_process_groups() -> None:
         if ProcessGroupManager.is_initialized():
+            from .communication import Communication
+
             Communication.barrier()
             torch.distributed.destroy_process_group()
 
@@ -383,6 +384,7 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
     Returns:
         Callable: wrapped function
     """
+    from .communication import Communication
 
     # wrapper function for the rank to execute on
     def func_rank_n(*args, **kwargs):
