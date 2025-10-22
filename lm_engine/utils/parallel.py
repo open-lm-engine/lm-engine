@@ -11,7 +11,6 @@ from typing import Callable
 
 import torch
 import torch.distributed
-import torch_xla
 from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
