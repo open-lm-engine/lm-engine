@@ -177,6 +177,20 @@ def is_zstandard_available():
     return _IS_ZSTANDARD_AVAILABLE
 
 
+try:
+    import torch_xla
+
+    _IS_TORCH_XLA_AVAILABLE = True
+except ImportError:
+    _IS_TORCH_XLA_AVAILABLE = False
+
+    warn_rank_0("torch_xla is not available")
+
+
+def is_torch_xla_available():
+    return _IS_TORCH_XLA_AVAILABLE
+
+
 @run_rank_n
 def log_environment() -> None:
     packages = sorted(["{}=={}".format(d.metadata["Name"], d.version) for d in distributions()])
