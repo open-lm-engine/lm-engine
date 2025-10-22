@@ -24,20 +24,16 @@ from ..test_commons import TestCommons
 class ParamsGroupTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [None, 1, 2], [False, True], [("mup.json", ParamsGroupMethod.mup), ("normal.json", None)]
+            [False, True], [False, True], [("mup.json", ParamsGroupMethod.mup), ("normal.json", None)]
         )
     )
     def test_mup_group(
-        self,
-        fsdp_algorithm: int | None,
-        use_torch_compile: bool,
-        filename_method: tuple[str, ParamsGroupMethod | None],
+        self, use_fsdp: bool, use_torch_compile: bool, filename_method: tuple[str, ParamsGroupMethod | None]
     ) -> None:
         expected_groups_filename, params_group_method = filename_method
 
         args = TestCommons.load_training_args_for_unit_tests("params_group/training_config.yml")
         args.distributed_args.torch_compile = use_torch_compile
-        args.distributed_args.fsdp_algorithm = fsdp_algorithm
 
         if not ProcessGroupManager.is_initialized():
             os.environ["MASTER_ADDR"] = "localhost"
@@ -49,7 +45,7 @@ class ParamsGroupTest(TestCommons):
 
         model_container = get_model_container(args, efficient_initialization=False, keep_in_fp32=False)
 
-        if fsdp_algorithm in [1, 2]:
+        if use_fsdp:
             with ProcessGroupManager.set_dummy_data_parallel_world_size(1):
                 wrap_model_container_for_distributed_training(args, model_container)
         elif use_torch_compile:
@@ -65,7 +61,7 @@ class ParamsGroupTest(TestCommons):
 
         tmp = params_groups.get_param_names()
 
-        if fsdp_algorithm in [1, 2] or use_torch_compile:
+        if use_fsdp or use_torch_compile:
             stripped_resultant_group = {}
 
             for group_name in tmp:
