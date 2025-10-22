@@ -6,6 +6,7 @@ import logging
 
 import torch
 
+from .accelerator import Accelerator
 from .hf_hub import download_repo
 from .logger import log_metrics, log_rank_0, print_rank_0, print_ranks_all, set_logger
 from .loss_dict import MetricsTrackingDict
@@ -17,12 +18,14 @@ from .packages import (
     is_flash_attention_3_available,
     is_fma_available,
     is_mamba_2_ssm_available,
+    is_torch_xla_available,
     is_torchao_available,
     is_triton_available,
     is_zstandard_available,
     log_environment,
 )
 from .parallel import ProcessGroupManager, get_pipeline_stage_ids_on_current_rank, run_rank_n
+from .profiler import TorchProfiler
 from .pydantic import BaseArgs
 from .safetensors import SafeTensorsWeightsManager
 from .step_tracker import StepTracker

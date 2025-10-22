@@ -26,18 +26,24 @@ from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
 from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
-from .train_utils import all_reduce_metrics_tracker, get_model_tflops, get_torch_profiler, track_metrics
+from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import (
+    Accelerator,
     ExperimentsTracker,
     MetricsTrackingDict,
     ProcessGroupManager,
     StepTracker,
+    TorchProfiler,
     init_distributed,
+    is_torch_xla_available,
     is_torchao_available,
     log_rank_0,
     setup_tf32,
 )
 
+
+if is_torch_xla_available():
+    import torch_xla
 
 if is_torchao_available():
     from .distributed import FP8Manager
@@ -183,7 +189,6 @@ def train_step_without_pipeline_parallel(
             model.set_requires_gradient_sync(False)
 
     metrics_tracker = MetricsTrackingDict({})
-    grad_norm = None
     optimizer_container.zero_grad()
 
     gradient_accumulation_steps = StepTracker.get_gradient_accumulation_steps()
@@ -197,55 +202,61 @@ def train_step_without_pipeline_parallel(
     else:
         batches = None
 
-    with no_sync():
-        for step in range(gradient_accumulation_steps - 1):
-            batch = get_next_batch(train_dataloader) if batches is None else batches[step]
-            with forward_context():
-                loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
+    accelerator = Accelerator.get_accelerator()
 
-            # compute gradients
-            with backward_context():
-                loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
-                loss_micro_step.backward()
+    with (torch_xla.step if accelerator == Accelerator.tpu else nullcontext)():
+        with no_sync():
+            for step in range(gradient_accumulation_steps - 1):
+                batch = get_next_batch(train_dataloader) if batches is None else batches[step]
+                with forward_context():
+                    loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
 
-            with torch.inference_mode():
-                metrics_tracker = metrics_tracker + loss_micro_step_dict
+                # compute gradients
+                with backward_context():
+                    loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
+                    loss_micro_step.backward()
 
-    if fsdp_algorithm == 2:
-        model.set_requires_gradient_sync(True)
+                with torch.inference_mode():
+                    metrics_tracker = metrics_tracker + loss_micro_step_dict
 
-    batch = get_next_batch(train_dataloader) if batches is None else batches[-1]
-    with forward_context():
-        loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
+        if fsdp_algorithm == 2:
+            model.set_requires_gradient_sync(True)
 
-    # compute gradients
-    with backward_context():
-        loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
-        loss_micro_step.backward()
+        batch = get_next_batch(train_dataloader) if batches is None else batches[-1]
+        with forward_context():
+            loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
 
-    with torch.inference_mode():
-        metrics_tracker = metrics_tracker + loss_micro_step_dict
+        # compute gradients
+        with backward_context():
+            loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
+            loss_micro_step.backward()
 
-    if gradient_clipping is not None:
-        if fsdp_algorithm == 1:
+        with torch.inference_mode():
+            metrics_tracker = metrics_tracker + loss_micro_step_dict
+
+        if gradient_clipping is None:
+            grad_norm = None
+        elif fsdp_algorithm == 1:
             grad_norm = model.clip_grad_norm_(gradient_clipping)
         else:
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
 
-    if is_torchao_available():
-        FP8Manager.sync_float8_amax_and_scale_history([model])
+        if is_torchao_available():
+            FP8Manager.sync_float8_amax_and_scale_history([model])
 
-    optimizer_container.step()
-    lr_scheduler_container.step()
+        optimizer_container.step()
+        lr_scheduler_container.step()
+
+    if accelerator == Accelerator.tpu:
+        torch_xla.sync()
 
     if is_torchao_available():
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp([model])
 
     with torch.inference_mode():
         metrics_tracker = metrics_tracker / gradient_accumulation_steps
-
         metrics_tracker["grad_norm"] = (
-            torch.zeros((1,), device=torch.cuda.current_device(), dtype=torch.float32)
+            torch.zeros((), device=Accelerator.get_current_device(), dtype=torch.float32)
             if grad_norm is None
             else grad_norm
         )
@@ -373,10 +384,8 @@ def train(
     forward_context = nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
 
-    torch_profiler = get_torch_profiler(args.logging_args.torch_profiler_trace_path)
-
-    if torch_profiler is not None:
-        torch_profiler.__enter__()
+    torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
+    torch_profiler.__enter__()
 
     start_time = time.perf_counter()
     steps_since_start_time = 0
@@ -412,9 +421,7 @@ def train(
             )
 
         metrics_tracker = metrics_tracker + loss_step_dict
-
-        if torch_profiler is not None:
-            torch_profiler.step()
+        torch_profiler.step()
 
         if global_step % log_interval == 0:
             metrics_tracker = metrics_tracker / log_interval
@@ -484,9 +491,7 @@ def train(
         )
 
     ensure_last_checkpoint_is_saved()
-
-    if torch_profiler is not None:
-        torch_profiler.__exit__(None, None, None)
+    torch_profiler.__exit__(None, None, None)
 
 
 @torch.no_grad()

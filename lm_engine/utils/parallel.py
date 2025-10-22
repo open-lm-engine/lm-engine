@@ -57,11 +57,20 @@ class ProcessGroupManager:
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
+        from .accelerator import Accelerator
+
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
 
+        accelerator = Accelerator.get_accelerator()
+
         torch.distributed.init_process_group(
-            backend="cpu:gloo,cuda:nccl",
+            backend=(
+                "cpu:gloo,cuda:nccl"
+                if accelerator == Accelerator.cuda
+                else ("xla" if accelerator == Accelerator.tpu else "cpu:gloo")
+            ),
+            init_method="xla://" if accelerator == Accelerator.tpu else None,
             rank=ProcessGroupManager.get_global_rank(),
             world_size=ProcessGroupManager.get_world_size(),
             timeout=timeout_minutes,
@@ -94,7 +103,7 @@ class ProcessGroupManager:
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
         _MESH = init_device_mesh(
-            "cuda",
+            "cuda" if accelerator == Accelerator.cuda else "cpu",
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
@@ -104,8 +113,7 @@ class ProcessGroupManager:
             mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
         )
 
-        local_rank = int(os.getenv("LOCAL_RANK", 0))
-        torch.cuda.set_device(local_rank)
+        Accelerator.set_device(int(os.getenv("LOCAL_RANK", 0)))
 
         if use_async_tensor_parallel:
             enable_symm_mem_for_group(ProcessGroupManager.get_tensor_parallel_group().group_name)
