@@ -4,3 +4,6 @@
 [submodule "flash-model-architectures"]
 	path = flash-model-architectures
 	url = https://github.com/open-lm-engine/flash-model-architectures
+[submodule "accelerated-model-architectures"]
+	path = accelerated-model-architectures
+	url = https://github.com/open-lm-engine/accelerated-model-architectures
