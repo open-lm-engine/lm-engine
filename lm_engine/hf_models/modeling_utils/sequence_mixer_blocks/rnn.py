@@ -10,9 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_fma_available
+from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..linear import ParameterizedLinear
@@ -20,8 +18,8 @@ from ..normalization import get_normalization_function
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
-if is_fma_available():
-    from fma.layers.rnn import rnn
+if is_xma_available():
+    from xma.layers.rnn import rnn
 
 
 class RNN(nn.Module):

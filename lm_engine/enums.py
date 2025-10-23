@@ -59,7 +59,7 @@ class ExperimentsTrackerName(Enum):
 
 
 class Kernel(Enum):
-    # FMA
+    # XMA
     causal_conv1d = "causal_conv1d"
     continuous_count = "continuous_count"
     cross_entropy = "cross_entropy"
