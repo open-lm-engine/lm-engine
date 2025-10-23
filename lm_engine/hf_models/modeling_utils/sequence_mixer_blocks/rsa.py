@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_fma_available
+from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
@@ -22,9 +22,8 @@ from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 
 
-if is_fma_available():
-    from fma import KernelBackend
-    from fma.modules.rsa import rsa
+if is_xma_available():
+    from xma.modules.rsa import rsa
 
 
 class RSA(nn.Module):
@@ -176,7 +175,6 @@ class RSA(nn.Module):
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 
         input = input + v * self.D
