@@ -96,13 +96,10 @@ def is_triton_available() -> bool:
 
 
 try:
-    if torch.cuda.is_available():
-        import xma
+    import xma
 
-        _IS_XMA_AVAILABLE = True
-    else:
-        _IS_XMA_AVAILABLE = False
-except ImportError:
+    _IS_XMA_AVAILABLE = True
+except:
     _IS_XMA_AVAILABLE = False
 
     warn_rank_0(
