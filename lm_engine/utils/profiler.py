@@ -60,7 +60,6 @@ class TorchProfiler:
                 xla_start_trace(self.path)
             elif self._step == self.end_step:
                 xla_stop_trace()
-
-            self.path = None
+                self.path = None
         elif self._profiler is not None:
             self._profiler.step()
