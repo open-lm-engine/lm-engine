@@ -97,22 +97,22 @@ def is_triton_available() -> bool:
 
 try:
     if torch.cuda.is_available():
-        import fma
+        import xma
 
-        _IS_FMA_AVAILABLE = True
+        _IS_XMA_AVAILABLE = True
     else:
-        _IS_FMA_AVAILABLE = False
+        _IS_XMA_AVAILABLE = False
 except ImportError:
-    _IS_FMA_AVAILABLE = False
+    _IS_XMA_AVAILABLE = False
 
     warn_rank_0(
-        "flash-model-architectures is not installed, install from "
-        "https://github.com/open-lm-engine/flash-model-architectures"
+        "accelerated-model-architectures is not installed, install from "
+        "https://github.com/open-lm-engine/accelerated-model-architectures"
     )
 
 
-def is_fma_available() -> bool:
-    return _IS_FMA_AVAILABLE
+def is_xma_available() -> bool:
+    return _IS_XMA_AVAILABLE
 
 
 try:
