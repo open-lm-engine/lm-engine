@@ -2,10 +2,9 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from transformers import AutoConfig, AutoTokenizer, GenerationConfig, LlamaConfig, LlamaForCausalLM
+from transformers import LlamaConfig, LlamaForCausalLM
 
-from ...tokenizers import get_tokenizer
-from ...utils import SafeTensorsWeightsManager, download_repo
+from ...utils import SafeTensorsWeightsManager, divide_if_divisible
 from ..modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
     interleave_up_gate_tensor_for_mlp,
@@ -15,31 +14,7 @@ from ..modeling_utils import (
 from ..models import GPTBaseConfig
 
 
-def import_from_huggingface_llama(pretrained_model_name_or_path: str, save_path: str) -> None:
-    original_config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
-    config = _import_config_from_huggingface(original_config)
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-
-    safetensors_weights_manager = SafeTensorsWeightsManager(downloaded_model_path)
-    state_dict = _import_state_dict_from_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        config.hidden_size // num_attention_heads,
-    )
-
-    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
-    config.save_pretrained(save_path)
-
-    generation_config = GenerationConfig.from_model_config(config)
-    generation_config.save_pretrained(save_path)
-
-    if tokenizer is not None:
-        tokenizer.save_pretrained(save_path, legacy_format=False)
-
-
-def _import_config_from_huggingface(original_config: LlamaConfig) -> GPTBaseConfig:
+def _import_llama_config(original_config: LlamaConfig) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert original_config.mlp_bias == original_config.attention_bias
 
@@ -83,13 +58,11 @@ def _import_config_from_huggingface(original_config: LlamaConfig) -> GPTBaseConf
     return config
 
 
-def _import_state_dict_from_huggingface(
-    safetensors_weights_manager: SafeTensorsWeightsManager,
-    num_layers: int,
-    num_heads: int,
-    num_key_value_heads: int,
-    head_dim: int,
-) -> None:
+def _import_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager) -> dict:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+    head_dim = divide_if_divisible(config.hidden_size, num_attention_heads, "")
+
     state_dict = {
         "transformer.wte.weight": safetensors_weights_manager.get_tensor("model.embed_tokens.weight"),
         "transformer.ln_f.weight": safetensors_weights_manager.get_tensor("model.norm.weight"),
@@ -98,7 +71,7 @@ def _import_state_dict_from_huggingface(
     if safetensors_weights_manager.has_tensor("lm_head.weight"):
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
-    for layer_idx in range(num_layers):
+    for layer_idx in range(config.num_layers):
         state_dict[f"transformer.h.{layer_idx}.ln_1.weight"] = safetensors_weights_manager.get_tensor(
             f"model.layers.{layer_idx}.input_layernorm.weight"
         )
@@ -129,7 +102,7 @@ def _import_state_dict_from_huggingface(
                 safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.weight"),
                 safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.weight"),
                 safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.weight"),
-                num_heads,
+                num_attention_heads,
                 num_key_value_heads,
                 head_dim,
             )
@@ -140,7 +113,7 @@ def _import_state_dict_from_huggingface(
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.bias"),
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.bias"),
                     safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.bias"),
-                    num_heads,
+                    num_attention_heads,
                     num_key_value_heads,
                     head_dim,
                 )
@@ -157,35 +130,7 @@ def _import_state_dict_from_huggingface(
     return state_dict
 
 
-def export_to_huggingface_llama(pretrained_model_name_or_path: str, save_path: str) -> None:
-    config: GPTBaseConfig = AutoConfig.from_pretrained(pretrained_model_name_or_path)
-    original_config = _export_config_to_huggingface(config)
-
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-
-    safetensors_weights_manager = SafeTensorsWeightsManager(pretrained_model_name_or_path)
-    state_dict = _export_state_dict_to_huggingface(
-        safetensors_weights_manager,
-        config.num_layers,
-        num_attention_heads,
-        config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
-        config.hidden_size // num_attention_heads,
-    )
-
-    SafeTensorsWeightsManager.save_state_dict(state_dict, save_path)
-    original_config.save_pretrained(save_path)
-
-    original_generation_config = GenerationConfig.from_model_config(original_config)
-    original_generation_config.save_pretrained(save_path)
-
-    try:
-        tokenizer = get_tokenizer(AutoTokenizer.__name__, pretrained_model_name_or_path)
-        tokenizer.save_pretrained(save_path, legacy_format=False)
-    except:
-        pass
-
-
-def _export_config_to_huggingface(config: GPTBaseConfig) -> LlamaConfig:
+def _export_llama_config(config: GPTBaseConfig) -> LlamaConfig:
     assert config.normalization_function == "rmsnorm"
     assert config.position_embedding_type == "rope"
     assert config.m_emb is None
@@ -222,13 +167,10 @@ def _export_config_to_huggingface(config: GPTBaseConfig) -> LlamaConfig:
     return original_config
 
 
-def _export_state_dict_to_huggingface(
-    safetensors_weights_manager: SafeTensorsWeightsManager,
-    num_layers: int,
-    num_heads: int,
-    num_key_value_heads: int,
-    head_dim: int,
-) -> None:
+def _export_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager) -> dict:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+
     state_dict = {
         "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
         "model.norm.weight": safetensors_weights_manager.get_tensor("transformer.ln_f.weight"),
@@ -237,7 +179,7 @@ def _export_state_dict_to_huggingface(
     if safetensors_weights_manager.has_tensor("lm_head.weight"):
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
-    for layer_idx in range(num_layers):
+    for layer_idx in range(config.num_layers):
         state_dict[f"model.layers.{layer_idx}.input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
             f"transformer.h.{layer_idx}.ln_1.weight"
         )
@@ -268,7 +210,7 @@ def _export_state_dict_to_huggingface(
 
         query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
             safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"),
-            num_heads,
+            num_attention_heads,
             num_key_value_heads,
         )
         state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.weight"] = query_weight
@@ -278,7 +220,7 @@ def _export_state_dict_to_huggingface(
         if f"transformer.h.{layer_idx}.sequence_mixer.c_attn.bias" in safetensors_weights_manager:
             query_bias, key_bias, value_bias = split_query_key_value_tensor_for_attention(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.bias"),
-                num_heads,
+                num_attention_heads,
                 num_key_value_heads,
             )
             state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.bias"] = query_bias

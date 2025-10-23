@@ -5,10 +5,9 @@ import os
 from enum import Enum
 
 import numpy as np
-import torch
 from torch.utils.cpp_extension import load as load_cpp_extension
 
-from ....utils import ProcessGroupManager, log_rank_0
+from ....utils import Communication, ProcessGroupManager, log_rank_0
 
 
 class Split(Enum):
@@ -38,7 +37,7 @@ def compile_helpers() -> None:
             verbose=True,
         )
 
-    torch.distributed.barrier()
+    Communication.barrier()
 
 
 def build_blending_indices(

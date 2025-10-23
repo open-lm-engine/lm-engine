@@ -16,7 +16,7 @@ from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingfa
 from ..test_common import BaseTestCommons
 
 
-_RUN_SLOW = True if os.getenv("RUN_SLOW", "False").lower() in ["1", "true"] else False
+_DEBUG = False
 
 
 class TestCommons(BaseTestCommons):
@@ -87,7 +87,7 @@ class TestCommons(BaseTestCommons):
         num_layers: int = 8,
         num_experts: int = 8,
         num_experts_per_tok: int = 8,
-        add_bias: bool = True,
+        add_bias: bool = False,
         shared_n_inner: int | None = None,
         activation_function: str = "gelu_pytorch_tanh",
         normalization_function: str = "layernorm",
@@ -96,8 +96,22 @@ class TestCommons(BaseTestCommons):
         m_residual: float = None,
         attention_multiplier: float = None,
         num_attention_heads: int = 4,
+        shared_expert_gating: bool = False,
+        normalized_topk: bool = True,
+        qkv_bias: bool = None,
     ) -> GPTBaseConfig:
         num_key_value_heads = 2
+
+        sequence_mixer = {
+            "sequence_mixer_type": "softmax_attention",
+            "add_bias": add_bias,
+            "num_attention_heads": num_attention_heads,
+            "num_key_value_heads": num_key_value_heads,
+            "attention_multiplier": attention_multiplier,
+        }
+
+        if qkv_bias is not None:
+            sequence_mixer["qkv_bias"] = qkv_bias
 
         return GPTBaseConfig(
             vocab_size=2048,
@@ -113,24 +127,17 @@ class TestCommons(BaseTestCommons):
             m_emb=m_emb,
             m_width=m_width,
             m_residual=m_residual,
-            sequence_mixer_blocks=[
-                {
-                    "sequence_mixer_type": "softmax_attention",
-                    "add_bias": add_bias,
-                    "num_attention_heads": num_attention_heads,
-                    "num_key_value_heads": num_key_value_heads,
-                    "attention_multiplier": attention_multiplier,
-                }
-                for _ in range(num_layers)
-            ],
+            sequence_mixer_blocks=[sequence_mixer for _ in range(num_layers)],
             mlp_blocks=[
                 {
                     "mlp_type": "MoE",
                     "num_experts": num_experts,
                     "num_experts_per_tok": num_experts_per_tok,
+                    "normalized_topk": normalized_topk,
                     "activation_function": activation_function,
                     "add_bias": add_bias,
                     "shared_intermediate_size": None if shared_n_inner is None else shared_n_inner,
+                    "shared_expert_gating": shared_expert_gating,
                 }
                 for _ in range(num_layers)
             ],
@@ -168,11 +175,15 @@ class TestCommons(BaseTestCommons):
         loss_atol_float16: float = 1e-5,
         loss_rtol_bfloat16: float = 0,
         loss_atol_bfloat16: float = 1e-5,
+        weight_test_only: bool = False,
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
         lm_engine_model = self.from_config(lm_engine_config).to(device)
         lm_engine_model.eval()
+
+        if _DEBUG:
+            print(lm_engine_model)
 
         with tempfile.TemporaryDirectory() as tmp_path:
             save_path = os.path.join(tmp_path, "save")
@@ -181,7 +192,7 @@ class TestCommons(BaseTestCommons):
 
             lm_engine_model.save_pretrained(save_path, safe_serialization=True)
 
-            export_to_huggingface(save_path, export_path, model_type=model_type)
+            export_to_huggingface(save_path, model_type, export_path)
             import_from_huggingface(export_path, import_path)
 
             assert self.compare_saved_models(save_path, import_path)
@@ -189,7 +200,13 @@ class TestCommons(BaseTestCommons):
             hf_model = AutoModelForCausalLM.from_pretrained(export_path).to(device)
             hf_model.eval()
 
+        if weight_test_only:
+            return
+
         input_ids, attention_mask, labels = self.get_dummy_inputs(device)
+
+        if _DEBUG:
+            print(hf_model)
 
         hf_output = hf_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True)
         hf_logits = hf_output.logits
@@ -234,6 +251,10 @@ class TestCommons(BaseTestCommons):
     def compare_saved_models(path1: str, path2: str) -> bool:
         config1 = json.load(open(os.path.join(path1, "config.json"), "r"))
         config2 = json.load(open(os.path.join(path2, "config.json"), "r"))
+
+        if _DEBUG:
+            json.dump(config1, open("c1.json", "w"), indent=4)
+            json.dump(config2, open("c2.json", "w"), indent=4)
 
         for key in ["architectures", "dtype"]:
             config1.pop(key, None)

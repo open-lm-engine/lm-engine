@@ -14,7 +14,7 @@ from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, is_fma_available
+from ....utils import ProcessGroupManager, is_xma_available
 from ...loss import add_aux_loss
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
@@ -22,9 +22,9 @@ from ..linear import ParameterizedLinear
 from .mlp import _get_std_for_linear
 
 
-if is_fma_available():
-    from fma import continuous_count
-    from fma.modules.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
+if is_xma_available():
+    from xma import continuous_count
+    from xma.layers.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
 
 
 # TODO add support for combileable bincount in PyTorch directly
@@ -144,6 +144,8 @@ class MoE(nn.Module):
         hidden_size: int,
         intermediate_size: int,
         shared_intermediate_size: int,
+        shared_expert_gating: bool,
+        normalized_topk: bool,
         num_experts: int,
         num_experts_per_tok: int,
         activation_function: str,
@@ -160,10 +162,11 @@ class MoE(nn.Module):
         self.num_experts = num_experts
         self.top_k = num_experts_per_tok
         self.use_padding_free_transformer = use_padding_free_transformer
-
         self.hidden_size = hidden_size
         self.intermediate_size = intermediate_size
         self.shared_intermediate_size = shared_intermediate_size
+        self.shared_expert_gating = shared_expert_gating
+        self.normalized_topk = normalized_topk
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
@@ -173,6 +176,13 @@ class MoE(nn.Module):
             bias=False,
             std=std,
         )
+
+        if self.shared_expert_gating:
+            assert shared_intermediate_size is not None
+
+            self.shared_expert_gate = ParameterizedLinear(
+                in_features=self.hidden_size, out_features=1, bias=False, std=std
+            )
 
         self.c_fc = self.linear_class(
             num_experts=num_experts,
@@ -263,11 +273,14 @@ class MoE(nn.Module):
         router_logits = self.gate(hidden_states)
         # router_logits -> (total_q, num_experts)
 
-        router_weights, selected_experts = self._get_topk(router_logits)
-        router_weights = F.softmax(router_weights.float(), dim=-1)
-
-        # we cast back to the input dtype
-        router_weights = router_weights.type_as(hidden_states)
+        if self.normalized_topk:
+            router_weights, selected_experts = self._get_topk(router_logits)
+            router_weights = F.softmax(router_weights.float(), dim=-1)
+            router_weights = router_weights.type_as(hidden_states)
+        else:
+            router_weights = F.softmax(router_logits.float(), dim=-1)
+            router_weights = router_weights.type_as(hidden_states)
+            router_weights, selected_experts = self._get_topk(router_weights)
 
         return router_logits, router_weights, selected_experts
 
@@ -383,9 +396,17 @@ class MoE(nn.Module):
         return hidden_states, expert_frequency
 
     def _compute_shared_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        gate = None
+        if self.shared_expert_gating:
+            gate = self.shared_expert_gate(hidden_states)
+
         hidden_states = self.c_fc_shared(hidden_states)
         hidden_states = self.act(hidden_states)
         hidden_states = self.c_proj_shared(hidden_states)
+
+        if gate is not None:
+            hidden_states = hidden_states * F.sigmoid(gate)
+
         return hidden_states
 
     def _get_topk(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:

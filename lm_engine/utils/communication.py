@@ -7,7 +7,8 @@ from typing import Any
 import torch.distributed
 from torch.distributed import ProcessGroup
 
-from .utils import ProcessGroupManager
+from .accelerator import Accelerator
+from .parallel import ProcessGroupManager
 
 
 class Communication:
@@ -21,3 +22,10 @@ class Communication:
         obj = object_list[0]
 
         return obj
+
+    @staticmethod
+    def barrier() -> None:
+        torch.distributed.barrier()
+
+        if Accelerator.get_accelerator() == Accelerator.tpu:
+            torch.distributed.barrier(ProcessGroupManager.get_cpu_group())

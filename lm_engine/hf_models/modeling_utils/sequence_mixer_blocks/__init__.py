@@ -14,13 +14,10 @@ from .mamba2 import Mamba2
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
 from .rsa import RSA
-from .stickbreaking_attention import PaddingFreeSBAttention, SBAttention
 from .utils import flash_attention
 
 
-SEQUENCE_MIXER_TYPE = (
-    Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN | PaddingFreeSBAttention
-)
+SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN
 
 
 def get_sequence_mixer(
@@ -133,6 +130,7 @@ def get_sequence_mixer(
             num_attention_heads=block.num_attention_heads,
             head_dim=block.head_dim,
             attention_multiplier=block.attention_multiplier,
+            sliding_window=block.sliding_window,
             position_embedding_type=config.position_embedding_type,
             add_bias=block.add_bias,
             softmax_dropout=block.softmax_dropout,
@@ -153,6 +151,7 @@ def get_sequence_mixer(
             num_attention_heads=block.num_attention_heads,
             num_key_value_heads=block.num_key_value_heads,
             attention_multiplier=block.attention_multiplier,
+            sliding_window=block.sliding_window,
             position_embedding_type=config.position_embedding_type,
             add_bias=block.add_bias,
             dropout=block.dropout,
@@ -167,13 +166,9 @@ def get_sequence_mixer(
         if sequence_mixer_type == "softmax_attention":
             return Attention(
                 **sequence_mixer_kwargs,
+                qkv_bias=block.qkv_bias,
                 softmax_dropout=block.softmax_dropout,
                 use_padding_free_transformer=use_padding_free_transformer,
             )
-        elif sequence_mixer_type == "stickbreaking_attention":
-            if use_padding_free_transformer:
-                return PaddingFreeSBAttention(**sequence_mixer_kwargs)
-            else:
-                return SBAttention(**sequence_mixer_kwargs)
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")

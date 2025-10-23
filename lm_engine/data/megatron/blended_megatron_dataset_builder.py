@@ -11,7 +11,7 @@ import torch
 import torch.distributed
 
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import ProcessGroupManager
+from ...utils import Communication, ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
@@ -325,7 +325,7 @@ class BlendedMegatronDatasetBuilder:
         """
         if torch.distributed.is_initialized():
             rank = ProcessGroupManager.get_global_rank()
-            caching_allowed = rank == 0 or (torch.cuda.current_device() == 0 and self.config.node_uses_local_storage)
+            caching_allowed = rank == 0 or (self.config.node_uses_local_storage and torch.cuda.current_device() == 0)
 
             dataset = None
 
@@ -342,7 +342,7 @@ class BlendedMegatronDatasetBuilder:
                     )
                     raise Exception(log) from err
 
-            torch.distributed.barrier()
+            Communication.barrier()
 
             # After, build on other ranks
             if not caching_allowed and self.config.is_built_on_rank:

@@ -10,12 +10,12 @@ import torch.nn.functional as F
 
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
-from ...utils import is_fma_available
+from ...utils import is_xma_available
 from ..parameter import mark_parameter_as_no_weight_decay
 
 
-if is_fma_available():
-    from fma import rmsnorm
+if is_xma_available():
+    from xma import rmsnorm
 
 
 class RMSNorm(nn.RMSNorm):
@@ -43,17 +43,14 @@ class PNorm(RMSNorm):
         super().__init__(normalized_shape, eps, elementwise_affine)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.p_norm):
-            hidden_states = p_norm(x=hidden_states, p=self.p, weight=self.weight, eps=self.eps)
-        else:
-            dtype = hidden_states.dtype
+        dtype = hidden_states.dtype
 
-            hidden_states = hidden_states.float()
-            hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
-            hidden_states = hidden_states.to(dtype)
+        hidden_states = hidden_states.float()
+        hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
+        hidden_states = hidden_states.to(dtype)
 
-            if self.weight is not None:
-                hidden_states = self.weight * hidden_states
+        if self.weight is not None:
+            hidden_states = self.weight * hidden_states
 
         return hidden_states
 
@@ -61,11 +58,7 @@ class PNorm(RMSNorm):
         return f"p={self.p}"
 
 
-_NORMALIZATION_FUNCTIONS = {
-    "layernorm": nn.LayerNorm,
-    "p_norm": PNorm,
-    "rmsnorm": RMSNorm,
-}
+_NORMALIZATION_FUNCTIONS = {"layernorm": nn.LayerNorm, "p_norm": PNorm, "rmsnorm": RMSNorm}
 
 
 def get_normalization_function(

@@ -81,6 +81,8 @@ def flash_attention(
         window_size = (sliding_window, sliding_window)
 
     if use_padding_free_transformer:
+        assert sliding_window is None
+
         if use_flash_attention_3:
             attn_output, _ = flash_attention_3_varlen(
                 q=query,

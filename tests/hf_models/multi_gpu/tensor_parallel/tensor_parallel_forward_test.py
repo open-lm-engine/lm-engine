@@ -8,7 +8,6 @@ import tempfile
 import torch
 from parameterized import parameterized
 
-from lm_engine.hf_models import GPTBaseConfig, LadderResidualConfig
 from lm_engine.utils import torch_dtype_to_string
 
 from ...test_common import TestCommons
@@ -22,15 +21,6 @@ class TensorParallelTest(TestCommons):
             TestCommons.get_dtypes(),
             [False, True],
             [False, True],
-            [GPTBaseConfig.model_type],
-        )
-        + TestCommons.make_args_matrix(
-            ["rope"],
-            ["flash_attention_2"],
-            [torch.float16],
-            [False, True],
-            [False, True],
-            [LadderResidualConfig.model_type],
         )
     )
     @TestCommons.slow_test
@@ -41,7 +31,6 @@ class TensorParallelTest(TestCommons):
         dtype: torch.dtype,
         use_padding_free_transformer: bool,
         sequence_parallel: bool,
-        model_type: str,
     ) -> None:
         self.skip_test_if_device_unavailable(torch.device("cuda"))
 
@@ -69,8 +58,6 @@ class TensorParallelTest(TestCommons):
                 torch_dtype_to_string(dtype),
                 "--attention-implementation",
                 attention_implementation,
-                "--model-type",
-                model_type,
                 "--tmp-path",
                 tmp_path,
             ]
