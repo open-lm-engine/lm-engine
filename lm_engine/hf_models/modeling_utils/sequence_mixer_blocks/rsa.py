@@ -10,8 +10,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
@@ -23,7 +21,7 @@ from .causal_convolution import causal_convolution
 
 
 if is_xma_available():
-    from xma.modules.rsa import rsa
+    from xma import rsa
 
 
 class RSA(nn.Module):
