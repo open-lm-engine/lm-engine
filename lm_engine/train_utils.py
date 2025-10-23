@@ -39,8 +39,6 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
     else:
         raise ValueError(f"unexpected accelerator ({accelerator})")
 
-    tensor = tensor.tolist()
-
     for i, key in enumerate(metrics_tracker):
         metrics_tracker[key] = tensor[i]
 
