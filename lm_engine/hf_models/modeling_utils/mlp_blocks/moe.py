@@ -9,7 +9,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from smoe.smoe import MoE_Function
+from smoe.smoe import moe_layer
 from torch.distributed._functional_collectives import all_reduce
 from torch.utils.checkpoint import checkpoint
 
@@ -244,7 +244,7 @@ class MoE(nn.Module):
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
         if is_kernel_allowed(Kernel.smoe):
-            moe_output, router_logits, expert_frequency = MoE_Function.apply(
+            moe_output, router_logits, expert_frequency = moe_layer(
                 hidden_states,
                 self.gate.weight,
                 self.c_fc.weight.permute(1, 2, 0),
