@@ -244,7 +244,7 @@ class MoE(nn.Module):
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
         if is_kernel_allowed(Kernel.smoe):
-            hidden_states, router_logits, expert_frequency = MoE_Function.apply(
+            moe_output, router_logits, expert_frequency = MoE_Function.apply(
                 hidden_states,
                 self.gate.weight,
                 self.c_fc.weight.permute(1, 2, 0),
@@ -257,12 +257,12 @@ class MoE(nn.Module):
 
             moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
 
-            if self.shared_intermediate_size is None:
-                hidden_states = moe_output
-            else:
-                hidden_states = moe_output + self._compute_shared_experts(hidden_states)
+        if self.shared_intermediate_size is None:
+            hidden_states = moe_output
+        else:
+            hidden_states = moe_output + self._compute_shared_experts(hidden_states)
 
-            del moe_output
+        del moe_output
 
         if not self.use_padding_free_transformer:
             hidden_states = hidden_states.reshape(batch_size, sequence_length, self.hidden_size)
