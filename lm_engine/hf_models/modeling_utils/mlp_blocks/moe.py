@@ -25,7 +25,13 @@ from .mlp import _get_std_for_linear
 
 if is_xma_available():
     from xma import continuous_count
-    from xma.layers.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
+    from xma.layers.moe import (
+        down_projection_experts,
+        group_with_padding,
+        grouped_gemm_experts,
+        ungroup_with_padding,
+        up_projection_experts,
+    )
 
 
 # TODO add support for combileable bincount in PyTorch directly
@@ -101,17 +107,25 @@ class ParameterizedExperts(nn.Module):
         elif is_kernel_allowed(Kernel.scattermoe):
             assert self.bias is None
 
-            input = scattered_experts(
-                inputs=input,
-                expert_weights=self.weight.permute(0, 2, 1),
-                k=num_experts_per_token,
-                sorted_expert_idxs=sorted_expert_idxs,
-                sorted_scattered_idxs=sorted_scattered_idxs,
-                expert_offsets=expert_offsets,
-                gates=gates,
-                grouped_in=grouped_in,
-                grouped_out=grouped_out,
-            )
+            if gates is None:
+                input = up_projection_experts(
+                    inputs=input,
+                    expert_weights=self.weight.permute(0, 2, 1),
+                    k=num_experts_per_token,
+                    sorted_expert_idxs=sorted_expert_idxs,
+                    sorted_scattered_idxs=sorted_scattered_idxs,
+                    expert_offsets=expert_offsets,
+                )
+            else:
+                input = down_projection_experts(
+                    inputs=input,
+                    expert_weights=self.weight.permute(0, 2, 1),
+                    k=num_experts_per_token,
+                    sorted_expert_idxs=sorted_expert_idxs,
+                    sorted_scattered_idxs=sorted_scattered_idxs,
+                    expert_offsets=expert_offsets,
+                    gates=gates,
+                )
         else:
             input = input.split(expert_frequency.tolist(), dim=0)
             input = [
