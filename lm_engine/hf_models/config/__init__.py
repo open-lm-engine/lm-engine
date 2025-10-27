@@ -213,6 +213,7 @@ class CommonConfig(PretrainedConfig):
             | _Mamba2Args
             | _MultiHeadLatentAttentionArgs
             | _RNNArgs
+            | _RSAArgs
             | _SoftmaxAttentionArgs
         ] = []
         for i in range(self.num_layers):

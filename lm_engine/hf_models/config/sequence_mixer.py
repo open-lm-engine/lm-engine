@@ -93,7 +93,11 @@ class _RNNArgs(_GRUArgs):
 
 class _RSAArgs(_GRUArgs):
     sequence_mixer_type: str = "rsa"
-    intermediate_size: int = 256
+    k_norm: bool = True
+    double_v_head_dim: bool = False
+    use_forget_multiplier: bool = True
+    use_forget_bias: bool = True
+    use_residual: bool = True
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rsa"

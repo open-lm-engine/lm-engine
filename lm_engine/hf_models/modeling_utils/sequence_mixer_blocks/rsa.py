@@ -31,6 +31,11 @@ class RSA(nn.Module):
         state_size: int,
         output_size: int,
         num_heads: int,
+        k_norm: bool,
+        double_v_head_dim: bool,
+        use_forget_multiplier: bool,
+        use_forget_bias: bool,
+        use_residual: bool,
         kernel_size: int | None,
         activation_function: str | None,
         add_bias: bool,
@@ -55,6 +60,10 @@ class RSA(nn.Module):
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
+        self.use_forget_multiplier = use_forget_multiplier
+        self.use_forget_bias = use_forget_bias
+        self.use_residual = use_residual
+        self.k_norm = k_norm
 
         self.num_groups = 1
         assert self.num_heads % self.num_groups == 0
@@ -64,7 +73,7 @@ class RSA(nn.Module):
         self.num_f_heads = self.num_heads
 
         self.qk_head_dim = self.state_head_dim
-        self.v_head_dim = self.state_head_dim * 2
+        self.v_head_dim = self.state_head_dim * (1 + double_v_head_dim)
 
         self.q_shape = self.num_q_heads * self.qk_head_dim
         self.k_shape = self.num_k_heads * self.qk_head_dim
@@ -101,23 +110,28 @@ class RSA(nn.Module):
 
             mark_parameter_as_mup_learning_rate(self.conv1d.weight)
 
-        self.D = nn.Parameter(torch.empty(self.num_v_heads, self.v_head_dim))
-        mark_parameter_as_no_weight_decay(self.D)
+        if self.use_residual:
+            self.D = nn.Parameter(torch.empty(self.num_v_heads, self.v_head_dim))
+            mark_parameter_as_no_weight_decay(self.D)
 
         self.state_weight = nn.Parameter(torch.empty(self.num_v_heads, self.v_head_dim, self.v_head_dim))
 
-        self.forget_multiplier = nn.Parameter(torch.empty(self.num_f_heads))
-        mark_parameter_as_no_weight_decay(self.forget_multiplier)
+        if self.use_forget_multiplier:
+            self.forget_multiplier = nn.Parameter(torch.empty(self.num_f_heads))
+            mark_parameter_as_no_weight_decay(self.forget_multiplier)
 
-        self.forget_bias = nn.Parameter(torch.empty(self.num_f_heads, self.qk_head_dim))
-        mark_parameter_as_no_weight_decay(self.forget_bias)
+        if self.use_forget_bias:
+            self.forget_bias = nn.Parameter(torch.empty(self.num_f_heads, self.qk_head_dim))
+            mark_parameter_as_no_weight_decay(self.forget_bias)
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
 
-        self.norm = get_normalization_function("p_norm", self.state_head_dim, p=2, elementwise_affine=False)
+        if self.k_norm:
+            self.norm = get_normalization_function("p_norm", self.state_head_dim, p=2, elementwise_affine=False)
+
         self.g_norm = get_normalization_function(normalization_function, self.num_v_heads * self.v_head_dim)
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
@@ -160,8 +174,14 @@ class RSA(nn.Module):
         v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
         f = f.view(*f.size()[:-1], self.num_f_heads, self.qk_head_dim)
 
-        k = self.norm(k)
-        f = (2 * torch.sigmoid(self.forget_multiplier[..., None])) * (f + self.forget_bias)
+        if self.k_norm:
+            k = self.norm(k)
+
+        if self.use_forget_bias:
+            f = f + self.forget_bias
+
+        if self.use_forget_multiplier:
+            f = 2 * torch.sigmoid(self.forget_multiplier[..., None]) * f
 
         input, rsa_state = rsa(
             query=q,
@@ -175,7 +195,8 @@ class RSA(nn.Module):
             max_seqlen=max_seqlen,
         )
 
-        input = input + v * self.D
+        if self.use_residual:
+            input = input + v * self.D
 
         if cache_params is not None:
             cache_params.update(
@@ -193,9 +214,15 @@ class RSA(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
-        nn.init.zeros_(self.forget_multiplier)
-        nn.init.zeros_(self.forget_bias)
-        nn.init.ones_(self.D)
+
+        if self.use_forget_multiplier:
+            nn.init.zeros_(self.forget_multiplier)
+
+        if self.use_forget_bias:
+            nn.init.zeros_(self.forget_bias)
+
+        if self.use_residual:
+            nn.init.ones_(self.D)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
