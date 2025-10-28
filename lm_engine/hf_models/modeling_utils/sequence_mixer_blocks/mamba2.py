@@ -163,7 +163,7 @@ class Mamba2(nn.Module):
         # time step projection (discretization)
         # instantiate once and copy inv_dt in init_weights of PretrainedModel
         # Initialize log dt bias
-        self.dt_bias = nn.Parameter(torch.ones(self.num_heads))
+        self.dt_bias = nn.Parameter(torch.empty(self.num_heads))
 
         # S4D real initialization. These are not discretized!
         # The core is to load them, compute the discrete states, then write the updated state. Keeps the memory bounded
@@ -590,4 +590,6 @@ class Mamba2(nn.Module):
             )
 
         self.A_log.copy_(A)
+
         nn.init.ones_(self.D)
+        nn.init.ones_(self.dt_bias)
