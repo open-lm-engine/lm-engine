@@ -53,7 +53,7 @@ class ParamsGroupTest(TestCommons):
         )
 
         if use_fsdp:
-            wrap_model_container_for_distributed_training(args, model_container)
+            model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
         elif use_torch_compile:
             marker_maps = _get_parameter_marker_maps(model_container)
             model_container = [torch.compile(model) for model in model_container]
