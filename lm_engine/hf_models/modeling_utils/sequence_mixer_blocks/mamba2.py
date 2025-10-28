@@ -589,6 +589,5 @@ class Mamba2(nn.Module):
                 desired_placement=self.A_log.placements,
             )
 
-        self.A_log.copy_(torch.log(A))
-
+        self.A_log += torch.log(A)
         nn.init.ones_(self.D)
