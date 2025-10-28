@@ -6,9 +6,11 @@ import os
 
 from transformers import set_seed
 
+from lm_engine.arguments import UnshardingArgs
+from lm_engine.checkpointing import load_checkpoint_and_unshard, save_checkpoint
 from lm_engine.distributed import wrap_model_container_for_distributed_training
 from lm_engine.model_wrapper import get_model_container
-from lm_engine.utils import ProcessGroupManager
+from lm_engine.utils import ProcessGroupManager, load_yaml
 
 from ..test_commons import TestCommons
 
@@ -16,6 +18,7 @@ from ..test_commons import TestCommons
 class EfficientInitTest(TestCommons):
     def test_efficient_init(self) -> None:
         args = TestCommons.load_training_args_for_unit_tests("params_group/training_config.yml")
+        unshard_config = UnshardingArgs(**load_yaml(os.path.join(os.path.dirname(__file__), "unshard.yml")))
 
         if not ProcessGroupManager.is_initialized():
             os.environ["MASTER_ADDR"] = "localhost"
@@ -30,13 +33,25 @@ class EfficientInitTest(TestCommons):
         for efficient_initialization in [False, True]:
             set_seed(args.random_args.seed)
             args.model_args.efficient_initialization = efficient_initialization
+            args.save_args.save_path = f"tmp-{efficient_initialization}"
 
             model_container = get_model_container(
                 args, efficient_initialization=efficient_initialization, keep_in_fp32=False
             )
 
             model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
-            models.append(model_container[0])
+            save_checkpoint(args, model_container, None, None, None, None, 0)
 
-        for n, p in models[0].named_parameters():
-            assert p.equal(models[1].state_dict()[n])
+            unshard_config.load_args.load_path = args.save_args.save_path
+            unshard_config.load_args.iteration = 0
+            unshard_config.unsharded_path = os.path.join(args.save_args.save_path, "unsharded_path")
+
+            _, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config)
+            models.append(consolidated_state_dict)
+
+        for n in consolidated_state_dict:
+            p0 = models[0][n]
+            p1 = models[1][n]
+            print(n, (p0.mean(), p1.mean()), (p0.std(), p1.std()), (p0.min(), p1.min()), (p0.max(), p1.max()))
+
+        assert False
