@@ -24,16 +24,21 @@ from ..test_commons import TestCommons
 class ParamsGroupTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
-            [False, True], [False, True], [("mup.json", ParamsGroupMethod.mup), ("normal.json", None)]
+            [False, True], [False, True], [False, True], [("mup.json", ParamsGroupMethod.mup), ("normal.json", None)]
         )
     )
     def test_mup_group(
-        self, use_fsdp: bool, use_torch_compile: bool, filename_method: tuple[str, ParamsGroupMethod | None]
+        self,
+        use_fsdp: bool,
+        use_torch_compile: bool,
+        efficient_initialization: bool,
+        filename_method: tuple[str, ParamsGroupMethod | None],
     ) -> None:
         expected_groups_filename, params_group_method = filename_method
 
         args = TestCommons.load_training_args_for_unit_tests("params_group/training_config.yml")
         args.distributed_args.torch_compile = use_torch_compile
+        args.model_args.efficient_initialization = efficient_initialization
 
         if not ProcessGroupManager.is_initialized():
             os.environ["MASTER_ADDR"] = "localhost"
