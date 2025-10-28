@@ -36,7 +36,7 @@ class EfficientInitTest(TestCommons):
             args.save_args.save_path = f"tmp-{efficient_initialization}"
 
             model_container = get_model_container(
-                args, efficient_initialization=efficient_initialization, keep_in_fp32=False
+                args, efficient_initialization=efficient_initialization, keep_in_fp32=True
             )
 
             model_container, _ = wrap_model_container_for_distributed_training(args, model_container)

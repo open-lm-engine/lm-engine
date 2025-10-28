@@ -49,7 +49,7 @@ class ParamsGroupTest(TestCommons):
             ProcessGroupManager()
 
         model_container = get_model_container(
-            args, efficient_initialization=efficient_initialization, keep_in_fp32=False
+            args, efficient_initialization=efficient_initialization, keep_in_fp32=True
         )
 
         if use_fsdp:
