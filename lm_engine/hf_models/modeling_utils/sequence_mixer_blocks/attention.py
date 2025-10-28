@@ -14,9 +14,11 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
+from ...modeling_utils import ParameterizedConv1d, get_activation_function, is_glu
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
+from .causal_convolution import causal_convolution
 from .utils import flash_attention
 
 
@@ -71,6 +73,8 @@ class Attention(nn.Module):
         hidden_size: int,
         num_attention_heads: int,
         num_key_value_heads: int,
+        kernel_size: int | None,
+        activation_function: str | None,
         attention_multiplier: float,
         sliding_window: int | None,
         position_embedding_type: str,
@@ -113,15 +117,34 @@ class Attention(nn.Module):
             f"`num_heads` ({self.num_heads}) should be a multiple of `num_key_value_heads` ({self.num_key_value_heads})",
         )
 
+        self.conv_dim = self.hidden_size + 2 * self.num_key_value_heads * self.head_dim
+        self.kernel_size = kernel_size
+
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.c_attn = ParameterizedLinear(
-            self.hidden_size,
-            self.hidden_size + 2 * self.num_key_value_heads * self.head_dim,
-            bias=self.qkv_bias,
-            std=std,
-        )
+        self.c_attn = ParameterizedLinear(self.hidden_size, self.conv_dim, bias=self.qkv_bias, std=std)
+
+        self.activation_string = activation_function
+
+        if self.kernel_size is None:
+            assert self.activation_string is None
+            self.conv1d = nn.Identity()
+        else:
+            assert self.activation_string is None or not is_glu(self.activation_string)
+            self.conv_dim = self.hidden_size + 2 * self.num_key_value_heads * self.head_dim
+
+            self.conv1d = ParameterizedConv1d(
+                in_channels=self.conv_dim,
+                out_channels=self.conv_dim,
+                kernel_size=self.kernel_size,
+                bias=add_bias,
+                padding=self.kernel_size - 1,
+                groups=self.conv_dim,
+                std=std,
+            )
+
+            mark_parameter_as_mup_learning_rate(self.conv1d.weight)
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
@@ -164,6 +187,22 @@ class Attention(nn.Module):
 
         hidden_states = self.c_attn(hidden_states)
 
+        _, _, conv_state = (None, None, None) if past_key_values is None else past_key_values.get_cache(self.layer_idx)
+
+        if self.kernel_size is not None:
+            hidden_states, conv_state = causal_convolution(
+                hidden_states=hidden_states,
+                input_state=conv_state,
+                attention_mask=attention_mask,
+                conv1d_weight=self.conv1d.weight,
+                conv1d_bias=self.conv1d.bias,
+                conv1d_num_groups=self.conv_dim,
+                return_cache_state=past_key_values is not None,
+                activation_string=self.activation_string,
+                conv1d_padding=self.kernel_size - 1,
+                conv1d_stride=1,
+            )
+
         hidden_states = hidden_states.view(*input_shape)
 
         query, key, value = hidden_states.split(
@@ -182,7 +221,9 @@ class Attention(nn.Module):
             key = apply_rotary_pos_emb(key, rope_cos_sin)
 
         if past_key_values is not None:
-            key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
+            key, value, conv_state = past_key_values.update(
+                key_states=key, value_states=value, conv_state=conv_state, layer_idx=self.layer_idx
+            )
 
         if use_flash_attention_2 or use_flash_attention_3:
             assert accelerator == Accelerator.cuda
