@@ -579,15 +579,15 @@ class Mamba2(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = torch.arange(1, self.num_heads + 1)
+        A = torch.log(torch.arange(1, self.num_heads + 1))
 
         if isinstance(self.A_log, DTensor):
             A = tensor_to_dtensor(
                 A,
                 device_mesh=self.A_log.device_mesh,
-                current_placement=Replicate(),
+                current_placement=[Replicate()] * len(self.A_log.placements),
                 desired_placement=self.A_log.placements,
             )
 
-        self.A_log += torch.log(A)
+        self.A_log.copy_(A)
         nn.init.ones_(self.D)
