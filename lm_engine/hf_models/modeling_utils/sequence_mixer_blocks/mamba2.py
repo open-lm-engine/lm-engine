@@ -164,10 +164,9 @@ class Mamba2(nn.Module):
 
         # S4D real initialization. These are not discretized!
         # The core is to load them, compute the discrete states, then write the updated state. Keeps the memory bounded
-        A = torch.arange(1, self.num_heads + 1)
-        self.A_log = nn.Parameter(torch.log(A))
+        self.A_log = nn.Parameter(torch.empty(self.num_heads))
         self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
-        self.D = nn.Parameter(torch.ones(self.num_heads))
+        self.D = nn.Parameter(torch.empty(self.num_heads))
 
         self.out_proj = ParameterizedLinear(
             self.intermediate_size, self.hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
@@ -182,6 +181,8 @@ class Mamba2(nn.Module):
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.in_proj.weight)
         mark_parameter_as_mup_learning_rate(self.out_proj.weight)
+
+        self.reset_parameters()
 
     def forward(
         self,
@@ -576,5 +577,5 @@ class Mamba2(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         A = torch.arange(1, self.num_heads + 1)
-        self.A_log.data = torch.log(A)
+        self.A_log.copy_(torch.log(A))
         nn.init.ones_(self.D)
