@@ -7,10 +7,9 @@ from __future__ import annotations
 import torch
 
 from ..config import CommonConfig
-from .attention import _SoftmaxAttentionCache
 
 
-class _RNNCache(_SoftmaxAttentionCache):
+class _RNNCache:
     def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> _RNNCache:
         self.seen_tokens = 0
         self.cache: torch.Tensor | None = None
@@ -25,6 +24,12 @@ class _RNNCache(_SoftmaxAttentionCache):
             self.cache = state
 
         return self.cache
+
+    def get_seq_length(self) -> int:
+        return self.seen_tokens
+
+    def get_max_cache_shape(self) -> None:
+        return None
 
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:
         self.cache = self.cache.index_select(0, beam_idx.to(self.cache.device))
