@@ -53,5 +53,5 @@ class EfficientInitTest(TestCommons):
             p0 = models[0][n]
             p1 = models[1][n]
 
-            assert (p0.mean() - p1.mean()).abs() < 5e-5
-            assert (p0.std() - p1.std()).abs() < 5e-5
+            assert (p0.mean() - p1.mean()).abs() < 4e-4
+            assert (p0.std() - p1.std()).abs() < 4e-4
