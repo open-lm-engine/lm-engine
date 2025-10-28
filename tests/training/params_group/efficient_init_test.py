@@ -36,7 +36,7 @@ class EfficientInitTest(TestCommons):
             )
 
             model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
-            models.append(model_container)
+            models.append(model_container[0])
 
         for n, p in models[0].named_parameters():
             assert models[1].state_dict()[n] == p
