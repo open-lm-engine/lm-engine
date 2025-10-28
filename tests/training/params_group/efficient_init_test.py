@@ -52,6 +52,6 @@ class EfficientInitTest(TestCommons):
         for n in consolidated_state_dict:
             p0 = models[0][n]
             p1 = models[1][n]
-            print(n, (p0.mean(), p1.mean()), (p0.std(), p1.std()), (p0.min(), p1.min()), (p0.max(), p1.max()))
 
-        assert False
+            assert (p0.mean() - p1.mean()).abs() < 5e-5
+            assert (p0.std() - p1.std()).abs() < 5e-5
