@@ -48,7 +48,9 @@ class ParamsGroupTest(TestCommons):
 
             ProcessGroupManager()
 
-        model_container = get_model_container(args, efficient_initialization=False, keep_in_fp32=False)
+        model_container = get_model_container(
+            args, efficient_initialization=efficient_initialization, keep_in_fp32=False
+        )
 
         if use_fsdp:
             wrap_model_container_for_distributed_training(args, model_container)
