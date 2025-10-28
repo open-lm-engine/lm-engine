@@ -22,8 +22,8 @@ from ..dtensor_module import DTensorModule
 from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
-if is_xma_available():
-    from xma.layers.moe import scattered_experts
+# if is_xma_available():
+#     from xma.layers.moe import scattered_experts
 
 
 class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
