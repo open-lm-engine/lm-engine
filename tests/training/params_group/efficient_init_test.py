@@ -39,4 +39,4 @@ class EfficientInitTest(TestCommons):
             models.append(model_container[0])
 
         for n, p in models[0].named_parameters():
-            assert models[1].state_dict()[n] == p
+            assert p.equal(models[1].state_dict()[n])
