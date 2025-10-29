@@ -16,8 +16,6 @@ class _SoftmaxAttentionArgs(BaseArgs):
     add_bias: bool = False
     attention_multiplier: float | None = None
     sliding_window: int | None = None
-    kernel_size: int | None = None
-    activation_function: str | None = None
     # needed for Qwen 2 MoE
     qkv_bias: bool = None
 
