@@ -4,6 +4,7 @@
 
 import os
 
+import torch
 from transformers import set_seed
 
 from lm_engine.arguments import UnshardingArgs
@@ -17,6 +18,8 @@ from ..test_commons import TestCommons
 
 class EfficientInitTest(TestCommons):
     def test_efficient_init(self) -> None:
+        self.skip_test_if_device_unavailable(torch.device("cuda"))
+
         args = TestCommons.load_training_args_for_unit_tests("params_group/training_config.yml")
         unshard_config = UnshardingArgs(**load_yaml(os.path.join(os.path.dirname(__file__), "unshard.yml")))
 
