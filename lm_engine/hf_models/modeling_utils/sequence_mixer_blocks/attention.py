@@ -160,23 +160,6 @@ class Attention(nn.Module):
             output_shape = (batch_size, query_length, -1, self.head_dim)
 
         hidden_states = self.c_attn(hidden_states)
-
-        _, _, conv_state = (None, None, None) if past_key_values is None else past_key_values.get_cache(self.layer_idx)
-
-        if self.kernel_size is not None:
-            hidden_states, conv_state = causal_convolution(
-                hidden_states=hidden_states,
-                input_state=conv_state,
-                attention_mask=attention_mask,
-                conv1d_weight=self.conv1d.weight,
-                conv1d_bias=self.conv1d.bias,
-                conv1d_num_groups=self.conv_dim,
-                return_cache_state=past_key_values is not None,
-                activation_string=self.activation_string,
-                conv1d_padding=self.kernel_size - 1,
-                conv1d_stride=1,
-            )
-
         hidden_states = hidden_states.view(*input_shape)
 
         query, key, value = hidden_states.split(
