@@ -101,4 +101,4 @@ mixed_precision_args:
 distributed_args:
   fsdp_algorithm: 2
   stage: 3
-  tensor_parallel_world_size: 2
+  tensor_parallel_world_size: 1
