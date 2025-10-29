@@ -73,8 +73,6 @@ class Attention(nn.Module):
         hidden_size: int,
         num_attention_heads: int,
         num_key_value_heads: int,
-        kernel_size: int | None,
-        activation_function: str | None,
         attention_multiplier: float,
         sliding_window: int | None,
         position_embedding_type: str,
@@ -117,34 +115,10 @@ class Attention(nn.Module):
             f"`num_heads` ({self.num_heads}) should be a multiple of `num_key_value_heads` ({self.num_key_value_heads})",
         )
 
-        self.conv_dim = self.hidden_size + 2 * self.num_key_value_heads * self.head_dim
-        self.kernel_size = kernel_size
-
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.c_attn = ParameterizedLinear(self.hidden_size, self.conv_dim, bias=self.qkv_bias, std=std)
-
-        self.activation_string = activation_function
-
-        if self.kernel_size is None:
-            assert self.activation_string is None
-            self.conv1d = nn.Identity()
-        else:
-            assert self.activation_string is None or not is_glu(self.activation_string)
-            self.conv_dim = self.hidden_size + 2 * self.num_key_value_heads * self.head_dim
-
-            self.conv1d = ParameterizedConv1d(
-                in_channels=self.conv_dim,
-                out_channels=self.conv_dim,
-                kernel_size=self.kernel_size,
-                bias=add_bias,
-                padding=self.kernel_size - 1,
-                groups=self.conv_dim,
-                std=std,
-            )
-
-            mark_parameter_as_mup_learning_rate(self.conv1d.weight)
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
