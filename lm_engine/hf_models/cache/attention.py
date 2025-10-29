@@ -7,18 +7,16 @@ from __future__ import annotations
 import torch
 
 from ..config import CommonConfig
-from .rnn import _RNNCache
 
 
 class _SoftmaxAttentionCache:
     def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> _SoftmaxAttentionCache:
         self.seen_tokens = 0
-        self.conv_cache = _RNNCache(config, layer_idx, **kwargs)
         self.key_cache: torch.Tensor | None = None
         self.value_cache: torch.Tensor | None = None
 
     def get_cache(self) -> tuple[torch.Tensor | None]:
-        return self.key_cache, self.value_cache, self.conv_cache.get_cache()
+        return self.key_cache, self.value_cache
 
     def update(
         self,
@@ -41,9 +39,7 @@ class _SoftmaxAttentionCache:
             else:
                 self.value_cache = torch.cat([self.value_cache, value_states], dim=sequence_length_dimension)
 
-        conv_cache = self.conv_cache.update(conv_state, num_tokens_added=num_tokens_added)
-
-        return self.key_cache, self.value_cache, conv_cache
+        return self.key_cache, self.value_cache
 
     def get_seq_length(self) -> int:
         return self.seen_tokens
@@ -54,4 +50,3 @@ class _SoftmaxAttentionCache:
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:
         self.key_cache = self.key_cache.index_select(0, beam_idx.to(self.key_cache.device))
         self.value_cache = self.value_cache.index_select(0, beam_idx.to(self.value_cache.device))
-        self.conv_cache.reorder_cache(beam_idx)
