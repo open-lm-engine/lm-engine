@@ -14,11 +14,9 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
-from ...modeling_utils import ParameterizedConv1d, get_activation_function, is_glu
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
-from .causal_convolution import causal_convolution
 from .utils import flash_attention
 
 
