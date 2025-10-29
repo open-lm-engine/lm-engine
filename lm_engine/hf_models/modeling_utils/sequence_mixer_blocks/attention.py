@@ -118,7 +118,12 @@ class Attention(nn.Module):
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.c_attn = ParameterizedLinear(self.hidden_size, self.conv_dim, bias=self.qkv_bias, std=std)
+        self.c_attn = ParameterizedLinear(
+            self.hidden_size,
+            self.hidden_size + 2 * self.num_key_value_heads * self.head_dim,
+            bias=self.qkv_bias,
+            std=std,
+        )
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
