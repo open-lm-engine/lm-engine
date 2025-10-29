@@ -163,7 +163,6 @@ class Attention(nn.Module):
             output_shape = (batch_size, query_length, -1, self.head_dim)
 
         hidden_states = self.c_attn(hidden_states)
-
         hidden_states = hidden_states.view(*input_shape)
 
         query, key, value = hidden_states.split(
