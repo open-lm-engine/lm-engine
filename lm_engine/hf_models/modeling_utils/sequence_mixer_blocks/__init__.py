@@ -128,8 +128,6 @@ def get_sequence_mixer(
                 **sequence_mixer_kwargs,
                 qkv_bias=block.qkv_bias,
                 softmax_dropout=block.softmax_dropout,
-                kernel_size=block.kernel_size,
-                activation_function=block.activation_function,
                 use_padding_free_transformer=use_padding_free_transformer,
             )
         else:
