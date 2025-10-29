@@ -136,7 +136,7 @@ class MultiHeadLatentAttention(nn.Module):
             raise NotImplementedError()
         else:
             if past_key_values is not None:
-                key, value, _ = past_key_values.update(
+                key, value = past_key_values.update(
                     key_states=key.unsqueeze(1), value_states=value.unsqueeze(1), layer_idx=self.layer_idx
                 )
                 key = key.squeeze(1)
