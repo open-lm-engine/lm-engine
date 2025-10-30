@@ -81,13 +81,13 @@ class Accelerator(Enum):
         return state
 
     @staticmethod
-    def set_rng_state() -> Any:
+    def set_rng_state(state: Any) -> Any:
         accelerator = Accelerator.get_accelerator()
 
         if accelerator == Accelerator.cuda:
-            state = torch.cuda.set_rng_state()
+            state = torch.cuda.set_rng_state(state)
         elif accelerator == Accelerator.tpu:
-            state = xla_set_rng_state()
+            state = xla_set_rng_state(state)
         else:
             raise ValueError(f"unexpected device ({accelerator})")
 
