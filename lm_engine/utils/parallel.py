@@ -16,6 +16,13 @@ from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
 from .miscellaneous import divide_if_divisible
+from .packages import is_torch_xla_available
+
+
+if is_torch_xla_available():
+    from torch_xla.runtime import global_ordinal as xla_global_ordinal
+    from torch_xla.runtime import local_ordinal as xla_local_ordinal
+    from torch_xla.runtime import world_size as xla_world_size
 
 
 # general
@@ -77,6 +84,9 @@ class ProcessGroupManager:
             )
 
             _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
+
+            total_gpus = xla_world_size()
+            Accelerator.set_device(xla_local_ordinal())
         else:
             torch.distributed.init_process_group(
                 backend="cpu:gloo" + (",cuda:nccl" if accelerator == Accelerator.cuda else ""),
@@ -85,7 +95,9 @@ class ProcessGroupManager:
                 timeout=timeout_minutes,
             )
 
-        total_gpus = int(os.getenv("WORLD_SIZE", 1))
+            total_gpus = int(os.getenv("WORLD_SIZE", 1))
+            Accelerator.set_device(int(os.getenv("LOCAL_RANK", 0)))
+
         data_parallel_size = total_gpus // (tensor_parallel_world_size * pipeline_parallel_world_size)
 
         assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == total_gpus
@@ -120,8 +132,6 @@ class ProcessGroupManager:
             mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
         )
 
-        Accelerator.set_device(int(os.getenv("LOCAL_RANK", 0)))
-
         if use_async_tensor_parallel:
             enable_symm_mem_for_group(ProcessGroupManager.get_tensor_parallel_group().group_name)
             torch._inductor.config._micro_pipeline_tp = True
@@ -145,7 +155,15 @@ class ProcessGroupManager:
         global _GLOBAL_RANK
 
         if _GLOBAL_RANK is None:
-            _GLOBAL_RANK = int(os.getenv("RANK", 0))
+            from .accelerator import Accelerator
+
+            accelerator = Accelerator.get_accelerator()
+
+            if accelerator == Accelerator.tpu:
+                _GLOBAL_RANK = xla_global_ordinal()
+            elif accelerator == Accelerator.cuda:
+                _GLOBAL_RANK = int(os.getenv("RANK", 0))
+
         return _GLOBAL_RANK
 
     @staticmethod
@@ -153,7 +171,15 @@ class ProcessGroupManager:
         global _LOCAL_RANK
 
         if _LOCAL_RANK is None:
-            _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
+            from .accelerator import Accelerator
+
+            accelerator = Accelerator.get_accelerator()
+
+            if accelerator == Accelerator.tpu:
+                _LOCAL_RANK = xla_local_ordinal()
+            elif accelerator == Accelerator.cuda:
+                _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
+
         return _LOCAL_RANK
 
     @staticmethod
@@ -161,7 +187,15 @@ class ProcessGroupManager:
         global _WORLD_SIZE
 
         if _WORLD_SIZE is None:
-            _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
+            from .accelerator import Accelerator
+
+            accelerator = Accelerator.get_accelerator()
+
+            if accelerator == Accelerator.tpu:
+                _WORLD_SIZE = xla_world_size()
+            elif accelerator == Accelerator.cuda:
+                _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
+
         return _WORLD_SIZE
 
     # tensor parallel
@@ -399,7 +433,8 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
 
     # wrapper function for the rank to execute on
     def func_rank_n(*args, **kwargs):
-        output = func(*args, **kwargs) if ProcessGroupManager.get_global_rank() == rank else None
+        if ProcessGroupManager.get_global_rank() == rank:
+            output = func(*args, **kwargs)
 
         if barrier:
             from .communication import Communication
