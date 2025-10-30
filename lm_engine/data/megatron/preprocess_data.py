@@ -103,7 +103,7 @@ def convert_file(
         for batch in parquet_file.iter_batches(batch_size=10000):
             df = batch.to_pandas()
             for text in df["text"]:
-                ds.append(text)
+                ds.append({"text": text})
 
         encoded_docs = pool.imap(encoder.encode_hf, ds, chunk_size)
     elif input_file.endswith(".arrow"):
