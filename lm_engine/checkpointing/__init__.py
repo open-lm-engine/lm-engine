@@ -170,7 +170,7 @@ def save_checkpoint(
                     "optimizer": _ModelSaver(model_container).state_dict(),
                     "shard_metadata": model_container[0].get_shard_metadata(),
                 },
-                _get_model_optimizer_path(save_path),
+                f"{_get_model_optimizer_path(save_path)}.pt",
                 master_only=False,
             )
 
