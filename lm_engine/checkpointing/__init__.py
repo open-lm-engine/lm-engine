@@ -393,7 +393,7 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
         dtype = string_to_torch_dtype(model.dtype)
         for key in list(state.keys()):
             state[key] = state[key].to(dtype)
-    else:
+    elif accelerator == Accelerator.tpu:
         state, _ = xla_consolidate_sharded_model_checkpoints(
             args.ckpt_prefix, args.ckpt_suffix, args.save_path, save_model=False
         )
