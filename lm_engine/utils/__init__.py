@@ -71,6 +71,45 @@ def init_distributed(
     log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
     log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
 
+    if not is_flash_attention_2_available():
+        warn_rank_0("Flash Attention 2 is not installed")
+
+    if not is_flash_attention_3_available():
+        warn_rank_0("Flash Attention 3 is not installed")
+
+    if not is_aim_available():
+        warn_rank_0("aim is not installed")
+
+    if not is_wandb_available():
+        warn_rank_0("wandb is not installed")
+
+    if not is_colorlog_available():
+        warn_rank_0("colorlog is not installed")
+
+    if not is_triton_available():
+        warn_rank_0("OpenAI triton is not installed")
+
+    if not is_xma_available():
+        warn_rank_0(
+            "accelerated-model-architectures is not installed, install from "
+            "https://github.com/open-lm-engine/accelerated-model-architectures"
+        )
+
+    if not is_causal_conv1d_available():
+        warn_rank_0("causal-conv1d is not installed")
+
+    if not is_mamba_2_ssm_available():
+        warn_rank_0("mamba-ssm is not installed")
+
+    if not is_torchao_available():
+        warn_rank_0("torchao is not installed")
+
+    if not is_zstandard_available():
+        warn_rank_0("zstandard is not available")
+
+    if not is_torch_xla_available():
+        warn_rank_0("torch_xla is not available")
+
 
 def setup_tf32(use_tf32: bool = True) -> None:
     """whether to use tf32 instead of fp32

@@ -7,7 +7,7 @@ from importlib.metadata import distributions
 
 import torch
 
-from .logger import log_rank_0, warn_rank_0
+from .logger import log_rank_0
 from .parallel import run_rank_n
 
 
@@ -17,8 +17,6 @@ try:
     _IS_FLASH_ATTENTION_2_AVAILABLE = True
 except ImportError:
     _IS_FLASH_ATTENTION_2_AVAILABLE = False
-
-    warn_rank_0("Flash Attention 2 is not installed")
 
 
 def is_flash_attention_2_available() -> bool:
@@ -32,8 +30,6 @@ try:
 except ImportError:
     _IS_FLASH_ATTENTION_3_AVAILABLE = False
 
-    warn_rank_0("Flash Attention 3 is not installed")
-
 
 def is_flash_attention_3_available() -> bool:
     return _IS_FLASH_ATTENTION_3_AVAILABLE
@@ -45,8 +41,6 @@ try:
     _IS_AIM_AVAILABLE = True
 except ImportError:
     _IS_AIM_AVAILABLE = False
-
-    warn_rank_0("aim is not installed")
 
 
 def is_aim_available() -> bool:
@@ -60,8 +54,6 @@ try:
 except ImportError:
     _IS_WANDB_AVAILABLE = False
 
-    warn_rank_0("wandb is not installed")
-
 
 def is_wandb_available() -> bool:
     return _IS_WANDB_AVAILABLE
@@ -73,8 +65,6 @@ try:
     _IS_COLORLOG_AVAILABLE = True
 except ImportError:
     _IS_COLORLOG_AVAILABLE = False
-
-    warn_rank_0("colorlog is not installed")
 
 
 def is_colorlog_available() -> bool:
@@ -88,8 +78,6 @@ try:
 except ImportError:
     _IS_TRITON_AVAILABLE = False
 
-    warn_rank_0("OpenAI triton is not installed")
-
 
 def is_triton_available() -> bool:
     return _IS_TRITON_AVAILABLE
@@ -101,11 +89,6 @@ try:
     _IS_XMA_AVAILABLE = True
 except:
     _IS_XMA_AVAILABLE = False
-
-    warn_rank_0(
-        "accelerated-model-architectures is not installed, install from "
-        "https://github.com/open-lm-engine/accelerated-model-architectures"
-    )
 
 
 def is_xma_available() -> bool:
@@ -122,8 +105,6 @@ try:
 except ImportError:
     _IS_CAUSAL_CONV1D_AVAILABLE = False
 
-    warn_rank_0("causal-conv1d is not installed")
-
 
 def is_causal_conv1d_available() -> bool:
     return _IS_CAUSAL_CONV1D_AVAILABLE
@@ -139,8 +120,6 @@ try:
 except ImportError:
     _IS_MAMBA_2_SSM_AVAILABLE = False
 
-    warn_rank_0("mamba-ssm is not installed")
-
 
 def is_mamba_2_ssm_available() -> bool:
     return _IS_MAMBA_2_SSM_AVAILABLE
@@ -152,8 +131,6 @@ try:
     _IS_TORCHAO_AVAILABLE = True
 except ImportError:
     _IS_TORCHAO_AVAILABLE = False
-
-    warn_rank_0("torchao is not installed")
 
 
 def is_torchao_available() -> bool:
@@ -167,8 +144,6 @@ try:
 except ImportError:
     _IS_ZSTANDARD_AVAILABLE = False
 
-    warn_rank_0("zstandard is not available")
-
 
 def is_zstandard_available():
     return _IS_ZSTANDARD_AVAILABLE
@@ -181,10 +156,8 @@ try:
 except ImportError:
     _IS_TORCH_XLA_AVAILABLE = False
 
-    warn_rank_0("torch_xla is not available")
 
-
-def is_torch_xla_available():
+def is_torch_xla_available() -> bool:
     return _IS_TORCH_XLA_AVAILABLE
 
 
