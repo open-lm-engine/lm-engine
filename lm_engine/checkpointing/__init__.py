@@ -9,7 +9,6 @@ import random
 
 import numpy as np
 import torch
-import torch.distributed
 import torch.distributed.checkpoint as dcp
 import yaml
 from torch.distributed.checkpoint import FileSystemReader
@@ -22,6 +21,7 @@ from ..data import ResumableDataLoader
 from ..hf_models import fix_unsharded_state_dict
 from ..model_wrapper import ModelWrapper, get_model_container
 from ..utils import (
+    Accelerator,
     Communication,
     ExperimentsTracker,
     ProcessGroupManager,
@@ -91,7 +91,7 @@ def save_checkpoint(
         "random_rng_state": random.getstate(),
         "np_rng_state": np.random.get_state(),
         "torch_rng_state": torch.get_rng_state(),
-        "cuda_rng_state": torch.cuda.get_rng_state(),
+        "accelerator_rng_state": Accelerator.get_rng_state(),
     }
     rng_state_path = _get_rng_state_path(save_path)
     os.makedirs(os.path.dirname(rng_state_path), exist_ok=True)
@@ -257,7 +257,7 @@ def load_checkpoint_for_training(
         random.setstate(rng_state["random_rng_state"])
         np.random.set_state(rng_state["np_rng_state"])
         torch.set_rng_state(rng_state["torch_rng_state"])
-        torch.cuda.set_rng_state(rng_state["cuda_rng_state"])
+        Accelerator.set_rng_state(rng_state["accelerator_rng_state"])
 
     metadata = None
     if os.path.isfile(_get_metadata_path(load_path)):
