@@ -163,11 +163,12 @@ def save_checkpoint(
                 )
         elif accelerator == Accelerator.tpu:
             assert len(model_container) == 1
+            assert len(optimizer_container) == 1
 
             xla_save(
                 {
-                    "model": _ModelSaver(model_container).state_dict(),
-                    "optimizer": _OptimizerSaver(optimizer_container).state_dict(),
+                    "model": model_container[0].state_dict(),
+                    "optimizer": optimizer_container[0].state_dict(),
                     "shard_metadata": model_container[0].get_shard_metadata(),
                 },
                 f"{_get_model_optimizer_path(save_path)}.pt",
