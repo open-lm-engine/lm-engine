@@ -37,7 +37,6 @@ from .utils import (
     init_distributed,
     is_torch_xla_available,
     is_torchao_available,
-    log_args,
     log_environment,
     log_rank_0,
     setup_tf32,
@@ -603,7 +602,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
     )
 
-    log_args(args)
+    args.log_args()
     log_environment()
 
     StepTracker(
