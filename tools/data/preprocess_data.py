@@ -3,6 +3,7 @@
 # **************************************************
 
 import os
+import subprocess
 from argparse import ArgumentParser, Namespace
 
 from tqdm import tqdm
@@ -38,28 +39,68 @@ def get_args() -> Namespace:
     return args
 
 
+def process_file(args: Namespace, input_file: str, output_prefix: str):
+    """Process a single file with convert_file()."""
+    convert_file(
+        tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+        input_file=input_file,
+        output_prefix=output_prefix,
+        workers=args.workers,
+        chunk_size=args.chunk_size,
+        subset=args.subset,
+        json_keys=args.json_keys,
+        append_eos_token=args.append_eod,
+    )
+
+
 def main() -> None:
     args = get_args()
 
     if os.path.isfile(args.input):
-        files = [""]
+        process_file(args, args.input, args.output_prefix)
     elif os.path.isdir(args.input):
         files = os.listdir(args.input)
+        processes = []
 
-    for file in tqdm(files):
-        input = os.path.join(args.input, file)
-        output_prefix = os.path.join(args.output_prefix, file)
+        for file in tqdm(files, desc="Submitting jobs"):
+            input_file = os.path.join(args.input, file)
+            output_prefix = os.path.join(args.output_prefix, os.path.splitext(file)[0])
 
-        convert_file(
-            tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-            input_file=input,
-            output_prefix=output_prefix,
-            workers=args.workers,
-            chunk_size=args.chunk_size,
-            subset=args.subset,
-            json_keys=args.json_keys,
-            append_eos_token=args.append_eod,
-        )
+            assert args.json_keys == ["text"]
+
+            # Launch subprocess in background
+            cmd = [
+                "python",
+                __file__,
+                "--input",
+                input_file,
+                "--output-prefix",
+                output_prefix,
+                "--tokenizer",
+                args.tokenizer,
+                "--workers",
+                str(args.workers),
+                "--chunk-size",
+                str(args.chunk_size),
+            ]
+
+            if args.subset:
+                cmd += ["--subset", args.subset]
+            if args.append_eod:
+                cmd += ["--append-eod"]
+
+            while len(processes) >= 16:
+                # Remove finished processes
+                processes = [p for p in processes if p.poll() is None]
+
+            p = subprocess.Popen(cmd)
+            processes.append(p)
+
+        # Wait for all processes to complete
+        for p in tqdm(processes, desc="Waiting for jobs"):
+            p.wait()
+
+        print("✅ All files processed successfully.")
 
 
 if __name__ == "__main__":
