@@ -59,7 +59,7 @@ def save_checkpoint(
     train_dataloader: ResumableDataLoader,
     experiments_tracker: ExperimentsTracker,
     iteration: int,
-    metadata: dict | None = None,
+    metadata: dict = {},
 ) -> None:
     """save checkpoint during training
 
@@ -71,7 +71,7 @@ def save_checkpoint(
         train_dataloader (DataLoader): train dataloader to save
         experiments_tracker (ExperimentsTracker): experiment tracker to save
         iteration (int): current iteration
-        metadata (dict | None): extra stuff to store
+        metadata (dict): extra stuff to store
 
     Raises:
         ValueError: if unexpected distributed backend is found
@@ -112,8 +112,8 @@ def save_checkpoint(
             experiments_tracker.state_dict(), run_rank_n(open)(_get_experiments_tracker_path(save_path), "w"), indent=4
         )
 
-    if metadata is not None:
-        run_rank_n(json.dump)(metadata, run_rank_n(open)(_get_metadata_path(save_path), "w"), indent=4)
+    metadata["accelerator"] = Accelerator.get_accelerator().value
+    run_rank_n(json.dump)(metadata, run_rank_n(open)(_get_metadata_path(save_path), "w"), indent=4)
 
     save_args(args, save_path)
 
@@ -296,9 +296,7 @@ def load_checkpoint_for_training(
         torch.set_rng_state(rng_state["torch_rng_state"])
         Accelerator.set_rng_state(rng_state["accelerator_rng_state"])
 
-    metadata = None
-    if os.path.isfile(_get_metadata_path(load_path)):
-        metadata = json.load(open(_get_metadata_path(load_path), "r"))
+    metadata = json.load(open(_get_metadata_path(load_path), "r"))
 
     if load_dataloader_state and train_dataloader is not None:
         train_dataloader.load_state_dict(torch.load(_get_dataloader_path(load_path), weights_only=False))
