@@ -238,24 +238,35 @@ def load_checkpoint_for_training(
 
     log_rank_0(logging.INFO, f"loading checkpoint saved at {load_path}")
 
-    if args_from_checkpoint.save_args.async_checkpointing:
-        saver = _ModelOptimizerSaver(model_container, optimizer_container if load_optimizer else None)
-        state_dict = {"state": saver.state_dict()}
-        dcp.load(state_dict, checkpoint_id=_get_model_optimizer_path(load_path))
-        saver.load_state_dict(state_dict["state"])
-    else:
-        saver = _ModelSaver(model_container)
-        state_dict = {"state": saver.state_dict()}
-        dcp.load(state_dict, checkpoint_id=_get_model_path(load_path))
-        saver.load_state_dict(state_dict["state"])
+    accelerator = Accelerator.get_accelerator()
 
-        if load_optimizer:
-            saver = _OptimizerSaver(model_container, optimizer_container)
+    if accelerator == Accelerator.cuda:
+        if args_from_checkpoint.save_args.async_checkpointing:
+            saver = _ModelOptimizerSaver(model_container, optimizer_container if load_optimizer else None)
             state_dict = {"state": saver.state_dict()}
-            dcp.load(state_dict, checkpoint_id=_get_optimizer_path(load_path))
+            dcp.load(state_dict, checkpoint_id=_get_model_optimizer_path(load_path))
+            saver.load_state_dict(state_dict["state"])
+        else:
+            saver = _ModelSaver(model_container)
+            state_dict = {"state": saver.state_dict()}
+            dcp.load(state_dict, checkpoint_id=_get_model_path(load_path))
             saver.load_state_dict(state_dict["state"])
 
-    del saver, state_dict
+            if load_optimizer:
+                saver = _OptimizerSaver(model_container, optimizer_container)
+                state_dict = {"state": saver.state_dict()}
+                dcp.load(state_dict, checkpoint_id=_get_optimizer_path(load_path))
+                saver.load_state_dict(state_dict["state"])
+
+        del saver, state_dict
+    elif accelerator == Accelerator.tpu:
+        assert len(model_container) == 1
+        assert len(optimizer_container) == 1
+
+        state_dict = torch.load(f"{_get_model_optimizer_path(load_path)}.pt")
+
+        model_container[0].load_state_dict(state_dict["model"])
+        optimizer_container[0].load_state_dict(state_dict["optimizer"])
 
     if args.load_args.load_lr_scheduler:
         assert load_optimizer, "load_lr_scheduler requires loading of optimizer"
