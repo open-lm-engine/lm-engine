@@ -76,51 +76,6 @@ def warn_rank_0(*args, **kwargs) -> None:
 
 
 @run_rank_n
-def log_args(args: TrainingArgs | UnshardingArgs) -> None:
-    """log args
-
-    Args:
-        args (Union[TrainingArgs, UnshardingArgs]): args for training / inference
-    """
-
-    def _iterate_args_recursively(args: TrainingArgs | UnshardingArgs | dict | BaseArgs, prefix: str = "") -> None:
-        result = []
-
-        if isinstance(args, BaseArgs):
-            args = vars(args)
-
-        p = len(prefix)
-
-        for k, v in args.items():
-            suffix = "." * (48 - len(k) - p)
-
-            if isinstance(v, (BaseArgs, dict)):
-                if isinstance(v, dict) and len(v) == 0:
-                    result.append(f"{prefix}{k} {suffix} " + r"{}")
-                else:
-                    kv_list_subargs = _iterate_args_recursively(v, prefix + " " * 4)
-                    result.append(f"{prefix}{k}:\n" + "\n".join(kv_list_subargs))
-            elif isinstance(v, list) and all([isinstance(v_, (BaseArgs, dict)) for v_ in v]):
-                kv_list_subargs = []
-                for v_ in v:
-                    v_ = _iterate_args_recursively(v_, prefix + " " * 4)
-                    kv_list_subargs.append(f"\n".join(v_))
-                result.append(f"{prefix}{k}:\n" + ("\n" + " " * (p + 4) + "*" * (44 - p) + "\n").join(kv_list_subargs))
-            else:
-                result.append(f"{prefix}{k} {suffix} " + str(v))
-
-        result.sort(key=lambda x: x.lower())
-        return result
-
-    log_rank_0(logging.INFO, "------------------------ arguments ------------------------")
-    for line in _iterate_args_recursively(args):
-        line = line.split("\n")
-        for l in line:
-            log_rank_0(logging.INFO, l)
-    log_rank_0(logging.INFO, "-------------------- end of arguments ---------------------")
-
-
-@run_rank_n
 def log_environment() -> None:
     packages = sorted(["{}=={}".format(d.metadata["Name"], d.version) for d in distributions()])
 
