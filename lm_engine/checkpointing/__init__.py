@@ -266,7 +266,7 @@ def load_checkpoint_for_training(
         assert len(optimizer_container) == 1
 
         state_dict = torch.load(
-            os.path.join(_get_model_optimizer_path(save_path), f"{ProcessGroupManager.get_global_rank()}.pt")
+            os.path.join(_get_model_optimizer_path(load_path), f"{ProcessGroupManager.get_global_rank()}.pt")
         )
 
         model_container[0].load_state_dict(state_dict["model"])
