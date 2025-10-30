@@ -2,8 +2,10 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import os
 from argparse import ArgumentParser, Namespace
 
+from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from lm_engine.data.megatron.preprocess_data import convert_file
@@ -39,16 +41,25 @@ def get_args() -> Namespace:
 def main() -> None:
     args = get_args()
 
-    convert_file(
-        tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-        input_file=args.input,
-        output_prefix=args.output_prefix,
-        workers=args.workers,
-        chunk_size=args.chunk_size,
-        subset=args.subset,
-        json_keys=args.json_keys,
-        append_eos_token=args.append_eod,
-    )
+    if os.path.isfile(args.input):
+        files = [""]
+    elif os.path.isdir(args.input):
+        files = os.listdir(args.input)
+
+    for file in tqdm(files):
+        input = os.path.join(args.input, file)
+        output_prefix = os.path.join(args.output_prefix, file)
+
+        convert_file(
+            tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+            input_file=input,
+            output_prefix=output_prefix,
+            workers=args.workers,
+            chunk_size=args.chunk_size,
+            subset=args.subset,
+            json_keys=args.json_keys,
+            append_eos_token=args.append_eod,
+        )
 
 
 if __name__ == "__main__":
