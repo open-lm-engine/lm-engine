@@ -266,7 +266,8 @@ def load_checkpoint_for_training(
         state_dict = torch.load(f"{_get_model_optimizer_path(load_path)}.pt")
 
         model_container[0].load_state_dict(state_dict["model"])
-        optimizer_container[0].load_state_dict(state_dict["optimizer"])
+        if load_optimizer:
+            optimizer_container[0].load_state_dict(state_dict["optimizer"])
 
     if args.load_args.load_lr_scheduler:
         assert load_optimizer, "load_lr_scheduler requires loading of optimizer"
