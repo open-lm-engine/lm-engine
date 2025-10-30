@@ -93,6 +93,19 @@ def convert_file(
         outfile.seek(0)
 
         encoded_docs = pool.imap(encoder.encode_jsonl_zstd, outfile, chunk_size)
+    elif input_file.endswith(".parquet"):
+        import pyarrow.parquet as pq
+
+        # Open the Parquet file
+        parquet_file = pq.ParquetFile(input_file)
+
+        ds = []
+        for batch in parquet_file.iter_batches(batch_size=10000):
+            df = batch.to_pandas()
+            for text in df["text"]:
+                ds.append(text)
+
+        encoded_docs = pool.imap(encoder.encode_hf, ds, chunk_size)
     elif input_file.endswith(".arrow"):
         assert subset is None, f"arrow doesn't support a subset"
         encoded_docs = pool.imap(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file), chunk_size)
