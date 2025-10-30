@@ -165,13 +165,15 @@ def save_checkpoint(
             assert len(model_container) == 1
             assert len(optimizer_container) == 1
 
+            os.makedirs(_get_model_optimizer_path(save_path), exist_ok=True)
+
             xla_save(
                 {
                     "model": model_container[0].state_dict(),
                     "optimizer": optimizer_container[0].state_dict(),
                     "shard_metadata": model_container[0].get_shard_metadata(),
                 },
-                f"{_get_model_optimizer_path(save_path)}.pt",
+                os.path.join(_get_model_optimizer_path(save_path), f"{ProcessGroupManager.get_global_rank()}.pt"),
                 master_only=False,
             )
 
@@ -263,7 +265,9 @@ def load_checkpoint_for_training(
         assert len(model_container) == 1
         assert len(optimizer_container) == 1
 
-        state_dict = torch.load(f"{_get_model_optimizer_path(load_path)}.pt")
+        state_dict = torch.load(
+            os.path.join(_get_model_optimizer_path(save_path), f"{ProcessGroupManager.get_global_rank()}.pt")
+        )
 
         model_container[0].load_state_dict(state_dict["model"])
         if load_optimizer:
