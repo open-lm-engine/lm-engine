@@ -25,6 +25,7 @@ from ..utils import (
     Communication,
     ExperimentsTracker,
     ProcessGroupManager,
+    is_torch_xla_available,
     load_yaml,
     log_rank_0,
     run_rank_n,
@@ -34,6 +35,10 @@ from .lr_scheduler import _get_lr_scheduler_path, _LRSchedulerSaver, _resume_lea
 from .model import _get_model_path, _ModelSaver
 from .model_optimizer import _get_model_optimizer_path, _ModelOptimizerSaver
 from .optimizer import _get_optimizer_path, _OptimizerSaver
+
+
+if is_torch_xla_available():
+    from torch_xla.core.xla_model import save as xla_save
 
 
 _TRAINING_CONFIG_PREFIX = "training_config"
@@ -146,12 +151,27 @@ def save_checkpoint(
 
         _FUTURE.add_done_callback(_f)
     else:
-        dcp.save({"state": _ModelSaver(model_container)}, checkpoint_id=_get_model_path(save_path))
+        accelerator = Accelerator.get_accelerator()
 
-        if args.save_args.save_optimizer and optimizer_container is not None:
-            dcp.save(
-                {"state": _OptimizerSaver(model_container, optimizer_container)},
-                checkpoint_id=_get_optimizer_path(save_path),
+        if accelerator == Accelerator.cuda:
+            dcp.save({"state": _ModelSaver(model_container)}, checkpoint_id=_get_model_path(save_path))
+
+            if args.save_args.save_optimizer and optimizer_container is not None:
+                dcp.save(
+                    {"state": _OptimizerSaver(model_container, optimizer_container)},
+                    checkpoint_id=_get_optimizer_path(save_path),
+                )
+        elif accelerator == Accelerator.tpu:
+            assert len(model_container) == 1
+
+            xla_save(
+                {
+                    "model": _ModelSaver(model_container).state_dict(),
+                    "optimizer": _ModelSaver(model_container).state_dict(),
+                    "shard_metadata": model_container[0].get_shard_metadata(),
+                },
+                _get_model_optimizer_path(save_path),
+                master_only=False,
             )
 
         Communication.barrier()
