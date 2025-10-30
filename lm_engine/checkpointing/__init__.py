@@ -395,7 +395,7 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
             state[key] = state[key].to(dtype)
     elif accelerator == Accelerator.tpu:
         state, _ = xla_consolidate_sharded_model_checkpoints(
-            args.ckpt_prefix, args.ckpt_suffix, args.save_path, save_model=False
+            f"{_get_model_optimizer_path(_get_base_path(load_path, iteration))}/", "*.pt", "", save_model=False
         )
 
     model.load_state_dict(state)
