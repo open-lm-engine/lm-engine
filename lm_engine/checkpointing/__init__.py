@@ -330,6 +330,9 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
 
     args_file = os.path.join(_get_base_path(load_path, iteration), f"{_TRAINING_CONFIG_PREFIX}.yml")
     args_from_checkpoint = load_yaml(args_file)
+    metadata = json.load(open(_get_metadata_path(_get_base_path(load_path, iteration)), "r"))
+
+    accelerator = Accelerator(metadata["accelerator"])
 
     # turn off distillation for unsharding
     if "teacher_args" in args_from_checkpoint:
@@ -358,34 +361,37 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
     if use_meta:
         model = model.to_empty(device="cpu")
 
-    state = {}
-    if args_from_checkpoint.save_args.async_checkpointing:
-        _load_state_dict(
-            state,
-            storage_reader=FileSystemReader(_get_model_optimizer_path(_get_base_path(load_path, iteration))),
-            planner=_EmptyStateDictLoadPlanner(),
-            no_dist=True,
-        )
+    if accelerator == Accelerator.cuda:
+        state = {}
+        if args_from_checkpoint.save_args.async_checkpointing:
+            _load_state_dict(
+                state,
+                storage_reader=FileSystemReader(_get_model_optimizer_path(_get_base_path(load_path, iteration))),
+                planner=_EmptyStateDictLoadPlanner(),
+                no_dist=True,
+            )
 
-        state = state["state"]["model"]
+            state = state["state"]["model"]
+        else:
+            _load_state_dict(
+                state,
+                storage_reader=FileSystemReader(_get_model_path(_get_base_path(load_path, iteration))),
+                planner=_EmptyStateDictLoadPlanner(),
+                no_dist=True,
+            )
+
+            state = state["state"]
+
+        if checkpoint_tp_world_size > 1:
+            state = fix_unsharded_state_dict(
+                model.config, state, tensor_parallel_world_size=checkpoint_tp_world_size, prefix="model."
+            )
+
+        dtype = string_to_torch_dtype(model.dtype)
+        for key in list(state.keys()):
+            state[key] = state[key].to(dtype)
     else:
-        _load_state_dict(
-            state,
-            storage_reader=FileSystemReader(_get_model_path(_get_base_path(load_path, iteration))),
-            planner=_EmptyStateDictLoadPlanner(),
-            no_dist=True,
-        )
-
-        state = state["state"]
-
-    if checkpoint_tp_world_size > 1:
-        state = fix_unsharded_state_dict(
-            model.config, state, tensor_parallel_world_size=checkpoint_tp_world_size, prefix="model."
-        )
-
-    dtype = string_to_torch_dtype(model.dtype)
-    for key in list(state.keys()):
-        state[key] = state[key].to(dtype)
+        raise ValueError()
 
     model.load_state_dict(state)
 
