@@ -39,6 +39,9 @@ from .optimizer import _get_optimizer_path, _OptimizerSaver
 
 if is_torch_xla_available():
     from torch_xla.core.xla_model import save as xla_save
+    from torch_xla.distributed.fsdp import (
+        consolidate_sharded_model_checkpoints as xla_consolidate_sharded_model_checkpoints,
+    )
 
 
 _TRAINING_CONFIG_PREFIX = "training_config"
@@ -59,7 +62,7 @@ def save_checkpoint(
     train_dataloader: ResumableDataLoader,
     experiments_tracker: ExperimentsTracker,
     iteration: int,
-    metadata: dict | None = None,
+    metadata: dict = {},
 ) -> None:
     """save checkpoint during training
 
@@ -71,7 +74,7 @@ def save_checkpoint(
         train_dataloader (DataLoader): train dataloader to save
         experiments_tracker (ExperimentsTracker): experiment tracker to save
         iteration (int): current iteration
-        metadata (dict | None): extra stuff to store
+        metadata (dict): extra stuff to store
 
     Raises:
         ValueError: if unexpected distributed backend is found
@@ -112,8 +115,8 @@ def save_checkpoint(
             experiments_tracker.state_dict(), run_rank_n(open)(_get_experiments_tracker_path(save_path), "w"), indent=4
         )
 
-    if metadata is not None:
-        run_rank_n(json.dump)(metadata, run_rank_n(open)(_get_metadata_path(save_path), "w"), indent=4)
+    metadata["accelerator"] = Accelerator.get_accelerator().value
+    run_rank_n(json.dump)(metadata, run_rank_n(open)(_get_metadata_path(save_path), "w"), indent=4)
 
     save_args(args, save_path)
 
@@ -165,13 +168,15 @@ def save_checkpoint(
             assert len(model_container) == 1
             assert len(optimizer_container) == 1
 
+            os.makedirs(_get_model_optimizer_path(save_path), exist_ok=True)
+
             xla_save(
                 {
                     "model": model_container[0].state_dict(),
                     "optimizer": optimizer_container[0].state_dict(),
                     "shard_metadata": model_container[0].get_shard_metadata(),
                 },
-                f"{_get_model_optimizer_path(save_path)}.pt",
+                os.path.join(_get_model_optimizer_path(save_path), f"{ProcessGroupManager.get_global_rank()}.pt"),
                 master_only=False,
             )
 
@@ -263,7 +268,9 @@ def load_checkpoint_for_training(
         assert len(model_container) == 1
         assert len(optimizer_container) == 1
 
-        state_dict = torch.load(f"{_get_model_optimizer_path(load_path)}.pt")
+        state_dict = torch.load(
+            os.path.join(_get_model_optimizer_path(load_path), f"{ProcessGroupManager.get_global_rank()}.pt")
+        )
 
         model_container[0].load_state_dict(state_dict["model"])
         if load_optimizer:
@@ -292,9 +299,7 @@ def load_checkpoint_for_training(
         torch.set_rng_state(rng_state["torch_rng_state"])
         Accelerator.set_rng_state(rng_state["accelerator_rng_state"])
 
-    metadata = None
-    if os.path.isfile(_get_metadata_path(load_path)):
-        metadata = json.load(open(_get_metadata_path(load_path), "r"))
+    metadata = json.load(open(_get_metadata_path(load_path), "r"))
 
     if load_dataloader_state and train_dataloader is not None:
         train_dataloader.load_state_dict(torch.load(_get_dataloader_path(load_path), weights_only=False))
@@ -328,6 +333,9 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
 
     args_file = os.path.join(_get_base_path(load_path, iteration), f"{_TRAINING_CONFIG_PREFIX}.yml")
     args_from_checkpoint = load_yaml(args_file)
+    metadata = json.load(open(_get_metadata_path(_get_base_path(load_path, iteration)), "r"))
+
+    accelerator = Accelerator(metadata["accelerator"])
 
     # turn off distillation for unsharding
     if "teacher_args" in args_from_checkpoint:
@@ -356,34 +364,39 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
     if use_meta:
         model = model.to_empty(device="cpu")
 
-    state = {}
-    if args_from_checkpoint.save_args.async_checkpointing:
-        _load_state_dict(
-            state,
-            storage_reader=FileSystemReader(_get_model_optimizer_path(_get_base_path(load_path, iteration))),
-            planner=_EmptyStateDictLoadPlanner(),
-            no_dist=True,
+    if accelerator == Accelerator.cuda:
+        state = {}
+        if args_from_checkpoint.save_args.async_checkpointing:
+            _load_state_dict(
+                state,
+                storage_reader=FileSystemReader(_get_model_optimizer_path(_get_base_path(load_path, iteration))),
+                planner=_EmptyStateDictLoadPlanner(),
+                no_dist=True,
+            )
+
+            state = state["state"]["model"]
+        else:
+            _load_state_dict(
+                state,
+                storage_reader=FileSystemReader(_get_model_path(_get_base_path(load_path, iteration))),
+                planner=_EmptyStateDictLoadPlanner(),
+                no_dist=True,
+            )
+
+            state = state["state"]
+
+        if checkpoint_tp_world_size > 1:
+            state = fix_unsharded_state_dict(
+                model.config, state, tensor_parallel_world_size=checkpoint_tp_world_size, prefix="model."
+            )
+
+        dtype = string_to_torch_dtype(model.dtype)
+        for key in list(state.keys()):
+            state[key] = state[key].to(dtype)
+    elif accelerator == Accelerator.tpu:
+        state, _ = xla_consolidate_sharded_model_checkpoints(
+            f"{_get_model_optimizer_path(_get_base_path(load_path, iteration))}/", "*.pt", "", save_model=False
         )
-
-        state = state["state"]["model"]
-    else:
-        _load_state_dict(
-            state,
-            storage_reader=FileSystemReader(_get_model_path(_get_base_path(load_path, iteration))),
-            planner=_EmptyStateDictLoadPlanner(),
-            no_dist=True,
-        )
-
-        state = state["state"]
-
-    if checkpoint_tp_world_size > 1:
-        state = fix_unsharded_state_dict(
-            model.config, state, tensor_parallel_world_size=checkpoint_tp_world_size, prefix="model."
-        )
-
-    dtype = string_to_torch_dtype(model.dtype)
-    for key in list(state.keys()):
-        state[key] = state[key].to(dtype)
 
     model.load_state_dict(state)
 

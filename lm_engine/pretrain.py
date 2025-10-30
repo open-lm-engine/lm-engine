@@ -644,7 +644,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     log_model_optimizer_container(model_container, optimizer_container)
 
     starting_iteration = 0
-    metadata = None
+    metadata = {}
     experiments_tracker_state_dict = None
     if args.load_args is not None:
         starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
@@ -652,11 +652,11 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
         # metadata field contains the dataloader state so we need to reset it here
-        if not args.load_args.load_dataloader_state and metadata is not None:
+        if not args.load_args.load_dataloader_state:
             metadata["consumed_samples"] = 0
 
     train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
-        args, model_container[0].tokenizer, 0 if metadata is None else metadata["consumed_samples"]
+        args, model_container[0].tokenizer, metadata.get("consumed_samples", 0)
     )
 
     experiments_tracker = ExperimentsTracker(
