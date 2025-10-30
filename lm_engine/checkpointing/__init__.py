@@ -167,7 +167,7 @@ def save_checkpoint(
             xla_save(
                 {
                     "model": _ModelSaver(model_container).state_dict(),
-                    "optimizer": _ModelSaver(model_container).state_dict(),
+                    "optimizer": _OptimizerSaver(optimizer_container).state_dict(),
                     "shard_metadata": model_container[0].get_shard_metadata(),
                 },
                 f"{_get_model_optimizer_path(save_path)}.pt",
