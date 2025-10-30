@@ -39,6 +39,9 @@ from .optimizer import _get_optimizer_path, _OptimizerSaver
 
 if is_torch_xla_available():
     from torch_xla.core.xla_model import save as xla_save
+    from torch_xla.distributed.fsdp import (
+        consolidate_sharded_model_checkpoints as xla_consolidate_sharded_model_checkpoints,
+    )
 
 
 _TRAINING_CONFIG_PREFIX = "training_config"
@@ -391,7 +394,7 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
         for key in list(state.keys()):
             state[key] = state[key].to(dtype)
     else:
-        raise ValueError()
+        xla_consolidate_sharded_model_checkpoints(args.ckpt_prefix, args.ckpt_suffix, args.save_path)
 
     model.load_state_dict(state)
 
