@@ -6,7 +6,6 @@ import logging
 from importlib.metadata import distributions
 from warnings import warn
 
-from .logger import log_rank_0
 from .parallel import ProcessGroupManager, is_tracking_rank, run_rank_n
 
 
