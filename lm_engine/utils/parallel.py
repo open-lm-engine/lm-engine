@@ -75,15 +75,14 @@ class ProcessGroupManager:
         accelerator = Accelerator.get_accelerator()
 
         if accelerator == Accelerator.tpu:
-            _GLOBAL_RANK = xla_global_ordinal()
-            _LOCAL_RANK = xla_local_ordinal()
-            _WORLD_SIZE = xla_world_size()
-
             torch.distributed.init_process_group(
                 backend="xla", init_method="xla://", rank=_GLOBAL_RANK, world_size=_WORLD_SIZE, timeout=timeout_minutes
             )
 
             _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
+            _GLOBAL_RANK = xla_global_ordinal()
+            _LOCAL_RANK = xla_local_ordinal()
+            _WORLD_SIZE = xla_world_size()
         elif accelerator == Accelerator.cuda:
             _GLOBAL_RANK = int(os.getenv("RANK", 0))
             _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
