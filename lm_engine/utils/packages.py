@@ -139,7 +139,7 @@ except ImportError:
     _IS_ZSTANDARD_AVAILABLE = False
 
 
-def is_zstandard_available():
+def is_zstandard_available() -> bool:
     return _IS_ZSTANDARD_AVAILABLE
 
 
