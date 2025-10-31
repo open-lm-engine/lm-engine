@@ -396,7 +396,12 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
 
     # wrapper function for the rank to execute on
     def func_rank_n(*args, **kwargs):
-        output = func(*args, **kwargs) if ProcessGroupManager.get_global_rank() == rank else None
+        global_rank = ProcessGroupManager.get_global_rank()
+
+        if global_rank is None:
+            return func(*args, **kwargs)
+
+        output = func(*args, **kwargs) if global_rank == rank else None
 
         if barrier:
             from .communication import Communication
