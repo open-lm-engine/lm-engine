@@ -44,7 +44,9 @@ from .utils import (
 
 
 if is_torch_xla_available():
-    import torch_xla
+    from torch_xla import launch as xla_launch
+    from torch_xla import step as xla_step
+    from torch_xla import sync as xla_sync
 
 if is_torchao_available():
     from .distributed import FP8Manager
@@ -205,7 +207,7 @@ def train_step_without_pipeline_parallel(
 
     accelerator = Accelerator.get_accelerator()
 
-    with (torch_xla.step if accelerator == Accelerator.tpu else nullcontext)():
+    with (xla_step if accelerator == Accelerator.tpu else nullcontext)():
         with no_sync():
             for step in range(gradient_accumulation_steps - 1):
                 batch = get_next_batch(train_dataloader) if batches is None else batches[step]
@@ -249,7 +251,7 @@ def train_step_without_pipeline_parallel(
         lr_scheduler_container.step()
 
     if accelerator == Accelerator.tpu:
-        torch_xla.sync()
+        xla_sync()
 
     if is_torchao_available():
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp([model])
@@ -688,5 +690,14 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
 
-if __name__ == "__main__":
+def xla_main(*args):
     main()
+
+
+if __name__ == "__main__":
+    accelerator = Accelerator.get_accelerator()
+
+    if accelerator == Accelerator.cuda:
+        main()
+    elif accelerator == Accelerator.tpu:
+        xla_launch(xla_main)
