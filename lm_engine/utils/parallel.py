@@ -67,7 +67,7 @@ class ProcessGroupManager:
     ) -> ProcessGroupManager:
         from .accelerator import Accelerator
 
-        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE, _CPU_GROUP
+        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE, _CPU_GROUP, _GLOBAL_RANK, _LOCAL_RANK
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -75,32 +75,31 @@ class ProcessGroupManager:
         accelerator = Accelerator.get_accelerator()
 
         if accelerator == Accelerator.tpu:
+            _GLOBAL_RANK = xla_global_ordinal()
+            _LOCAL_RANK = xla_local_ordinal()
+            _WORLD_SIZE = xla_world_size()
+
             torch.distributed.init_process_group(
-                backend="xla",
-                init_method="xla://",
-                rank=ProcessGroupManager.get_global_rank(),
-                world_size=ProcessGroupManager.get_world_size(),
-                timeout=timeout_minutes,
+                backend="xla", init_method="xla://", rank=_GLOBAL_RANK, world_size=_WORLD_SIZE, timeout=timeout_minutes
             )
 
             _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
+        elif accelerator == Accelerator.cuda:
+            _GLOBAL_RANK = int(os.getenv("RANK", 0))
+            _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
+            _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
 
-            total_gpus = xla_world_size()
-            Accelerator.set_device(xla_local_ordinal())
-        else:
             torch.distributed.init_process_group(
                 backend="cpu:gloo" + (",cuda:nccl" if accelerator == Accelerator.cuda else ""),
-                rank=ProcessGroupManager.get_global_rank(),
-                world_size=ProcessGroupManager.get_world_size(),
+                rank=_GLOBAL_RANK,
+                world_size=_WORLD_SIZE,
                 timeout=timeout_minutes,
             )
 
-            total_gpus = int(os.getenv("WORLD_SIZE", 1))
-            Accelerator.set_device(int(os.getenv("LOCAL_RANK", 0)))
+        Accelerator.set_device(_LOCAL_RANK)
 
-        data_parallel_size = total_gpus // (tensor_parallel_world_size * pipeline_parallel_world_size)
-
-        assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == total_gpus
+        data_parallel_size = _WORLD_SIZE // (tensor_parallel_world_size * pipeline_parallel_world_size)
+        assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == _WORLD_SIZE
 
         if zero_stage == 0:
             assert data_parallel_sharding_world_size is None or data_parallel_sharding_world_size == 1
@@ -153,49 +152,16 @@ class ProcessGroupManager:
     @staticmethod
     def get_global_rank() -> int:
         global _GLOBAL_RANK
-
-        if _GLOBAL_RANK is None:
-            from .accelerator import Accelerator
-
-            accelerator = Accelerator.get_accelerator()
-
-            if accelerator == Accelerator.tpu:
-                _GLOBAL_RANK = xla_global_ordinal()
-            elif accelerator == Accelerator.cuda:
-                _GLOBAL_RANK = int(os.getenv("RANK", 0))
-
         return _GLOBAL_RANK
 
     @staticmethod
     def get_local_rank() -> int:
         global _LOCAL_RANK
-
-        if _LOCAL_RANK is None:
-            from .accelerator import Accelerator
-
-            accelerator = Accelerator.get_accelerator()
-
-            if accelerator == Accelerator.tpu:
-                _LOCAL_RANK = xla_local_ordinal()
-            elif accelerator == Accelerator.cuda:
-                _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
-
         return _LOCAL_RANK
 
     @staticmethod
     def get_world_size() -> int:
         global _WORLD_SIZE
-
-        if _WORLD_SIZE is None:
-            from .accelerator import Accelerator
-
-            accelerator = Accelerator.get_accelerator()
-
-            if accelerator == Accelerator.tpu:
-                _WORLD_SIZE = xla_world_size()
-            elif accelerator == Accelerator.cuda:
-                _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
-
         return _WORLD_SIZE
 
     # tensor parallel
