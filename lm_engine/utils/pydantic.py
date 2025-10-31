@@ -48,11 +48,11 @@ class BaseArgs(BaseModel):
         setattr(self, name, original_value)
 
     def log_args(self) -> None:
-        def _iterate_args_recursively(prefix: str = "") -> None:
+        def _iterate_args_recursively(args: BaseArgs, prefix: str = "") -> None:
             result = []
 
-            if isinstance(self, BaseArgs):
-                args = vars(self)
+            if isinstance(args, BaseArgs):
+                args = vars(args)
 
             p = len(prefix)
 
@@ -80,7 +80,7 @@ class BaseArgs(BaseModel):
             return result
 
         log_rank_0(logging.INFO, "------------------------ arguments ------------------------")
-        for line in _iterate_args_recursively():
+        for line in _iterate_args_recursively(self):
             line = line.split("\n")
             for l in line:
                 log_rank_0(logging.INFO, l)
