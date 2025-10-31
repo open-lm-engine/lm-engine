@@ -81,7 +81,7 @@ class ProcessGroupManager:
             _GLOBAL_RANK = xla_global_ordinal()
             _LOCAL_RANK = xla_local_ordinal()
             _WORLD_SIZE = xla_world_size()
-        elif accelerator == Accelerator.cuda:
+        else:
             _GLOBAL_RANK = int(os.getenv("RANK", 0))
             _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
             _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
