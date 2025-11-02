@@ -181,14 +181,18 @@ class RSA(nn.Module):
             k = k[..., None, :] * self.group_weight[:, None]
             v = v[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
             f = f[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
-
             q, k, v, f = [i.flatten(-3, -2) for i in (q, k, v, f)]
+
+            W = self.state_weight[:, None, ...].expand(-1, self.num_groups, -1, -1)
+            W = W.flatten(0, 1)
+        else:
+            W = self.state_weight
 
         input, rsa_state = rsa(
             query=q,
             key=k,
             value=v,
-            weight=self.state_weight,
+            weight=W,
             forget_input=f,
             input_state=rsa_state,
             gradient_clipping=self.gradient_clipping,
