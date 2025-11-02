@@ -301,33 +301,29 @@ class Mamba2(nn.Module):
             # [bsz, n_groups * state_size] -> [bsz, n_groups, 1, state_size] ->
             # -> [bsz, n_groups, group to head repetition factor, state_size] -> [bsz, num_heads, state_size]
             # NOTE: S = 1 actually here
-            B = B.reshape(batch_size, self.n_groups, -1)[..., None, :]
-            # B -> (B, G, 1, ssm_state_size / num_groups)
-            B = B.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, B.shape[-1]).contiguous()
-            # B -> (B, G, N / G, ssm_state_size / num_groups)
-            B = B.reshape(batch_size, -1, B.shape[-1])
-            # B -> (B, N, ssm_state_size / num_groups)
+            B, C = [i.reshape(batch_size, self.n_groups, -1)[..., None, :] for i in (B, C)]
+            # B, C -> (B, G, 1, ssm_state_size)
+            B, C = [
+                i.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, i.shape[-1]).contiguous()
+                for i in (B, C)
+            ]
+            # B, C -> (B, G, N / G, ssm_state_size)
+            B, C = [i.reshape(batch_size, -1, i.shape[-1]) for i in (B, C)]
+            # B, C -> (B, N, ssm_state_size)
 
-            # (B, N, head_dim, 1) * (B, N, 1, ssm_state_size / num_groups)
+            # (B, N, head_dim, 1) * (B, N, 1, ssm_state_size)
             dB = dt[..., None] * B[..., None, :]
-            # dB -> (B, N, head_dim, ssm_state_size / num_groups)
+            # dB -> (B, N, head_dim, ssm_state_size)
 
             # Discretize x into dB
             hidden_states = hidden_states.reshape(batch_size, -1, self.head_dim)
             # hidden_states -> (B, N, head_dim)
             dBx = (dB * hidden_states[..., None]).to(device=cache_device)
-            # dBx -> (B, N, head_dim, ssm_state_size / num_groups)
+            # dBx -> (B, N, head_dim, ssm_state_size)
 
             # State calculation
             ssm_state = ssm_state * dA + dBx
             cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
-
-            # Subsequent output
-            # [bsz, n_groups * state_size] -> [bsz, num_heads, state_size]
-            C = C.reshape(batch_size, self.n_groups, -1)[..., None, :]
-            C = C.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, C.shape[-1]).contiguous()
-            C = C.reshape(batch_size, -1, C.shape[-1])
-            # [bsz, num_heads, head_dim]
 
             ssm_state = ssm_state.to(device=C.device, dtype=C.dtype)  # Shape: [b, h, d, n]
             # Reshape ssm_states to merge the first two dimensions
