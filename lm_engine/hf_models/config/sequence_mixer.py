@@ -96,6 +96,7 @@ class _RSAArgs(_GRUArgs):
     k_norm: bool = True
     k_head_dim: int = 16
     v_head_dim: int = 16
+    num_groups: int = 1
     use_forget_multiplier: bool = True
     use_forget_bias: bool = True
     use_residual: bool = True

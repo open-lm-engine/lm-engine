@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ....utils import divide_if_divisible, is_xma_available
+from ....utils import is_xma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
@@ -32,6 +32,7 @@ class RSA(nn.Module):
         v_head_dim: int,
         output_size: int,
         num_heads: int,
+        num_groups: int,
         k_norm: bool,
         use_forget_multiplier: bool,
         use_forget_bias: bool,
@@ -64,9 +65,7 @@ class RSA(nn.Module):
         self.use_forget_bias = use_forget_bias
         self.use_residual = use_residual
         self.k_norm = k_norm
-
-        self.num_groups = 1
-        assert self.num_heads % self.num_groups == 0
+        self.num_groups = num_groups
 
         self.q_shape = self.num_heads * self.k_head_dim
         self.k_shape = self.num_heads * self.k_head_dim
@@ -108,6 +107,10 @@ class RSA(nn.Module):
             mark_parameter_as_no_weight_decay(self.D)
 
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.v_head_dim, self.v_head_dim))
+
+        if self.num_groups > 1:
+            self.group_weight = nn.Parameter(torch.empty(self.num_groups))
+            mark_parameter_as_mup_learning_rate(self.group_weight)
 
         if self.use_forget_multiplier:
             self.forget_multiplier = nn.Parameter(torch.empty(self.num_heads))
@@ -167,6 +170,12 @@ class RSA(nn.Module):
         v = v.view(*v.size()[:-1], self.num_heads, self.v_head_dim)
         f = f.view(*f.size()[:-1], self.num_heads, self.k_head_dim)
 
+        if self.num_groups > 1:
+            q, k, v = [i[..., None, :] * self.group_weight[:, None] for i in (q, k, v)]
+            f = f[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
+
+            q, k, v, f = [i.flatten(-3, -2) for i in (q, k, v, f)]
+
         if self.k_norm:
             k = self.norm(k)
 
@@ -216,6 +225,9 @@ class RSA(nn.Module):
 
         if self.use_residual:
             nn.init.ones_(self.D)
+
+        if self.num_groups > 1:
+            nn.init.normal_(self.group_weight)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
