@@ -192,12 +192,6 @@ class RSA(nn.Module):
             max_seqlen=max_seqlen,
         )
 
-        if self.num_groups > 1:
-            B, S, N, V = input.size()
-            input = input.view(B, S, N, self.num_groups, V)
-            input = input * self.group_weight[:, None]
-            input = input.sum(-2)
-
         if self.use_residual:
             input = input + v * self.D
 
