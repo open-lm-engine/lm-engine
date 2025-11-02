@@ -186,6 +186,15 @@ class RSA(nn.Module):
             W = self.state_weight[:, None, ...].expand(-1, self.num_groups, -1, -1)
             W = W.flatten(0, 1)
         else:
+            if self.k_norm:
+                k = self.norm(k)
+
+            if self.use_forget_bias:
+                f = f + self.forget_bias
+
+            if self.use_forget_multiplier:
+                f = 2 * torch.sigmoid(self.forget_multiplier[..., None]) * f
+
             W = self.state_weight
 
         input, rsa_state = rsa(
