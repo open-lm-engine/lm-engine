@@ -86,8 +86,8 @@ def get_sequence_mixer(
     elif sequence_mixer_type == "rsa":
         return RSA(
             input_size=config.hidden_size,
-            k_head_dim=config.k_head_dim,
-            v_head_dim=config.v_head_dim,
+            k_head_dim=block.k_head_dim,
+            v_head_dim=block.v_head_dim,
             state_size=block.state_size,
             output_size=config.hidden_size,
             num_heads=block.num_heads,
