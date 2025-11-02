@@ -28,11 +28,11 @@ class RSA(nn.Module):
     def __init__(
         self,
         input_size: int,
-        state_size: int,
+        k_head_dim: int,
+        v_head_dim: int,
         output_size: int,
         num_heads: int,
         k_norm: bool,
-        double_v_head_dim: bool,
         use_forget_multiplier: bool,
         use_forget_bias: bool,
         use_residual: bool,
@@ -51,7 +51,8 @@ class RSA(nn.Module):
         super().__init__()
 
         self.input_size = input_size
-        self.state_size = state_size
+        self.k_head_dim = k_head_dim
+        self.v_head_dim = v_head_dim
         self.output_size = output_size
         self.num_heads = num_heads
         self.kernel_size = kernel_size
@@ -59,7 +60,6 @@ class RSA(nn.Module):
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
-        self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
         self.use_forget_multiplier = use_forget_multiplier
         self.use_forget_bias = use_forget_bias
         self.use_residual = use_residual
@@ -67,19 +67,12 @@ class RSA(nn.Module):
 
         self.num_groups = 1
         assert self.num_heads % self.num_groups == 0
-        self.num_q_heads = self.num_heads
-        self.num_k_heads = self.num_heads
-        self.num_v_heads = self.num_heads
-        self.num_f_heads = self.num_heads
 
-        self.qk_head_dim = self.state_head_dim
-        self.v_head_dim = self.state_head_dim * (1 + double_v_head_dim)
-
-        self.q_shape = self.num_q_heads * self.qk_head_dim
-        self.k_shape = self.num_k_heads * self.qk_head_dim
-        self.f_shape = self.num_f_heads * self.qk_head_dim
-        self.v_shape = self.num_v_heads * self.v_head_dim
-        self.g_shape = self.num_v_heads * self.v_head_dim
+        self.q_shape = self.num_heads * self.k_head_dim
+        self.k_shape = self.num_heads * self.k_head_dim
+        self.f_shape = self.num_heads * self.k_head_dim
+        self.v_shape = self.num_heads * self.v_head_dim
+        self.g_shape = self.num_heads * self.v_head_dim
 
         self.conv_dim = self.q_shape + self.k_shape + self.v_shape + self.f_shape
 
@@ -111,17 +104,17 @@ class RSA(nn.Module):
             mark_parameter_as_mup_learning_rate(self.conv1d.weight)
 
         if self.use_residual:
-            self.D = nn.Parameter(torch.empty(self.num_v_heads, self.v_head_dim))
+            self.D = nn.Parameter(torch.empty(self.num_heads, self.v_head_dim))
             mark_parameter_as_no_weight_decay(self.D)
 
-        self.state_weight = nn.Parameter(torch.empty(self.num_v_heads, self.v_head_dim, self.v_head_dim))
+        self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.v_head_dim, self.v_head_dim))
 
         if self.use_forget_multiplier:
-            self.forget_multiplier = nn.Parameter(torch.empty(self.num_f_heads))
+            self.forget_multiplier = nn.Parameter(torch.empty(self.num_heads))
             mark_parameter_as_no_weight_decay(self.forget_multiplier)
 
         if self.use_forget_bias:
-            self.forget_bias = nn.Parameter(torch.empty(self.num_f_heads, self.qk_head_dim))
+            self.forget_bias = nn.Parameter(torch.empty(self.num_heads, self.k_head_dim))
             mark_parameter_as_no_weight_decay(self.forget_bias)
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -130,9 +123,9 @@ class RSA(nn.Module):
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
 
         if self.k_norm:
-            self.norm = get_normalization_function("p_norm", self.state_head_dim, p=2, elementwise_affine=False)
+            self.norm = get_normalization_function("p_norm", self.k_head_dim, p=2, elementwise_affine=False)
 
-        self.g_norm = get_normalization_function(normalization_function, self.num_v_heads * self.v_head_dim)
+        self.g_norm = get_normalization_function(normalization_function, self.num_heads * self.v_head_dim)
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
@@ -169,10 +162,10 @@ class RSA(nn.Module):
 
         q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.f_shape), dim=-1)
 
-        q = q.view(*q.size()[:-1], self.num_q_heads, self.qk_head_dim)
-        k = k.view(*k.size()[:-1], self.num_k_heads, self.qk_head_dim)
-        v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
-        f = f.view(*f.size()[:-1], self.num_f_heads, self.qk_head_dim)
+        q = q.view(*q.size()[:-1], self.num_heads, self.k_head_dim)
+        k = k.view(*k.size()[:-1], self.num_heads, self.k_head_dim)
+        v = v.view(*v.size()[:-1], self.num_heads, self.v_head_dim)
+        f = f.view(*f.size()[:-1], self.num_heads, self.k_head_dim)
 
         if self.k_norm:
             k = self.norm(k)

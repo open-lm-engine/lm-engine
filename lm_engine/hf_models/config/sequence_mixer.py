@@ -94,7 +94,8 @@ class _RNNArgs(_GRUArgs):
 class _RSAArgs(_GRUArgs):
     sequence_mixer_type: str = "rsa"
     k_norm: bool = True
-    double_v_head_dim: bool = False
+    k_head_dim: int = 16
+    v_head_dim: int = 16
     use_forget_multiplier: bool = True
     use_forget_bias: bool = True
     use_residual: bool = True
