@@ -1,9 +1,7 @@
-INPUT_PATH=/dataset/bluepile/tmp
-OUTPUT_PATH=/dataset/bluepile/megatron
+INPUT_PATH=/home/mayank/data/nemotron-cc-v2-tokenized/Diverse-QA
+OUTPUT_PATH=/home/mayank/data/nemotron-cc-v2-merged/Diverse-QA
 
-python tools/data/convert_fms_data_to_megatron.py \
-    --data-subsets _tokenization2arrow \
-    --input-path $INPUT_PATH \
-    --output-path $OUTPUT_PATH \
-    --max-file-size 100 \
-    --merge
+python tools/data/merge_data.py \
+    --input-directory $INPUT_PATH \
+    --output-prefix $OUTPUT_PATH \
+    --max-file-size 250
