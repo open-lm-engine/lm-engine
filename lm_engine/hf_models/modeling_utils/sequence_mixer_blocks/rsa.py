@@ -170,38 +170,21 @@ class RSA(nn.Module):
         v = v.view(*v.size()[:-1], self.num_heads, self.v_head_dim)
         f = f.view(*f.size()[:-1], self.num_heads, self.k_head_dim)
 
-        residual = v * self.D
+        if self.k_norm:
+            k = self.norm(k)
 
-        if self.num_groups > 1:
-            assert not self.k_norm
-            assert not self.use_forget_bias
-            assert not self.use_forget_multiplier
+        if self.use_forget_bias:
+            f = f + self.forget_bias
 
-            q = q[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
-            k = k[..., None, :] * self.group_weight[:, None]
-            v = v[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
-            f = f[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
-            q, k, v, f = [i.flatten(-3, -2) for i in (q, k, v, f)]
-
-            W = self.state_weight[:, None, ...].expand(-1, self.num_groups, -1, -1)
-            W = W.flatten(0, 1)
-        else:
-            if self.k_norm:
-                k = self.norm(k)
-
-            if self.use_forget_bias:
-                f = f + self.forget_bias
-
-            if self.use_forget_multiplier:
-                f = 2 * torch.sigmoid(self.forget_multiplier[..., None]) * f
-
-            W = self.state_weight
+        if self.use_forget_multiplier:
+            f = 2 * torch.sigmoid(self.forget_multiplier[..., None]) * f
 
         input, rsa_state = rsa(
             query=q,
             key=k,
             value=v,
-            weight=W,
+            weight=self.state_weight,
+            group_weight=None if self.num_groups == 1 else self.group_weight,
             forget_input=f,
             input_state=rsa_state,
             gradient_clipping=self.gradient_clipping,
@@ -216,7 +199,7 @@ class RSA(nn.Module):
             input = input.sum(-2)
 
         if self.use_residual:
-            input = input + residual
+            input = input + v * self.D
 
         if cache_params is not None:
             cache_params.update(
