@@ -170,20 +170,19 @@ class RSA(nn.Module):
         v = v.view(*v.size()[:-1], self.num_heads, self.v_head_dim)
         f = f.view(*f.size()[:-1], self.num_heads, self.k_head_dim)
 
+        residual = v * self.D
+
         if self.num_groups > 1:
-            q, k, v = [i[..., None, :] * self.group_weight[:, None] for i in (q, k, v)]
+            assert not self.k_norm
+            assert not self.use_forget_bias
+            assert not self.use_forget_multiplier
+
+            q = q[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
+            k = k[..., None, :] * self.group_weight[:, None]
+            v = v[..., None, :] * self.group_weight[:, None]
             f = f[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
 
             q, k, v, f = [i.flatten(-3, -2) for i in (q, k, v, f)]
-
-        if self.k_norm:
-            k = self.norm(k)
-
-        if self.use_forget_bias:
-            f = f + self.forget_bias
-
-        if self.use_forget_multiplier:
-            f = 2 * torch.sigmoid(self.forget_multiplier[..., None]) * f
 
         input, rsa_state = rsa(
             query=q,
@@ -197,8 +196,14 @@ class RSA(nn.Module):
             max_seqlen=max_seqlen,
         )
 
+        if self.num_groups > 1:
+            B, S, N, V = input.size()
+            input = input.view(B, S, N, self.num_groups, V)
+            input = input * self.group_weight[:, None]
+            input = input.sum(-2)
+
         if self.use_residual:
-            input = input + v * self.D
+            input = input + residual
 
         if cache_params is not None:
             cache_params.update(
