@@ -189,14 +189,13 @@ class RSA(nn.Module):
             value=v,
             weight=self.state_weight,
             forget_input=f,
+            use_residual=self.use_residual,
+            residual_weight=self.D if self.use_residual else None,
             input_state=rsa_state,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
         )
-
-        if self.use_residual:
-            input = input + v * self.D
 
         if cache_params is not None:
             cache_params.update(
