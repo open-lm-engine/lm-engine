@@ -179,7 +179,7 @@ class RSA(nn.Module):
 
             q = q[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
             k = k[..., None, :] * self.group_weight[:, None]
-            v = v[..., None, :] * self.group_weight[:, None]
+            v = v[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
             f = f[..., None, :].expand(-1, -1, -1, self.num_groups, -1)
 
             q, k, v, f = [i.flatten(-3, -2) for i in (q, k, v, f)]
