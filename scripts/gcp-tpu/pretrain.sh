@@ -11,9 +11,4 @@ export NCCL_IB_CUDA_SUPPORT=1
 # GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -w)
 # NODE_RANK=$(($(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | sed 'n; d' | grep -n -m1 $(echo $HOSTNAME | cut -d'.' -f1) | cut -d':' -f1)-1))
 
-TOKENIZERS_PARALLELISM=false \
-torchrun --nnodes=1 \
-    --node_rank=0 \
-    --nproc_per_node=4 \
-    -m lm_engine.pretrain \
-    --config ${1}
+PJRT_DEVICE=TPU TOKENIZERS_PARALLELISM=false python -m lm_engine.pretrain --config ${1}

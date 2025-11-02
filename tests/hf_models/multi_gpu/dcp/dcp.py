@@ -88,7 +88,6 @@ save_checkpoint(
     train_dataloader=None,
     experiments_tracker=None,
     iteration=iteration,
-    metadata=None,
 )
 
 ensure_last_checkpoint_is_saved()

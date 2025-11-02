@@ -37,13 +37,16 @@ from .utils import (
     init_distributed,
     is_torch_xla_available,
     is_torchao_available,
+    log_environment,
     log_rank_0,
     setup_tf32,
 )
 
 
 if is_torch_xla_available():
-    import torch_xla
+    from torch_xla import launch as xla_launch
+    from torch_xla import step as xla_step
+    from torch_xla import sync as xla_sync
 
 if is_torchao_available():
     from .distributed import FP8Manager
@@ -204,7 +207,7 @@ def train_step_without_pipeline_parallel(
 
     accelerator = Accelerator.get_accelerator()
 
-    with (torch_xla.step if accelerator == Accelerator.tpu else nullcontext)():
+    with (xla_step if accelerator == Accelerator.tpu else nullcontext)():
         with no_sync():
             for step in range(gradient_accumulation_steps - 1):
                 batch = get_next_batch(train_dataloader) if batches is None else batches[step]
@@ -248,7 +251,7 @@ def train_step_without_pipeline_parallel(
         lr_scheduler_container.step()
 
     if accelerator == Accelerator.tpu:
-        torch_xla.sync()
+        xla_sync()
 
     if is_torchao_available():
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp([model])
@@ -601,6 +604,9 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
     )
 
+    args.log_args()
+    log_environment()
+
     StepTracker(
         micro_batch_size=args.training_parameters.micro_batch_size,
         gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
@@ -644,7 +650,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     log_model_optimizer_container(model_container, optimizer_container)
 
     starting_iteration = 0
-    metadata = None
+    metadata = {}
     experiments_tracker_state_dict = None
     if args.load_args is not None:
         starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
@@ -652,11 +658,11 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
         # metadata field contains the dataloader state so we need to reset it here
-        if not args.load_args.load_dataloader_state and metadata is not None:
+        if not args.load_args.load_dataloader_state:
             metadata["consumed_samples"] = 0
 
     train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
-        args, model_container[0].tokenizer, 0 if metadata is None else metadata["consumed_samples"]
+        args, model_container[0].tokenizer, metadata.get("consumed_samples", 0)
     )
 
     experiments_tracker = ExperimentsTracker(
@@ -684,5 +690,14 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
 
-if __name__ == "__main__":
+def xla_main(*args):
     main()
+
+
+if __name__ == "__main__":
+    accelerator = Accelerator.get_accelerator()
+
+    if accelerator == Accelerator.cuda:
+        main()
+    elif accelerator == Accelerator.tpu:
+        xla_launch(xla_main)
