@@ -27,7 +27,6 @@ def get_megatron_gpt_dataloaders(
     micro_batch_size = args.training_parameters.micro_batch_size
     gradient_accumulation_steps = args.training_parameters.gradient_accumulation_steps
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
-    sequence_length = class_args.get("sequence_length")
 
     compile_helpers()
 
@@ -49,7 +48,7 @@ def get_megatron_gpt_dataloaders(
             # the dataset is None if is_built_on_rank is False
             is_built_on_rank=is_built_on_rank,
             random_seed=class_args.get("seed", args.random_args.seed),
-            sequence_length=sequence_length,
+            sequence_length=class_args.get("sequence_length"),
             blend=class_args.get("data_path"),
             blend_per_split=[
                 class_args.get("train_data_path"),
