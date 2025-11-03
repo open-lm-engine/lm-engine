@@ -66,21 +66,15 @@ def get_megatron_gpt_dataloaders(
         tokenizer=tokenizer,
     )
 
-    data_path = class_args.get("data_path")
-    train_data_path = class_args.get("train_data_path")
-
     # Option 1: data loading using --data-path with single file
     # Option 2: data loading using --data-path with multiple weighted files
     # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
-    if data_path is not None or train_data_path is not None:
-        train_ds, val_ds, test_ds = gpt_dataset_builder.build()
+    train_ds, val_ds, test_ds = gpt_dataset_builder.build()
 
-        if not isinstance(val_ds, list):
-            val_ds = [val_ds]
-        if not isinstance(test_ds, list):
-            test_ds = [test_ds]
-    else:
-        raise NotImplementedError("No dataloading argument passed")
+    if not isinstance(val_ds, list):
+        val_ds = [val_ds]
+    if not isinstance(test_ds, list):
+        test_ds = [test_ds]
 
     log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
 
