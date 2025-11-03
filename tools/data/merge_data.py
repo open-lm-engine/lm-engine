@@ -31,7 +31,7 @@ def get_args() -> Namespace:
     parser.add_argument("--max-size", type=int, required=False, help="max file size")
 
     args = parser.parse_args()
-    assert len(args.input_prefixes) > 0 or args.input_directory is not None
+    assert args.input_prefixes is not None or args.input_directory is not None
 
     return args
 
