@@ -465,3 +465,6 @@ mixed_precision_args:
 distributed_args:
   stage: 3
   torch_compile: true
+  zero_topology:
+    data_parallel_replication_world_size: 4
+    data_parallel_sharding_world_size: 8
