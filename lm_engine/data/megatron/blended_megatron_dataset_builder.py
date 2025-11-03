@@ -31,8 +31,8 @@ class BlendedMegatronDatasetBuilder:
 
     def __init__(
         self,
-        cls: Type[MegatronDataset],
-        sizes: List[int],
+        cls: type[MegatronDataset],
+        sizes: list[int],
         config: BlendedMegatronDatasetConfig,
         tokenizer: TOKENIZER_TYPE,
     ) -> BlendedMegatronDatasetBuilder:
@@ -55,6 +55,8 @@ class BlendedMegatronDatasetBuilder:
             List[Optional[Union[BlendedDataset, MegatronDataset]]]: A list of either
             MegatronDataset or BlendedDataset (or None) per split
         """
+
+        blended_datasets = []
 
         if getattr(self.config, "blend"):
             blend = getattr(self.config, "blend")
@@ -83,8 +85,6 @@ class BlendedMegatronDatasetBuilder:
             # Sum over all contributing datasets, per split
             size_per_split = list(map(sum, zip(*sizes_per_dataset)))
 
-            blended_datasets = []
-
             for i in range(len(megatron_datasets)):
                 is_none = map(lambda _: _ is None, megatron_datasets[i])
 
@@ -102,10 +102,7 @@ class BlendedMegatronDatasetBuilder:
                             config=self.config,
                         )
                     )
-
-            return blended_datasets
         else:
-            blended_datasets = []
             for i in range(len(Split)):
                 blend = getattr(self.config, "blend_per_split")[i]
 
@@ -153,7 +150,7 @@ class BlendedMegatronDatasetBuilder:
                         )
                     )
 
-            return blended_datasets
+        return blended_datasets
 
     def _build_megatron_dataset_splits(
         self, path_prefix: str, split: list[float], sizes: list[int]
