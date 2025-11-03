@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import lm_engine.hf_models
