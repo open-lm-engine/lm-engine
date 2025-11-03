@@ -469,11 +469,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-rsa-2.5b-16-bias
+  save_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-rsa-2.5b-16-bias-p2
   save_interval: 5000
 
 load_args:
-  load_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-rsa-2.5b-16-bias-p2
+  load_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-rsa-2.5b-16-bias
   load_dataloader_state: false
   load_optimizer: true
   load_lr_scheduler: false
