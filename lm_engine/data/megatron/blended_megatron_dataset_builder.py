@@ -42,6 +42,7 @@ class BlendedMegatronDatasetBuilder:
         self.config = config
         self.tokenizer = tokenizer
         self.node_uses_local_storage = node_uses_local_storage
+        self.is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
 
     def build(self) -> list[BlendedDataset | MegatronDataset | None]:
         """Build all dataset splits according to the provided blend(s)
@@ -330,7 +331,7 @@ class BlendedMegatronDatasetBuilder:
             dataset = None
 
             # First, build on rank 0
-            if caching_allowed and self.config.is_built_on_rank:
+            if caching_allowed and self.is_built_on_rank:
                 try:
                     dataset = cls(**kwargs, caching_allowed=True)
                 except OSError as err:
@@ -345,7 +346,7 @@ class BlendedMegatronDatasetBuilder:
             Communication.barrier()
 
             # After, build on other ranks
-            if not caching_allowed and self.config.is_built_on_rank:
+            if not caching_allowed and self.is_built_on_rank:
                 dataset = cls(**kwargs, caching_allowed=False)
 
             return dataset
@@ -354,7 +355,7 @@ class BlendedMegatronDatasetBuilder:
 
     def _get_indexed_dataset(self, path_prefix: str) -> MMapIndexedDataset | None:
         indexed_dataset = None
-        if not torch.distributed.is_initialized() or self.config.is_built_on_rank:
+        if not torch.distributed.is_initialized() or self.is_built_on_rank:
             indexed_dataset = MMapIndexedDataset(path_prefix, self.cls.is_multimodal())
 
         return indexed_dataset

@@ -32,9 +32,6 @@ def get_megatron_gpt_dataloaders(
 
     log_rank_0(logging.INFO, "> building train, validation, and test datasets for GPT ...")
 
-    # only build dataloader on first rank of each TP group
-    is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
-
     gpt_dataset_builder = BlendedMegatronDatasetBuilder(
         GPTDataset,
         sizes=_get_train_val_test_samples(
@@ -45,8 +42,6 @@ def get_megatron_gpt_dataloaders(
             class_args.get("eval_steps"),
         ),
         config=GPTDatasetConfig(
-            # the dataset is None if is_built_on_rank is False
-            is_built_on_rank=is_built_on_rank,
             random_seed=class_args.get("seed", args.random_args.seed),
             sequence_length=class_args.get("sequence_length"),
             blend=class_args.get("data_path"),
