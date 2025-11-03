@@ -4,4 +4,4 @@ OUTPUT_PATH=/home/mayank/data/nemotron-cc-v2-merged/Diverse-QA
 python tools/data/merge_data.py \
     --input-directory $INPUT_PATH \
     --output-prefix $OUTPUT_PATH \
-    --max-file-size 250
+    --max-size 250
