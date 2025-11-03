@@ -79,4 +79,4 @@ if __name__ == "__main__":
                 file_map[grp_id] = group
                 merge_files(input_prefixes=group, output_prefix=os.path.join(args.output_prefix, str(grp_id)))
 
-            json.dump(file_map, open(os.path.join(args.output_prefix, str(grp_id)) + ".json", "w"), indent=4)
+            json.dump(file_map, open(os.path.join(args.output_prefix, "file_map.json"), "w"), indent=4)
