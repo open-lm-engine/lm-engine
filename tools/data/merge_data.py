@@ -70,7 +70,7 @@ if __name__ == "__main__":
     elif args.input_directory is not None:
         file_groups = get_groups_by_sizes(args.input_directory, args.max_size)
 
-        if args.max_file_size is None:
+        if args.max_size is None:
             merge_files(input_prefixes=file_groups[0], output_prefix=args.output_prefix)
         else:
             file_map = {}
