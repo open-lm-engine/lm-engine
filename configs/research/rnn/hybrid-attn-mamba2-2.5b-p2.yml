@@ -414,11 +414,18 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-mamba2-2.5b
+  save_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-mamba2-2.5b-p2
   save_interval: 5000
 
-# load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/hybrid-attn-mamba2-2.5b
+load_args:
+  load_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-mamba2-2.5b
+  load_dataloader_state: false
+  load_optimizer: true
+  load_lr_scheduler: false
+  load_starting_iteration: false
+  load_experiments_tracker_state: false
+  resume_learning_rate: true
+  load_rng_state: false
 
 logging_args:
   log_interval: 10
@@ -426,7 +433,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: model-architectures
-    name: hybrid-attn-mamba2-2.5b
+    name: hybrid-attn-mamba2-2.5b-p2
 
 training_parameters:
   num_training_steps: 25000
@@ -447,17 +454,10 @@ optimizer_args:
     eps: 1e-10
 
 lr_scheduler_args:
-  lr_decay_style: power
-  num_warmup_steps: 2500
+  lr_decay_style: exponential
+  num_warmup_steps: 0
   num_constant_steps: 0
-  num_decay_steps: 25000
-  extra_lr_scheduler_args:
-    # 4 * global_batch_size
-    a: 4096
-    # constant
-    b: -0.51
-    # global_batch_size in number of tokens
-    c: 4194304
+  num_decay_steps: 5000
 
 mixed_precision_args:
   dtype: bf16
