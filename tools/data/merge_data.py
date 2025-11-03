@@ -64,7 +64,7 @@ def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str
 if __name__ == "__main__":
     args = get_args()
 
-    if len(args.input_prefixes):
+    if args.input_prefixes is not None:
         assert args.max_size is None
         merge_files(input_prefixes=args.input_prefixes, output_prefix=args.output_prefix)
     elif args.input_directory is not None:
