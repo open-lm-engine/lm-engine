@@ -1,0 +1,525 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+datasets:
+  # class_name - data_name & data_sampling_ratio are not used but need to be passed to avoid errors
+  - class_name: MegatronDataset
+    data_name: Megatron
+    data_sampling_ratio: 1
+    class_args:
+      eval_steps: 2
+      data_cache_path: /u/shawntan/proj/mayank/data-cache
+      # Option 1: data loading using --data-path with single file
+      data_path:
+        - 0.5
+        - /proj/datasets/granite-4-datasets-megatron-merged/web-nemotron-cc-hq-p2_0
+        - 0.5
+        - /proj/datasets/granite-4-datasets-megatron-merged/web-nemotron-cc-hq-p2_1
+      split: 99.5,0.5,0
+      # split: 1,0,0
+      sequence_length: 4096
+
+tokenizer_args:
+  tokenizer_name: /proj/checkpoints/dmf-lh-checkpoints/granite-4.0-tiktoken
+
+kernel_args:
+  kernels:
+    - rnn
+    - gru
+    - scattermoe
+    - mamba2_ssm
+    - causal_conv1d
+    - flash_attention_2
+    - continuous_count
+
+model_args:
+  model_class: AutoModelForCausalLM
+  pretrained_config:
+    initializer_range: 0.1
+    layer_norm_epsilon: 1e-05
+    model_type: gpt_base
+    normalization_function: rmsnorm
+    position_embedding_type: nope
+    hidden_size: 1024
+    m_width: 4
+    m_emb: 12
+    m_residual: 0.2840187787
+    num_layers: 24
+    init_method: mup
+    router_aux_loss_coef: 0.0001
+    bos_token_id: 100257
+    eos_token_id: 100257
+    pad_token_id: 100256
+    vocab_size: 100352
+    max_position_embeddings: 4096
+    sequence_mixer_blocks:
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        attention_multiplier: 0.015625
+        add_bias: false
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        attention_multiplier: 0.015625
+        add_bias: false
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        attention_multiplier: 0.015625
+        add_bias: false
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        attention_multiplier: 0.015625
+        add_bias: false
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        attention_multiplier: 0.015625
+        add_bias: false
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        attention_multiplier: 0.015625
+        add_bias: false
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_heads: 128
+        k_norm: false
+        use_forget_multiplier: false
+        use_forget_bias: false
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: true
+        gradient_clipping: 1
+    mlp_blocks:
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+      - activation_function: swiglu
+        mlp_type: MoE
+        add_bias: false
+        intermediate_size: 256
+        num_experts: 128
+        num_experts_per_tok: 8
+  efficient_initialization: true
+
+tuning_args:
+  tuning_method: pretraining
+
+save_args:
+  save_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-rsa-2.5b-16-bias
+  save_interval: 5000
+
+load_args:
+  load_path: /u/shawntan/proj/mayank/checkpoints/hybrid-attn-rsa-2.5b-16-bias-p2
+  load_dataloader_state: false
+  load_optimizer: true
+  load_lr_scheduler: false
+  load_starting_iteration: false
+  load_experiments_tracker_state: false
+  resume_learning_rate: true
+  load_rng_state: false
+
+logging_args:
+  log_interval: 10
+  # torch_profiler_trace_path: tmp
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: model-architectures
+    name: hybrid-attn-rsa-2.5b-16-bias-p2
+
+training_parameters:
+  num_training_steps: 25000
+  eval_interval: 2500
+  micro_batch_size: 8
+  gradient_accumulation_steps: 4
+  eval_during_training: true
+
+optimizer_args:
+  params_group_method: mup
+  class_name: TorchAdamW
+  class_args:
+    lr: 0.01
+    weight_decay: 0.1
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1e-10
+
+lr_scheduler_args:
+  lr_decay_style: exponential
+  num_warmup_steps: 0
+  num_constant_steps: 0
+  num_decay_steps: 5000
+
+mixed_precision_args:
+  dtype: bf16
+
+distributed_args:
+  stage: 3
+  torch_compile: true
+  zero_topology:
+    data_parallel_replication_world_size: 4
+    data_parallel_sharding_world_size: 8
