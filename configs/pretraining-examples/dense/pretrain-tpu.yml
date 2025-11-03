@@ -12,27 +12,46 @@ datasets:
       data_cache_path: cache
       # Option 1: data loading using --data-path with single file
       data_path:
-        - data_text
-      split: 98,1,1
+        - 252
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/0
+        - 252
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/1
+        - 252
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/2
+        - 251
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/3
+        - 252
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/4
+        - 252
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/5
+        - 252
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/6
+        - 252
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/7
+        - 252
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/8
+        - 250
+        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/9
+      split: 100,0,0
       sequence_length: 4096
 
 tokenizer_args:
-  tokenizer_name: ibm-granite/granite-3b-code-base-2k
+  tokenizer_name: /home/mayank/scratch/tokenizers/granite
 
 model_args:
   model_class: AutoModelForCausalLM
   pretrained_config:
     model_type: gpt_base
-    vocab_size: 50176
     max_position_embeddings: 4096
     hidden_size: 768
     num_layers: 12
     normalization_function: layernorm
     layer_norm_epsilon: 1e-5
     initializer_range: 0.02
-    bos_token_id: 0
-    eos_token_id: 0
-    pad_token_id: 0
+    bos_token_id: 100257
+    eos_token_id: 100257
+    pad_token_id: 100256
+    vocab_size: 100352
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
@@ -144,9 +163,6 @@ optimizer_args:
       - 0.9
       - 0.95
     eps: 1e-10
-
-# logging_args:
-#   torch_profiler_trace_path: tmp
 
 lr_scheduler_args:
   lr_decay_style: cosine
