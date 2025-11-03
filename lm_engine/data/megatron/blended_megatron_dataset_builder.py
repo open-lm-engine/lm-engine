@@ -11,7 +11,7 @@ import torch
 import torch.distributed
 
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import Communication, ProcessGroupManager
+from ...utils import Accelerator, Communication, ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
@@ -35,11 +35,13 @@ class BlendedMegatronDatasetBuilder:
         sizes: list[int],
         config: BlendedMegatronDatasetConfig,
         tokenizer: TOKENIZER_TYPE,
+        node_uses_local_storage: bool,
     ) -> BlendedMegatronDatasetBuilder:
         self.cls = cls
         self.sizes = sizes
         self.config = config
         self.tokenizer = tokenizer
+        self.node_uses_local_storage = node_uses_local_storage
 
     def build(self) -> list[BlendedDataset | MegatronDataset | None]:
         """Build all dataset splits according to the provided blend(s)
@@ -321,8 +323,9 @@ class BlendedMegatronDatasetBuilder:
             DistributedDataset | None: The DistributedDataset instantion or None
         """
         if torch.distributed.is_initialized():
-            rank = ProcessGroupManager.get_global_rank()
-            caching_allowed = rank == 0 or (self.config.node_uses_local_storage and torch.cuda.current_device() == 0)
+            caching_allowed = ProcessGroupManager.get_global_rank() == 0 or (
+                self.node_uses_local_storage and Accelerator.get_current_device() == 0
+            )
 
             dataset = None
 

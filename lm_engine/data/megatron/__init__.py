@@ -60,9 +60,9 @@ def get_megatron_gpt_dataloaders(
             return_document_ids=False,
             fim_rate=class_args.get("fim_rate", 0),
             fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
-            node_uses_local_storage=class_args.get("node_uses_local_storage", False),
         ),
         tokenizer=tokenizer,
+        node_uses_local_storage=class_args.get("node_uses_local_storage", False),
     )
 
     data_path = class_args.get("data_path")
