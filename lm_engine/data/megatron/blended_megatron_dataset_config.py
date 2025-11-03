@@ -41,21 +41,13 @@ class BlendedMegatronDatasetConfig:
     """
 
     is_built_on_rank: bool
-
     random_seed: int
-
     sequence_length: int
-
     name: str | None = None
-
     blend: list[str] | None = None
-
     blend_per_split: list[list[str] | None] | None = None
-
     split: str | None = None
-
     split_vector: list[float] | None = field(init=False, default=None)
-
     path_to_cache: str = None
 
     def __post_init__(self):
