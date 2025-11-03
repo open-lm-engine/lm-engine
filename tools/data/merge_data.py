@@ -68,7 +68,7 @@ if __name__ == "__main__":
         assert args.max_size is None
         merge_files(input_prefixes=args.input_prefixes, output_prefix=args.output_prefix)
     elif args.input_directory is not None:
-        file_groups = get_groups_by_sizes(args.input_directory, args.max_file_size)
+        file_groups = get_groups_by_sizes(args.input_directory, args.max_size)
 
         if args.max_file_size is None:
             merge_files(input_prefixes=file_groups[0], output_prefix=args.output_prefix)
