@@ -9,7 +9,7 @@ from .blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .gpt_dataset import GPTDataset
 from .sampler import MegatronBatchSampler
-from .utils import Split, compile_helpers
+from .utils import compile_helpers
 
 
 def get_megatron_gpt_dataloaders(
