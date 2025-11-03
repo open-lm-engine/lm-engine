@@ -179,12 +179,16 @@ class RSA(nn.Module):
         if self.use_forget_multiplier:
             f = 2 * torch.sigmoid(self.forget_multiplier[..., None]) * f
 
+        W = self.state_weight
+        if self.num_groups > 1:
+            W = W[:, None, ...] * self.group_weight[None, :, None, None]
+            W = W.flatten(0, 1)
+
         input, rsa_state = rsa(
             query=q,
             key=k,
             value=v,
-            weight=self.state_weight,
-            group_weight=None if self.num_groups == 1 else self.group_weight,
+            weight=W,
             forget_input=f,
             input_state=rsa_state,
             gradient_clipping=self.gradient_clipping,
