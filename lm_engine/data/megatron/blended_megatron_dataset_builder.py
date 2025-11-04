@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -14,8 +13,8 @@ from ...tokenizers import TOKENIZER_TYPE
 from ...utils import Accelerator, Communication, ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
+from .gpt_dataset import GPTDataset
 from .indexed_dataset import MMapIndexedDataset
-from .megatron_dataset import MegatronDataset
 from .utils import Split, normalize
 
 
@@ -31,7 +30,7 @@ class BlendedMegatronDatasetBuilder:
 
     def __init__(
         self,
-        cls: type[MegatronDataset],
+        cls: type[GPTDataset],
         sizes: list[int],
         config: BlendedMegatronDatasetConfig,
         tokenizer: TOKENIZER_TYPE,
@@ -44,7 +43,7 @@ class BlendedMegatronDatasetBuilder:
         self.node_uses_local_storage = node_uses_local_storage
         self.is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
 
-    def build(self) -> list[BlendedDataset | MegatronDataset | None]:
+    def build(self) -> list[BlendedDataset | GPTDataset | None]:
         """Build all dataset splits according to the provided blend(s)
 
         This method is distributed-aware and must be called on all ranks.
@@ -157,7 +156,7 @@ class BlendedMegatronDatasetBuilder:
 
     def _build_megatron_dataset_splits(
         self, path_prefix: str, split: list[float], sizes: list[int]
-    ) -> list[MegatronDataset | None]:
+    ) -> list[GPTDataset | None]:
         """Build each MegatronDataset split from a single MMapIndexedDataset
 
         Args:
@@ -168,9 +167,14 @@ class BlendedMegatronDatasetBuilder:
             sizes (list[int]): The number of total samples to draw from each split
 
         Returns:
-            list[MegatronDataset | None]: The MegatronDatset (or None) per split
+            list[GPTDataset | None]: The GPTDataset (or None) per split
         """
-        indexed_dataset = self._get_indexed_dataset(path_prefix)
+
+        indexed_dataset = (
+            MMapIndexedDataset(path_prefix, self.cls.is_multimodal())
+            if (not torch.distributed.is_initialized() or self.is_built_on_rank)
+            else None
+        )
 
         if indexed_dataset is not None:
             if self.cls.is_split_by_sequence():
@@ -209,51 +213,9 @@ class BlendedMegatronDatasetBuilder:
 
         return megatron_datasets
 
-    def _build_megatron_dataset_single_split(
-        self, group_name: str, path_prefix: str, split: str, size: int, data_split: Split
-    ) -> list[MegatronDataset | None]:
-        indexed_dataset = self._get_indexed_dataset(path_prefix)
-
-        start, end = _parse_split(split)
-
-        modified_config = deepcopy(self.config)
-        modified_config.name = group_name
-        modified_config.split = split
-
-        split_indices = None
-        if indexed_dataset is not None:
-            num_elements = (
-                indexed_dataset.sequence_lengths.shape[0]
-                if self.cls.is_split_by_sequence()
-                else indexed_dataset.document_indices.shape[0] - 1
-            )
-            start = int(start * num_elements)
-            end = int(end * num_elements)
-
-            split_indices = np.arange(
-                start=start,
-                stop=end,
-                step=1,
-                dtype=_get_appropriate_dtype_for_range([start, end]),
-            )
-
-        megatron_dataset = None
-        if start != end:
-            megatron_dataset = self._build_generic_dataset(
-                self.cls,
-                indexed_dataset=indexed_dataset,
-                indexed_indices=split_indices,
-                num_samples=size,
-                index_split=data_split,
-                tokenizer=self.tokenizer,
-                config=modified_config,
-            )
-
-        return megatron_dataset
-
     def _build_generic_dataset(
-        self, cls: type[BlendedDataset | MegatronDataset | MMapIndexedDataset], **kwargs: Any
-    ) -> BlendedDataset | MegatronDataset | MMapIndexedDataset | None:
+        self, cls: type[BlendedDataset | GPTDataset | MMapIndexedDataset], **kwargs: Any
+    ) -> BlendedDataset | GPTDataset | MMapIndexedDataset | None:
         """Build the DistributedDataset
 
         Return None if and only if the underlying MegatronDataset class is not built on the current
@@ -297,13 +259,6 @@ class BlendedMegatronDatasetBuilder:
             return dataset
 
         return cls(**kwargs, caching_allowed=True)
-
-    def _get_indexed_dataset(self, path_prefix: str) -> MMapIndexedDataset | None:
-        indexed_dataset = None
-        if not torch.distributed.is_initialized() or self.is_built_on_rank:
-            indexed_dataset = MMapIndexedDataset(path_prefix, self.cls.is_multimodal())
-
-        return indexed_dataset
 
 
 def _get_split_indices(split: list[float], num_elements: int) -> list[int]:
@@ -358,14 +313,6 @@ def _get_prefixes_weights_and_sizes_for_blend(
     ]
 
     return prefixes, weights, sizes_per_dataset
-
-
-def _parse_split(start_end: str) -> tuple[float, float]:
-    start, end = start_end.split(":")
-    start = float(start)
-    end = float(end)
-
-    return start, end
 
 
 def _get_appropriate_dtype_for_range(split_idx_bounds: list[int]) -> np.dtype:
