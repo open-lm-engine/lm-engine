@@ -167,7 +167,7 @@ class BlendedMegatronDatasetBuilder:
             sizes (list[int]): The number of total samples to draw from each split
 
         Returns:
-            list[MegatronDataset | None]: The MegatronDatset (or None) per split
+            list[GPTDataset | None]: The GPTDataset (or None) per split
         """
 
         indexed_dataset = (
