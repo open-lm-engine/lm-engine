@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from abc import ABC, abstractmethod
 from collections import OrderedDict
 
 import numpy
@@ -15,7 +14,7 @@ from .indexed_dataset import MMapIndexedDataset
 from .utils import Split
 
 
-class MegatronDataset(ABC, torch.utils.data.Dataset):
+class MegatronDataset(torch.utils.data.Dataset):
     """The wrapper class from which dataset classes should inherit e.g. GPTDataset
 
     Args:
@@ -66,11 +65,9 @@ class MegatronDataset(ABC, torch.utils.data.Dataset):
 
         self._finalize()
 
-    @abstractmethod
     def _finalize(self) -> None:
         """Build the dataset and assert any subclass-specific conditions"""
 
-    @abstractmethod
     def __len__(self) -> int:
         """Return the length of the dataset
 
@@ -78,7 +75,6 @@ class MegatronDataset(ABC, torch.utils.data.Dataset):
             int: See abstract implementation
         """
 
-    @abstractmethod
     def __getitem__(self, idx: int) -> dict[str, numpy.ndarray]:
         """Return from the dataset
 
@@ -90,7 +86,6 @@ class MegatronDataset(ABC, torch.utils.data.Dataset):
         """
 
     @staticmethod
-    @abstractmethod
     def is_multimodal() -> bool:
         """Return True if the inheritor class and its internal MMapIndexedDataset are multimodal
 
@@ -99,7 +94,6 @@ class MegatronDataset(ABC, torch.utils.data.Dataset):
         """
 
     @staticmethod
-    @abstractmethod
     def is_split_by_sequence() -> bool:
         """Return whether the dataset is split by sequence
 
