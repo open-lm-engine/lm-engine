@@ -209,61 +209,6 @@ class BlendedMegatronDatasetBuilder:
 
         return megatron_datasets
 
-    def build_dataset_single_split(
-        self,
-        group_names: list[list[str]],
-        split_paths: list[list[str]],
-        split_splits: list[list[str]],
-        split_weights: list[list[str]],
-        data_split: Split,
-    ) -> list[BlendedDataset | MegatronDataset | None]:
-        megatron_datasets = []
-        data_split_index = data_split.value
-
-        assert len(split_paths) == len(group_names)
-        assert len(split_paths) == len(split_splits)
-        assert len(split_paths) == len(split_weights)
-
-        for names, paths, splits, weights in zip(group_names, split_paths, split_splits, split_weights):
-            assert len(paths) == len(splits)
-            assert len(paths) == len(weights)
-
-            if len(paths) == 1:
-                assert weights[0] == 1
-
-                dataset = self._build_megatron_dataset_single_split(
-                    names[0], paths[0], splits[0], self.sizes[data_split_index], data_split
-                )
-                megatron_datasets.append(dataset)
-            else:
-                blend = []
-                for w, p in zip(weights, paths):
-                    blend.append(w)
-                    blend.append(p)
-
-                _, weights, sizes = _get_prefixes_weights_and_sizes_for_blend(blend, self.sizes)
-
-                datasets = []
-                for name, path, split, size in zip(names, paths, splits, sizes):
-                    dataset = self._build_megatron_dataset_single_split(
-                        name, path, split, size[data_split_index], data_split
-                    )
-                    datasets.append(dataset)
-
-                size_per_split = list(map(sum, zip(*sizes)))
-
-                megatron_datasets.append(
-                    self._build_generic_dataset(
-                        BlendedDataset,
-                        datasets=datasets,
-                        weights=weights,
-                        size=size_per_split[data_split_index],
-                        config=self.config,
-                    )
-                )
-
-        return megatron_datasets
-
     def _build_megatron_dataset_single_split(
         self, group_name: str, path_prefix: str, split: str, size: int, data_split: Split
     ) -> list[MegatronDataset | None]:
