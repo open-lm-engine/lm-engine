@@ -39,7 +39,7 @@ class GPTDataset(torch.utils.data.Dataset):
         assert indexed_indices.size > 0
         assert num_samples > 0
         assert self.is_multimodal() == indexed_dataset.multimodal
-        assert isinstance(self.config, GPTDatasetConfig)
+        assert isinstance(config, GPTDatasetConfig)
 
         self.indexed_dataset = indexed_dataset
         self.indexed_indices = indexed_indices
