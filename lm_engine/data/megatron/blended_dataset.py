@@ -14,7 +14,7 @@ import torch
 
 from ...utils import log_rank_0
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
-from .megatron_dataset import MegatronDataset
+from .gpt_dataset import GPTDataset
 from .utils import build_blending_indices, normalize
 
 
@@ -39,7 +39,7 @@ class BlendedDataset(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        datasets: list[MegatronDataset],
+        datasets: list[GPTDataset],
         weights: list[float],
         size: int,
         config: BlendedMegatronDatasetConfig,
