@@ -27,14 +27,10 @@ def get_megatron_gpt_dataloaders(
     micro_batch_size = args.training_parameters.micro_batch_size
     gradient_accumulation_steps = args.training_parameters.gradient_accumulation_steps
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
-    sequence_length = class_args.get("sequence_length")
 
     compile_helpers()
 
     log_rank_0(logging.INFO, "> building train, validation, and test datasets for GPT ...")
-
-    # only build dataloader on first rank of each TP group
-    is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
 
     gpt_dataset_builder = BlendedMegatronDatasetBuilder(
         GPTDataset,
@@ -46,10 +42,8 @@ def get_megatron_gpt_dataloaders(
             class_args.get("eval_steps"),
         ),
         config=GPTDatasetConfig(
-            # the dataset is None if is_built_on_rank is False
-            is_built_on_rank=is_built_on_rank,
             random_seed=class_args.get("seed", args.random_args.seed),
-            sequence_length=sequence_length,
+            sequence_length=class_args.get("sequence_length"),
             blend=class_args.get("data_path"),
             blend_per_split=[
                 class_args.get("train_data_path"),
@@ -61,9 +55,9 @@ def get_megatron_gpt_dataloaders(
             return_document_ids=False,
             fim_rate=class_args.get("fim_rate", 0),
             fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
-            node_uses_local_storage=class_args.get("node_uses_local_storage", False),
         ),
         tokenizer=tokenizer,
+        node_uses_local_storage=class_args.get("node_uses_local_storage", False),
     )
 
     # Option 1: data loading using --data-path with single file

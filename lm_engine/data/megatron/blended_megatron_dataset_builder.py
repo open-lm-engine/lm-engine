@@ -11,7 +11,7 @@ import torch
 import torch.distributed
 
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import Communication, ProcessGroupManager
+from ...utils import Accelerator, Communication, ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
@@ -31,15 +31,18 @@ class BlendedMegatronDatasetBuilder:
 
     def __init__(
         self,
-        cls: Type[MegatronDataset],
-        sizes: List[int],
+        cls: type[MegatronDataset],
+        sizes: list[int],
         config: BlendedMegatronDatasetConfig,
         tokenizer: TOKENIZER_TYPE,
+        node_uses_local_storage: bool,
     ) -> BlendedMegatronDatasetBuilder:
         self.cls = cls
         self.sizes = sizes
         self.config = config
         self.tokenizer = tokenizer
+        self.node_uses_local_storage = node_uses_local_storage
+        self.is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
 
     def build(self) -> list[BlendedDataset | MegatronDataset | None]:
         """Build all dataset splits according to the provided blend(s)
@@ -55,6 +58,8 @@ class BlendedMegatronDatasetBuilder:
             List[Optional[Union[BlendedDataset, MegatronDataset]]]: A list of either
             MegatronDataset or BlendedDataset (or None) per split
         """
+
+        blended_datasets = []
 
         if getattr(self.config, "blend"):
             blend = getattr(self.config, "blend")
@@ -83,8 +88,6 @@ class BlendedMegatronDatasetBuilder:
             # Sum over all contributing datasets, per split
             size_per_split = list(map(sum, zip(*sizes_per_dataset)))
 
-            blended_datasets = []
-
             for i in range(len(megatron_datasets)):
                 is_none = map(lambda _: _ is None, megatron_datasets[i])
 
@@ -102,10 +105,7 @@ class BlendedMegatronDatasetBuilder:
                             config=self.config,
                         )
                     )
-
-            return blended_datasets
         else:
-            blended_datasets = []
             for i in range(len(Split)):
                 blend = getattr(self.config, "blend_per_split")[i]
 
@@ -153,7 +153,7 @@ class BlendedMegatronDatasetBuilder:
                         )
                     )
 
-            return blended_datasets
+        return blended_datasets
 
     def _build_megatron_dataset_splits(
         self, path_prefix: str, split: list[float], sizes: list[int]
@@ -269,13 +269,14 @@ class BlendedMegatronDatasetBuilder:
             DistributedDataset | None: The DistributedDataset instantion or None
         """
         if torch.distributed.is_initialized():
-            rank = ProcessGroupManager.get_global_rank()
-            caching_allowed = rank == 0 or (self.config.node_uses_local_storage and torch.cuda.current_device() == 0)
+            caching_allowed = ProcessGroupManager.get_global_rank() == 0 or (
+                self.node_uses_local_storage and Accelerator.get_current_device() == 0
+            )
 
             dataset = None
 
             # First, build on rank 0
-            if caching_allowed and self.config.is_built_on_rank:
+            if caching_allowed and self.is_built_on_rank:
                 try:
                     dataset = cls(**kwargs, caching_allowed=True)
                 except OSError as err:
@@ -290,7 +291,7 @@ class BlendedMegatronDatasetBuilder:
             Communication.barrier()
 
             # After, build on other ranks
-            if not caching_allowed and self.config.is_built_on_rank:
+            if not caching_allowed and self.is_built_on_rank:
                 dataset = cls(**kwargs, caching_allowed=False)
 
             return dataset
@@ -299,7 +300,7 @@ class BlendedMegatronDatasetBuilder:
 
     def _get_indexed_dataset(self, path_prefix: str) -> MMapIndexedDataset | None:
         indexed_dataset = None
-        if not torch.distributed.is_initialized() or self.config.is_built_on_rank:
+        if not torch.distributed.is_initialized() or self.is_built_on_rank:
             indexed_dataset = MMapIndexedDataset(path_prefix, self.cls.is_multimodal())
 
         return indexed_dataset
