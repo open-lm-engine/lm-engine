@@ -1,9 +1,4 @@
-from lm_engine.data.megatron.indexed_dataset import (
-    MMapIndexedDataset,
-    MMapIndexedDatasetBuilder,
-    get_bin_path,
-    get_idx_path,
-)
+from .indexed_dataset import MMapIndexedDataset, MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
 
 
 def merge_files(input_prefixes: list[str], output_prefix: str) -> None:
