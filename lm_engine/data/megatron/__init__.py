@@ -9,7 +9,7 @@ from .blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .gpt_dataset import GPTDataset
 from .sampler import MegatronBatchSampler
-from .utils import Split, compile_helpers
+from .utils import compile_helpers
 
 
 def get_megatron_gpt_dataloaders(
@@ -66,61 +66,15 @@ def get_megatron_gpt_dataloaders(
         tokenizer=tokenizer,
     )
 
-    data_path = class_args.get("data_path")
-    train_data_path = class_args.get("train_data_path")
-    train_weighted_split_paths = class_args.get("train_weighted_split_paths")
-
     # Option 1: data loading using --data-path with single file
     # Option 2: data loading using --data-path with multiple weighted files
     # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
-    if data_path is not None or train_data_path is not None:
-        train_ds, val_ds, test_ds = gpt_dataset_builder.build()
+    train_ds, val_ds, test_ds = gpt_dataset_builder.build()
 
-        if not isinstance(val_ds, list):
-            val_ds = [val_ds]
-        if not isinstance(test_ds, list):
-            test_ds = [test_ds]
-
-    # Option 4: data loading using --(train|val|test)-weighted-split-paths
-    elif train_weighted_split_paths:
-
-        def _parse_and_get_dataset(weighted_split_paths: list[dict], dataset_split: Split) -> list[GPTDataset]:
-            if weighted_split_paths is None:
-                return []
-
-            names = []
-            paths = []
-            splits = []
-            weights = []
-            for group in weighted_split_paths:
-                assert len(group) == 1
-                group_name = list(group.keys())[0]
-                datasets_splits_list = group[group_name]
-
-                names_ = []
-                paths_ = []
-                splits_ = []
-                weights_ = []
-                for d in datasets_splits_list:
-                    names_.append(group_name)
-                    paths_.append(d["path"])
-                    splits_.append(d["split"])
-                    weights_.append(d["weight"])
-
-                names.append(names_)
-                paths.append(paths_)
-                splits.append(splits_)
-                weights.append(weights_)
-
-            return gpt_dataset_builder.build_dataset_single_split(names, paths, splits, weights, dataset_split)
-
-        assert len(train_weighted_split_paths) == 1, "only 1 dataset group can be passed for training"
-        train_ds = _parse_and_get_dataset(train_weighted_split_paths, Split.train)[0]
-
-        val_ds = _parse_and_get_dataset(class_args.get("val_weighted_split_paths"), Split.valid)
-        test_ds = _parse_and_get_dataset(class_args.get("test_weighted_split_paths"), Split.test)
-    else:
-        raise NotImplementedError("No dataloading argument passed")
+    if not isinstance(val_ds, list):
+        val_ds = [val_ds]
+    if not isinstance(test_ds, list):
+        test_ds = [test_ds]
 
     log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
 
