@@ -13,8 +13,8 @@ from ...tokenizers import TOKENIZER_TYPE
 from ...utils import Accelerator, Communication, ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
+from .gpt_dataset import GPTDataset
 from .indexed_dataset import MMapIndexedDataset
-from .megatron_dataset import MegatronDataset
 from .utils import Split, normalize
 
 
@@ -30,7 +30,7 @@ class BlendedMegatronDatasetBuilder:
 
     def __init__(
         self,
-        cls: type[MegatronDataset],
+        cls: type[GPTDataset],
         sizes: list[int],
         config: BlendedMegatronDatasetConfig,
         tokenizer: TOKENIZER_TYPE,
@@ -43,7 +43,7 @@ class BlendedMegatronDatasetBuilder:
         self.node_uses_local_storage = node_uses_local_storage
         self.is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
 
-    def build(self) -> list[BlendedDataset | MegatronDataset | None]:
+    def build(self) -> list[BlendedDataset | GPTDataset | None]:
         """Build all dataset splits according to the provided blend(s)
 
         This method is distributed-aware and must be called on all ranks.
@@ -156,7 +156,7 @@ class BlendedMegatronDatasetBuilder:
 
     def _build_megatron_dataset_splits(
         self, path_prefix: str, split: list[float], sizes: list[int]
-    ) -> list[MegatronDataset | None]:
+    ) -> list[GPTDataset | None]:
         """Build each MegatronDataset split from a single MMapIndexedDataset
 
         Args:
@@ -214,8 +214,8 @@ class BlendedMegatronDatasetBuilder:
         return megatron_datasets
 
     def _build_generic_dataset(
-        self, cls: type[BlendedDataset | MegatronDataset | MMapIndexedDataset], **kwargs: Any
-    ) -> BlendedDataset | MegatronDataset | MMapIndexedDataset | None:
+        self, cls: type[BlendedDataset | GPTDataset | MMapIndexedDataset], **kwargs: Any
+    ) -> BlendedDataset | GPTDataset | MMapIndexedDataset | None:
         """Build the DistributedDataset
 
         Return None if and only if the underlying MegatronDataset class is not built on the current
