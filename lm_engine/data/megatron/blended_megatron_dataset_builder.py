@@ -72,8 +72,10 @@ class BlendedMegatronDatasetBuilder:
                 else:
                     assert all(is_none) or not any(is_none)
                     blended_datasets.append(
-                        self._build_generic_dataset(
+                        _build_generic_dataset(
                             BlendedDataset,
+                            node_uses_local_storage=node_uses_local_storage,
+                            is_built_on_rank=self.is_built_on_rank,
                             datasets=megatron_datasets[i],
                             weights=weight_per_dataset,
                             size=size_per_split[i],
@@ -119,8 +121,10 @@ class BlendedMegatronDatasetBuilder:
                     size_per_split = list(map(sum, zip(*sizes_per_dataset)))
 
                     blended_datasets.append(
-                        self._build_generic_dataset(
+                        _build_generic_dataset(
                             BlendedDataset,
+                            node_uses_local_storage=node_uses_local_storage,
+                            is_built_on_rank=self.is_built_on_rank,
                             datasets=megatron_datasets,
                             weights=weight_per_dataset,
                             size=size_per_split[i],
@@ -146,13 +150,9 @@ class BlendedMegatronDatasetBuilder:
             list[GPTDataset | None]: The GPTDataset (or None) per split
         """
 
-        indexed_dataset = (
-            MMapIndexedDataset(path_prefix, GPTDataset.is_multimodal())
-            if (not torch.distributed.is_initialized() or self.is_built_on_rank)
-            else None
-        )
+        if not torch.distributed.is_initialized() or self.is_built_on_rank:
+            indexed_dataset = MMapIndexedDataset(path_prefix, GPTDataset.is_multimodal())
 
-        if indexed_dataset is not None:
             if GPTDataset.is_split_by_sequence():
                 split_idx_bounds = _get_split_indices(split, indexed_dataset.sequence_lengths.shape[0])
             else:
@@ -168,6 +168,7 @@ class BlendedMegatronDatasetBuilder:
                 for i, _ in enumerate(Split)
             ]
         else:
+            indexed_dataset = None
             split_indices = [None for _ in Split]
 
         megatron_datasets = []
@@ -175,8 +176,10 @@ class BlendedMegatronDatasetBuilder:
             megatron_datasets.append(
                 None
                 if split[i] == 0.0
-                else self._build_generic_dataset(
+                else _build_generic_dataset(
                     GPTDataset,
+                    node_uses_local_storage=self.node_uses_local_storage,
+                    is_built_on_rank=self.is_built_on_rank,
                     indexed_dataset=indexed_dataset,
                     indexed_indices=split_indices[i],
                     num_samples=sizes[i],
@@ -189,52 +192,42 @@ class BlendedMegatronDatasetBuilder:
 
         return megatron_datasets
 
-    def _build_generic_dataset(
-        self, cls: type[BlendedDataset | GPTDataset | MMapIndexedDataset], **kwargs: Any
-    ) -> BlendedDataset | GPTDataset | MMapIndexedDataset | None:
-        """Build the DistributedDataset
 
-        Return None if and only if the underlying MegatronDataset class is not built on the current
-        rank and torch.distributed is initialized.
+def _build_generic_dataset(
+    cls: type[BlendedDataset | GPTDataset | MMapIndexedDataset],
+    node_uses_local_storage: bool,
+    is_built_on_rank: bool,
+    **kwargs: Any,
+) -> BlendedDataset | GPTDataset | MMapIndexedDataset | None:
+    if torch.distributed.is_initialized():
+        caching_allowed = ProcessGroupManager.get_global_rank() == 0 or (
+            node_uses_local_storage and Accelerator.get_current_device() == 0
+        )
 
-        Args:
-            cls (type[DistributedDataset]): The DistributedDataset class to be built
+        dataset = None
 
-        Raises:
-            Exception: When the dataset constructor raises an OSError
+        # First, build on rank 0
+        if caching_allowed and is_built_on_rank:
+            try:
+                dataset = cls(**kwargs, caching_allowed=True)
+            except OSError as err:
+                log = (
+                    f"Failed to write dataset materials to the data cache directory. "
+                    + f"Please supply a directory to which you have write access via "
+                    + f"the path_to_cache attribute in BlendedMegatronDatasetConfig and "
+                    + f"retry. Refer to the preserved traceback above for more information."
+                )
+                raise Exception(log) from err
 
-        Returns:
-            DistributedDataset | None: The DistributedDataset instantion or None
-        """
-        if torch.distributed.is_initialized():
-            caching_allowed = ProcessGroupManager.get_global_rank() == 0 or (
-                self.node_uses_local_storage and Accelerator.get_current_device() == 0
-            )
+        Communication.barrier()
 
-            dataset = None
+        # After, build on other ranks
+        if not caching_allowed and is_built_on_rank:
+            dataset = cls(**kwargs, caching_allowed=False)
 
-            # First, build on rank 0
-            if caching_allowed and self.is_built_on_rank:
-                try:
-                    dataset = cls(**kwargs, caching_allowed=True)
-                except OSError as err:
-                    log = (
-                        f"Failed to write dataset materials to the data cache directory. "
-                        + f"Please supply a directory to which you have write access via "
-                        + f"the path_to_cache attribute in BlendedMegatronDatasetConfig and "
-                        + f"retry. Refer to the preserved traceback above for more information."
-                    )
-                    raise Exception(log) from err
+        return dataset
 
-            Communication.barrier()
-
-            # After, build on other ranks
-            if not caching_allowed and self.is_built_on_rank:
-                dataset = cls(**kwargs, caching_allowed=False)
-
-            return dataset
-
-        return cls(**kwargs, caching_allowed=True)
+    return cls(**kwargs, caching_allowed=True)
 
 
 def _get_split_indices(split: list[float], num_elements: int) -> list[int]:
