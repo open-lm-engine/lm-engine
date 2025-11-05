@@ -75,9 +75,9 @@ class BlendedDataset(torch.utils.data.Dataset):
         self.dataset_index, self.dataset_sample_index = self._build_indices()
 
         # Check size
-        _ = self[self.size - 1]
+        self[self.size - 1]
         try:
-            _ = self[self.size]
+            self[self.size]
             raise RuntimeError(f"{type(self).__name__} size is improperly bounded")
         except IndexError:
             log_rank_0(logging.INFO, f"> {type(self).__name__} length: {len(self)}")
