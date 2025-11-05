@@ -21,14 +21,12 @@ from .utils import Split, normalize
 class BlendedMegatronDatasetBuilder:
     def build(
         self,
-        cls: type[GPTDataset],
         sizes: list[int],
         config: BlendedMegatronDatasetConfig,
         tokenizer: TOKENIZER_TYPE,
         node_uses_local_storage: bool,
         random_seed: int,
     ) -> list[BlendedDataset | GPTDataset | None]:
-        self.cls = cls
         self.sizes = sizes
         self.config = config
         self.tokenizer = tokenizer
@@ -149,13 +147,13 @@ class BlendedMegatronDatasetBuilder:
         """
 
         indexed_dataset = (
-            MMapIndexedDataset(path_prefix, self.cls.is_multimodal())
+            MMapIndexedDataset(path_prefix, GPTDataset.is_multimodal())
             if (not torch.distributed.is_initialized() or self.is_built_on_rank)
             else None
         )
 
         if indexed_dataset is not None:
-            if self.cls.is_split_by_sequence():
+            if GPTDataset.is_split_by_sequence():
                 split_idx_bounds = _get_split_indices(split, indexed_dataset.sequence_lengths.shape[0])
             else:
                 split_idx_bounds = _get_split_indices(split, indexed_dataset.document_indices.shape[0] - 1)
@@ -179,7 +177,7 @@ class BlendedMegatronDatasetBuilder:
             else:
                 megatron_datasets.append(
                     self._build_generic_dataset(
-                        self.cls,
+                        GPTDataset,
                         indexed_dataset=indexed_dataset,
                         indexed_indices=split_indices[i],
                         num_samples=sizes[i],
