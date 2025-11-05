@@ -261,9 +261,7 @@ class GPTDataset(torch.utils.data.Dataset):
         )
 
         num_tokens_per_epoch = np.sum(self.indexed_dataset.sequence_lengths[self.indexed_indices])
-
-        sequence_length = getattr(self.config, "sequence_length")
-
+        sequence_length = self.config.sequence_length
         num_epochs = _get_num_epochs(num_tokens_per_epoch, sequence_length, self.num_samples)
 
         log_rank_0(logging.INFO, f"> Tokens per epoch: {num_tokens_per_epoch}")
