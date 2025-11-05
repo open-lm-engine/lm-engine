@@ -42,7 +42,16 @@ class BlendedMegatronDatasetBuilder:
 
             # Blend consists of a single prefix
             if len(blend) == 1:
-                return self._build_megatron_dataset_splits(blend[0], split, self.sizes)
+                return _build_megatron_dataset_splits(
+                    blend[0],
+                    split,
+                    self.sizes,
+                    node_uses_local_storage=node_uses_local_storage,
+                    is_built_on_rank=self.is_built_on_rank,
+                    config=config,
+                    tokenizer=tokenizer,
+                    random_seed=random_seed,
+                )
 
             # Blend consists of multiple weights and prefixes
             (
@@ -54,8 +63,15 @@ class BlendedMegatronDatasetBuilder:
             megatron_datasets = [[] for _ in range(len(Split))]
 
             for i in range(len(prefix_per_dataset)):
-                megatron_datasets_split = self._build_megatron_dataset_splits(
-                    prefix_per_dataset[i], split, sizes_per_dataset[i]
+                megatron_datasets_split = _build_megatron_dataset_splits(
+                    prefix_per_dataset[i],
+                    split,
+                    sizes_per_dataset[i],
+                    node_uses_local_storage=node_uses_local_storage,
+                    is_built_on_rank=self.is_built_on_rank,
+                    config=config,
+                    tokenizer=tokenizer,
+                    random_seed=random_seed,
                 )
                 for j in range(len(megatron_datasets_split)):
                     megatron_datasets[j].append(megatron_datasets_split[j])
@@ -98,7 +114,18 @@ class BlendedMegatronDatasetBuilder:
 
                 # Blend consists of a sigle prefix
                 if len(blend) == 1:
-                    blended_datasets.append(self._build_megatron_dataset_splits(blend[0], split_spoof, sizes_spoof)[i])
+                    blended_datasets.append(
+                        _build_megatron_dataset_splits(
+                            blend[0],
+                            split_spoof,
+                            sizes_spoof,
+                            node_uses_local_storage=node_uses_local_storage,
+                            is_built_on_rank=self.is_built_on_rank,
+                            config=config,
+                            tokenizer=tokenizer,
+                            random_seed=random_seed,
+                        )[i]
+                    )
 
                 # Blend consists of multiple weights and prefixes
                 else:
@@ -111,10 +138,15 @@ class BlendedMegatronDatasetBuilder:
                     megatron_datasets = []
                     for j in range(len(prefix_per_dataset)):
                         megatron_datasets.append(
-                            self._build_megatron_dataset_splits(
+                            _build_megatron_dataset_splits(
                                 prefix_per_dataset[j],
                                 split_spoof,
                                 sizes_per_dataset[j],
+                                node_uses_local_storage=node_uses_local_storage,
+                                is_built_on_rank=self.is_built_on_rank,
+                                config=config,
+                                tokenizer=tokenizer,
+                                random_seed=random_seed,
                             )[i]
                         )
 
@@ -134,63 +166,71 @@ class BlendedMegatronDatasetBuilder:
 
         return blended_datasets
 
-    def _build_megatron_dataset_splits(
-        self, path_prefix: str, split: list[float], sizes: list[int]
-    ) -> list[GPTDataset | None]:
-        """Build each MegatronDataset split from a single MMapIndexedDataset
 
-        Args:
-            path_prefix (str): The MMapIndexedDataset .bin and .idx file prefix
+def _build_megatron_dataset_splits(
+    path_prefix: str,
+    split: list[float],
+    sizes: list[int],
+    node_uses_local_storage: bool,
+    is_built_on_rank: bool,
+    config: BlendedMegatronDatasetConfig,
+    tokenizer: TOKENIZER_TYPE,
+    random_seed: int,
+) -> list[GPTDataset | None]:
+    """Build each MegatronDataset split from a single MMapIndexedDataset
 
-            split (list[float]): The dataset split ratios (must sum to 1.00)
+    Args:
+        path_prefix (str): The MMapIndexedDataset .bin and .idx file prefix
 
-            sizes (list[int]): The number of total samples to draw from each split
+        split (list[float]): The dataset split ratios (must sum to 1.00)
 
-        Returns:
-            list[GPTDataset | None]: The GPTDataset (or None) per split
-        """
+        sizes (list[int]): The number of total samples to draw from each split
 
-        if not torch.distributed.is_initialized() or self.is_built_on_rank:
-            indexed_dataset = MMapIndexedDataset(path_prefix, GPTDataset.is_multimodal())
+    Returns:
+        list[GPTDataset | None]: The GPTDataset (or None) per split
+    """
 
-            if GPTDataset.is_split_by_sequence():
-                split_idx_bounds = _get_split_indices(split, indexed_dataset.sequence_lengths.shape[0])
-            else:
-                split_idx_bounds = _get_split_indices(split, indexed_dataset.document_indices.shape[0] - 1)
+    if not torch.distributed.is_initialized() or self.is_built_on_rank:
+        indexed_dataset = MMapIndexedDataset(path_prefix, GPTDataset.is_multimodal())
 
-            split_indices = [
-                np.arange(
-                    start=split_idx_bounds[i],
-                    stop=split_idx_bounds[i + 1],
-                    step=1,
-                    dtype=_get_appropriate_dtype_for_range(split_idx_bounds),
-                )
-                for i, _ in enumerate(Split)
-            ]
+        if GPTDataset.is_split_by_sequence():
+            split_idx_bounds = _get_split_indices(split, indexed_dataset.sequence_lengths.shape[0])
         else:
-            indexed_dataset = None
-            split_indices = [None for _ in Split]
+            split_idx_bounds = _get_split_indices(split, indexed_dataset.document_indices.shape[0] - 1)
 
-        megatron_datasets = []
-        for i, _split in enumerate(Split):
-            megatron_datasets.append(
-                None
-                if split[i] == 0.0
-                else _build_generic_dataset(
-                    GPTDataset,
-                    node_uses_local_storage=self.node_uses_local_storage,
-                    is_built_on_rank=self.is_built_on_rank,
-                    indexed_dataset=indexed_dataset,
-                    indexed_indices=split_indices[i],
-                    num_samples=sizes[i],
-                    index_split=_split,
-                    tokenizer=self.tokenizer,
-                    config=self.config,
-                    random_seed=self.random_seed,
-                )
+        split_indices = [
+            np.arange(
+                start=split_idx_bounds[i],
+                stop=split_idx_bounds[i + 1],
+                step=1,
+                dtype=_get_appropriate_dtype_for_range(split_idx_bounds),
             )
+            for i, _ in enumerate(Split)
+        ]
+    else:
+        indexed_dataset = None
+        split_indices = [None for _ in Split]
 
-        return megatron_datasets
+    megatron_datasets = []
+    for i, _split in enumerate(Split):
+        megatron_datasets.append(
+            None
+            if split[i] == 0.0
+            else _build_generic_dataset(
+                GPTDataset,
+                node_uses_local_storage=node_uses_local_storage,
+                is_built_on_rank=is_built_on_rank,
+                indexed_dataset=indexed_dataset,
+                indexed_indices=split_indices[i],
+                num_samples=sizes[i],
+                index_split=_split,
+                tokenizer=tokenizer,
+                config=config,
+                random_seed=random_seed,
+            )
+        )
+
+    return megatron_datasets
 
 
 def _build_generic_dataset(
