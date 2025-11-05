@@ -42,7 +42,6 @@ def get_megatron_gpt_dataloaders(
             class_args.get("eval_steps"),
         ),
         config=GPTDatasetConfig(
-            random_seed=class_args.get("seed", args.random_args.seed),
             sequence_length=class_args.get("sequence_length"),
             blend=class_args.get("data_path"),
             blend_per_split=[
@@ -52,12 +51,12 @@ def get_megatron_gpt_dataloaders(
             ],
             split=class_args.get("split"),
             path_to_cache=class_args.get("data_cache_path"),
-            return_document_ids=False,
             fim_rate=class_args.get("fim_rate", 0),
             fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
         ),
         tokenizer=tokenizer,
         node_uses_local_storage=class_args.get("node_uses_local_storage", False),
+        random_seed=class_args.get("seed", args.random_args.seed),
     )
 
     # Option 1: data loading using --data-path with single file
@@ -76,18 +75,19 @@ def get_megatron_gpt_dataloaders(
         if dataset is None:
             return None
 
-        batch_sampler = MegatronBatchSampler(
-            total_samples=len(dataset),
-            consumed_samples=consumed_samples,
-            micro_batch_size=(
-                micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
-            ),
-            num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
-            rank=ProcessGroupManager.get_data_parallel_rank(),
-        )
-
         dataloader = ResumableDataLoader(
-            dataset, batch_sampler=batch_sampler, num_workers=class_args.get("num_workers", 2), pin_memory=True
+            dataset,
+            batch_sampler=MegatronBatchSampler(
+                total_samples=len(dataset),
+                consumed_samples=consumed_samples,
+                micro_batch_size=(
+                    micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
+                ),
+                num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
+                rank=ProcessGroupManager.get_data_parallel_rank(),
+            ),
+            num_workers=class_args.get("num_workers", 2),
+            pin_memory=True,
         )
 
         return iter(dataloader)

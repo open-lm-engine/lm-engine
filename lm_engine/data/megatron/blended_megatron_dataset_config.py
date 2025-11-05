@@ -36,7 +36,6 @@ class BlendedMegatronDatasetConfig:
         path_to_cache (str): Where all re-useable dataset indices are to be cached.
     """
 
-    random_seed: int
     sequence_length: int
     name: str | None = None
     blend: list[str] | None = None
@@ -67,12 +66,10 @@ class GPTDatasetConfig(BlendedMegatronDatasetConfig):
     """Configuration object for megatron-core blended and megatron GPT datasets
 
     Attributes:
-        return_document_ids (bool): Whether to return the document ids when querying the dataset.
         fim_rate (float): Fill-in-the-middle objective percentage
         fim_spm_rate (float): Probability that the a FIM sample uses the SPM format over the PSM format.
     """
 
-    return_document_ids: bool = False
     fim_rate: float = 0
     fim_spm_rate: float = 0
 

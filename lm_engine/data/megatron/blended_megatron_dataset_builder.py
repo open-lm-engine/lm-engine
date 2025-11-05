@@ -35,6 +35,7 @@ class BlendedMegatronDatasetBuilder:
         config: BlendedMegatronDatasetConfig,
         tokenizer: TOKENIZER_TYPE,
         node_uses_local_storage: bool,
+        random_seed: int,
     ) -> BlendedMegatronDatasetBuilder:
         self.cls = cls
         self.sizes = sizes
@@ -42,6 +43,7 @@ class BlendedMegatronDatasetBuilder:
         self.tokenizer = tokenizer
         self.node_uses_local_storage = node_uses_local_storage
         self.is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
+        self.random_seed = random_seed
 
     def build(self) -> list[BlendedDataset | GPTDataset | None]:
         """Build all dataset splits according to the provided blend(s)
@@ -240,7 +242,7 @@ class BlendedMegatronDatasetBuilder:
             # First, build on rank 0
             if caching_allowed and self.is_built_on_rank:
                 try:
-                    dataset = cls(**kwargs, caching_allowed=True)
+                    dataset = cls(**kwargs, caching_allowed=True, random_seed=self.random_seed)
                 except OSError as err:
                     log = (
                         f"Failed to write dataset materials to the data cache directory. "
@@ -254,7 +256,7 @@ class BlendedMegatronDatasetBuilder:
 
             # After, build on other ranks
             if not caching_allowed and self.is_built_on_rank:
-                dataset = cls(**kwargs, caching_allowed=False)
+                dataset = cls(**kwargs, caching_allowed=False, random_seed=self.random_seed)
 
             return dataset
 
