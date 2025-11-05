@@ -245,7 +245,6 @@ class _IndexReader:
             log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
         assert self.sequence_lengths.shape[0] == len(self)
-        assert self.sequence_lengths.shape[0] == self.sequence_count
         assert self.sequence_lengths.shape[0] == self.document_indices[-1]
 
         log_rank_0(logging.INFO, f"> total number of sequences: {len(self)}")
@@ -516,7 +515,7 @@ class MMapIndexedDatasetBuilder:
         np_array = np.array(tensor, dtype=self.dtype)
         self.data_file.write(np_array.tobytes(order="C"))
         self.sequence_lengths.extend(lengths)
-        self.document_indices.append(len(self.sequence_lengths))
+        self.end_document()
         if self.multimodal:
             self.sequence_modes.extend(modes if modes is not None else [0] * lengths)
 
