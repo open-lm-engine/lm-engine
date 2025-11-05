@@ -42,7 +42,6 @@ def get_megatron_gpt_dataloaders(
             class_args.get("eval_steps"),
         ),
         config=GPTDatasetConfig(
-            random_seed=class_args.get("seed", args.random_args.seed),
             sequence_length=class_args.get("sequence_length"),
             blend=class_args.get("data_path"),
             blend_per_split=[
@@ -58,6 +57,7 @@ def get_megatron_gpt_dataloaders(
         ),
         tokenizer=tokenizer,
         node_uses_local_storage=class_args.get("node_uses_local_storage", False),
+        random_seed=class_args.get("seed", args.random_args.seed),
     )
 
     # Option 1: data loading using --data-path with single file

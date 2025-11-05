@@ -35,6 +35,7 @@ class GPTDataset(torch.utils.data.Dataset):
         tokenizer: TOKENIZER_TYPE,
         config: GPTDatasetConfig,
         caching_allowed: bool,
+        random_seed: int,
     ) -> GPTDataset:
         assert indexed_indices.size > 0
         assert num_samples > 0
@@ -46,12 +47,13 @@ class GPTDataset(torch.utils.data.Dataset):
         self.num_samples = num_samples
         self.index_split = index_split
         self.config = config
+        self.random_seed = random_seed
 
         self.caching_allowed = caching_allowed
         self.tokenizer = tokenizer
         self.fim_rate = config.fim_rate
         self.fim_spm_rate = config.fim_spm_rate
-        self.np_rng = np.random.RandomState(seed=config.random_seed)  # rng state for FIM
+        self.np_rng = np.random.RandomState(self.random_seed)  # rng state for FIM
 
         self.unique_identifiers = OrderedDict()
         self.unique_identifiers["class"] = type(self).__name__
@@ -299,7 +301,7 @@ class GPTDataset(torch.utils.data.Dataset):
 
             log_rank_0(logging.DEBUG, f"> separate_final_epoch: {separate_final_epoch}")
 
-            numpy_random_state = np.random.RandomState(self.config.random_seed)
+            numpy_random_state = np.random.RandomState(self.random_seed)
 
             os.makedirs(path_to_cache, exist_ok=True)
 

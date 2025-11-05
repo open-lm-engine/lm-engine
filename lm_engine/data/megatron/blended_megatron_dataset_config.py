@@ -36,7 +36,6 @@ class BlendedMegatronDatasetConfig:
         path_to_cache (str): Where all re-useable dataset indices are to be cached.
     """
 
-    random_seed: int
     sequence_length: int
     name: str | None = None
     blend: list[str] | None = None

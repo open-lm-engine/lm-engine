@@ -35,6 +35,7 @@ class BlendedMegatronDatasetBuilder:
         config: BlendedMegatronDatasetConfig,
         tokenizer: TOKENIZER_TYPE,
         node_uses_local_storage: bool,
+        random_seed: int,
     ) -> BlendedMegatronDatasetBuilder:
         self.cls = cls
         self.sizes = sizes
@@ -42,6 +43,7 @@ class BlendedMegatronDatasetBuilder:
         self.tokenizer = tokenizer
         self.node_uses_local_storage = node_uses_local_storage
         self.is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
+        self.random_seed = random_seed
 
     def build(self) -> list[BlendedDataset | GPTDataset | None]:
         """Build all dataset splits according to the provided blend(s)
