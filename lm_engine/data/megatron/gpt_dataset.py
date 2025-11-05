@@ -78,11 +78,7 @@ class GPTDataset(torch.utils.data.Dataset):
             self.eos_token_id = self.tokenizer.eos_token_id
             assert self.eos_token_id is not None
 
-        (
-            self.document_index,
-            self.sample_index,
-            self.shuffle_index,
-        ) = self._build_document_sample_shuffle_indices()
+        self.document_index, self.sample_index, self.shuffle_index = self._build_document_sample_shuffle_indices()
 
     def __len__(self) -> int:
         return self.sample_index.shape[0] - 1
