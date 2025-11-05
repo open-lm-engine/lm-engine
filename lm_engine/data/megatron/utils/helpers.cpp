@@ -18,11 +18,14 @@ void build_blending_indices(py::array_t<int16_t> &dataset_index,
                             py::array_t<int64_t> &dataset_sample_index,
                             const py::array_t<double> &weights,
                             const int32_t num_datasets,
-                            const int64_t size) {
+                            const int64_t size,
+                            const bool verbose) {
     /* Given multiple datasets and a weighting array, build samples
      such that it follows those wieghts.*/
 
-    std::cout << "> building indices for blended datasets ..." << std::endl;
+    if (verbose) {
+        std::cout << "> building indices for blended datasets ..." << std::endl;
+    }
 
     // Get the pointer access without the checks.
     auto dataset_index_ptr = dataset_index.mutable_unchecked<1>();
@@ -58,11 +61,14 @@ void build_blending_indices(py::array_t<int16_t> &dataset_index,
         current_samples[max_error_index] += 1;
     }
 
-    std::cout << " > sample ratios:" << std::endl;
-    for (int64_t dataset_idx = 0; dataset_idx < num_datasets; ++dataset_idx) {
-        auto ratio = static_cast<double>(current_samples[dataset_idx]) / static_cast<double>(size);
-        std::cout << "   dataset " << dataset_idx << ", input: " << weights_ptr[dataset_idx] << ", achieved: " << ratio
-                  << std::endl;
+    // print info
+    if (verbose) {
+        std::cout << " > sample ratios:" << std::endl;
+        for (int64_t dataset_idx = 0; dataset_idx < num_datasets; ++dataset_idx) {
+            auto ratio = static_cast<double>(current_samples[dataset_idx]) / static_cast<double>(size);
+            std::cout << "   dataset " << dataset_idx << ", input: " << weights_ptr[dataset_idx]
+                      << ", achieved: " << ratio << std::endl;
+        }
     }
 }
 
