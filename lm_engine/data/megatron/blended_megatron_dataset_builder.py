@@ -29,8 +29,8 @@ def build(
 
     blended_datasets = []
 
-    if getattr(config, "blend"):
-        blend = getattr(config, "blend")
+    if config.blend is not None:
+        blend = config.blend
         split = getattr(config, "split_vector")
 
         # Blend consists of a single prefix

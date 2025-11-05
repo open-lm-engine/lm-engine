@@ -241,17 +241,17 @@ class GPTDataset(torch.utils.data.Dataset):
         TODO: Explain the 80% threshold
         """
 
-        path_to_cache = getattr(self.config, "path_to_cache")
+        path_to_cache = self.config.path_to_cache
         if path_to_cache is None:
             path_to_cache = os.path.join(self.indexed_dataset.path_prefix, "cache", f"{type(self).__name__}_indices")
 
-        get_path_to = lambda suffix: os.path.join(
-            path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}"
-        )
-        path_to_description = get_path_to("description.txt")
-        path_to_document_index = get_path_to("document_index.npy")
-        path_to_sample_index = get_path_to("sample_index.npy")
-        path_to_shuffle_index = get_path_to("shuffle_index.npy")
+        def _get_path_to(suffix: str) -> str:
+            return os.path.join(path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}")
+
+        path_to_description = _get_path_to("description.txt")
+        path_to_document_index = _get_path_to("document_index.npy")
+        path_to_sample_index = _get_path_to("sample_index.npy")
+        path_to_shuffle_index = _get_path_to("shuffle_index.npy")
         cache_hit = all(
             map(
                 os.path.isfile,
@@ -264,7 +264,7 @@ class GPTDataset(torch.utils.data.Dataset):
             )
         )
 
-        num_tokens_per_epoch = _get_num_tokens_per_epoch(self.indexed_dataset, self.indexed_indices)
+        num_tokens_per_epoch = np.sum(self.indexed_dataset.sequence_lengths[self.indexed_indices])
 
         sequence_length = getattr(self.config, "sequence_length")
 
@@ -377,20 +377,6 @@ class GPTDataset(torch.utils.data.Dataset):
         log_rank_0(logging.INFO, f"> total number of epochs: {num_epochs}")
 
         return document_index, sample_index, shuffle_index
-
-
-def _get_num_tokens_per_epoch(indexed_dataset: MMapIndexedDataset, indices: np.ndarray) -> int:
-    """Calculate the number of tokens in a single epoch
-
-    Args:
-        indexed_dataset (MMapIndexedDataset): The underlying MMapIndexedDataset
-
-        indices (np.ndarray): The subset of indices into the underlying MMapIndexedDataset
-
-    Returns:
-        int: The number of tokens in a single epoch
-    """
-    return np.sum(indexed_dataset.sequence_lengths[indices])
 
 
 def _get_num_epochs(num_tokens_per_epoch: int, seq_length: int, num_samples: int) -> int:

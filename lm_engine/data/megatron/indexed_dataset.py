@@ -28,8 +28,6 @@ _INDEX_HEADER = b"MMIDIDX\x00\x00"
 
 
 class DType(Enum):
-    """The NumPy data type Enum for writing/reading the MMapIndexedDataset indices"""
-
     uint8 = 1
     int8 = 2
     int16 = 3
@@ -41,41 +39,14 @@ class DType(Enum):
 
     @classmethod
     def code_from_dtype(cls, value: type[np.number]) -> int:
-        """Get the code from the dtype
-
-        Args:
-            value (type[np.number]): The dtype
-
-        Returns:
-            int: The code
-        """
         return cls[value.__name__].value
 
     @classmethod
     def dtype_from_code(cls, value: int) -> type[np.number]:
-        """Get the dtype from the code
-
-        Args:
-            value (int): The code
-
-        Returns:
-            type[np.number]: The dtype
-        """
         return getattr(numpy, cls(value).name)
 
     @staticmethod
     def size(key: int | type[np.number]) -> int:
-        """Get the size of the dtype/code in bytes
-
-        Args:
-            key (int | type[np.number]): The dtype or code
-
-        Raises:
-            ValueError: If the key is neither dtype nor integer code
-
-        Returns:
-            int: The size of the dtype/code in in bytes
-        """
         if isinstance(key, int):
             return DType.dtype_from_code(key)().itemsize
         elif np.number in key.__mro__:
@@ -85,14 +56,6 @@ class DType(Enum):
 
     @staticmethod
     def optimal_dtype(cardinality: int | None) -> type[np.number]:
-        """Get the dtype to use for an index of a certain cardinality
-
-        Args:
-            cardinality (int | None): The number of elements to be indexed
-
-        Returns:
-            type[np.number]: The dtype to use for the index
-        """
         if cardinality is not None and cardinality < 65500:
             return np.uint16
         else:
@@ -282,7 +245,6 @@ class _IndexReader:
             log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
         assert self.sequence_lengths.shape[0] == len(self)
-        assert self.sequence_lengths.shape[0] == self.sequence_count
         assert self.sequence_lengths.shape[0] == self.document_indices[-1]
 
         log_rank_0(logging.INFO, f"> total number of sequences: {len(self)}")
@@ -465,26 +427,6 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         """
         return self.index.document_indices
 
-    def get_document_indices(self) -> np.ndarray:
-        """Get the document indices
-
-        This method is slated for deprecation.
-
-        Returns:
-            np.ndarray: The document indices
-        """
-        return self.index.document_indices
-
-    def set_document_indices(self, document_indices: np.ndarray) -> None:
-        """Set the document indices
-
-        This method is slated for deprecation.
-
-        Args:
-            document_indices (np.ndarray): The document indices
-        """
-        self.index.document_indices = document_indices
-
     @property
     def sequence_modes(self) -> np.ndarray:
         """Get the sequence modes
@@ -553,7 +495,7 @@ class MMapIndexedDatasetBuilder:
         np_array = np.array(tensor, dtype=self.dtype)
         self.data_file.write(np_array.tobytes(order="C"))
         self.sequence_lengths.extend(lengths)
-        self.document_indices.append(len(self.sequence_lengths))
+        self.end_document()
         if self.multimodal:
             self.sequence_modes.extend(modes if modes is not None else [0] * lengths)
 
@@ -594,24 +536,8 @@ class MMapIndexedDatasetBuilder:
 
 
 def get_idx_path(path_prefix: str) -> str:
-    """Get the path to the index file from the prefix
-
-    Args:
-        path_prefix (str): The prefix
-
-    Returns:
-        str: The path to the index file
-    """
-    return path_prefix + ".idx"
+    return f"{path_prefix}.idx"
 
 
 def get_bin_path(path_prefix: str) -> str:
-    """Get the path to the data file from the prefix
-
-    Args:
-        path_prefix (str): The prefix
-
-    Returns:
-        str: The path to the data file
-    """
-    return path_prefix + ".bin"
+    return f"{path_prefix}.bin"
