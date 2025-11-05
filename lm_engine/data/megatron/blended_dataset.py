@@ -18,9 +18,6 @@ from .gpt_dataset import GPTDataset
 from .utils import build_blending_indices, normalize
 
 
-_VERBOSE = False
-
-
 class BlendedDataset(torch.utils.data.Dataset):
     """Conjugating class for a set of MegatronDataset instances
 
@@ -88,10 +85,7 @@ class BlendedDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx: int) -> dict[str, int | np.ndarray]:
         dataset_id = self.dataset_index[idx]
         dataset_sample_id = self.dataset_sample_index[idx]
-        return {
-            "dataset_id": dataset_id,
-            **self.datasets[dataset_id][dataset_sample_id],
-        }
+        return {"dataset_id": dataset_id, **self.datasets[dataset_id][dataset_sample_id]}
 
     def _build_indices(self) -> tuple[np.ndarray, np.ndarray]:
         """Build and optionally cache the dataset index and the dataset sample index
@@ -104,7 +98,7 @@ class BlendedDataset(torch.utils.data.Dataset):
             tuple[np.ndarray, np.ndarray]: The dataset index and the dataset sample index
         """
 
-        path_to_cache = getattr(self.config, "path_to_cache")
+        path_to_cache = self.config.path_to_cache
 
         if path_to_cache:
 
@@ -114,6 +108,7 @@ class BlendedDataset(torch.utils.data.Dataset):
             path_to_description = _get_path_to("description.txt")
             path_to_dataset_index = _get_path_to("dataset_index.npy")
             path_to_dataset_sample_index = _get_path_to("dataset_sample_index.npy")
+
             cache_hit = all(
                 map(
                     os.path.isfile,
@@ -132,9 +127,7 @@ class BlendedDataset(torch.utils.data.Dataset):
 
             dataset_index = np.zeros(self.size, dtype=np.int16)
             dataset_sample_index = np.zeros(self.size, dtype=np.int64)
-            build_blending_indices(
-                dataset_index, dataset_sample_index, self.weights, len(self.datasets), self.size, _VERBOSE
-            )
+            build_blending_indices(dataset_index, dataset_sample_index, self.weights, len(self.datasets), self.size)
 
             if path_to_cache:
                 os.makedirs(path_to_cache, exist_ok=True)
