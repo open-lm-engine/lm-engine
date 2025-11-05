@@ -60,8 +60,10 @@ class GPTDataset(torch.utils.data.Dataset):
         self.unique_identifiers["path_prefix"] = self.indexed_dataset.path_prefix
         self.unique_identifiers["num_samples"] = self.num_samples
         self.unique_identifiers["index_split"] = self.index_split.name
-        for attr in ["name", "split", "random_seed", "sequence_length"]:
-            self.unique_identifiers[attr] = getattr(self.config, attr)
+        self.unique_identifiers["name"] = self.config.name
+        self.unique_identifiers["split"] = self.config.split
+        self.unique_identifiers["random_seed"] = self.random_seed
+        self.unique_identifiers["sequence_length"] = self.config.sequence_length
 
         self.unique_description = json.dumps(self.unique_identifiers, indent=4)
         self.unique_description_hash = hashlib.md5(self.unique_description.encode("utf-8")).hexdigest()
