@@ -19,7 +19,6 @@ from .utils import Split, normalize
 
 
 def build(
-    self,
     sizes: list[int],
     config: BlendedMegatronDatasetConfig,
     tokenizer: TOKENIZER_TYPE,
@@ -30,9 +29,9 @@ def build(
 
     blended_datasets = []
 
-    if getattr(self.config, "blend"):
-        blend = getattr(self.config, "blend")
-        split = getattr(self.config, "split_vector")
+    if getattr(config, "blend"):
+        blend = getattr(config, "blend")
+        split = getattr(config, "split_vector")
 
         # Blend consists of a single prefix
         if len(blend) == 1:
@@ -52,7 +51,7 @@ def build(
             prefix_per_dataset,
             weight_per_dataset,
             sizes_per_dataset,
-        ) = _get_prefixes_weights_and_sizes_for_blend(blend, self.sizes)
+        ) = _get_prefixes_weights_and_sizes_for_blend(blend, sizes)
 
         megatron_datasets = [[] for _ in range(len(Split))]
 
@@ -94,7 +93,7 @@ def build(
                 )
     else:
         for i in range(len(Split)):
-            blend = getattr(self.config, "blend_per_split")[i]
+            blend = getattr(config, "blend_per_split")[i]
 
             # Blend is not provided
             if not blend:
@@ -104,7 +103,7 @@ def build(
             split_spoof = [0.0] * len(Split)
             split_spoof[i] = 1.0
             sizes_spoof = [0] * len(Split)
-            sizes_spoof[i] = self.sizes[i]
+            sizes_spoof[i] = sizes[i]
 
             # Blend consists of a sigle prefix
             if len(blend) == 1:
