@@ -304,8 +304,8 @@ def _get_prefixes_weights_and_sizes_for_blend(
         ["path/to/dataset_1_prefix", "path/to/dataset_2_prefix"], the normalized weights e.g.
         [0.3, 0.7], and the number of samples to request per MegatronDataset per split
     """
-    weights, prefixes = zip(*[(float(blend[i]), blend[i + 1].strip()) for i in range(0, len(blend), 2)])
 
+    weights, prefixes = zip(*[(float(blend[i]), blend[i + 1].strip()) for i in range(0, len(blend), 2)])
     weights = normalize(weights)
 
     # Use 0.5% target margin to ensure we satiate the network
