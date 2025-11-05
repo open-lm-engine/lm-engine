@@ -89,7 +89,7 @@ class GPTDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
         text, document_ids = self._query_document_sample_shuffle_indices(idx)
-        return {"text": text, "document_ids": document_ids}
+        return {"text": text}
 
     @staticmethod
     def is_multimodal() -> bool:
