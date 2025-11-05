@@ -147,7 +147,7 @@ class Attention(nn.Module):
     ) -> torch.Tensor:
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-        accelerator = Accelerator.get_accelerator_from_tensor(hidden_states)
+        accelerator = Accelerator.get_accelerator()
 
         if self.use_padding_free_transformer:
             assert use_flash_attention_2 or use_flash_attention_3

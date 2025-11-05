@@ -29,7 +29,7 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
     # tensor = tensor.cpu()
     # gloo op doesn't support averaging so we do sum and divide by world size above
 
-    accelerator = Accelerator.get_accelerator_from_tensor(tensor)
+    accelerator = Accelerator.get_accelerator()
 
     if accelerator in [Accelerator.cuda, Accelerator.cpu]:
         torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
