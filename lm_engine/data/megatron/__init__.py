@@ -51,7 +51,6 @@ def get_megatron_gpt_dataloaders(
             ],
             split=class_args.get("split"),
             path_to_cache=class_args.get("data_cache_path"),
-            return_document_ids=False,
             fim_rate=class_args.get("fim_rate", 0),
             fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
         ),
