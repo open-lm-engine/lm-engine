@@ -557,8 +557,8 @@ class MMapIndexedDatasetBuilder:
 
 
 def get_idx_path(path_prefix: str) -> str:
-    return path_prefix + ".idx"
+    return f"{path_prefix}.idx"
 
 
 def get_bin_path(path_prefix: str) -> str:
-    return path_prefix + ".bin"
+    return f"{path_prefix}.bin"
