@@ -75,9 +75,9 @@ class BlendedDataset(torch.utils.data.Dataset):
         self.dataset_index, self.dataset_sample_index = self._build_indices()
 
         # Check size
-        _ = self[self.size - 1]
+        self[self.size - 1]
         try:
-            _ = self[self.size]
+            self[self.size]
             raise RuntimeError(f"{type(self).__name__} size is improperly bounded")
         except IndexError:
             log_rank_0(logging.INFO, f"> {type(self).__name__} length: {len(self)}")
@@ -88,10 +88,7 @@ class BlendedDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx: int) -> dict[str, int | np.ndarray]:
         dataset_id = self.dataset_index[idx]
         dataset_sample_id = self.dataset_sample_index[idx]
-        return {
-            "dataset_id": dataset_id,
-            **self.datasets[dataset_id][dataset_sample_id],
-        }
+        return {"dataset_id": dataset_id, **self.datasets[dataset_id][dataset_sample_id]}
 
     def _build_indices(self) -> tuple[np.ndarray, np.ndarray]:
         """Build and optionally cache the dataset index and the dataset sample index
@@ -104,7 +101,7 @@ class BlendedDataset(torch.utils.data.Dataset):
             tuple[np.ndarray, np.ndarray]: The dataset index and the dataset sample index
         """
 
-        path_to_cache = getattr(self.config, "path_to_cache")
+        path_to_cache = self.config.path_to_cache
 
         if path_to_cache:
 
@@ -114,6 +111,7 @@ class BlendedDataset(torch.utils.data.Dataset):
             path_to_description = _get_path_to("description.txt")
             path_to_dataset_index = _get_path_to("dataset_index.npy")
             path_to_dataset_sample_index = _get_path_to("dataset_sample_index.npy")
+
             cache_hit = all(
                 map(
                     os.path.isfile,

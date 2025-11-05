@@ -78,11 +78,7 @@ class GPTDataset(torch.utils.data.Dataset):
             self.eos_token_id = self.tokenizer.eos_token_id
             assert self.eos_token_id is not None
 
-        (
-            self.document_index,
-            self.sample_index,
-            self.shuffle_index,
-        ) = self._build_document_sample_shuffle_indices()
+        self.document_index, self.sample_index, self.shuffle_index = self._build_document_sample_shuffle_indices()
 
     def __len__(self) -> int:
         return self.sample_index.shape[0] - 1
@@ -265,9 +261,7 @@ class GPTDataset(torch.utils.data.Dataset):
         )
 
         num_tokens_per_epoch = np.sum(self.indexed_dataset.sequence_lengths[self.indexed_indices])
-
-        sequence_length = getattr(self.config, "sequence_length")
-
+        sequence_length = self.config.sequence_length
         num_epochs = _get_num_epochs(num_tokens_per_epoch, sequence_length, self.num_samples)
 
         log_rank_0(logging.INFO, f"> Tokens per epoch: {num_tokens_per_epoch}")
