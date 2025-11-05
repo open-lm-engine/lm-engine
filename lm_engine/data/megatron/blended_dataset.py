@@ -107,12 +107,13 @@ class BlendedDataset(torch.utils.data.Dataset):
         path_to_cache = getattr(self.config, "path_to_cache")
 
         if path_to_cache:
-            get_path_to = lambda suffix: os.path.join(
-                path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}"
-            )
-            path_to_description = get_path_to("description.txt")
-            path_to_dataset_index = get_path_to("dataset_index.npy")
-            path_to_dataset_sample_index = get_path_to("dataset_sample_index.npy")
+
+            def _get_path_to(suffix: str) -> str:
+                return os.path.join(path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}")
+
+            path_to_description = _get_path_to("description.txt")
+            path_to_dataset_index = _get_path_to("dataset_index.npy")
+            path_to_dataset_sample_index = _get_path_to("dataset_sample_index.npy")
             cache_hit = all(
                 map(
                     os.path.isfile,

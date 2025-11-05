@@ -245,13 +245,13 @@ class GPTDataset(torch.utils.data.Dataset):
         if path_to_cache is None:
             path_to_cache = os.path.join(self.indexed_dataset.path_prefix, "cache", f"{type(self).__name__}_indices")
 
-        get_path_to = lambda suffix: os.path.join(
-            path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}"
-        )
-        path_to_description = get_path_to("description.txt")
-        path_to_document_index = get_path_to("document_index.npy")
-        path_to_sample_index = get_path_to("sample_index.npy")
-        path_to_shuffle_index = get_path_to("shuffle_index.npy")
+        def _get_path_to(suffix: str) -> str:
+            return os.path.join(path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}")
+
+        path_to_description = _get_path_to("description.txt")
+        path_to_document_index = _get_path_to("document_index.npy")
+        path_to_sample_index = _get_path_to("sample_index.npy")
+        path_to_shuffle_index = _get_path_to("shuffle_index.npy")
         cache_hit = all(
             map(
                 os.path.isfile,
