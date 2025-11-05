@@ -32,12 +32,10 @@ def get_megatron_gpt_dataloaders(
 
     log_rank_0(logging.INFO, "> building train, validation, and test datasets for GPT ...")
 
-    gpt_dataset_builder = BlendedMegatronDatasetBuilder()
-
     # Option 1: data loading using --data-path with single file
     # Option 2: data loading using --data-path with multiple weighted files
     # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
-    train_ds, val_ds, test_ds = gpt_dataset_builder.build(
+    train_ds, val_ds, test_ds = BlendedMegatronDatasetBuilder().build(
         GPTDataset,
         sizes=_get_train_val_test_samples(
             args.training_parameters.num_training_steps,
