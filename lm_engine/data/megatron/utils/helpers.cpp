@@ -90,8 +90,8 @@ py::array build_sample_idx(const py::array_t<int32_t> &sizes_,
     assert(tokens_per_epoch > 1);
 
     // Remove bound checks.
-    auto sizes = sizes_.unchecked<1>();
-    auto doc_idx = doc_idx_.unchecked<1>();
+    auto sizes = sizes_.template unchecked<1>();
+    auto doc_idx = doc_idx_.template unchecked<1>();
 
     // Mapping and it's length (1D).
     int64_t num_samples = (num_epochs * tokens_per_epoch - 1) / seq_length;
