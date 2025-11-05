@@ -47,11 +47,9 @@ def build(
             )
 
         # Blend consists of multiple weights and prefixes
-        (
-            prefix_per_dataset,
-            weight_per_dataset,
-            sizes_per_dataset,
-        ) = _get_prefixes_weights_and_sizes_for_blend(blend, sizes)
+        prefix_per_dataset, weight_per_dataset, sizes_per_dataset = _get_prefixes_weights_and_sizes_for_blend(
+            blend, sizes
+        )
 
         megatron_datasets = [[] for _ in range(len(Split))]
 
@@ -122,11 +120,9 @@ def build(
 
             # Blend consists of multiple weights and prefixes
             else:
-                (
-                    prefix_per_dataset,
-                    weight_per_dataset,
-                    sizes_per_dataset,
-                ) = _get_prefixes_weights_and_sizes_for_blend(blend, sizes_spoof)
+                prefix_per_dataset, weight_per_dataset, sizes_per_dataset = _get_prefixes_weights_and_sizes_for_blend(
+                    blend, sizes_spoof
+                )
 
                 megatron_datasets = []
                 for j in range(len(prefix_per_dataset)):
