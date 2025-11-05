@@ -42,10 +42,11 @@ def build_blending_indices(
     weights: list[float],
     num_datasets: int,
     size: int,
+    verbose: bool,
 ) -> None:
     import helpers
 
-    helpers.build_blending_indices(dataset_index, dataset_sample_index, weights, num_datasets, size)
+    helpers.build_blending_indices(dataset_index, dataset_sample_index, weights, num_datasets, size, verbose)
 
 
 def build_sample_idx(
