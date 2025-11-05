@@ -427,26 +427,6 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         """
         return self.index.document_indices
 
-    def get_document_indices(self) -> np.ndarray:
-        """Get the document indices
-
-        This method is slated for deprecation.
-
-        Returns:
-            np.ndarray: The document indices
-        """
-        return self.index.document_indices
-
-    def set_document_indices(self, document_indices: np.ndarray) -> None:
-        """Set the document indices
-
-        This method is slated for deprecation.
-
-        Args:
-            document_indices (np.ndarray): The document indices
-        """
-        self.index.document_indices = document_indices
-
     @property
     def sequence_modes(self) -> np.ndarray:
         """Get the sequence modes
