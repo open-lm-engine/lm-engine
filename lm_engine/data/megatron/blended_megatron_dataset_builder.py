@@ -19,16 +19,7 @@ from .utils import Split, normalize
 
 
 class BlendedMegatronDatasetBuilder:
-    """Builder class for the BlendedDataset and MegatronDataset classes
-
-    Args:
-        cls (Type[MegatronDataset]): The class to instantiate, must inherit from MegatronDataset
-        sizes (List[int]): The minimum number of total samples to draw from each split, varies
-        with blend
-        config (BlendedMegatronDatasetConfig): The config object which informs dataset creation
-    """
-
-    def __init__(
+    def build(
         self,
         cls: type[GPTDataset],
         sizes: list[int],
@@ -36,7 +27,7 @@ class BlendedMegatronDatasetBuilder:
         tokenizer: TOKENIZER_TYPE,
         node_uses_local_storage: bool,
         random_seed: int,
-    ) -> BlendedMegatronDatasetBuilder:
+    ) -> list[BlendedDataset | GPTDataset | None]:
         self.cls = cls
         self.sizes = sizes
         self.config = config
@@ -44,21 +35,6 @@ class BlendedMegatronDatasetBuilder:
         self.node_uses_local_storage = node_uses_local_storage
         self.is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
         self.random_seed = random_seed
-
-    def build(self) -> list[BlendedDataset | GPTDataset | None]:
-        """Build all dataset splits according to the provided blend(s)
-
-        This method is distributed-aware and must be called on all ranks.
-
-        The dataset splits returned can vary according to the config. Supply config.blend and
-        config.split to build BlendedDataset and/or MegatronDataset splits from the same
-        distribution. Supply config.blend_per_split to build BlendedDataset and/or MegatronDataset
-        splits from separate distributions.
-
-        Returns:
-            List[Optional[Union[BlendedDataset, MegatronDataset]]]: A list of either
-            MegatronDataset or BlendedDataset (or None) per split
-        """
 
         blended_datasets = []
 
