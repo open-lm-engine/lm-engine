@@ -5,7 +5,7 @@ from ...defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ...tokenizers import TOKENIZER_TYPE
 from ...utils import ProcessGroupManager, log_rank_0
 from ..dataloader import ResumableDataLoader
-from .blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
+from .blended_megatron_dataset_builder import build
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .gpt_dataset import GPTDataset
 from .sampler import MegatronBatchSampler
@@ -32,8 +32,10 @@ def get_megatron_gpt_dataloaders(
 
     log_rank_0(logging.INFO, "> building train, validation, and test datasets for GPT ...")
 
-    gpt_dataset_builder = BlendedMegatronDatasetBuilder(
-        GPTDataset,
+    # Option 1: data loading using --data-path with single file
+    # Option 2: data loading using --data-path with multiple weighted files
+    # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
+    train_ds, val_ds, test_ds = build(
         sizes=_get_train_val_test_samples(
             args.training_parameters.num_training_steps,
             micro_batch_size,
@@ -58,11 +60,6 @@ def get_megatron_gpt_dataloaders(
         node_uses_local_storage=class_args.get("node_uses_local_storage", False),
         random_seed=class_args.get("seed", args.random_args.seed),
     )
-
-    # Option 1: data loading using --data-path with single file
-    # Option 2: data loading using --data-path with multiple weighted files
-    # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
-    train_ds, val_ds, test_ds = gpt_dataset_builder.build()
 
     if not isinstance(val_ds, list):
         val_ds = [val_ds]
