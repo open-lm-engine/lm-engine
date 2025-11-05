@@ -172,20 +172,20 @@ class BlendedMegatronDatasetBuilder:
 
         megatron_datasets = []
         for i, _split in enumerate(Split):
-            if split[i] == 0.0:
-                megatron_datasets.append(None)
-            else:
-                megatron_datasets.append(
-                    self._build_generic_dataset(
-                        GPTDataset,
-                        indexed_dataset=indexed_dataset,
-                        indexed_indices=split_indices[i],
-                        num_samples=sizes[i],
-                        index_split=_split,
-                        tokenizer=self.tokenizer,
-                        config=self.config,
-                    )
+            megatron_datasets.append(
+                None
+                if split[i] == 0.0
+                else self._build_generic_dataset(
+                    GPTDataset,
+                    indexed_dataset=indexed_dataset,
+                    indexed_indices=split_indices[i],
+                    num_samples=sizes[i],
+                    index_split=_split,
+                    tokenizer=self.tokenizer,
+                    config=self.config,
+                    random_seed=self.random_seed,
                 )
+            )
 
         return megatron_datasets
 
@@ -216,7 +216,7 @@ class BlendedMegatronDatasetBuilder:
             # First, build on rank 0
             if caching_allowed and self.is_built_on_rank:
                 try:
-                    dataset = cls(**kwargs, caching_allowed=True, random_seed=self.random_seed)
+                    dataset = cls(**kwargs, caching_allowed=True)
                 except OSError as err:
                     log = (
                         f"Failed to write dataset materials to the data cache directory. "
@@ -230,7 +230,7 @@ class BlendedMegatronDatasetBuilder:
 
             # After, build on other ranks
             if not caching_allowed and self.is_built_on_rank:
-                dataset = cls(**kwargs, caching_allowed=False, random_seed=self.random_seed)
+                dataset = cls(**kwargs, caching_allowed=False)
 
             return dataset
 

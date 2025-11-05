@@ -44,7 +44,6 @@ class BlendedDataset(torch.utils.data.Dataset):
         size: int,
         config: BlendedMegatronDatasetConfig,
         caching_allowed: bool,
-        random_seed: int,
     ) -> BlendedDataset:
         assert len(datasets) < np.iinfo(np.int16).max
         assert len(datasets) == len(weights)
