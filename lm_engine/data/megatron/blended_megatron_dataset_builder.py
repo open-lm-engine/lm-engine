@@ -51,6 +51,9 @@ def build(
             blend, sizes
         )
 
+        # Sum over all contributing datasets, per split
+        size_per_split = list(map(sum, zip(*sizes_per_dataset)))
+
         megatron_datasets = [[] for _ in range(len(Split))]
 
         for i in range(len(prefix_per_dataset)):
@@ -66,9 +69,6 @@ def build(
             )
             for j in range(len(megatron_datasets_split)):
                 megatron_datasets[j].append(megatron_datasets_split[j])
-
-        # Sum over all contributing datasets, per split
-        size_per_split = list(map(sum, zip(*sizes_per_dataset)))
 
         for i in range(len(megatron_datasets)):
             is_none = map(lambda _: _ is None, megatron_datasets[i])
