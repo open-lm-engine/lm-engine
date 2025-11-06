@@ -124,7 +124,9 @@ def build(
                     blend, sizes_spoof
                 )
 
+                size_per_split = list(map(sum, zip(*sizes_per_dataset)))
                 megatron_datasets = []
+
                 for j in range(len(prefix_per_dataset)):
                     megatron_datasets.append(
                         _build_megatron_dataset_splits(
@@ -138,8 +140,6 @@ def build(
                             random_seed=random_seed,
                         )[i]
                     )
-
-                size_per_split = list(map(sum, zip(*sizes_per_dataset)))
 
                 blended_datasets.append(
                     _build_generic_dataset(
