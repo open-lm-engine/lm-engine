@@ -18,9 +18,6 @@ from .gpt_dataset import GPTDataset
 from .utils import build_blending_indices, normalize
 
 
-_VERBOSE = False
-
-
 class BlendedDataset(torch.utils.data.Dataset):
     """Conjugating class for a set of MegatronDataset instances
 
@@ -130,9 +127,7 @@ class BlendedDataset(torch.utils.data.Dataset):
 
             dataset_index = np.zeros(self.size, dtype=np.int16)
             dataset_sample_index = np.zeros(self.size, dtype=np.int64)
-            build_blending_indices(
-                dataset_index, dataset_sample_index, self.weights, len(self.datasets), self.size, _VERBOSE
-            )
+            build_blending_indices(dataset_index, dataset_sample_index, self.weights, len(self.datasets), self.size)
 
             if path_to_cache:
                 os.makedirs(path_to_cache, exist_ok=True)
