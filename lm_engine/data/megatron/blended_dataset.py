@@ -45,14 +45,11 @@ class BlendedDataset(torch.utils.data.Dataset):
         config: BlendedMegatronDatasetConfig,
         caching_allowed: bool,
     ) -> BlendedDataset:
+        assert len(datasets) > 1
         assert len(datasets) < np.iinfo(np.int16).max
         assert len(datasets) == len(weights)
         assert np.isclose(sum(weights), 1.0)
         assert all(map(lambda _: type(_) == type(datasets[0]), datasets))
-
-        # Alert user to unnecessary blending
-        if len(datasets) == 1:
-            log_rank_0(logging.WARNING, f"Building a BlendedDataset for a single MegatronDataset")
 
         # Redundant normalization for bitwise identical comparison with Megatron-LM
         weights = normalize(weights)
