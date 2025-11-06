@@ -241,12 +241,7 @@ class GPTDataset(torch.utils.data.Dataset):
         cache_hit = all(
             map(
                 os.path.isfile,
-                [
-                    path_to_description,
-                    path_to_document_index,
-                    path_to_sample_index,
-                    path_to_shuffle_index,
-                ],
+                [path_to_description, path_to_document_index, path_to_sample_index, path_to_shuffle_index],
             )
         )
 
