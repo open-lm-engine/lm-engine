@@ -19,10 +19,10 @@ from .indexed_dataset import MMapIndexedDataset
 from .utils import Split, build_sample_idx
 
 
-FIM_PREFIX = "<fim_prefix>"
-FIM_MIDDLE = "<fim_middle>"
-FIM_SUFFIX = "<fim_suffix>"
-FIM_PAD = "<fim_pad>"
+_FIM_PREFIX = "<fim_prefix>"
+_FIM_MIDDLE = "<fim_middle>"
+_FIM_SUFFIX = "<fim_suffix>"
+_FIM_PAD = "<fim_pad>"
 
 
 class GPTDataset(torch.utils.data.Dataset):
@@ -72,7 +72,7 @@ class GPTDataset(torch.utils.data.Dataset):
             assert self.fim_rate <= 1 and self.fim_rate >= 0, "FIM rate must be a probability 0 <= rate <= 1"
 
             self.suffix_tok_id, self.prefix_tok_id, self.middle_tok_id, self.pad_tok_id = (
-                self.tokenizer.convert_tokens_to_ids(tok) for tok in [FIM_SUFFIX, FIM_PREFIX, FIM_MIDDLE, FIM_PAD]
+                self.tokenizer.convert_tokens_to_ids(tok) for tok in [_FIM_SUFFIX, _FIM_PREFIX, _FIM_MIDDLE, _FIM_PAD]
             )
 
             self.eos_token_id = self.tokenizer.eos_token_id
