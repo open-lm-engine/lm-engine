@@ -144,23 +144,19 @@ class BlendedDataset(torch.utils.data.Dataset):
                 np.save(path_to_dataset_sample_index, dataset_sample_index, allow_pickle=True)
             else:
                 log_rank_0(logging.WARNING, "Unable to save the indexes because path_to_cache is None")
+        else:
+            log_rank_0(logging.INFO, f"Load the {type(self).__name__} indices")
 
+            log_rank_0(logging.INFO, f"\tLoad the dataset index from {path_to_dataset_index}")
+            t_beg = time.time()
+            dataset_index = np.load(path_to_dataset_index, allow_pickle=True, mmap_mode="r")
             t_end = time.time()
             log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
-            return dataset_index, dataset_sample_index
+            log_rank_0(logging.INFO, f"\tLoad the dataset sample index from {path_to_dataset_sample_index}")
+            t_beg = time.time()
+            dataset_sample_index = np.load(path_to_dataset_sample_index, allow_pickle=True, mmap_mode="r")
 
-        log_rank_0(logging.INFO, f"Load the {type(self).__name__} indices")
-
-        log_rank_0(logging.INFO, f"\tLoad the dataset index from {path_to_dataset_index}")
-        t_beg = time.time()
-        dataset_index = np.load(path_to_dataset_index, allow_pickle=True, mmap_mode="r")
-        t_end = time.time()
-        log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
-
-        log_rank_0(logging.INFO, f"\tLoad the dataset sample index from {path_to_dataset_sample_index}")
-        t_beg = time.time()
-        dataset_sample_index = np.load(path_to_dataset_sample_index, allow_pickle=True, mmap_mode="r")
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
