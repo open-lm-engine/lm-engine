@@ -84,26 +84,6 @@ class GPTDataset(torch.utils.data.Dataset):
         return self.sample_index.shape[0] - 1
 
     def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
-        text, document_ids = self._query_document_sample_shuffle_indices(idx)
-        return {"text": text}
-
-    @staticmethod
-    def is_multimodal() -> bool:
-        return False
-
-    @staticmethod
-    def is_split_by_sequence() -> bool:
-        return True
-
-    def _query_document_sample_shuffle_indices(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
-        """Get the text (token ids) and document ids for a given index
-
-        Args:
-            idx (int): The index into the dataset
-
-        Returns:
-            tuple[np.ndarray, np.ndarray]: The text ids and document ids
-        """
         # Do the shuffle mapping
         idx = self.shuffle_index[idx]
 
@@ -213,7 +193,17 @@ class GPTDataset(torch.utils.data.Dataset):
 
             assert sample.shape[0] == sample_len
 
-        return sample, np.array(document_ids, dtype=np.int64)
+        document_ids = np.array(document_ids, dtype=np.int64)
+
+        return {"text": sample}
+
+    @staticmethod
+    def is_multimodal() -> bool:
+        return False
+
+    @staticmethod
+    def is_split_by_sequence() -> bool:
+        return True
 
     def _build_document_sample_shuffle_indices(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Build the document index, the sample index, and the shuffle index
