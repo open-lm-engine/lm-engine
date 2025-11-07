@@ -19,10 +19,10 @@ from .indexed_dataset import MMapIndexedDataset
 from .utils import Split, build_sample_idx
 
 
-FIM_PREFIX = "<fim_prefix>"
-FIM_MIDDLE = "<fim_middle>"
-FIM_SUFFIX = "<fim_suffix>"
-FIM_PAD = "<fim_pad>"
+_FIM_PREFIX = "<fim_prefix>"
+_FIM_MIDDLE = "<fim_middle>"
+_FIM_SUFFIX = "<fim_suffix>"
+_FIM_PAD = "<fim_pad>"
 
 
 class GPTDataset(torch.utils.data.Dataset):
@@ -72,7 +72,7 @@ class GPTDataset(torch.utils.data.Dataset):
             assert self.fim_rate <= 1 and self.fim_rate >= 0, "FIM rate must be a probability 0 <= rate <= 1"
 
             self.suffix_tok_id, self.prefix_tok_id, self.middle_tok_id, self.pad_tok_id = (
-                self.tokenizer.convert_tokens_to_ids(tok) for tok in [FIM_SUFFIX, FIM_PREFIX, FIM_MIDDLE, FIM_PAD]
+                self.tokenizer.convert_tokens_to_ids(tok) for tok in [_FIM_SUFFIX, _FIM_PREFIX, _FIM_MIDDLE, _FIM_PAD]
             )
 
             self.eos_token_id = self.tokenizer.eos_token_id
@@ -84,26 +84,6 @@ class GPTDataset(torch.utils.data.Dataset):
         return self.sample_index.shape[0] - 1
 
     def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
-        text, document_ids = self._query_document_sample_shuffle_indices(idx)
-        return {"text": text}
-
-    @staticmethod
-    def is_multimodal() -> bool:
-        return False
-
-    @staticmethod
-    def is_split_by_sequence() -> bool:
-        return True
-
-    def _query_document_sample_shuffle_indices(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
-        """Get the text (token ids) and document ids for a given index
-
-        Args:
-            idx (int): The index into the dataset
-
-        Returns:
-            tuple[np.ndarray, np.ndarray]: The text ids and document ids
-        """
         # Do the shuffle mapping
         idx = self.shuffle_index[idx]
 
@@ -213,7 +193,17 @@ class GPTDataset(torch.utils.data.Dataset):
 
             assert sample.shape[0] == sample_len
 
-        return sample, np.array(document_ids, dtype=np.int64)
+        document_ids = np.array(document_ids, dtype=np.int64)
+
+        return {"text": sample}
+
+    @staticmethod
+    def is_multimodal() -> bool:
+        return False
+
+    @staticmethod
+    def is_split_by_sequence() -> bool:
+        return True
 
     def _build_document_sample_shuffle_indices(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Build the document index, the sample index, and the shuffle index
@@ -251,12 +241,7 @@ class GPTDataset(torch.utils.data.Dataset):
         cache_hit = all(
             map(
                 os.path.isfile,
-                [
-                    path_to_description,
-                    path_to_document_index,
-                    path_to_sample_index,
-                    path_to_shuffle_index,
-                ],
+                [path_to_description, path_to_document_index, path_to_sample_index, path_to_shuffle_index],
             )
         )
 

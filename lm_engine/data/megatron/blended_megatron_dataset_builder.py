@@ -47,11 +47,12 @@ def build(
             )
 
         # Blend consists of multiple weights and prefixes
-        (
-            prefix_per_dataset,
-            weight_per_dataset,
-            sizes_per_dataset,
-        ) = _get_prefixes_weights_and_sizes_for_blend(blend, sizes)
+        prefix_per_dataset, weight_per_dataset, sizes_per_dataset = _get_prefixes_weights_and_sizes_for_blend(
+            blend, sizes
+        )
+
+        # Sum over all contributing datasets, per split
+        size_per_split = list(map(sum, zip(*sizes_per_dataset)))
 
         megatron_datasets = [[] for _ in range(len(Split))]
 
@@ -68,9 +69,6 @@ def build(
             )
             for j in range(len(megatron_datasets_split)):
                 megatron_datasets[j].append(megatron_datasets_split[j])
-
-        # Sum over all contributing datasets, per split
-        size_per_split = list(map(sum, zip(*sizes_per_dataset)))
 
         for i in range(len(megatron_datasets)):
             is_none = map(lambda _: _ is None, megatron_datasets[i])
@@ -122,13 +120,13 @@ def build(
 
             # Blend consists of multiple weights and prefixes
             else:
-                (
-                    prefix_per_dataset,
-                    weight_per_dataset,
-                    sizes_per_dataset,
-                ) = _get_prefixes_weights_and_sizes_for_blend(blend, sizes_spoof)
+                prefix_per_dataset, weight_per_dataset, sizes_per_dataset = _get_prefixes_weights_and_sizes_for_blend(
+                    blend, sizes_spoof
+                )
 
+                size_per_split = list(map(sum, zip(*sizes_per_dataset)))
                 megatron_datasets = []
+
                 for j in range(len(prefix_per_dataset)):
                     megatron_datasets.append(
                         _build_megatron_dataset_splits(
@@ -142,8 +140,6 @@ def build(
                             random_seed=random_seed,
                         )[i]
                     )
-
-                size_per_split = list(map(sum, zip(*sizes_per_dataset)))
 
                 blended_datasets.append(
                     _build_generic_dataset(
