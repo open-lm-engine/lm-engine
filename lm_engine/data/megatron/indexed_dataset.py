@@ -13,7 +13,6 @@ from functools import lru_cache
 from itertools import accumulate
 from types import TracebackType
 
-import numpy
 import numpy as np
 import torch
 

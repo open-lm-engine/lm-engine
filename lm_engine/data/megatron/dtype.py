@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from enum import Enum
 
-import numpy
 import numpy as np
 
 
@@ -29,7 +28,7 @@ class DType(Enum):
 
     @classmethod
     def dtype_from_code(cls, value: int) -> type[np.number]:
-        return getattr(numpy, cls(value).name)
+        return getattr(np, cls(value).name)
 
     @staticmethod
     def size(key: int | type[np.number]) -> int:
