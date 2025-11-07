@@ -51,7 +51,7 @@ class IndexReader:
         self.bin_buffer_mmap = np.memmap(idx_path, mode="r", order="C")
         self.bin_buffer = memoryview(self.bin_buffer_mmap)
 
-        log_rank_0(logging.INFO, f"\tExtract the sequence lengths")
+        log_rank_0(logging.INFO, "\tExtract the sequence lengths")
         t_beg = time.time()
         self.sequence_lengths = np.frombuffer(
             self.bin_buffer, dtype=np.int32, count=self.sequence_count, offset=offset
@@ -59,7 +59,7 @@ class IndexReader:
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
-        log_rank_0(logging.INFO, f"\tExtract the sequence pointers")
+        log_rank_0(logging.INFO, "\tExtract the sequence pointers")
         t_beg = time.time()
         self.sequence_pointers = np.frombuffer(
             self.bin_buffer,
@@ -70,7 +70,7 @@ class IndexReader:
         t_end = time.time()
         log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
 
-        log_rank_0(logging.INFO, f"\tExtract the document indices")
+        log_rank_0(logging.INFO, "\tExtract the document indices")
         t_beg = time.time()
         self.document_indices = np.frombuffer(
             self.bin_buffer,
@@ -83,7 +83,7 @@ class IndexReader:
 
         self.sequence_modes = None
         if multimodal:
-            log_rank_0(logging.INFO, f"\tExtract the sequence modes")
+            log_rank_0(logging.INFO, "\tExtract the sequence modes")
             t_beg = time.time()
             self.sequence_modes = np.frombuffer(
                 self.bin_buffer,
@@ -124,9 +124,9 @@ class IndexReader:
             idx (int): The index into the dataset
 
         Returns:
-            Tuple[np.int64, np.int32, np.int8 | None]: The pointer, length and mode at
-            the index
+            Tuple[np.int64, np.int32, np.int8 | None]: The pointer, length and mode at the index
         """
+
         return (
             self.sequence_pointers[idx],
             self.sequence_lengths[idx],
