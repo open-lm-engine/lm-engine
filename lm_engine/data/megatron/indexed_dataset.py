@@ -15,7 +15,7 @@ import numpy as np
 import torch
 
 from .dtype import DType
-from .index import IndexReader, IndexWriter
+from .idx import IndexReader, IndexWriter
 
 
 class MMapIndexedDataset(torch.utils.data.Dataset):
