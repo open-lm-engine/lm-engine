@@ -167,13 +167,11 @@ class MoE(nn.Module):
         initializer_range: float,
         m_width: float,
         num_layers: int,
-        use_padding_free_transformer: bool,
     ) -> MoE:
         super().__init__()
 
         self.num_experts = num_experts
         self.top_k = num_experts_per_tok
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.hidden_size = hidden_size
         self.intermediate_size = intermediate_size
         self.shared_intermediate_size = shared_intermediate_size
@@ -247,10 +245,8 @@ class MoE(nn.Module):
             mark_parameter_as_mup_learning_rate(self.c_proj_shared.weight)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        if not self.use_padding_free_transformer:
-            batch_size, sequence_length, _ = hidden_states.shape
-
-        hidden_states = hidden_states.view(-1, self.hidden_size)
+        original_shape = hidden_states.size()
+        hidden_states = hidden_states.flatten(0, -2)
 
         router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
 
@@ -263,9 +259,7 @@ class MoE(nn.Module):
 
         del moe_output
 
-        if not self.use_padding_free_transformer:
-            hidden_states = hidden_states.reshape(batch_size, sequence_length, self.hidden_size)
-
+        hidden_states = hidden_states.view(original_shape)
         hidden_states = self.dropout(hidden_states)
 
         aux_loss = (
