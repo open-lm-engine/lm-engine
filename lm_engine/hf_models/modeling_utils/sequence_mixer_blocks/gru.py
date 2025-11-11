@@ -12,10 +12,10 @@ import torch.nn.functional as F
 
 from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
+from ...mask import AttentionMaskInfo
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
-from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
 if is_xma_available():
@@ -38,7 +38,6 @@ class GRU(nn.Module):
         scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> GRU:
         super().__init__()
 
@@ -48,7 +47,6 @@ class GRU(nn.Module):
         self.num_heads = num_heads
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
 
         std = initializer_range
@@ -56,13 +54,7 @@ class GRU(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.input_projection = ParameterizedLinear(
-            self.input_size,
-            4 * self.state_size,
-            bias=add_bias,
-            std=std,
-        )
-
+        self.input_projection = ParameterizedLinear(self.input_size, 4 * self.state_size, bias=add_bias, std=std)
         self.state_weight = nn.Parameter(torch.empty(3 * self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -82,73 +74,53 @@ class GRU(nn.Module):
         mark_parameter_as_no_weight_decay(self.state_weight)
 
     def forward(
-        self,
-        input: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        self, x: torch.Tensor, attention_mask_info: AttentionMaskInfo, cache_params: GenerationCache | None = None
     ) -> torch.Tensor:
-        if self.use_padding_free_transformer:
-            assert cache_params is None
-            assert attention_mask is None
-        else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
-
-            batch_size, sequence_length = input.size()[:2]
-
-            if attention_mask is not None:
-                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
-
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-
-        input = self.input_projection(input)
-        input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
-
-        weight = self.state_weight
+        x = self.input_projection(x)
+        x, g = x.split((3 * self.state_size, self.state_size), dim=-1)
 
         if self.scaling_factor != 1:
-            input = input * self.scaling_factor
+            x = x * self.scaling_factor
+
+        x, x_forget, x_reset = x.chunk(3, dim=-1)
+        x, x_forget, x_reset = [i.view(T, self.num_heads, self.state_head_dim) for i in (x, x_forget, x_reset)]
+
+        weight = self.state_weight
+        if self.scaling_factor != 1:
             weight = weight * self.scaling_factor
 
-        input, forget_input, reset_input = input.chunk(3, dim=-1)
         weight, forget_weight, reset_weight = weight.chunk(3, dim=0)
 
-        input, forget_input, reset_input = [
-            i.view(*input.size()[:-1], self.num_heads, self.state_head_dim) for i in (input, forget_input, reset_input)
-        ]
+        cu_seqlens = None if attention_mask_info.is_ragged() else attention_mask_info.get_cu_seqlens()
+        max_seqlen = None if attention_mask_info.is_ragged() else attention_mask_info.get_max_seqlen()
 
-        input = gru(
-            input=input,
+        x = gru(
+            input=attention_mask_info.unpack_sequence(x),
             weight=weight,
-            forget_input=forget_input,
+            forget_input=x_forget,
             forget_weight=forget_weight,
-            reset_input=reset_input,
+            reset_input=x_reset,
             reset_weight=reset_weight,
-            input_state=input_state,
+            input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
         )
 
-        if not self.use_padding_free_transformer and attention_mask is not None:
-            input = unpack_sequence(
-                inputs=input, cu_seqlens=cu_seqlens, output_shape=(batch_size, sequence_length, *input.size()[1:])
-            )
-
         if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+            if cu_seqlens is None:
+                cache_params.update(state=x[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+            else:
+                cache_params.update(
+                    state=x[cu_seqlens[1:] - 1], num_tokens_added=cu_seqlens[1:], layer_idx=self.layer_idx
+                )
 
-        input = input.view(*input.size()[:-2], -1)
+        x = x.flatten(-2, -1)
+        x = x * F.silu(g)
+        x = self.norm(x)
+        x = self.output_projection(x)
 
-        input = input * F.silu(gate)
-        input = self.norm(input)
-
-        input = self.output_projection(input)
-
-        return input
+        return x
 
     @torch.no_grad()
     def reset_parameters(self) -> None:

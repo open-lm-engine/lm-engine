@@ -38,7 +38,6 @@ class MultiHeadLatentAttention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
         normalization_function: str,
         layer_norm_epsilon: float = 1e-5,
     ) -> MultiHeadLatentAttention:
@@ -49,7 +48,6 @@ class MultiHeadLatentAttention(nn.Module):
         self.num_heads = num_attention_heads
         self.head_dim = head_dim
         self.add_bias = add_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.query_compression_size = query_compression_size
         self.key_value_compression_size = key_value_compression_size
         self.position_embedding_type = position_embedding_type
@@ -116,13 +114,6 @@ class MultiHeadLatentAttention(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
-        use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-
-        if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
-            assert past_key_values is None
-
         query = self.query_down_projection(hidden_states)
         query = self.query_ln(query)
 
@@ -146,47 +137,32 @@ class MultiHeadLatentAttention(nn.Module):
             key = self.key_up_projection(key)
             value = self.value_up_projection(value)
 
-        if use_flash_attention_2 or use_flash_attention_3:
-            if self.use_padding_free_transformer:
-                total_q = query.shape[0]
+        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
+            T = query.size(0)
 
-                query = query.view(total_q, self.num_heads, -1)
-                key = key.view(total_q, self.num_heads, -1)
-                value = value.view(total_q, self.num_heads, -1)
-
-                output_shape = (-1, self.hidden_size)
-            else:
-                batch_size, query_length = query.shape[:-1]
-                key_length = key.shape[1]
-
-                query = query.view(batch_size, query_length, self.num_heads, -1)
-                key = key.view(batch_size, key_length, self.num_heads, -1)
-                value = value.view(batch_size, key_length, self.num_heads, -1)
-
-                output_shape = (batch_size, query_length, -1)
+            query = query.view(T, self.num_heads, -1)
+            key = key.view(T, self.num_heads, -1)
+            value = value.view(T, self.num_heads, -1)
 
             query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
             key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
 
             hidden_states = flash_attention(
-                query=query,
-                key=key,
-                value=value,
+                q=query,
+                k=key,
+                v=value,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 attention_mask=attention_mask,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,
                 sliding_window=self.sliding_window,
             )
 
-            del query, key, value
-
             hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(*output_shape)
+            hidden_states = hidden_states.view(-1, self.hidden_size)
         else:
             assert self.sliding_window is None
 
@@ -207,8 +183,6 @@ class MultiHeadLatentAttention(nn.Module):
                 scale=self.attention_multiplier,
                 enable_gqa=True,
             )
-
-            del query, key, value
 
             batch_size = hidden_states.shape[0]
             hidden_states = hidden_states.transpose(1, 2)

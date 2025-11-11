@@ -147,12 +147,8 @@ class CausalConvolution(nn.Module):
         init_method: str,
         num_layers: int,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> CausalConvolution:
         super().__init__()
-
-        if use_padding_free_transformer:
-            raise NotImplementedError()
 
         self.in_channels = in_channels
         self.out_channels = out_channels

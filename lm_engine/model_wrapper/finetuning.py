@@ -53,13 +53,15 @@ class ModelWrapperForFinetuning(ModelWrapper):
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
+        assert False
+
         lm_loss = get_autoregressive_language_modeling_loss(
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
             labels=labels,
             hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
             vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
             cu_seqlens=cu_seqlens,
-            use_padding_free_transformer=self.use_padding_free_transformer,
+            use_padding_free_transformer=True,
             reduction="sum",
             shift_logits_and_labels=True,
             tensor_parallel_enabled=tensor_parallel_enabled,
@@ -87,7 +89,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
         tp_source_rank = ProcessGroupManager.get_tensor_parallel_first_rank()
         tp_group = ProcessGroupManager.get_tensor_parallel_group()
 
-        if self.use_padding_free_transformer:
+        if self.is_custom_model:
             keys = ["input_ids", "position_ids", "labels", "cu_seqlens", "max_seqlen"]
 
             if is_tp_first_rank:

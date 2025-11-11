@@ -10,9 +10,10 @@ from transformers import StoppingCriteriaList
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ...cache import GenerationCache
+from ...cache import GenerationCache, is_generation_cache_enabled
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
+from ...mask import AttentionMaskInfo
 from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
@@ -56,42 +57,40 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
     def forward(
         self,
-        input_ids: torch.Tensor | list[list[int]] | None = None,
+        input_ids: torch.Tensor | None = None,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        position_ids: torch.Tensor | list[list[int]] | None = None,
-        inputs_embeds: torch.Tensor | list[list[float]] | None = None,
-        labels: torch.Tensor | list[list[int]] | None = None,
+        position_ids: torch.Tensor | None = None,
+        inputs_embeds: torch.Tensor | None = None,
+        labels: torch.Tensor | None = None,
         use_cache: bool | None = None,
         return_dict: bool = True,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
         reduction: str = "mean",
     ) -> CausalLMOutputWithPast:
         assert return_dict
         assert inputs_embeds is None
 
-        input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
-            input_ids=input_ids,
-            position_ids=position_ids,
-            labels=labels,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            use_cache=use_cache,
-        )
-
         clear_aux_loss()
 
+        if attention_mask_info is None:
+            attention_mask_info = self._get_attention_mask_info(x=input_ids, attention_mask=attention_mask)
+
+        if position_ids is None:
+            position_ids = attention_mask_info.get_position_ids()
+
+        if is_generation_cache_enabled():
+            past_key_values = (
+                GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
+            )
+
+        input_ids = attention_mask_info.pack_sequence(input_ids)
+
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
-            input_ids,
+            input_ids=input_ids,
+            attention_mask_info=attention_mask_info,
             past_key_values=past_key_values,
-            attention_mask=attention_mask,
             position_ids=position_ids,
-            use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         hidden_states = transformer_outputs.last_hidden_state
@@ -118,17 +117,21 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             if self.m_width is not None:
                 lm_logits = lm_logits / self.m_width
 
+            labels = attention_mask_info.pack_sequence(labels)
+
             loss = get_autoregressive_language_modeling_loss(
                 lm_logits=lm_logits,
                 labels=labels,
+                attention_mask_info=attention_mask_info,
                 hidden_states=None,
                 vocab_weight=None,
-                cu_seqlens=cu_seqlens,
-                use_padding_free_transformer=self.use_padding_free_transformer,
                 reduction=reduction,
                 shift_logits_and_labels=True,
                 tensor_parallel_enabled=False,
             )
+
+        lm_logits = attention_mask_info.unpack_sequence(lm_logits)
+        hidden_states = attention_mask_info.unpack_sequence(hidden_states)
 
         aux_loss = get_aux_loss()
 
@@ -161,8 +164,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         top_p: float | None = None,
         **kwargs,
     ) -> torch.Tensor:
-        assert not self.use_padding_free_transformer
-
         has_attention_mask = attention_mask is not None
         min_tokens_to_keep = 1
 
@@ -258,3 +259,14 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             )
 
         return generated_tokens
+
+    def _get_attention_mask_info(self, x: torch.Tensor, attention_mask: torch.Tensor | None) -> AttentionMaskInfo:
+        kwargs = {}
+        if attention_mask is None:
+            kwargs["batch_size"] = x.size(0)
+            kwargs["max_seqlen"] = x.size(1)
+            kwargs["device"] = x.device
+        else:
+            kwargs["attention_mask"] = attention_mask
+
+        return AttentionMaskInfo(**kwargs)

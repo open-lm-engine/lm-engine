@@ -14,6 +14,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
+from ...mask import AttentionMaskInfo
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
@@ -84,7 +85,6 @@ class Attention(nn.Module):
         num_layers: int,
         causal: bool,
         layer_idx: int,
-        use_padding_free_transformer: bool,
     ) -> Attention:
         super().__init__()
 
@@ -94,7 +94,6 @@ class Attention(nn.Module):
         self.num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
         self.qkv_bias = qkv_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.sliding_window = sliding_window
 
         self.head_dim = divide_if_divisible(
@@ -138,97 +137,61 @@ class Attention(nn.Module):
 
     def forward(
         self,
-        hidden_states: torch.Tensor,
+        x: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
         past_key_values: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
-        use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-        accelerator = Accelerator.get_accelerator()
+        T = x.size(0)
 
-        if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
-            assert past_key_values is None
+        x = self.c_attn(x)
+        x = x.view(T, self.num_key_value_heads, -1)
 
-            total_q = hidden_states.shape[0]
-            input_shape = (total_q, self.num_key_value_heads, -1)
-            output_shape = (total_q, -1, self.head_dim)
-        else:
-            batch_size, query_length = hidden_states.shape[:-1]
-
-            input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
-            output_shape = (batch_size, query_length, -1, self.head_dim)
-
-        hidden_states = self.c_attn(hidden_states)
-        hidden_states = hidden_states.view(*input_shape)
-
-        query, key, value = hidden_states.split(
+        q, k, v = x.split(
             ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
         )
 
-        query = query.reshape(*output_shape)
-
-        if not self.use_padding_free_transformer:
-            query = query.transpose(1, 2)
-            key = key.transpose(1, 2)
-            value = value.transpose(1, 2)
+        q = q.reshape(T, -1, self.head_dim)
 
         if self.position_embedding_type == "rope":
-            query = apply_rotary_pos_emb(query, rope_cos_sin)
-            key = apply_rotary_pos_emb(key, rope_cos_sin)
+            q = apply_rotary_pos_emb(q, rope_cos_sin)
+            k = apply_rotary_pos_emb(k, rope_cos_sin)
 
         if past_key_values is not None:
-            key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
+            k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
 
-        if use_flash_attention_2 or use_flash_attention_3:
-            assert accelerator == Accelerator.cuda
+        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
+            q, k, v = [wait_for_ACT(i, wait_in_forward=True, wait_in_backward=False) for i in (q, k, v)]
 
-            if self.use_padding_free_transformer:
-                output_shape = (-1, self.hidden_size)
-            else:
-                query = query.transpose(1, 2)
-                key = key.transpose(1, 2)
-                value = value.transpose(1, 2)
-
-                output_shape = (batch_size, query_length, -1)
-
-            query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
-            key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
-            value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
-
-            hidden_states = flash_attention(
-                query=query,
-                key=key,
-                value=value,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-                attention_mask=attention_mask,
-                use_padding_free_transformer=self.use_padding_free_transformer,
+            x = flash_attention(
+                q=q,
+                k=k,
+                v=v,
+                attention_mask_info=attention_mask_info,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,
                 sliding_window=self.sliding_window,
             )
 
-            del query, key, value
-
-            hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(*output_shape)
+            x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             assert self.sliding_window is None
 
-            if accelerator == Accelerator.tpu:
+            q, k, v = attention_mask_info.unpack_sequence([q, k, v])
+            q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
+
+            attention_mask = attention_mask_info.get_causal_mask(query_length=q.size(-2), dtype=q.dtype)
+
+            if Accelerator.get_accelerator() == Accelerator.tpu:
                 assert attention_mask is None
                 assert self.softmax_dropout_p == 0
 
-                hidden_states = flash_attention_tpu(
-                    query,
-                    key,
-                    value,
-                    causal=self.causal if attention_mask is None else False,
+                x = flash_attention_tpu(
+                    q,
+                    k,
+                    v,
+                    causal=self.causal,
                     sm_scale=(
                         1 / math.sqrt(self.head_dim)
                         if self.attention_multiplier is None
@@ -236,10 +199,10 @@ class Attention(nn.Module):
                     ),
                 )
             else:
-                hidden_states = F.scaled_dot_product_attention(
-                    query,
-                    key,
-                    value,
+                x = F.scaled_dot_product_attention(
+                    query=q,
+                    key=k,
+                    value=v,
                     attn_mask=attention_mask,
                     dropout_p=self.softmax_dropout_p if self.training else 0,
                     is_causal=self.causal if attention_mask is None else False,
@@ -247,13 +210,11 @@ class Attention(nn.Module):
                     enable_gqa=True,
                 )
 
-            del query, key, value
+            x = x.transpose(1, 2)
+            x = attention_mask_info.pack_sequence(x)
 
-            batch_size = hidden_states.shape[0]
-            hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = hidden_states.reshape(batch_size, -1, self.num_heads * self.head_dim)
+        x = x.flatten(-2, -1)
+        x = self.c_proj(x)
+        x = self.dropout(x)
 
-        hidden_states = self.c_proj(hidden_states)
-        hidden_states = self.dropout(hidden_states)
-
-        return hidden_states
+        return x

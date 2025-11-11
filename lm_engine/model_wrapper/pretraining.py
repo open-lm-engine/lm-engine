@@ -11,6 +11,7 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..hf_models import (
+    AttentionMaskInfo,
     CausalLMOutputWithPast,
     PipelineParallelInput,
     PipelineParallelOutput,
@@ -31,7 +32,6 @@ class ModelWrapperForPretraining(ModelWrapper):
         model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
         dtype: torch.dtype,
         efficient_initialization: bool,
-        use_padding_free_transformer: bool,
         sequence_parallel: bool,
         micro_batch_size: int,
         sequence_length: int,
@@ -52,7 +52,6 @@ class ModelWrapperForPretraining(ModelWrapper):
             model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
             dtype (torch.dtype): dtype for the model
             efficient_initialization (bool): whether to use efficient initialization for the model initialization, saves CPU memory
-            use_padding_free_transformer (bool): whether to use padding free transformer
             sequence_parallel (bool): whether to use sequence parallel
             micro_batch_size (int): micro batch size for pretraining
             sequence_length (int): sequence length for pretraining
@@ -77,7 +76,6 @@ class ModelWrapperForPretraining(ModelWrapper):
             model_class=model_class,
             dtype=dtype,
             efficient_initialization=efficient_initialization,
-            use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
             num_pipeline_stages=num_pipeline_stages,
             pipeline_stage_id=pipeline_stage_id,
@@ -126,6 +124,8 @@ class ModelWrapperForPretraining(ModelWrapper):
 
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
+        attention_mask_info = batch["attention_mask_info"]
+
         output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)
 
         if self.is_pipeline_parallel_enabled:
@@ -146,12 +146,18 @@ class ModelWrapperForPretraining(ModelWrapper):
             if use_aux_loss:
                 output = (output, aux_loss)
         else:
-            output = self.get_loss(output, labels, lm_loss_multiplier=lm_loss_multiplier)
+            output = self.get_loss(
+                output, labels, attention_mask_info=attention_mask_info, lm_loss_multiplier=lm_loss_multiplier
+            )
 
         return output
 
     def get_loss(
-        self, model_outputs: CausalLMOutputWithPast, labels: torch.Tensor, lm_loss_multiplier: float = 1
+        self,
+        model_outputs: CausalLMOutputWithPast,
+        labels: torch.Tensor,
+        attention_mask_info: AttentionMaskInfo,
+        lm_loss_multiplier: float = 1,
     ) -> torch.Tensor | dict:
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
@@ -159,10 +165,9 @@ class ModelWrapperForPretraining(ModelWrapper):
         lm_loss = get_autoregressive_language_modeling_loss(
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
             labels=labels,
+            attention_mask_info=attention_mask_info,
             hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
             vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
-            cu_seqlens=None,
-            use_padding_free_transformer=self.use_padding_free_transformer,
             reduction="sum",
             shift_logits_and_labels=False,
             tensor_parallel_enabled=tensor_parallel_enabled,
@@ -225,40 +230,39 @@ class ModelWrapperForPretraining(ModelWrapper):
             input_ids = tokens[:, :-1]
             batch = {"labels": tokens[:, 1:]}
 
-        if self.use_padding_free_transformer:
-            batch_size, sequence_length = input_ids.shape
-            input_ids = input_ids.reshape(-1)
+        batch_size, sequence_length = input_ids.shape
 
-            if self.reset_attention_mask:
-                num_tokens_in_batch = batch_size * sequence_length
+        if self.reset_attention_mask:
+            input_ids = input_ids.flatten()
+            num_tokens_in_batch = batch_size * sequence_length
 
-                document_end_positions = input_ids == self.eos_token_id
-                for i in range(sequence_length - 1, num_tokens_in_batch, sequence_length):
-                    document_end_positions[i] = 1
-                cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
-                cu_seqlens = torch.cat([torch.tensor([0], device=input_ids.device), cu_seqlens])
-                cu_seqlens = cu_seqlens.to(torch.int32)
+            document_end_positions = input_ids == self.eos_token_id
+            for i in range(sequence_length - 1, num_tokens_in_batch, sequence_length):
+                document_end_positions[i] = 1
+            cu_seqlens = document_end_positions.nonzero(as_tuple=True)[0] + 1
+            cu_seqlens = torch.cat([torch.tensor([0], device=input_ids.device), cu_seqlens])
+            cu_seqlens = cu_seqlens.to(torch.int32)
 
-                seqlen = cu_seqlens[1:] - cu_seqlens[:-1]
-                # we move to CPU here otherwise FlashAttention will move to CPU on every invocation i.e all layers
-                max_seqlen = seqlen.max().item()
+            seqlen = cu_seqlens[1:] - cu_seqlens[:-1]
+            # we move to CPU here otherwise FlashAttention will move to CPU on every invocation i.e all layers
+            max_seqlen = seqlen.max().item()
 
-                if self.reset_position_ids:
-                    position_ids = torch.cat(
-                        [torch.arange(0, i, 1, dtype=torch.int32, device=input_ids.device) for i in seqlen]
-                    )
-                else:
-                    position_ids = self.position_ids
+            if self.reset_position_ids:
+                position_ids = torch.cat(
+                    [torch.arange(0, i, 1, dtype=torch.int32, device=input_ids.device) for i in seqlen]
+                )
             else:
-                cu_seqlens = self.cu_seqlens
-                max_seqlen = self.sequence_length
                 position_ids = self.position_ids
-
-            batch["cu_seqlens"] = cu_seqlens
-            batch["max_seqlen"] = max_seqlen
-            batch["position_ids"] = position_ids
+        else:
+            cu_seqlens = None
+            max_seqlen = None
+            position_ids = self.position_ids
 
         batch["input_ids"] = input_ids
+        batch["attention_mask_info"] = self._get_attention_mask_info(
+            x=input_ids, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+        )
+        batch["position_ids"] = position_ids
 
         if ProcessGroupManager.is_tensor_parallel_enabled():
             batch["output_parallel_lm_logits"] = True
@@ -270,37 +274,43 @@ class ModelWrapperForPretraining(ModelWrapper):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        if self.use_padding_free_transformer:
-            if not self.reset_attention_mask:
-                self.register_buffer(
-                    "cu_seqlens",
-                    torch.arange(
-                        0,
-                        self.micro_batch_size * self.sequence_length + 1,
-                        self.sequence_length,
-                        dtype=torch.int32,
-                        device=Accelerator.get_current_device(),
-                    ),
-                    persistent=False,
-                )
+        # if not self.reset_attention_mask:
+        #     self.register_buffer(
+        #         "cu_seqlens",
+        #         torch.arange(
+        #             0,
+        #             self.micro_batch_size * self.sequence_length + 1,
+        #             self.sequence_length,
+        #             dtype=torch.int32,
+        #             device=Accelerator.get_current_device(),
+        #         ),
+        #         persistent=False,
+        #     )
 
-            if self.reset_position_ids:
-                assert self.reset_attention_mask, "reset_attention_mask should be specified with reset_position_ids"
-            else:
-                self.register_buffer(
-                    "position_ids",
-                    torch.arange(0, self.sequence_length, 1, device=Accelerator.get_current_device()).repeat(
-                        self.micro_batch_size
-                    ),
-                    persistent=False,
-                )
+        if self.reset_position_ids:
+            assert self.reset_attention_mask, "reset_attention_mask should be specified with reset_position_ids"
         else:
-            assert (
-                not self.reset_attention_mask
-            ), "currently reset_attention_mask is only implemented for padding free transformer"
-            assert (
-                not self.reset_position_ids
-            ), "currently reset_position_ids is only implemented for padding free transformer"
+            self.register_buffer(
+                "position_ids",
+                torch.arange(0, self.sequence_length, 1, device=Accelerator.get_current_device()).repeat(
+                    self.micro_batch_size
+                ),
+                persistent=False,
+            )
+
+    def _get_attention_mask_info(
+        self, x: torch.Tensor, cu_seqlens: torch.Tensor | None, max_seqlen: torch.Tensor
+    ) -> AttentionMaskInfo:
+        kwargs = {}
+        if cu_seqlens is None:
+            kwargs["batch_size"] = x.size(0)
+            kwargs["max_seqlen"] = x.size(1)
+            kwargs["device"] = x.device
+        else:
+            kwargs["cu_seqlens"] = cu_seqlens
+            kwargs["max_seqlen"] = max_seqlen
+
+        return AttentionMaskInfo(**kwargs)
 
 
 class _F(torch.autograd.Function):
