@@ -100,7 +100,7 @@ class CrossLayerAttention(nn.Module):
                 attention_mask=attention_mask,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
-                use_padding_free_transformer=self.use_padding_free_transformer,
+                use_padding_free_transformer=True,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
                 softmax_scale=self.attention_multiplier,
