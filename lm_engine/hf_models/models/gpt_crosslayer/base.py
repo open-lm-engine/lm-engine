@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 import torch
+import torch.nn as nn
 
 from ...cache import GenerationCache
 from ...mixins import BaseModelMixin, BaseModelOutputWithPast, PreTrainedModelMixin
+from ...modeling_utils import ParameterizedEmbedding, get_normalization_function
 from .config import GPTCrossLayerConfig
 from .layer import GPTCrossLayerBlock
 
@@ -23,6 +25,32 @@ class GPTCrossLayerPreTrainedModel(PreTrainedModelMixin):
 
 
 class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
+    def _init_model(self, config: GPTCrossLayerConfig, **kwargs) -> None:
+        self.embed_dim = config.hidden_size
+        self.m_emb = config.m_emb
+        self.initializer_range = config.initializer_range
+        self.sequence_mixer_block_types = [
+            config.sequence_mixer_blocks[i].sequence_mixer_type for i in range(config.num_layers)
+        ]
+
+        self.wte = ParameterizedEmbedding(config.vocab_size, self.embed_dim, std=self.initializer_range)
+
+        self.embedding_dropout = (
+            nn.Identity() if config.embedding_dropout == 0 else nn.Dropout(config.embedding_dropout)
+        )
+        self.h = nn.ModuleList([self.layer_class(config, layer_idx=i) for i in range(config.num_layers)])
+        self.ln_f = get_normalization_function(
+            config.normalization_function, self.embed_dim, eps=config.layer_norm_epsilon
+        )
+
+        self.rope_dim = config.rope_dim
+
+        self.position_embedding_type = config.position_embedding_type
+        self._setup_positional_encoding()
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
     def forward(
         self,
         input_ids: torch.Tensor | None = None,
