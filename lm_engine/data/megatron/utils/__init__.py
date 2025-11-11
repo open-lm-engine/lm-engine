@@ -5,10 +5,9 @@ import os
 from enum import Enum
 
 import numpy as np
-import torch
 from torch.utils.cpp_extension import load as load_cpp_extension
 
-from ....utils import ProcessGroupManager, log_rank_0
+from ....utils import Communication, ProcessGroupManager, log_rank_0
 
 
 class Split(Enum):
@@ -34,20 +33,15 @@ def compile_helpers() -> None:
             verbose=True,
         )
 
-    torch.distributed.barrier()
+    Communication.barrier()
 
 
 def build_blending_indices(
-    dataset_index: np.ndarray,
-    dataset_sample_index: np.ndarray,
-    weights: list[float],
-    num_datasets: int,
-    size: int,
-    verbose: bool,
+    dataset_index: np.ndarray, dataset_sample_index: np.ndarray, weights: list[float], num_datasets: int, size: int
 ) -> None:
     import helpers
 
-    helpers.build_blending_indices(dataset_index, dataset_sample_index, weights, num_datasets, size, verbose)
+    helpers.build_blending_indices(dataset_index, dataset_sample_index, weights, num_datasets, size)
 
 
 def build_sample_idx(

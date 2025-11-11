@@ -11,13 +11,13 @@ from torch.distributed._tensor.placement_types import Partial, Replicate
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed, wait_for_ACT
-from ...utils import ProcessGroupManager, is_fma_available
+from ...utils import ProcessGroupManager, is_xma_available
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 
 
-if is_fma_available():
-    from fma import rmsnorm
+if is_xma_available():
+    from xma import rmsnorm
 
 
 class LayerNorm_TP(nn.LayerNorm, DTensorModule):

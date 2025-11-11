@@ -19,7 +19,7 @@ from ..hf_models import (
     is_aux_loss_zero,
 )
 from ..kernels import is_kernel_allowed
-from ..utils import MetricsTrackingDict, ProcessGroupManager
+from ..utils import Accelerator, MetricsTrackingDict, ProcessGroupManager
 from .base import ModelWrapper
 from .utils import broadcast_tensor_parallel_input
 
@@ -225,7 +225,7 @@ class ModelWrapperForPretraining(ModelWrapper):
                 )
             else:
                 tokens = batch["text"]
-                tokens = tokens.to(torch.cuda.current_device())
+                tokens = tokens.to(Accelerator.get_current_device())
 
             input_ids = tokens[:, :-1]
             batch = {"labels": tokens[:, 1:]}
@@ -282,7 +282,7 @@ class ModelWrapperForPretraining(ModelWrapper):
         #             self.micro_batch_size * self.sequence_length + 1,
         #             self.sequence_length,
         #             dtype=torch.int32,
-        #             device=torch.cuda.current_device(),
+        #             device=Accelerator.get_current_device(),
         #         ),
         #         persistent=False,
         #     )
@@ -292,7 +292,7 @@ class ModelWrapperForPretraining(ModelWrapper):
         else:
             self.register_buffer(
                 "position_ids",
-                torch.arange(0, self.sequence_length, 1, device=torch.cuda.current_device()).repeat(
+                torch.arange(0, self.sequence_length, 1, device=Accelerator.get_current_device()).repeat(
                     self.micro_batch_size
                 ),
                 persistent=False,

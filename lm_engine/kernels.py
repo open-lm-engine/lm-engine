@@ -8,11 +8,11 @@ import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor
 
 from .enums import Kernel
-from .utils import is_fma_available
+from .utils import is_xma_available
 
 
-if is_fma_available():
-    from fma.utils import get_boolean_env_variable
+if is_xma_available():
+    from xma.utils import get_boolean_env_variable
 
     _ENABLE_ALL_KERNELS = get_boolean_env_variable("ENABLE_ALL_KERNELS", False)
 else:

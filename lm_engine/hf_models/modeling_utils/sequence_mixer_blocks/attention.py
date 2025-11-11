@@ -12,13 +12,17 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import divide_if_divisible
+from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...mask import AttentionMaskInfo
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
+
+
+if is_torch_xla_available():
+    from torch_xla.experimental.custom_kernel import flash_attention as flash_attention_tpu
 
 
 def interleave_query_key_value_tensor_for_attention(
@@ -179,16 +183,32 @@ class Attention(nn.Module):
 
             attention_mask = attention_mask_info.get_causal_mask(query_length=q.size(-2), dtype=q.dtype)
 
-            x = F.scaled_dot_product_attention(
-                query=q,
-                key=k,
-                value=v,
-                attn_mask=attention_mask,
-                dropout_p=self.softmax_dropout_p if self.training else 0,
-                is_causal=self.causal if attention_mask is None else False,
-                scale=self.attention_multiplier,
-                enable_gqa=True,
-            )
+            if Accelerator.get_accelerator() == Accelerator.tpu:
+                assert attention_mask is None
+                assert self.softmax_dropout_p == 0
+
+                x = flash_attention_tpu(
+                    q,
+                    k,
+                    v,
+                    causal=self.causal,
+                    sm_scale=(
+                        1 / math.sqrt(self.head_dim)
+                        if self.attention_multiplier is None
+                        else self.attention_multiplier
+                    ),
+                )
+            else:
+                x = F.scaled_dot_product_attention(
+                    query=q,
+                    key=k,
+                    value=v,
+                    attn_mask=attention_mask,
+                    dropout_p=self.softmax_dropout_p if self.training else 0,
+                    is_causal=self.causal if attention_mask is None else False,
+                    scale=self.attention_multiplier,
+                    enable_gqa=True,
+                )
 
             x = x.transpose(1, 2)
             x = attention_mask_info.pack_sequence(x)

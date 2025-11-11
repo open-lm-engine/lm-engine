@@ -20,12 +20,13 @@ from .kernels import enable_kernels
 from .model_wrapper import get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
 from .pretrain import train_step_without_pipeline_parallel
-from .train_utils import all_reduce_metrics_tracker, get_torch_profiler, track_metrics
+from .train_utils import all_reduce_metrics_tracker, track_metrics
 from .utils import (
     ExperimentsTracker,
     MetricsTrackingDict,
     ProcessGroupManager,
     StepTracker,
+    TorchProfiler,
     init_distributed,
     setup_tf32,
 )
@@ -74,10 +75,8 @@ def train(
     forward_context = nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
 
-    torch_profiler = get_torch_profiler(args.logging_args.torch_profiler_trace_path)
-
-    if torch_profiler is not None:
-        torch_profiler.__enter__()
+    torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
+    torch_profiler.__enter__()
 
     metrics_tracker = MetricsTrackingDict({})
 
@@ -99,9 +98,7 @@ def train(
         )
 
         metrics_tracker = metrics_tracker + loss_step_dict
-
-        if torch_profiler is not None:
-            torch_profiler.step()
+        torch_profiler.step()
 
         if global_step % log_interval == 0:
             metrics_tracker = metrics_tracker / log_interval
@@ -131,9 +128,7 @@ def train(
             )
 
     ensure_last_checkpoint_is_saved()
-
-    if torch_profiler is not None:
-        torch_profiler.__exit__(None, None, None)
+    torch_profiler.__exit__(None, None, None)
 
 
 @torch.no_grad()
