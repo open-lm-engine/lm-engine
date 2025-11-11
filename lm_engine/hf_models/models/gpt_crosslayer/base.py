@@ -22,6 +22,7 @@ class GPTCrossLayerPreTrainedModel(PreTrainedModelMixin):
     def __init__(self, config: GPTCrossLayerConfig, *args, **kwargs) -> GPTCrossLayerPreTrainedModel:
         self.sharing_pattern = config.sharing_pattern
         super().__init__(config, *args, **kwargs)
+        assert self.use_padding_free_transformer
 
 
 class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
