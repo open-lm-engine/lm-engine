@@ -9,7 +9,6 @@ description = "A library for efficient LLM training."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "accelerated-model-architectures",
     "datasets>=4.4.1",
     "gitpython>=3.1.45",
     "ninja>=1.13.0",
@@ -24,6 +23,9 @@ Homepage = "https://github.com/open-lm-engine/lm-engine"
 Repository = "https://github.com/open-lm-engine/lm-engine"
 
 [project.optional-dependencies]
+xma = [
+    "accelerated-model-architectures",
+]
 cuda = [
     "causal-conv1d",
     "flash-attn>=2.8.3",
