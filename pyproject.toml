@@ -6,11 +6,20 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "datasets>=4.4.1",
-    "flash-attn>=2.8.3",
     "gitpython>=3.1.45",
     "ninja>=1.13.0",
     "numpy>=2.3.5",
     "pydantic>=2.12.4",
     "torch>=2.8.0",
     "transformers>=4.57.1",
+]
+
+[project.optional-dependencies]
+cuda = [
+    "flash-attn>=2.8.3",
+]
+dev = [
+    "parameterized>=0.9.0",
+    "pre-commit>=4.4.0",
+    "pytest>=9.0.1",
 ]
