@@ -9,6 +9,7 @@ description = "A library for efficient LLM training."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "accelerated-model-architectures",
     "datasets>=4.4.1",
     "gitpython>=3.1.45",
     "ninja>=1.13.0",
@@ -32,8 +33,11 @@ dev = [
     "pytest>=9.0.1",
 ]
 
+[tool.uv.sources]
+accelerated-model-architectures = { path = "accelerated-model-architectures", editable = true }
+
 [tool.hatch.build.targets.wheel]
-packages = ["accelerated-model-architectures/xma"]
+packages = ["lm_engine"]
 
 [tool.isort]
 ensure_newline_before_comments = true
