@@ -29,6 +29,7 @@ xma = [
 cuda = [
     "causal-conv1d",
     "flash-attn>=2.8.3",
+    "mamba-ssm>=2.2.6.post3",
 ]
 dev = [
     "parameterized>=0.9.0",
