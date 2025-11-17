@@ -7,7 +7,7 @@ export NODE_RANK=$SLURM_PROCID
 export TORCH_CUDA_ARCH_LIST=10.0a
 
 TOKENIZERS_PARALLELISM=false \
-torchrun --nnodes=$NNODES \
+uv run --extra cuda --extra xma torchrun --nnodes=$NNODES \
     --node_rank=$NODE_RANK \
     --nproc_per_node=$GPUS_PER_NODE \
     --rdzv_id=101 \

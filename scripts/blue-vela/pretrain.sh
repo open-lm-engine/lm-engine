@@ -62,7 +62,7 @@ NODE_RANK=$(($(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | sed 'n; d' | grep -n -m1 $
 export JOB_ID=$LSB_JOBID 
 
 TOKENIZERS_PARALLELISM=false \
-torchrun --nnodes=$NNODES \
+uv run --extra cuda --extra xma torchrun --nnodes=$NNODES \
     --node_rank=$NODE_RANK \
     --nproc_per_node=$GPUS_PER_NODE \
     --master_addr=$MASTER_ADDR \
