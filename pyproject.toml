@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "lm-engine"
 version = "0.1.0"
@@ -27,6 +31,9 @@ dev = [
     "pre-commit>=4.4.0",
     "pytest>=9.0.1",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["accelerated-model-architectures/xma"]
 
 [tool.isort]
 ensure_newline_before_comments = true
