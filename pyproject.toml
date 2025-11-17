@@ -14,6 +14,10 @@ dependencies = [
     "transformers>=4.57.1",
 ]
 
+[project.urls]
+Homepage = "https://github.com/open-lm-engine/lm-engine"
+Repository = "https://github.com/open-lm-engine/lm-engine"
+
 [project.optional-dependencies]
 cuda = [
     "flash-attn>=2.8.3",
