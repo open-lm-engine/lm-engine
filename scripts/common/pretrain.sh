@@ -12,7 +12,7 @@ GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -w)
 NODE_RANK=$(($(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | sed 'n; d' | grep -n -m1 $(echo $HOSTNAME | cut -d'.' -f1) | cut -d':' -f1)-1))
 
 TOKENIZERS_PARALLELISM=false \
-uv run --extra cuda --extra xma torchrun --nnodes=$NNODES \
+torchrun --nnodes=$NNODES \
     --node_rank=$NODE_RANK \
     --nproc_per_node=$GPUS_PER_NODE \
     --rdzv_id=101 \
