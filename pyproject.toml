@@ -25,6 +25,7 @@ Repository = "https://github.com/open-lm-engine/lm-engine"
 
 [project.optional-dependencies]
 cuda = [
+    "causal-conv1d",
     "flash-attn>=2.8.3",
 ]
 dev = [
