@@ -31,4 +31,4 @@ jobs:
           uv pip uninstall triton
 
       - name: Unit Tests
-        run: make test
+        run: source .venv/bin/activate && make test
