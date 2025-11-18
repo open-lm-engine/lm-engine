@@ -20,12 +20,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.11
+          python-version: 3.12
 
       - name: Installation
         run: |
           git submodule update --init --recursive
-	        curl -LsSf https://astral.sh/uv/install.sh | sh
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           uv sync
           uv pip install accelerated-model-architectures
           uv pip uninstall -y triton
