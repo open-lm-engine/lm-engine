@@ -9,6 +9,7 @@ description = "A library for efficient LLM training."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "accelerate>=1.11.0",
     "datasets>=4.4.1",
     "gitpython>=3.1.45",
     "ninja>=1.13.0",
@@ -27,7 +28,7 @@ xma = [
     "accelerated-model-architectures",
 ]
 cuda = [
-    "causal-conv1d",
+    "causal-conv1d>=1.5.3.post1",
     "flash-attn>=2.8.3",
     "mamba-ssm>=2.2.6.post3",
 ]
