@@ -24,8 +24,11 @@ jobs:
 
       - name: Installation
         run: |
-          make install-dev
-          pip uninstall -y triton
+          git submodule update --init --recursive
+	        curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync
+          uv pip install accelerated-model-architectures
+          uv pip uninstall -y triton
 
       - name: Unit Tests
         run: make test
