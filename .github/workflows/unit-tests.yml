@@ -27,7 +27,7 @@ jobs:
           git submodule update --init --recursive
           curl -LsSf https://astral.sh/uv/install.sh | sh
           uv sync
-          uv pip install accelerated-model-architectures
+          uv pip install ./accelerated-model-architectures
           uv pip uninstall -y triton
 
       - name: Unit Tests
