@@ -2,16 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-install:
-	pip install -r requirements.txt
-	git submodule update --init --recursive
-	cd accelerated-model-architectures && make install
-
-install-dev:
-	pip install -r requirements-dev.txt
-	git submodule update --init --recursive
-	cd accelerated-model-architectures && make install
-
 test:
 	RUN_SLOW=True pytest tests
 
