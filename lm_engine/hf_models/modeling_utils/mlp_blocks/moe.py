@@ -47,7 +47,7 @@ def _(x: torch.Tensor, minlength: int) -> torch.Tensor:
 
 def compute_bincount(x: torch.Tensor, size: int, use_continuous_count: bool) -> torch.Tensor:
     if use_continuous_count:
-        count = continuous_count(x, size=size)
+        count = continuous_count(x, bins=size)
     else:
         count = bincount(x, minlength=size)
 
