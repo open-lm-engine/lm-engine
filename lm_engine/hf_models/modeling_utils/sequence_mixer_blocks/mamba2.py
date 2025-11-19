@@ -312,6 +312,7 @@ class Mamba2(nn.Module):
             # B, C -> (B, N, ssm_state_size)
 
             # (B, N, head_dim, 1) * (B, N, 1, ssm_state_size)
+            # B is same as k and is shared across heads and dt is used to expand it
             dB = dt[..., None] * B[..., None, :]
             # dB -> (B, N, head_dim, ssm_state_size)
 
