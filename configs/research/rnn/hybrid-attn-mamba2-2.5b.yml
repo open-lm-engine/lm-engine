@@ -425,7 +425,7 @@ logging_args:
   # torch_profiler_trace_path: tmp
   experiments_tracker_name: wandb
   wandb_args:
-    project: model-architectures
+    project: rnn
     name: hybrid-attn-mamba2-2.5b
 
 training_parameters:

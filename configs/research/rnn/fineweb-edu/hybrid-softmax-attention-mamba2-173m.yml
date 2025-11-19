@@ -343,7 +343,7 @@ logging_args:
   # torch_profiler_trace_path: tmp
   experiments_tracker_name: wandb
   wandb_args:
-    project: model-architectures
+    project: rnn
     name: hybrid-softmax-attention-mamba2-173m-test
 
 training_parameters:
