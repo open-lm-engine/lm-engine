@@ -90,7 +90,6 @@ def get_sequence_mixer(
             v_head_dim=block.v_head_dim,
             output_size=config.hidden_size,
             num_heads=block.num_heads,
-            num_groups=block.num_groups,
             k_norm=block.k_norm,
             use_forget_multiplier=block.use_forget_multiplier,
             use_forget_bias=block.use_forget_bias,
