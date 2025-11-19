@@ -9,7 +9,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from smoe.smoe import moe_layer
 from torch.distributed._functional_collectives import all_reduce
 from torch.utils.checkpoint import checkpoint
 
