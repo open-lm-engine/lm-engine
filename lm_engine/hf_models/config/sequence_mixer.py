@@ -93,12 +93,19 @@ class _RNNArgs(_GRUArgs):
 
 class _RSAArgs(_GRUArgs):
     sequence_mixer_type: str = "rsa"
-    k_norm: bool = True
     k_head_dim: int = 16
     v_head_dim: int = 16
-    use_forget_multiplier: bool = True
-    use_forget_bias: bool = True
+    num_q_heads: int = 128
+    num_k_heads: int = 128
+    num_v_heads: int = 128
+    num_f_heads: int = 128
+    num_weight_heads: int = 128
     use_residual: bool = True
+    kernel_size: int | None = None
+    activation_function: str | None = None
+    add_bias: bool = False
+    gradient_clipping: float | None = None
+    normalization_function: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rsa"

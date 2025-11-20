@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ....utils import is_xma_available
+from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
@@ -31,10 +31,11 @@ class RSA(nn.Module):
         k_head_dim: int,
         v_head_dim: int,
         output_size: int,
-        num_heads: int,
-        k_norm: bool,
-        use_forget_multiplier: bool,
-        use_forget_bias: bool,
+        num_q_heads: int,
+        num_k_heads: int,
+        num_v_heads: int,
+        num_f_heads: int,
+        num_weight_heads: int,
         use_residual: bool,
         kernel_size: int | None,
         activation_function: str | None,
@@ -54,21 +55,31 @@ class RSA(nn.Module):
         self.k_head_dim = k_head_dim
         self.v_head_dim = v_head_dim
         self.output_size = output_size
-        self.num_heads = num_heads
         self.kernel_size = kernel_size
         self.activation_string = activation_function
         self.gradient_clipping = gradient_clipping
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
-        self.use_forget_multiplier = use_forget_multiplier
-        self.use_forget_bias = use_forget_bias
         self.use_residual = use_residual
-        self.k_norm = k_norm
 
-        self.q_shape = self.num_heads * self.k_head_dim
-        self.k_shape = self.num_heads * self.k_head_dim
-        self.f_shape = self.num_heads * self.k_head_dim
-        self.v_shape = self.num_heads * self.v_head_dim
+        self.num_q_heads = num_q_heads
+        self.num_k_heads = num_k_heads
+        self.num_v_heads = num_v_heads
+        self.num_f_heads = num_f_heads
+        self.num_weight_heads = num_weight_heads
+
+        self.num_heads = max(num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads)
+
+        divide_if_divisible(self.num_heads, self.num_q_heads)
+        divide_if_divisible(self.num_heads, self.num_k_heads)
+        divide_if_divisible(self.num_heads, self.num_v_heads)
+        divide_if_divisible(self.num_heads, self.num_f_heads)
+        divide_if_divisible(self.num_heads, self.num_weight_heads)
+
+        self.q_shape = self.num_q_heads * self.k_head_dim
+        self.k_shape = self.num_k_heads * self.k_head_dim
+        self.v_shape = self.num_v_heads * self.v_head_dim
+        self.f_shape = self.num_f_heads * self.k_head_dim
         self.g_shape = self.num_heads * self.v_head_dim
 
         self.conv_dim = self.q_shape + self.k_shape + self.v_shape + self.f_shape
@@ -106,21 +117,10 @@ class RSA(nn.Module):
 
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.v_head_dim, self.v_head_dim))
 
-        if self.use_forget_multiplier:
-            self.forget_multiplier = nn.Parameter(torch.empty(self.num_heads))
-            mark_parameter_as_no_weight_decay(self.forget_multiplier)
-
-        if self.use_forget_bias:
-            self.forget_bias = nn.Parameter(torch.empty(self.num_heads, self.k_head_dim))
-            mark_parameter_as_no_weight_decay(self.forget_bias)
-
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
-
-        if self.k_norm:
-            self.norm = get_normalization_function("p_norm", self.k_head_dim, p=2, elementwise_affine=False)
 
         self.g_norm = get_normalization_function(normalization_function, self.num_heads * self.v_head_dim)
 
@@ -159,19 +159,10 @@ class RSA(nn.Module):
 
         q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.f_shape), dim=-1)
 
-        q = q.view(*q.size()[:-1], self.num_heads, self.k_head_dim)
-        k = k.view(*k.size()[:-1], self.num_heads, self.k_head_dim)
-        v = v.view(*v.size()[:-1], self.num_heads, self.v_head_dim)
-        f = f.view(*f.size()[:-1], self.num_heads, self.k_head_dim)
-
-        if self.k_norm:
-            k = self.norm(k)
-
-        if self.use_forget_bias:
-            f = f + self.forget_bias
-
-        if self.use_forget_multiplier:
-            f = 2 * torch.sigmoid(self.forget_multiplier[..., None]) * f
+        q = q.view(*q.size()[:-1], self.num_q_heads, self.k_head_dim)
+        k = k.view(*k.size()[:-1], self.num_k_heads, self.k_head_dim)
+        v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
+        f = f.view(*f.size()[:-1], self.num_f_heads, self.k_head_dim)
 
         input, rsa_state = rsa(
             query=q,
@@ -204,12 +195,6 @@ class RSA(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
-
-        if self.use_forget_multiplier:
-            nn.init.zeros_(self.forget_multiplier)
-
-        if self.use_forget_bias:
-            nn.init.zeros_(self.forget_bias)
 
         if self.use_residual:
             nn.init.ones_(self.D)
