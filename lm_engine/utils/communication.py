@@ -26,6 +26,3 @@ class Communication:
     @staticmethod
     def barrier() -> None:
         torch.distributed.barrier()
-
-        if Accelerator.get_accelerator() == Accelerator.tpu:
-            torch.distributed.barrier(ProcessGroupManager.get_cpu_group())
