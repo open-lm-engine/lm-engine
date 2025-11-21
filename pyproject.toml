@@ -24,6 +24,7 @@ dependencies = [
     "pydantic>=2.12.4",
     "torch==2.8.0",
     "transformers>=4.57.1",
+    "wandb>=0.23.0",
 ]
 
 [project.urls]
