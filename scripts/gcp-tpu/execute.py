@@ -30,13 +30,17 @@ def main() -> None:
             command = f"""gcloud compute tpus tpu-vm create {name} \
 --project={project} \
 --zone={zone} \
+--version={script['node']['version']} \
 --accelerator-type={script['node']['accelerator']}"""
-
-            if script.get("disk", None) is not None:
-                command += f" --disk=projects/{project}/zones/{zone}/disks/{script['node']['disk']}"
 
             if script.get("spot", False):
                 command += " --spot"
+
+            if script["node"].get("disks", None):
+                for disk in script["node"]["disks"]:
+                    command += (
+                        f" --data-disk source=projects/{project}/zones/{zone}/disks/{disk['name']},mode=read-write"
+                    )
 
             print(command)
             os.system(command)

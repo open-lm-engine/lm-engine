@@ -11,19 +11,27 @@ node:
   zone: asia-northeast1-b
   accelerator: v6e-1
   version: v2-alpha-tpuv6e
-  disk: mayank-fs
   spot: false
+  disks:
+    - name: mayank-fs
+      mount-path: scratch
+    - name: mayank-data1
+      mount-path: data
 
 installation:
+  # mount disks
+  - mkdir -p ./scratch
+  - sudo mount -o discard,defaults /dev/nvme0n2 ./scratch
+  - sudo chmod a+w ./scratch
+  - mkdir -p ./data
+  - sudo mount -o discard,defaults /dev/nvme0n3 ./data
+  - sudo chmod a+w ./data
   # install uv
   - curl -LsSf https://astral.sh/uv/install.sh | sh
   # clone the repo
-  # - rm -rf lm-engine
-  # - git clone https://github.com/open-lm-engine/lm-engine
+  - git clone https://github.com/open-lm-engine/lm-engine
   - cd lm-engine
-  - git pull
-  # - git submodule update --init --recursive
-  # - git checkout tpu
+  - git submodule update --init --recursive
   - source $HOME/.local/bin/env
   - uv sync --extra tpu
   - uv run --extra tpu sh scripts/gcp-tpu/pretrain.sh configs/pretraining-examples/dense/pretrain-tpu.yml |& tee err.log
