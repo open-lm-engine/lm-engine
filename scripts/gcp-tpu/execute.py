@@ -57,7 +57,7 @@ def main() -> None:
             print(command)
             os.system(command)
     else:
-        raise ValueError
+        raise ValueError(f"Unsupported cloud provider: {script['cloud']}. Only 'gcp' is supported.")
 
 
 if __name__ == "__main__":
