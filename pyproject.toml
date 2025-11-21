@@ -22,7 +22,7 @@ dependencies = [
     "ninja>=1.13.0",
     "numpy>=2.3.5",
     "pydantic>=2.12.4",
-    "torch>=2.8.0",
+    "torch==2.8.0",
     "transformers>=4.57.1",
 ]
 
