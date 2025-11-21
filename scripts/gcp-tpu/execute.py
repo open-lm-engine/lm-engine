@@ -54,8 +54,8 @@ def main() -> None:
 --worker=all \
 --command='{installation}'"""
 
-        print(command)
-        os.system(command)
+            print(command)
+            os.system(command)
     else:
         raise ValueError
 
