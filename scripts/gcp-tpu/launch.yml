@@ -1,0 +1,26 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+cloud: gcp
+spin-up: false
+
+node:
+  name: node-1
+  project: camp-blue-431854084
+  zone: asia-northeast1-b
+  accelerator: v6e-1
+  version: v2-alpha-tpuv6e
+  disk: mayank-fs
+  spot: false
+
+installation:
+  # install uv
+  - curl -LsSf https://astral.sh/uv/install.sh | sh
+  - source $HOME/.local/bin/env
+  - uv sync --extra tpu
+  # clone the repo
+  - git clone https://github.com/open-lm-engine/lm-engine
+  - cd lm-engine
+  - git submodule update --init --recursive
+  - 
