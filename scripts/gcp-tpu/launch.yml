@@ -17,10 +17,13 @@ node:
 installation:
   # install uv
   - curl -LsSf https://astral.sh/uv/install.sh | sh
+  # clone the repo
+  # - rm -rf lm-engine
+  # - git clone https://github.com/open-lm-engine/lm-engine
+  - cd lm-engine
+  - git pull
+  # - git submodule update --init --recursive
+  # - git checkout tpu
   - source $HOME/.local/bin/env
   - uv sync --extra tpu
-  # clone the repo
-  - git clone https://github.com/open-lm-engine/lm-engine
-  - cd lm-engine
-  - git submodule update --init --recursive
-  - 
+  - uv run --extra tpu sh scripts/gcp-tpu/pretrain.sh configs/pretraining-examples/dense/pretrain-tpu.yml |& tee err.log
