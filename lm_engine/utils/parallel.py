@@ -75,7 +75,7 @@ class ProcessGroupManager:
         accelerator = Accelerator.get_accelerator()
 
         if accelerator == Accelerator.tpu:
-            _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
+            _CPU_GROUP = torch.distributed.init_process_group(backend="cpu:gloo", timeout=timeout_minutes)
 
             _GLOBAL_RANK = xla_global_ordinal()
             _LOCAL_RANK = xla_local_ordinal()
