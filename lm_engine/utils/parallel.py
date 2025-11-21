@@ -116,6 +116,7 @@ class ProcessGroupManager:
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
+        # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
         _MESH = init_device_mesh(
             "cpu" if accelerator == Accelerator.tpu else ("cuda" if accelerator == Accelerator.cuda else "cpu"),
             (
@@ -131,13 +132,7 @@ class ProcessGroupManager:
             enable_symm_mem_for_group(ProcessGroupManager.get_tensor_parallel_group().group_name)
             torch._inductor.config._micro_pipeline_tp = True
 
-        if accelerator == Accelerator.tpu:
-            # FIXME hack since XLA DeviceMesh doesn't support subslicing
-            _TENSOR_PARALLEL_FIRST_RANK = ProcessGroupManager.get_global_rank()
-            _TENSOR_PARALLEL_RANK = 0
-            _TENSOR_PARALLEL_WORLD_SIZE = 1
-            assert tensor_parallel_world_size == 1
-        elif tensor_parallel_world_size > 1:
+        if tensor_parallel_world_size > 1:
             group = ProcessGroupManager.get_tensor_parallel_group()
             ranks = torch.distributed.get_process_group_ranks(group)
 
