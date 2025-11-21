@@ -22,13 +22,17 @@ dependencies = [
     "ninja>=1.13.0",
     "numpy>=2.3.5",
     "pydantic>=2.12.4",
-    "torch>=2.8.0",
+    "torch==2.8.0",
     "transformers>=4.57.1",
 ]
 
 [project.urls]
 Homepage = "https://github.com/open-lm-engine/lm-engine"
 Repository = "https://github.com/open-lm-engine/lm-engine"
+
+[[tool.uv.index]]
+url = "https://us-python.pkg.dev/ml-oss-artifacts-published/jax/simple/"
+default = true
 
 [project.optional-dependencies]
 dev = [
@@ -44,6 +48,9 @@ mamba2 = [
 ]
 xma = [
     "accelerated-model-architectures",
+]
+tpu = [
+    "torch-xla[pallas,tpu]==2.8.0",
 ]
 
 [tool.uv.sources]
