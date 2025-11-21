@@ -36,7 +36,7 @@ datasets:
       sequence_length: 4096
 
 tokenizer_args:
-  tokenizer_name: /home/mayank/scratch/tokenizers/granite
+  tokenizer_name: ibm-granite/granite-3b-code-base-2k
 
 model_args:
   model_class: AutoModelForCausalLM
