@@ -48,10 +48,10 @@ model_args:
     normalization_function: layernorm
     layer_norm_epsilon: 1e-5
     initializer_range: 0.02
-    bos_token_id: 100257
-    eos_token_id: 100257
-    pad_token_id: 100256
-    vocab_size: 100352
+    bos_token_id: 0
+    eos_token_id: 0
+    pad_token_id: 0
+    vocab_size: 0
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
