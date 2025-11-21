@@ -30,6 +30,10 @@ dependencies = [
 Homepage = "https://github.com/open-lm-engine/lm-engine"
 Repository = "https://github.com/open-lm-engine/lm-engine"
 
+[[tool.uv.index]]
+url = "https://us-python.pkg.dev/ml-oss-artifacts-published/jax/simple/"
+default = true
+
 [project.optional-dependencies]
 dev = [
     "parameterized>=0.9.0",
@@ -44,6 +48,9 @@ mamba2 = [
 ]
 xma = [
     "accelerated-model-architectures",
+]
+tpu = [
+    "torch-xla[pallas,tpu]==2.8.0",
 ]
 
 [tool.uv.sources]
