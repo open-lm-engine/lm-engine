@@ -115,7 +115,7 @@ class ProcessGroupManager:
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
         _MESH = init_device_mesh(
-            "tpu" if accelerator == Accelerator.tpu else ("cuda" if accelerator == Accelerator.cuda else "cpu"),
+            "xla" if accelerator == Accelerator.tpu else ("cuda" if accelerator == Accelerator.cuda else "cpu"),
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
