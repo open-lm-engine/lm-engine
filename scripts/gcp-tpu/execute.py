@@ -19,7 +19,8 @@ def get_args() -> Namespace:
 
 def main() -> None:
     args = get_args()
-    script = yaml.safe_load(open(args.script, "r"))
+    with open(args.script, "r") as f:
+        script = yaml.safe_load(f)
 
     if script["cloud"] == "gcp":
         project = script["node"]["project"]
