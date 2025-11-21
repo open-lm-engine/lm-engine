@@ -3,14 +3,14 @@
 # **************************************************
 
 test:
-	RUN_SLOW=True pytest tests
+	RUN_SLOW=True uv run --extra dev --extra flash-attn --extra xma pytest tests
 
 test-fast:
-	RUN_SLOW=False pytest tests
+	RUN_SLOW=False uv run --extra dev --extra flash-attn --extra xma pytest tests
 
 update-precommit:
-	pre-commit autoupdate
+	uv run --extra dev pre-commit autoupdate
 
 style:
-	python copyright/copyright.py --repo ./ --exclude copyright-exclude.txt --header "Copyright (c) 2025, Mayank Mishra"
-	pre-commit run --all-files
+	uv run python copyright/copyright.py --repo ./ --exclude copyright-exclude.txt --header "Copyright (c) 2025, Mayank Mishra"
+	uv run --extra dev pre-commit run --all-files
