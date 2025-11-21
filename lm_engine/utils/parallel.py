@@ -67,7 +67,7 @@ class ProcessGroupManager:
     ) -> ProcessGroupManager:
         from .accelerator import Accelerator
 
-        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE, _CPU_GROUP, _GLOBAL_RANK, _LOCAL_RANK, _WORLD_SIZE, _TENSOR_PARALLEL_RANK, _TENSOR_PARALLEL_WORLD_SIZE
+        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE, _CPU_GROUP, _GLOBAL_RANK, _LOCAL_RANK, _WORLD_SIZE
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
