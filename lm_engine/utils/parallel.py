@@ -377,6 +377,11 @@ class ProcessGroupManager:
             Communication.barrier()
             torch.distributed.destroy_process_group()
 
+    @staticmethod
+    def get_cpu_group() -> ProcessGroup | None:
+        global _CPU_GROUP
+        return _CPU_GROUP
+
 
 def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable:
     """wraps a function to run on a single rank, returns a no-op for other ranks
