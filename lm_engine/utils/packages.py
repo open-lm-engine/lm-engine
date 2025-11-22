@@ -153,3 +153,15 @@ except ImportError:
 
 def is_torch_xla_available() -> bool:
     return _IS_TORCH_XLA_AVAILABLE
+
+
+try:
+    import torch_neuronx
+
+    _IS_TORCH_NEURONX_AVAILABLE = True
+except ImportError:
+    _IS_TORCH_NEURONX_AVAILABLE = False
+
+
+def is_torch_neuronx_available() -> bool:
+    return _IS_TORCH_NEURONX_AVAILABLE

@@ -9,7 +9,7 @@ from typing import Any
 
 import torch
 
-from .packages import is_torch_xla_available
+from .packages import is_torch_neuronx_available, is_torch_xla_available
 
 
 if is_torch_xla_available():
@@ -22,6 +22,7 @@ class Accelerator(Enum):
     cpu = "cpu"
     cuda = "cuda"
     tpu = "tpu"
+    trainium = "trainium"
 
     @staticmethod
     def get_accelerator() -> Accelerator:
@@ -29,6 +30,8 @@ class Accelerator(Enum):
             accelerator = Accelerator.cuda
         elif is_torch_xla_available():
             accelerator = Accelerator.tpu
+        elif is_torch_neuronx_available():
+            accelerator = Accelerator.trainium
         else:
             accelerator = Accelerator.cpu
 
