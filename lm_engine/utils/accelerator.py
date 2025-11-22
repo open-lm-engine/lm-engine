@@ -85,7 +85,7 @@ class Accelerator(Enum):
         elif accelerator == Accelerator.tpu:
             state = xla_set_rng_state(state)
         elif accelerator == Accelerator.trainium:
-            state = torch.trainium.set_rng_state(state)
+            state = torch.neuron.set_rng_state(state)
         else:
             raise ValueError(f"unexpected device ({accelerator})")
 

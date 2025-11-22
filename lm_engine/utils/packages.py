@@ -90,12 +90,9 @@ def is_xma_available() -> bool:
 
 
 try:
-    if torch.cuda.is_available():
-        import causal_conv1d
+    import causal_conv1d
 
-        _IS_CAUSAL_CONV1D_AVAILABLE = True
-    else:
-        _IS_CAUSAL_CONV1D_AVAILABLE = False
+    _IS_CAUSAL_CONV1D_AVAILABLE = True
 except ImportError:
     _IS_CAUSAL_CONV1D_AVAILABLE = False
 
@@ -105,12 +102,9 @@ def is_causal_conv1d_available() -> bool:
 
 
 try:
-    if torch.cuda.is_available():
-        import mamba_ssm
+    import mamba_ssm
 
-        _IS_MAMBA_2_SSM_AVAILABLE = True
-    else:
-        _IS_MAMBA_2_SSM_AVAILABLE = False
+    _IS_MAMBA_2_SSM_AVAILABLE = True
 except ImportError:
     _IS_MAMBA_2_SSM_AVAILABLE = False
 
