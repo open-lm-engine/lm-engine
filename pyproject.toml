@@ -22,7 +22,6 @@ dependencies = [
     "ninja>=1.13.0",
     "numpy>=2.3.5",
     "pydantic>=2.12.4",
-    "torch==2.8.0",
     "transformers>=4.57.1",
     "wandb>=0.23.0",
 ]
@@ -36,6 +35,9 @@ url = "https://us-python.pkg.dev/ml-oss-artifacts-published/jax/simple/"
 default = true
 
 [project.optional-dependencies]
+cuda = [
+    "torch>=2.8.0",
+]
 dev = [
     "parameterized>=0.9.0",
     "pre-commit>=4.4.0",
@@ -51,6 +53,7 @@ xma = [
     "accelerated-model-architectures",
 ]
 tpu = [
+    "torch==2.8.0",
     "torch-xla[pallas,tpu]==2.8.0",
 ]
 
