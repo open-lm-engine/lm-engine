@@ -53,6 +53,21 @@ class Accelerator(Enum):
         return device
 
     @staticmethod
+    def get_device_type() -> str:
+        accelerator = Accelerator.get_accelerator()
+
+        if accelerator == Accelerator.cuda:
+            device = "cuda"
+        elif accelerator == Accelerator.tpu:
+            device = "xla"
+        elif accelerator == Accelerator.trainium:
+            device = "neuron"
+        elif accelerator == Accelerator.cpu:
+            device = "cpu"
+
+        return device
+
+    @staticmethod
     def set_device(device: int) -> None:
         accelerator = Accelerator.get_accelerator()
 
