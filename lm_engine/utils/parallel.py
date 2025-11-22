@@ -90,7 +90,7 @@ class ProcessGroupManager:
             if accelerator == Accelerator.cuda:
                 backend += ",cuda:nccl"
             elif accelerator == Accelerator.trainium:
-                backend += "neuron"
+                backend += ",neuron"
 
             torch.distributed.init_process_group(
                 backend=backend, rank=_GLOBAL_RANK, world_size=_WORLD_SIZE, timeout=timeout_minutes
