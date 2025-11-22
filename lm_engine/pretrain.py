@@ -695,7 +695,7 @@ def xla_main(*args):
 if __name__ == "__main__":
     accelerator = Accelerator.get_accelerator()
 
-    if accelerator == Accelerator.cuda:
-        main()
-    elif accelerator == Accelerator.tpu:
+    if accelerator == Accelerator.tpu:
         xla_launch(xla_main)
+    else:
+        main()
