@@ -33,7 +33,7 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
 
     if accelerator == Accelerator.tpu:
         torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
-        tensor = tensor / ProcessGroupManager.get_data_parallel_world_size()
+        tensor = tensor * (1 / ProcessGroupManager.get_data_parallel_world_size())
     else:
         torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
 
