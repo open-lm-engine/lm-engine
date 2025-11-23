@@ -352,7 +352,7 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
     use_meta = args_from_checkpoint.model_args.model_name is None
 
     with (
-        torch.device("meta") if use_meta else torch.device(torch.cuda.current_device()),
+        torch.device("meta") if use_meta else torch.device(Accelerator.get_current_device()),
         ProcessGroupManager.set_dummy_tensor_parallel_rank(0),
         ProcessGroupManager.set_dummy_tensor_parallel_world_size(1),
         ProcessGroupManager.set_dummy_pipeline_parallel_rank(0),

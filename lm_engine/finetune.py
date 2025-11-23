@@ -22,6 +22,7 @@ from .optimization import get_learning_rate, get_optimizer_container, get_schedu
 from .pretrain import train_step_without_pipeline_parallel
 from .train_utils import all_reduce_metrics_tracker, track_metrics
 from .utils import (
+    Accelerator,
     ExperimentsTracker,
     MetricsTrackingDict,
     ProcessGroupManager,
@@ -156,7 +157,7 @@ def evaluate(
         else:
             num_steps = 0
 
-        num_steps = torch.tensor(num_steps, device=torch.cuda.current_device(), dtype=torch.long)
+        num_steps = torch.tensor(num_steps, device=Accelerator.get_current_device(), dtype=torch.long)
         torch.distributed.all_reduce(num_steps, group=ProcessGroupManager.get_tensor_parallel_group())
         num_steps = num_steps.item()
     else:
