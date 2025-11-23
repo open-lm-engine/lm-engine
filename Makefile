@@ -3,7 +3,7 @@
 # **************************************************
 
 test:
-	RUN_SLOW=True uv run --extra dev --extra flash-attn pytest tests
+	RUN_SLOW=True uv run --extra dev --extra flash-attn --extra xma pytest tests
 
 test-fast:
 	RUN_SLOW=False uv run --extra dev --extra flash-attn pytest tests
