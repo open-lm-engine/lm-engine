@@ -86,11 +86,14 @@ class ProcessGroupManager:
             _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
             _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
 
+            backend = "cpu:gloo"
+            if accelerator == Accelerator.cuda:
+                backend += ",cuda:nccl"
+            elif accelerator == Accelerator.trainium:
+                backend += ",neuron:neuron"
+
             torch.distributed.init_process_group(
-                backend="cpu:gloo" + (",cuda:nccl" if accelerator == Accelerator.cuda else ""),
-                rank=_GLOBAL_RANK,
-                world_size=_WORLD_SIZE,
-                timeout=timeout_minutes,
+                backend=backend, rank=_GLOBAL_RANK, world_size=_WORLD_SIZE, timeout=timeout_minutes
             )
 
         Accelerator.set_device(_LOCAL_RANK)
@@ -117,8 +120,9 @@ class ProcessGroupManager:
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
+        # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
         _MESH = init_device_mesh(
-            "cuda" if accelerator == Accelerator.cuda else "cpu",
+            Accelerator.get_device_type(),
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,

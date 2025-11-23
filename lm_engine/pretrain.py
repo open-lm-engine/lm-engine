@@ -85,7 +85,7 @@ def train_step_with_pipeline_parallel(
 
     if ProcessGroupManager.is_tensor_parallel_first_rank():
         batch = batch["text"]
-        batch = batch.to(torch.cuda.current_device())
+        batch = batch.to(Accelerator.get_current_device())
 
     if ProcessGroupManager.is_tensor_parallel_enabled():
         batch = broadcast_tensor_parallel_input(batch, (StepTracker.get_local_batch_size(), sequence_length + 1))
@@ -210,11 +210,10 @@ def train_step_without_pipeline_parallel(
     with (xla_step if accelerator == Accelerator.tpu else nullcontext)():
         with no_sync():
             for step in range(gradient_accumulation_steps - 1):
-                batch = get_next_batch(train_dataloader) if batches is None else batches[step]
                 with forward_context():
+                    batch = get_next_batch(train_dataloader) if batches is None else batches[step]
                     loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
 
-                # compute gradients
                 with backward_context():
                     loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
                     loss_micro_step.backward()
@@ -225,11 +224,10 @@ def train_step_without_pipeline_parallel(
         if fsdp_algorithm == 2:
             model.set_requires_gradient_sync(True)
 
-        batch = get_next_batch(train_dataloader) if batches is None else batches[-1]
         with forward_context():
+            batch = get_next_batch(train_dataloader) if batches is None else batches[-1]
             loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
 
-        # compute gradients
         with backward_context():
             loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
             loss_micro_step.backward()
@@ -697,7 +695,7 @@ def xla_main(*args):
 if __name__ == "__main__":
     accelerator = Accelerator.get_accelerator()
 
-    if accelerator == Accelerator.cuda:
-        main()
-    elif accelerator == Accelerator.tpu:
+    if accelerator == Accelerator.tpu:
         xla_launch(xla_main)
+    else:
+        main()
