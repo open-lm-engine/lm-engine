@@ -29,16 +29,16 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         multimodal (bool, optional): Whether the dataset is multimodal. Defaults to False.
     """
 
-    def __init__(self, path_prefix: str, multimodal: bool = False) -> MMapIndexedDataset:
+    def __init__(self, path_prefix: str, multimodal: bool = False, cache_path: str | None = None) -> MMapIndexedDataset:
         super().__init__()
         self.path_prefix = None
         self.multimodal = None
 
         self.index = None
 
-        if is_object_storage_path(path_prefix) and object_storage_config is not None:
+        if is_object_storage_path(path_prefix):
             idx_path = get_idx_path(path_prefix)
-            cache_file(idx_path, get_index_cache_path(idx_path, object_storage_config))
+            cache_file(idx_path, get_index_cache_path(idx_path, cache_path))
 
         self.initialize(path_prefix, multimodal)
 
