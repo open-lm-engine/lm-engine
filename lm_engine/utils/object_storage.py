@@ -211,7 +211,7 @@ def dataset_exists(path_prefix: str, idx_path: str, bin_path: str) -> bool:
         raise ValueError(f"Invalid path: {path_prefix}")
 
 
-def cache_index_file(remote_path: str, local_path: str) -> None:
+def cache_file(remote_path: str, local_path: str) -> None:
     """Download a file from object storage to a local path with distributed training support.
     The download only happens on Rank 0, and other ranks will wait for the file to be available.
 

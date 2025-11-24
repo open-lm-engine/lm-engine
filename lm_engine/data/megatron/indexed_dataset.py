@@ -14,7 +14,7 @@ from itertools import accumulate
 import numpy as np
 import torch
 
-from ...utils import is_multi_storage_client_available, log_rank_0
+from ...utils import cache_file, is_multi_storage_client_available, is_object_storage_path
 from .dtype import DType
 from .idx import _IndexReader, _IndexWriter
 
@@ -40,6 +40,10 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         self.index = None
         self.bin_buffer = None
         self.bin_buffer_mmap = None
+
+        if is_object_storage_path(path_prefix) and object_storage_config is not None:
+            idx_path = get_idx_path(path_prefix)
+            cache_file(idx_path, get_index_cache_path(idx_path, object_storage_config))
 
         self.initialize(path_prefix, multimodal)
 
