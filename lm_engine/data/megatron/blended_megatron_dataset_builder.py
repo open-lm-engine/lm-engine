@@ -176,10 +176,14 @@ def _build_megatron_dataset_splits(
             path_prefix, GPTDataset.is_multimodal(), cache_path=os.path.join(config.path_to_cache, "cloud-idx-cache")
         )
 
-        if GPTDataset.is_split_by_sequence():
-            split_idx_bounds = _get_split_indices(split, indexed_dataset.sequence_lengths.shape[0])
-        else:
-            split_idx_bounds = _get_split_indices(split, indexed_dataset.document_indices.shape[0] - 1)
+        split_idx_bounds = _get_split_indices(
+            split,
+            (
+                indexed_dataset.sequence_lengths.shape[0]
+                if GPTDataset.is_split_by_sequence()
+                else indexed_dataset.document_indices.shape[0] - 1
+            ),
+        )
 
         split_indices = [
             np.arange(
