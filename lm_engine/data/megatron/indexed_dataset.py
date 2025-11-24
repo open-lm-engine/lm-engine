@@ -45,6 +45,8 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
             log_rank_0(logging.INFO, f"downloading {remote_idx_path} to {idx_path}")
             cache_file(remote_idx_path, idx_path)
 
+        self.initialize(path_prefix)
+
     def initialize(self, path_prefix: str) -> None:
         is_object_storage = is_object_storage_path(path_prefix)
         idx_path = get_idx_path(path_prefix)
