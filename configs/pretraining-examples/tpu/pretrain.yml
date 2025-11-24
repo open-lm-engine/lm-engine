@@ -10,6 +10,7 @@ datasets:
     class_args:
       eval_steps: 2
       data_cache_path: cache
+      num_workers: 16
       # Option 1: data loading using --data-path with single file
       data_path:
         - 252
