@@ -181,6 +181,10 @@ class DatasetArgs(BaseArgs):
             assert self.data_sampling_ratio > 0, "data_sampling_ratio should be a positive integer"
 
 
+class MSCArgs(BaseArgs):
+    class_args: dict = {}
+
+
 class OptimizerArgs(BaseArgs):
     # optimizer class
     class_name: str = "TorchAdamW"
@@ -392,6 +396,8 @@ class TrainingArgs(BaseArgs):
     optimizer_args: OptimizerArgs = OptimizerArgs()
     # lr_scheduler related arguments
     lr_scheduler_args: LRSchedulerArgs = LRSchedulerArgs()
+    # multi storage client args
+    msc_args: MSCArgs | None = MSCArgs()
     # list of datasets to use
     datasets: list[DatasetArgs] = []
     # save related arguments
@@ -440,6 +446,8 @@ class UnshardingArgs(BaseArgs):
     load_args: LoadArgs = None
     # unsharded path
     unsharded_path: str = None
+    # multi storage client args
+    msc_args: MSCArgs | None = MSCArgs()
     # mixed precision related arguments
     mixed_precision_args: MixedPrecisionArgs = MixedPrecisionArgs()
     # logging related arguments
