@@ -77,6 +77,7 @@ class ProcessGroupManager:
         global _WORLD_SIZE
         global _TENSOR_PARALLEL_WORLD_SIZE
         global _PIPELINE_PARALLEL_WORLD_SIZE
+        global _DATA_PARALLEL_WORLD_SIZE
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -151,6 +152,7 @@ class ProcessGroupManager:
 
             _TENSOR_PARALLEL_WORLD_SIZE = 1
             _PIPELINE_PARALLEL_WORLD_SIZE = 1
+            _DATA_PARALLEL_WORLD_SIZE = data_parallel_size
         else:
             group = ProcessGroupManager.get_tensor_parallel_group()
             ranks = torch.distributed.get_process_group_ranks(group)
