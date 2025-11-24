@@ -37,7 +37,7 @@ class _MMapBinReader(_BinReader):
         bin_path (str): bin_path (str): The path to the data (.bin) file.
     """
 
-    def __init__(self, bin_path: str) -> None:
+    def __init__(self, bin_path: str) -> _MMapBinReader:
         self._bin_file_reader = (msc.open if is_object_storage_path(bin_path) else open)(bin_path, mode="rb")
         self._bin_buffer_mmap = np.memmap(self._bin_file_reader, mode="r", order="C")
         self._bin_buffer = memoryview(self._bin_buffer_mmap)
@@ -75,7 +75,7 @@ class _FileBinReader(_BinReader):
         bin_path (str): bin_path (str): The path to the data (.bin) file.
     """
 
-    def __init__(self, bin_path: str) -> None:
+    def __init__(self, bin_path: str) -> _FileBinReader:
         self._bin_path = bin_path
 
     def read(self, dtype: type[np.number], count: int, offset: int) -> np.ndarray:
@@ -114,7 +114,7 @@ class _S3BinReader(_BinReader):
             should assert that `bin_chunk_nbytes` is None at initialization.
     """
 
-    def __init__(self, bin_path: str, object_storage_config: ObjectStorageConfig) -> None:
+    def __init__(self, bin_path: str, object_storage_config: ObjectStorageConfig) -> _S3BinReader:
         assert object_storage_config.bin_chunk_nbytes > 0
         self._client = boto3.client("s3")
         self._s3_bucket, self._s3_key = parse_s3_path(bin_path)
@@ -190,7 +190,7 @@ class _MultiStorageClientBinReader(_BinReader):
         bin_path (str): bin_path (str): The path to the data (.bin) file.
     """
 
-    def __init__(self, bin_path: str, object_storage_config: ObjectStorageConfig) -> None:
+    def __init__(self, bin_path: str) -> _MultiStorageClientBinReader:
         self._client, self._bin_path = msc.resolve_storage_client(bin_path)
 
     def read(self, dtype: type[np.number], count: int, offset: int) -> np.ndarray:
