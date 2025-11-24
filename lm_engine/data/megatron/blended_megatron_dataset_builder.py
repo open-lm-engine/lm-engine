@@ -173,7 +173,10 @@ def _build_megatron_dataset_splits(
 
     if not torch.distributed.is_initialized() or ProcessGroupManager.is_tensor_parallel_first_rank():
         indexed_dataset = MMapIndexedDataset(
-            path_prefix, GPTDataset.is_multimodal(), cache_path=os.path.join(config.path_to_cache, "cloud-idx-cache")
+            path_prefix,
+            GPTDataset.is_multimodal(),
+            cache_path=os.path.join(config.path_to_cache, "cloud-idx-cache"),
+            node_uses_local_storage=node_uses_local_storage,
         )
 
         split_idx_bounds = _get_split_indices(

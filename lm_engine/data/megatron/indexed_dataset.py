@@ -15,7 +15,14 @@ from itertools import accumulate
 import numpy as np
 import torch
 
-from ...utils import cache_file, get_index_cache_path, is_object_storage_path, log_rank_0
+from ...utils import (
+    Accelerator,
+    ProcessGroupManager,
+    cache_file,
+    get_index_cache_path,
+    is_object_storage_path,
+    log_rank_0,
+)
 from .bin import _MMapBinReader, _MultiStorageClientBinReader
 from .dtype import DType
 from .idx import _IndexReader, _IndexWriter
@@ -31,11 +38,18 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
     """
 
     def __init__(
-        self, path_prefix: str, multimodal: bool = False, cache_path: str | None = None
+        self,
+        path_prefix: str,
+        multimodal: bool = False,
+        cache_path: str | None = None,
+        node_uses_local_storage: bool = False,
     ) -> MMapIndexedDataset:
         super().__init__()
 
-        if is_object_storage_path(path_prefix):
+        if is_object_storage_path(path_prefix) and (
+            ProcessGroupManager.get_global_rank() == 0
+            or (node_uses_local_storage and Accelerator.get_current_device() == 0)
+        ):
             remote_idx_path = get_idx_path(path_prefix)
             idx_path = get_index_cache_path(remote_idx_path, cache_path)
             log_rank_0(logging.INFO, f"downloading {remote_idx_path} to {idx_path}")
