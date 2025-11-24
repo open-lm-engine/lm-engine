@@ -1,0 +1,10 @@
+profiles:
+  my-profile:
+    storage_provider:
+      type: s3
+      options:
+        base_path: my-bucket
+    metadata_provider:
+      type: manifest
+      options:
+        manifest_path: .msc_manifests
