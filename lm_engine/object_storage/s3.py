@@ -6,18 +6,15 @@ from typing import Any, Dict, Protocol, Tuple
 
 import torch
 
-from ..utils import is_multi_storage_client_available
+from ..utils import is_boto3_available, is_multi_storage_client_available
 
 
 if is_multi_storage_client_available():
     import msc
 
-
-try:
+if is_boto3_available():
     import boto3
     import botocore.exceptions as exceptions
-except ModuleNotFoundError:
-    pass
 
 S3_PREFIX = "s3://"
 MSC_PREFIX = "msc://"

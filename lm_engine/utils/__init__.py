@@ -15,6 +15,7 @@ from .miscellaneous import divide_if_divisible
 from .mixed_precision import normalize_dtype_string, string_to_torch_dtype, torch_dtype_to_string
 from .packages import (
     is_aim_available,
+    is_boto3_available,
     is_causal_conv1d_available,
     is_colorlog_available,
     is_flash_attention_2_available,
