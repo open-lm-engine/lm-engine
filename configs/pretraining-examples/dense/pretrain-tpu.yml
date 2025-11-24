@@ -13,30 +13,30 @@ datasets:
       # Option 1: data loading using --data-path with single file
       data_path:
         - 252
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/0
+        - msc://copy-merged/0
         - 252
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/1
+        - msc://copy-merged/1
         - 252
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/2
+        - msc://copy-merged/2
         - 251
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/3
+        - msc://copy-merged/3
         - 252
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/4
+        - msc://copy-merged/4
         - 252
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/5
+        - msc://copy-merged/5
         - 252
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/6
+        - msc://copy-merged/6
         - 252
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/7
+        - msc://copy-merged/7
         - 252
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/8
+        - msc://copy-merged/8
         - 250
-        - /home/mayank/data/nemotron-cc-v2-merged/Diverse-QA/9
+        - msc://copy-merged/9
       split: 100,0,0
       sequence_length: 4096
 
 tokenizer_args:
-  tokenizer_name: /home/mayank/scratch/tokenizers/granite
+  tokenizer_name: ibm-granite/granite-3b-code-base
 
 model_args:
   model_class: AutoModelForCausalLM
@@ -48,9 +48,9 @@ model_args:
     normalization_function: layernorm
     layer_norm_epsilon: 1e-5
     initializer_range: 0.02
-    bos_token_id: 100257
-    eos_token_id: 100257
-    pad_token_id: 100256
+    bos_token_id: 0
+    eos_token_id: 0
+    pad_token_id: 0
     vocab_size: 100352
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
