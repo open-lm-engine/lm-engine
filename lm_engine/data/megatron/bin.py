@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from ...utils import is_boto3_available, is_multi_storage_client_available
+from ...utils import is_boto3_available, is_multi_storage_client_available, is_object_storage_path
 from .dtype import DType
 
 
@@ -38,7 +38,7 @@ class _MMapBinReader(_BinReader):
     """
 
     def __init__(self, bin_path: str) -> None:
-        self._bin_file_reader = (msc.open if is_msc(bin_path) else open)(bin_path, mode="rb")
+        self._bin_file_reader = (msc.open if is_object_storage_path(bin_path) else open)(bin_path, mode="rb")
         self._bin_buffer_mmap = np.memmap(self._bin_file_reader, mode="r", order="C")
         self._bin_buffer = memoryview(self._bin_buffer_mmap.data)
 
@@ -93,7 +93,9 @@ class _FileBinReader(_BinReader):
                 reading bytes from the data file starting at `offset`.
         """
         sequence = np.empty(count, dtype=dtype)
-        with (msc.open if is_msc(bin_path) else open)(self._bin_path, mode="rb", buffering=0) as bin_buffer_file:
+        with (msc.open if is_object_storage_path(bin_path) else open)(
+            self._bin_path, mode="rb", buffering=0
+        ) as bin_buffer_file:
             bin_buffer_file.seek(offset)
             bin_buffer_file.readinto(sequence)
         return sequence

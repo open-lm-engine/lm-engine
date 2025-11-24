@@ -45,7 +45,7 @@ class _IndexWriter:
         Returns:
             _IndexWriter: The instance
         """
-        self.idx_writer = (msc.open if is_msc(self.idx_path) else open)(self.idx_path, "wb")
+        self.idx_writer = (msc.open if is_object_storage_path(self.idx_path) else open)(self.idx_path, "wb")
         # fixed, vestigial practice
         self.idx_writer.write(_INDEX_HEADER)
         # fixed, vestigial practice
