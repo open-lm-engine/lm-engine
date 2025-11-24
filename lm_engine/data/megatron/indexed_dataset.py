@@ -35,9 +35,10 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         super().__init__()
 
         is_object_storage = is_object_storage_path(path_prefix)
+        idx_path = get_idx_path(path_prefix)
 
         if is_object_storage:
-            remote_idx_path = get_idx_path(path_prefix)
+            remote_idx_path = idx_path
             idx_path = get_index_cache_path(remote_idx_path, cache_path)
             cache_file(remote_idx_path, idx_path)
 
@@ -45,7 +46,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         self.multimodal = multimodal
         self.path_prefix = path_prefix
         self.multimodal = multimodal
-        self.index = _IndexReader(get_idx_path(self.path_prefix), self.multimodal)
+        self.index = _IndexReader(idx_path, self.multimodal)
         self.bin_reader = (_MultiStorageClientBinReader if is_object_storage else _MMapBinReader)(
             get_bin_path(self.path_prefix)
         )
