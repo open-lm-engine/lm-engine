@@ -49,9 +49,16 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
     def initialize(self, path_prefix: str) -> None:
         is_object_storage = is_object_storage_path(path_prefix)
-        idx_path = get_index_cache_path(get_idx_path(path_prefix), self.cache_path)
 
-        self.index = _IndexReader(idx_path, self.multimodal)
+        self.index = _IndexReader(
+            (
+                get_index_cache_path(get_idx_path(path_prefix), self.cache_path)
+                if is_object_storage
+                else get_idx_path(path_prefix)
+            ),
+            self.multimodal,
+        )
+
         self.bin_reader = (_MultiStorageClientBinReader if is_object_storage else _MMapBinReader)(
             get_bin_path(self.path_prefix)
         )
