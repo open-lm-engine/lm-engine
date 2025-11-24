@@ -14,14 +14,10 @@ from itertools import accumulate
 import numpy as np
 import torch
 
-from ...utils import cache_file, is_multi_storage_client_available, is_object_storage_path
+from ...utils import cache_file, is_object_storage_path
 from .bin import _MMapBinReader
 from .dtype import DType
 from .idx import _IndexReader, _IndexWriter
-
-
-if is_multi_storage_client_available():
-    import msc
 
 
 class MMapIndexedDataset(torch.utils.data.Dataset):

@@ -20,7 +20,7 @@ from .dtype import DType
 
 
 if is_multi_storage_client_available():
-    import msc
+    import multistorageclient as msc
 
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"

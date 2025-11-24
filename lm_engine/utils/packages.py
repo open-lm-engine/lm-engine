@@ -162,7 +162,7 @@ def is_torch_neuronx_available() -> bool:
 
 
 try:
-    import multistorageclient as msc
+    import multistorageclient
 
     _IS_MULTI_STORAGE_CLIENT_AVAILABLE = True
 except ImportError:

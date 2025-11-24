@@ -16,7 +16,7 @@ from .dtype import DType
 
 
 if is_multi_storage_client_available():
-    import msc
+    import multistorageclient as msc
 
 
 if is_boto3_available():
