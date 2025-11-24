@@ -74,6 +74,7 @@ def init_distributed(
     log_rank_0(logging.INFO, process_group_manager)
     log_rank_0(logging.INFO, f"total GPUs = {process_group_manager.get_world_size()}")
     log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
     log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
 
     for function, message in [

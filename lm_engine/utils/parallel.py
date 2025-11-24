@@ -67,7 +67,7 @@ class ProcessGroupManager:
     ) -> ProcessGroupManager:
         from .accelerator import Accelerator
 
-        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE, _CPU_GROUP, _GLOBAL_RANK, _LOCAL_RANK, _WORLD_SIZE
+        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE, _CPU_GROUP, _GLOBAL_RANK, _LOCAL_RANK, _WORLD_SIZE, _TENSOR_PARALLEL_WORLD_SIZE, _PIPELINE_PARALLEL_WORLD_SIZE
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -138,6 +138,10 @@ class ProcessGroupManager:
 
         if accelerator == Accelerator.tpu:
             assert tensor_parallel_world_size == 1
+            assert pipeline_parallel_world_size == 1
+
+            _TENSOR_PARALLEL_WORLD_SIZE = 1
+            _PIPELINE_PARALLEL_WORLD_SIZE = 1
         else:
             group = ProcessGroupManager.get_tensor_parallel_group()
             ranks = torch.distributed.get_process_group_ranks(group)
