@@ -31,28 +31,13 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
     def __init__(self, path_prefix: str, multimodal: bool = False, cache_path: str | None = None) -> MMapIndexedDataset:
         super().__init__()
-        self.path_prefix = None
-        self.multimodal = None
-
-        self.index = None
 
         if is_object_storage_path(path_prefix):
             idx_path = get_idx_path(path_prefix)
             cache_file(idx_path, get_index_cache_path(idx_path, cache_path))
 
-        self.initialize(path_prefix, multimodal)
-
-    def initialize(self, path_prefix: str, multimodal: bool) -> None:
-        """Initialize the dataset
-
-        This method is called by MMapIndexedDataset.__init__ during object creation and by
-        MMapIndexedDataset.__setstate__ during un-puckling
-
-        Args:
-            path_prefix (str): The index (.idx) and data (.bin) prefix
-
-            multimodal (bool): Whether the dataset is multimodal
-        """
+        self.path_prefix = path_prefix
+        self.multimodal = multimodal
         self.path_prefix = path_prefix
         self.multimodal = multimodal
         self.index = _IndexReader(get_idx_path(self.path_prefix), self.multimodal)
