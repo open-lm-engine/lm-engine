@@ -1,7 +1,6 @@
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 
 import os
-from dataclasses import dataclass
 from typing import Any, Dict, Protocol, Tuple
 
 import torch
@@ -18,27 +17,6 @@ if is_boto3_available():
 
 S3_PREFIX = "s3://"
 MSC_PREFIX = "msc://"
-
-
-@dataclass
-class ObjectStorageConfig:
-    """Config when the data (.bin) file and the index (.idx) file are in object storage
-
-    Attributes:
-
-        path_to_idx_cache (str): The local directory where we will store the index (.idx) file
-
-        bin_chunk_nbytes (int): If the number of bytes is too small, then we send a request to S3
-        at each call of the `read` method in _S3BinReader, which is slow, because each request
-        has a fixed cost independent of the size of the byte range requested. If the number of
-        bytes is too large, then we only rarely have to send requests to S3, but it takes a lot
-        of time to complete the request when we do, which can block training. We've found that
-        256 * 1024 * 1024 (i.e., 256 MiB) has worked well (though we have not put that much
-        effort into tuning it), so we default to it.
-    """
-
-    path_to_idx_cache: str
-    bin_chunk_nbytes: int = 256 * 1024 * 1024
 
 
 class S3Client(Protocol):
@@ -165,21 +143,21 @@ def is_object_storage_path(path: str) -> bool:
     return _is_s3_path(path) or _is_msc_path(path)
 
 
-def get_index_cache_path(idx_path: str, object_storage_config: ObjectStorageConfig) -> str:
+def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
     """Get the index cache path for the given path
 
     Args:
         idx_path (str): The path to the index file
 
-        object_storage_config (ObjectStorageConfig): The object storage config
+        path_to_idx_cache (str): path to the idx cache
 
     Returns:
         str: The index cache path
     """
     if _is_s3_path(idx_path):
-        cache_idx_path = os.path.join(object_storage_config.path_to_idx_cache, _remove_s3_prefix(idx_path))
+        cache_idx_path = os.path.join(path_to_idx_cache, _remove_s3_prefix(idx_path))
     elif _is_msc_path(idx_path):
-        cache_idx_path = os.path.join(object_storage_config.path_to_idx_cache, _remove_msc_prefix(idx_path))
+        cache_idx_path = os.path.join(path_to_idx_cache, _remove_msc_prefix(idx_path))
     else:
         raise ValueError(f"Invalid path: {idx_path}")
 
