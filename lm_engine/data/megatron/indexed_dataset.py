@@ -35,10 +35,6 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
     ) -> MMapIndexedDataset:
         super().__init__()
 
-        self.path_prefix = path_prefix
-        self.multimodal = multimodal
-        self.cache_path = cache_path
-
         if is_object_storage_path(path_prefix):
             remote_idx_path = get_idx_path(path_prefix)
             idx_path = get_index_cache_path(remote_idx_path, self.cache_path)
@@ -47,8 +43,12 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
         self.initialize(path_prefix)
 
-    def initialize(self, path_prefix: str) -> None:
+    def initialize(self, path_prefix: str, multimodal: bool, cache_path: str) -> None:
         is_object_storage = is_object_storage_path(path_prefix)
+
+        self.path_prefix = path_prefix
+        self.multimodal = multimodal
+        self.cache_path = cache_path
 
         self.index = _IndexReader(
             (
@@ -69,7 +69,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         Returns:
             tuple[str, bool]: The state tuple
         """
-        return self.path_prefix
+        return self.path_prefix, self.multimodal, self.cache_path
 
     def __setstate__(self, state: tuple[str, bool]) -> None:
         """Set the state during un-pickling
@@ -77,8 +77,8 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         Args:
             state (tuple[str, bool]): The state tuple
         """
-        path_prefix = state
-        self.initialize(path_prefix)
+        path_prefix, multimodal, cache_path = state
+        self.initialize(path_prefix, multimodal, cache_path)
 
     def __len__(self) -> int:
         """Return the length of the dataset i.e. the number of sequences in the index
