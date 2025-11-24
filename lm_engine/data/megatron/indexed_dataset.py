@@ -15,7 +15,7 @@ import numpy as np
 import torch
 
 from ...utils import cache_file, get_index_cache_path, is_object_storage_path
-from .bin import _MMapBinReader
+from .bin import _MMapBinReader, _MultiStorageClientBinReader
 from .dtype import DType
 from .idx import _IndexReader, _IndexWriter
 
@@ -32,7 +32,9 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
     def __init__(self, path_prefix: str, multimodal: bool = False, cache_path: str | None = None) -> MMapIndexedDataset:
         super().__init__()
 
-        if is_object_storage_path(path_prefix):
+        is_object_storage = is_object_storage_path(path_prefix)
+
+        if is_object_storage:
             idx_path = get_idx_path(path_prefix)
             cache_file(idx_path, get_index_cache_path(idx_path, cache_path))
 
@@ -41,7 +43,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         self.path_prefix = path_prefix
         self.multimodal = multimodal
         self.index = _IndexReader(get_idx_path(self.path_prefix), self.multimodal)
-        self.bin_reader = _MMapBinReader(get_bin_path(self.path_prefix))
+        self.bin_reader = (_MultiStorageClientBinReader if is_object_storage else _MMapBinReader)(get_bin_path(self.path_prefix))
 
     def __getstate__(self) -> tuple[str, bool]:
         """Get the state during pickling
