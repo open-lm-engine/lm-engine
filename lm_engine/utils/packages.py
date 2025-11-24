@@ -159,3 +159,15 @@ except ImportError:
 
 def is_torch_neuronx_available() -> bool:
     return _IS_TORCH_NEURONX_AVAILABLE
+
+
+try:
+    import multistorageclient as msc
+
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = True
+except ImportError:
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = False
+
+
+def is_multi_storage_client_available() -> bool:
+    return _IS_MULTI_STORAGE_CLIENT_AVAILABLE
