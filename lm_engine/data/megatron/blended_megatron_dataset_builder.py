@@ -26,8 +26,6 @@ def build(
     node_uses_local_storage: bool,
     random_seed: int,
 ) -> list[BlendedDataset | GPTDataset | None]:
-    is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
-
     blended_datasets = []
 
     if config.blend is not None:
@@ -41,7 +39,6 @@ def build(
                 split,
                 sizes,
                 node_uses_local_storage=node_uses_local_storage,
-                is_built_on_rank=is_built_on_rank,
                 config=config,
                 tokenizer=tokenizer,
                 random_seed=random_seed,
@@ -63,7 +60,6 @@ def build(
                 split,
                 sizes_per_dataset[i],
                 node_uses_local_storage=node_uses_local_storage,
-                is_built_on_rank=is_built_on_rank,
                 config=config,
                 tokenizer=tokenizer,
                 random_seed=random_seed,
@@ -83,7 +79,6 @@ def build(
                     _build_generic_dataset(
                         BlendedDataset,
                         node_uses_local_storage=node_uses_local_storage,
-                        is_built_on_rank=is_built_on_rank,
                         datasets=megatron_datasets[i],
                         weights=weight_per_dataset,
                         size=size_per_split[i],
@@ -112,7 +107,6 @@ def build(
                         split_spoof,
                         sizes_spoof,
                         node_uses_local_storage=node_uses_local_storage,
-                        is_built_on_rank=is_built_on_rank,
                         config=config,
                         tokenizer=tokenizer,
                         random_seed=random_seed,
@@ -135,7 +129,6 @@ def build(
                             split_spoof,
                             sizes_per_dataset[j],
                             node_uses_local_storage=node_uses_local_storage,
-                            is_built_on_rank=is_built_on_rank,
                             config=config,
                             tokenizer=tokenizer,
                             random_seed=random_seed,
@@ -146,7 +139,6 @@ def build(
                     _build_generic_dataset(
                         BlendedDataset,
                         node_uses_local_storage=node_uses_local_storage,
-                        is_built_on_rank=is_built_on_rank,
                         datasets=megatron_datasets,
                         weights=weight_per_dataset,
                         size=size_per_split[i],
@@ -162,7 +154,6 @@ def _build_megatron_dataset_splits(
     split: list[float],
     sizes: list[int],
     node_uses_local_storage: bool,
-    is_built_on_rank: bool,
     config: BlendedMegatronDatasetConfig,
     tokenizer: TOKENIZER_TYPE,
     random_seed: int,
@@ -180,7 +171,7 @@ def _build_megatron_dataset_splits(
         list[GPTDataset | None]: The GPTDataset (or None) per split
     """
 
-    if not torch.distributed.is_initialized() or is_built_on_rank:
+    if not torch.distributed.is_initialized() or ProcessGroupManager.is_tensor_parallel_first_rank():
         indexed_dataset = MMapIndexedDataset(
             path_prefix, GPTDataset.is_multimodal(), cache_path=os.path.join(config.path_to_cache, "cloud-idx-cache")
         )
@@ -211,7 +202,6 @@ def _build_megatron_dataset_splits(
             else _build_generic_dataset(
                 GPTDataset,
                 node_uses_local_storage=node_uses_local_storage,
-                is_built_on_rank=is_built_on_rank,
                 indexed_dataset=indexed_dataset,
                 indexed_indices=split_indices[i],
                 num_samples=sizes[i],
@@ -226,10 +216,7 @@ def _build_megatron_dataset_splits(
 
 
 def _build_generic_dataset(
-    cls: type[BlendedDataset | GPTDataset | MMapIndexedDataset],
-    node_uses_local_storage: bool,
-    is_built_on_rank: bool,
-    **kwargs: Any,
+    cls: type[BlendedDataset | GPTDataset | MMapIndexedDataset], node_uses_local_storage: bool, **kwargs: Any
 ) -> BlendedDataset | GPTDataset | MMapIndexedDataset | None:
     if torch.distributed.is_initialized():
         caching_allowed = ProcessGroupManager.get_global_rank() == 0 or (
@@ -239,7 +226,7 @@ def _build_generic_dataset(
         dataset = None
 
         # First, build on rank 0
-        if caching_allowed and is_built_on_rank:
+        if caching_allowed and ProcessGroupManager.is_tensor_parallel_first_rank():
             try:
                 dataset = cls(**kwargs, caching_allowed=True)
             except OSError as err:
@@ -254,7 +241,7 @@ def _build_generic_dataset(
         Communication.barrier()
 
         # After, build on other ranks
-        if not caching_allowed and is_built_on_rank:
+        if not caching_allowed and ProcessGroupManager.is_tensor_parallel_first_rank():
             dataset = cls(**kwargs, caching_allowed=False)
 
         return dataset
