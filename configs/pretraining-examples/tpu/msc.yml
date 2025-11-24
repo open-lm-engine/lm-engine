@@ -1,10 +1,6 @@
 profiles:
-  my-profile:
+  copy-merged:
     storage_provider:
-      type: s3
+      type: gcs
       options:
-        base_path: my-bucket
-    metadata_provider:
-      type: manifest
-      options:
-        manifest_path: .msc_manifests
+        base_path: copy-merged
