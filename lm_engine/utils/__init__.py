@@ -115,6 +115,12 @@ def init_distributed(
     if not is_torch_xla_available():
         warn_rank_0("torch_xla is not available")
 
+    if not is_boto3_available():
+        warn_rank_0("boto3 is not available")
+
+    if not is_multi_storage_client_available():
+        warn_rank_0("multi-storage-client is not available")
+
 
 def setup_tf32(use_tf32: bool = True) -> None:
     """whether to use tf32 instead of fp32
