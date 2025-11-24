@@ -19,8 +19,12 @@ from types import TracebackType
 import numpy as np
 import torch
 
-from ...utils import log_rank_0
+from ...utils import is_multi_storage_client_available, log_rank_0
 from .dtype import DType
+
+
+if is_multi_storage_client_available():
+    import msc
 
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"
@@ -45,7 +49,7 @@ class _IndexWriter:
         Returns:
             _IndexWriter: The instance
         """
-        self.idx_writer = open(self.idx_path, "wb")
+        self.idx_writer = (msc.open if is_msc(self.idx_path) else open)(self.idx_path, "wb")
         # fixed, vestigial practice
         self.idx_writer.write(_INDEX_HEADER)
         # fixed, vestigial practice
