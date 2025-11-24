@@ -5,7 +5,7 @@ from typing import Any, Dict, Protocol, Tuple
 
 import torch
 
-from ..utils import is_boto3_available, is_multi_storage_client_available
+from .utils import is_boto3_available, is_multi_storage_client_available
 
 
 if is_multi_storage_client_available():
