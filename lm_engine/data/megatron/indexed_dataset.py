@@ -14,7 +14,7 @@ from itertools import accumulate
 import numpy as np
 import torch
 
-from ...utils import cache_file, get_index_cache_path, is_object_storage_path
+from ...utils import cache_file, get_index_cache_path, is_object_storage_path, log_rank_0
 from .bin import _MMapBinReader, _MultiStorageClientBinReader
 from .dtype import DType
 from .idx import _IndexReader, _IndexWriter
@@ -34,18 +34,20 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
     ) -> MMapIndexedDataset:
         super().__init__()
 
+        self.path_prefix = path_prefix
+        self.multimodal = multimodal
+        self.cache_path = cache_path
+
+        if is_object_storage_path(path_prefix):
+            remote_idx_path = get_idx_path(path_prefix)
+            idx_path = get_index_cache_path(remote_idx_path, self.cache_path)
+            log_rank_0(f"downloading {remote_idx_path} to {idx_path}")
+            cache_file(remote_idx_path, idx_path)
+
+    def initialize(self, path_prefix: str) -> None:
         is_object_storage = is_object_storage_path(path_prefix)
         idx_path = get_idx_path(path_prefix)
 
-        if is_object_storage:
-            remote_idx_path = idx_path
-            idx_path = get_index_cache_path(remote_idx_path, cache_path)
-            cache_file(remote_idx_path, idx_path)
-
-        self.path_prefix = path_prefix
-        self.multimodal = multimodal
-        self.path_prefix = path_prefix
-        self.multimodal = multimodal
         self.index = _IndexReader(idx_path, self.multimodal)
         self.bin_reader = (_MultiStorageClientBinReader if is_object_storage else _MMapBinReader)(
             get_bin_path(self.path_prefix)
@@ -57,7 +59,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         Returns:
             tuple[str, bool]: The state tuple
         """
-        return self.path_prefix, self.multimodal
+        return self.path_prefix
 
     def __setstate__(self, state: tuple[str, bool]) -> None:
         """Set the state during un-pickling
@@ -65,8 +67,8 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         Args:
             state (tuple[str, bool]): The state tuple
         """
-        path_prefix, multimodal = state
-        self.initialize(path_prefix, multimodal)
+        path_prefix = state
+        self.initialize(path_prefix)
 
     def __len__(self) -> int:
         """Return the length of the dataset i.e. the number of sequences in the index
