@@ -40,7 +40,7 @@ class _MMapBinReader(_BinReader):
     def __init__(self, bin_path: str) -> None:
         self._bin_file_reader = (msc.open if is_object_storage_path(bin_path) else open)(bin_path, mode="rb")
         self._bin_buffer_mmap = np.memmap(self._bin_file_reader, mode="r", order="C")
-        self._bin_buffer = memoryview(self._bin_buffer_mmap.data)
+        self._bin_buffer = memoryview(self._bin_buffer_mmap)
 
     def read(self, dtype: type[np.number], count: int, offset: int) -> np.ndarray:
         """Read bytes into a np array.

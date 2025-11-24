@@ -15,6 +15,7 @@ import numpy as np
 import torch
 
 from ...utils import cache_file, is_multi_storage_client_available, is_object_storage_path
+from .bin import _MMapBinReader
 from .dtype import DType
 from .idx import _IndexReader, _IndexWriter
 
@@ -38,8 +39,6 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         self.multimodal = None
 
         self.index = None
-        self.bin_buffer = None
-        self.bin_buffer_mmap = None
 
         if is_object_storage_path(path_prefix) and object_storage_config is not None:
             idx_path = get_idx_path(path_prefix)
@@ -61,8 +60,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         self.path_prefix = path_prefix
         self.multimodal = multimodal
         self.index = _IndexReader(get_idx_path(self.path_prefix), self.multimodal)
-        self.bin_buffer_mmap = np.memmap(get_bin_path(self.path_prefix), mode="r", order="C")
-        self.bin_buffer = memoryview(self.bin_buffer_mmap)
+        self.bin_reader = _MMapBinReader(get_bin_path(self.path_prefix))
 
     def __getstate__(self) -> tuple[str, bool]:
         """Get the state during pickling
@@ -80,13 +78,6 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         """
         path_prefix, multimodal = state
         self.initialize(path_prefix, multimodal)
-
-    def __del__(self) -> None:
-        """Clean up the object"""
-        if self.bin_buffer_mmap is not None:
-            self.bin_buffer_mmap._mmap.close()
-        del self.bin_buffer_mmap
-        del self.index
 
     def __len__(self) -> int:
         """Return the length of the dataset i.e. the number of sequences in the index
@@ -112,12 +103,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         """
         if isinstance(idx, (int, np.integer)):
             sequence_pointer, sequence_length, sequence_mode = self.index[idx]
-            sequence = np.frombuffer(
-                self.bin_buffer,
-                dtype=self.index.dtype,
-                count=sequence_length,
-                offset=sequence_pointer,
-            )
+            sequence = self.bin_reader.read(dtype=self.index.dtype, count=sequence_length, offset=sequence_pointer)
             return (sequence, sequence_mode) if sequence_mode is not None else sequence
         elif isinstance(idx, slice):
             start, stop, step = idx.indices(len(self))
@@ -127,11 +113,8 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
             sequence_modes = self.index.sequence_modes[idx] if self.multimodal else None
             sequence_offsets = list(accumulate(sequence_lengths))
             sequences = np.split(
-                np.frombuffer(
-                    self.bin_buffer,
-                    dtype=self.index.dtype,
-                    count=sum(sequence_lengths),
-                    offset=self.index.sequence_pointers[start],
+                self.bin_reader.read(
+                    dtype=self.index.dtype, count=sum(sequence_lengths), offset=self.index.sequence_pointers[start]
                 ),
                 sequence_offsets[:-1],
             )
@@ -152,7 +135,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         if length is None:
             length = sequence_length - offset
         sequence_pointer += offset * DType.size(self.index.dtype)
-        sequence = np.frombuffer(self.bin_buffer, dtype=self.index.dtype, count=length, offset=sequence_pointer)
+        sequence = self.bin_reader.read(dtype=self.index.dtype, count=length, offset=sequence_pointer)
         return (sequence, sequence_mode) if sequence_mode is not None else sequence
 
     @property
