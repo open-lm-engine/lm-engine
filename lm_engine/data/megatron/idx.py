@@ -15,7 +15,7 @@ from types import TracebackType
 
 import numpy as np
 
-from ...utils import is_multi_storage_client_available, log_rank_0
+from ...utils import is_multi_storage_client_available, is_object_storage_path, log_rank_0
 from .dtype import DType
 
 
