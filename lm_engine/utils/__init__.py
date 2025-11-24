@@ -93,15 +93,11 @@ def init_distributed(
         (is_torchao_available, "torchao is not installed"),
         (is_zstandard_available, "zstandard is not available"),
         (is_torch_xla_available, "torch_xla is not available"),
+        (is_boto3_available, "boto3 is not available"),
+        (is_multi_storage_client_available, "multi-storage-client is not available"),
     ]:
         if not function():
             warn_rank_0(message)
-
-    if not is_boto3_available():
-        warn_rank_0("boto3 is not available")
-
-    if not is_multi_storage_client_available():
-        warn_rank_0("multi-storage-client is not available")
 
 
 def setup_tf32(use_tf32: bool = True) -> None:
