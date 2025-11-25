@@ -14,25 +14,25 @@ datasets:
       # Option 1: data loading using --data-path with single file
       data_path:
         - 252
-        - msc://copy-merged/0
+        - msc://mayank-nemo-cc/Diverse-QA/0
         - 252
-        - msc://copy-merged/1
+        - msc://mayank-nemo-cc/Diverse-QA/1
         - 252
-        - msc://copy-merged/2
+        - msc://mayank-nemo-cc/Diverse-QA/2
         - 251
-        - msc://copy-merged/3
+        - msc://mayank-nemo-cc/Diverse-QA/3
         - 252
-        - msc://copy-merged/4
+        - msc://mayank-nemo-cc/Diverse-QA/4
         - 252
-        - msc://copy-merged/5
+        - msc://mayank-nemo-cc/Diverse-QA/5
         - 252
-        - msc://copy-merged/6
+        - msc://mayank-nemo-cc/Diverse-QA/6
         - 252
-        - msc://copy-merged/7
+        - msc://mayank-nemo-cc/Diverse-QA/7
         - 252
-        - msc://copy-merged/8
+        - msc://mayank-nemo-cc/Diverse-QA/8
         - 250
-        - msc://copy-merged/9
+        - msc://mayank-nemo-cc/Diverse-QA/9
       split: 100,0,0
       sequence_length: 4096
 

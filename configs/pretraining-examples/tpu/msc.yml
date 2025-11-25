@@ -3,8 +3,8 @@
 # **************************************************
 
 profiles:
-  copy-merged:
+  mayank-nemo-cc:
     storage_provider:
       type: gcs
       options:
-        base_path: copy-merged
+        base_path: mayank-nemo-cc
