@@ -2,14 +2,13 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+accelerator=cuda
+
 test:
 	RUN_SLOW=True uv run --extra dev --extra flash-attn --extra xma pytest tests
 
 test-fast:
-	RUN_SLOW=False uv run --extra dev --extra flash-attn pytest tests
-
-test-fast-cpu:
-	RUN_SLOW=False uv run --extra dev pytest tests
+	RUN_SLOW=False uv run --extra $(accelerator) --extra dev pytest tests
 
 update-precommit:
 	uv run --extra dev pre-commit autoupdate
