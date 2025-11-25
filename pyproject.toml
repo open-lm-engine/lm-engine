@@ -30,9 +30,6 @@ Homepage = "https://github.com/open-lm-engine/lm-engine"
 Repository = "https://github.com/open-lm-engine/lm-engine"
 
 [project.optional-dependencies]
-cpu = [
-    "torch>=2.8.0",
-]
 cuda = [
     "torch>=2.8.0",
 ]
@@ -47,10 +44,19 @@ flash-attn = [
 mamba2 = [
     "mamba-ssm>=2.2.6.post3",
 ]
+xma = [
+    "accelerated-model-architectures",
+]
 tpu = [
     "torch==2.8.0",
     "torch-xla[pallas,tpu]==2.8.0",
 ]
+
+[tool.uv.sources]
+accelerated-model-architectures = { path = "accelerated-model-architectures", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["lm_engine"]
 
 [tool.isort]
 ensure_newline_before_comments = true
