@@ -227,7 +227,7 @@ def _build_generic_dataset(
 ) -> BlendedDataset | GPTDataset | MMapIndexedDataset | None:
     if torch.distributed.is_initialized():
         caching_allowed = ProcessGroupManager.get_global_rank() == 0 or (
-            node_uses_local_storage and Accelerator.get_current_device() == 0
+            node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0
         )
 
         dataset = None

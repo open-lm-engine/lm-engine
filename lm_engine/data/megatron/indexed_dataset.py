@@ -51,7 +51,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
         if is_object_storage:
             if ProcessGroupManager.get_global_rank() == 0 or (
-                node_uses_local_storage and Accelerator.get_current_device() == 0
+                node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0
             ):
                 remote_idx_path = get_idx_path(path_prefix)
                 idx_path = get_index_cache_path(remote_idx_path, cache_path)
