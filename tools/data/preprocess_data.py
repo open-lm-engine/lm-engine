@@ -33,7 +33,7 @@ def get_args() -> Namespace:
 
     group = parser.add_argument_group(title="runtime")
     group.add_argument("--workers", type=int, required=True, help="Number of worker processes to launch")
-    group.add_argument("--max-processes", type=int, default=16, required=True, help="Number of processes to launch")
+    group.add_argument("--max-processes", type=int, default=16, help="Number of processes to launch")
     group.add_argument("--chunk-size", type=int, required=True, help="Chunk size assigned to each worker process")
     args = parser.parse_args()
 
