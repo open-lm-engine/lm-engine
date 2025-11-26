@@ -33,6 +33,7 @@ def get_args() -> Namespace:
 
     group = parser.add_argument_group(title="runtime")
     group.add_argument("--workers", type=int, required=True, help="Number of worker processes to launch")
+    group.add_argument("--max-processes", type=int, default=16, required=True, help="Number of processes to launch")
     group.add_argument("--chunk-size", type=int, required=True, help="Chunk size assigned to each worker process")
     args = parser.parse_args()
 
@@ -63,11 +64,14 @@ def main() -> None:
         for root, _, _files in os.walk(args.input):
             output_prefix = root.removeprefix(args.input)
             for file in _files:
-                files.append((os.path.join(root, file), os.path.join(args.output_prefix, output_prefix, file)))
+                files.append(
+                    (
+                        os.path.join(root, file),
+                        os.path.join(args.output_prefix, output_prefix, os.path.splitext(file)[0]),
+                    )
+                )
 
         for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
-            output_prefix = os.path.join(args.output_prefix, os.path.splitext(file)[0])
-
             assert args.json_keys == ["text"]
 
             # Launch subprocess in background
@@ -91,7 +95,7 @@ def main() -> None:
             if args.append_eod:
                 cmd += ["--append-eod"]
 
-            while len(processes) >= 16:
+            while len(processes) >= args.max_processes:
                 # Remove finished processes
                 processes = [p for p in processes if p.poll() is None]
 
