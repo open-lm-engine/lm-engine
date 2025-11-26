@@ -62,12 +62,14 @@ def main() -> None:
     elif os.path.isdir(args.input):
         files = []
         for root, _, _files in os.walk(args.input):
-            output_prefix = root.removeprefix(args.input)
             for file in _files:
+                output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input))
+                os.makedirs(output_prefix, exist_ok=True)
+
                 files.append(
                     (
                         os.path.join(root, file),
-                        os.path.join(args.output_prefix, output_prefix, os.path.splitext(file)[0]),
+                        os.path.join(output_prefix, os.path.splitext(file)[0]),
                     )
                 )
 
