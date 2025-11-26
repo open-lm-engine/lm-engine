@@ -61,6 +61,8 @@ def main() -> None:
         process_file(args, args.input, args.output_prefix)
     elif os.path.isdir(args.input):
         files = []
+        processes = []
+
         for root, _, _files in os.walk(args.input):
             for file in _files:
                 output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input))
