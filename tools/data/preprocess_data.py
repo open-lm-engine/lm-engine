@@ -32,9 +32,7 @@ def get_args() -> Namespace:
     group.add_argument("--output-prefix", type=str, required=True, help="Path to binary output file without suffix")
 
     group = parser.add_argument_group(title="runtime")
-    group.add_argument("--workers", type=int, required=True, help="Number of worker processes to launch")
     group.add_argument("--max-processes", type=int, default=16, help="Number of processes to launch")
-    group.add_argument("--chunk-size", type=int, required=True, help="Chunk size assigned to each worker process")
     args = parser.parse_args()
 
     return args
@@ -46,8 +44,6 @@ def process_file(args: Namespace, input_file: str, output_prefix: str):
         tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
         input_file=input_file,
         output_prefix=output_prefix,
-        workers=args.workers,
-        chunk_size=args.chunk_size,
         subset=args.subset,
         json_keys=args.json_keys,
         append_eos_token=args.append_eod,
@@ -88,10 +84,6 @@ def main() -> None:
                 output_prefix,
                 "--tokenizer",
                 args.tokenizer,
-                "--workers",
-                str(args.workers),
-                "--chunk-size",
-                str(args.chunk_size),
             ]
 
             if args.subset:
