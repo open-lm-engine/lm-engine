@@ -59,11 +59,13 @@ def main() -> None:
     if os.path.isfile(args.input):
         process_file(args, args.input, args.output_prefix)
     elif os.path.isdir(args.input):
-        files = os.listdir(args.input)
-        processes = []
+        files = []
+        for root, _, _files in os.walk(args.input):
+            output_prefix = root.removeprefix(args.input)
+            for file in _files:
+                files.append((os.path.join(root, file), os.path.join(args.output_prefix, output_prefix, file)))
 
-        for file in tqdm(files, desc="Submitting jobs"):
-            input_file = os.path.join(args.input, file)
+        for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
             output_prefix = os.path.join(args.output_prefix, os.path.splitext(file)[0])
 
             assert args.json_keys == ["text"]
