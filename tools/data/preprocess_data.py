@@ -61,7 +61,7 @@ def main() -> None:
 
         for root, _, _files in os.walk(args.input):
             for file in _files:
-                output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input))
+                output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
                 os.makedirs(output_prefix, exist_ok=True)
 
                 files.append(
