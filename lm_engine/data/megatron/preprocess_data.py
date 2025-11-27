@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import multiprocessing
 import tempfile
 from typing import Iterator
 
@@ -71,18 +70,15 @@ def convert_file(
     tokenizer: TOKENIZER_TYPE | str,
     input_file: str,
     output_prefix: str,
-    workers: int,
-    chunk_size: int,
     subset: str | None = None,
     json_keys: list[str] = ["text"],
     append_eos_token: bool = True,
 ) -> None:
     encoder = Encoder(tokenizer, json_keys, append_eos_token)
-    pool = multiprocessing.Pool(workers)
 
     if input_file.endswith(".jsonl"):
         assert subset is None, f"jsonl doesn't support a subset"
-        encoded_docs = pool.imap(encoder.encode, open(input_file, "r", encoding="utf-8"), chunk_size)
+        encoded_docs = map(encoder.encode, open(input_file, "r", encoding="utf-8"))
     elif input_file.endswith(".jsonl.zst"):
         assert subset is None, f"zst jsonl doesn't support a subset"
 
@@ -92,7 +88,7 @@ def convert_file(
             dctx.copy_stream(infile, outfile)
         outfile.seek(0)
 
-        encoded_docs = pool.imap(encoder.encode_jsonl_zstd, outfile, chunk_size)
+        encoded_docs = map(encoder.encode_jsonl_zstd, outfile)
     elif input_file.endswith(".parquet"):
         import pyarrow.parquet as pq
 
@@ -105,13 +101,13 @@ def convert_file(
             for text in df["text"]:
                 ds.append({"text": text})
 
-        encoded_docs = pool.imap(encoder.encode_hf, ds, chunk_size)
+        encoded_docs = map(encoder.encode_hf, ds)
     elif input_file.endswith(".arrow"):
         assert subset is None, f"arrow doesn't support a subset"
-        encoded_docs = pool.imap(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file), chunk_size)
+        encoded_docs = map(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file))
     else:
         ds = load_dataset(input_file, use_auth_token=True, streaming=True, split="train", data_dir=subset)
-        encoded_docs = pool.imap(encoder.encode_hf, ds, chunk_size)
+        encoded_docs = map(encoder.encode_hf, ds)
 
     builders = {
         key: MMapIndexedDatasetBuilder(f"{output_prefix}_{key}.bin", dtype=DType.optimal_dtype(tokenizer.vocab_size))
