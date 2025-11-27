@@ -1,21 +1,16 @@
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 
 import os
-from typing import Any, Dict, Protocol, Tuple
+from typing import Any, Dict, Protocol
 
 import torch
 
-from .packages import is_boto3_available, is_multi_storage_client_available
+from .packages import is_multi_storage_client_available
 
 
 if is_multi_storage_client_available():
     import multistorageclient as msc
 
-if is_boto3_available():
-    import boto3
-    import botocore.exceptions as exceptions
-
-S3_PREFIX = "s3://"
 MSC_PREFIX = "msc://"
 
 
@@ -43,30 +38,6 @@ class S3Client(Protocol):
         ...
 
 
-def _remove_s3_prefix(path: str) -> str:
-    """Remove the S3 prefix from a path
-
-    Args:
-        path (str): The path
-
-    Returns:
-        str: The path without the S3 prefix
-    """
-    return path.removeprefix(S3_PREFIX)
-
-
-def _is_s3_path(path: str) -> bool:
-    """Ascertain whether a path is in S3
-
-    Args:
-        path (str): The path
-
-    Returns:
-        bool: True if the path is in S3, False otherwise
-    """
-    return path.startswith(S3_PREFIX)
-
-
 def _remove_msc_prefix(path: str) -> str:
     """
     Remove the MSC prefix from a path
@@ -92,45 +63,6 @@ def _is_msc_path(path: str) -> bool:
     return path.startswith(MSC_PREFIX)
 
 
-def _s3_download_file(client: S3Client, s3_path: str, local_path: str) -> None:
-    """Download the object at the given S3 path to the given local file system path
-
-    Args:
-        client (S3Client): The S3 client
-
-        s3_path (str): The S3 source path
-
-        local_path (str): The local destination path
-    """
-    dirname = os.path.dirname(local_path)
-    os.makedirs(dirname, exist_ok=True)
-    parsed_s3_path = parse_s3_path(s3_path)
-    client.download_file(parsed_s3_path[0], parsed_s3_path[1], local_path)
-
-
-def _s3_object_exists(client: S3Client, path: str) -> bool:
-    """Ascertain whether the object at the given S3 path exists in S3
-
-    Args:
-        client (S3Client): The S3 client
-
-        path (str): The S3 path
-
-    Raises:
-        botocore.exceptions.ClientError: The error code is 404
-
-    Returns:
-        bool: True if the object exists in S3, False otherwise
-    """
-    parsed_s3_path = parse_s3_path(path)
-    try:
-        _ = client.head_object(bucket=parsed_s3_path[0], key=parsed_s3_path[1])
-    except exceptions.ClientError as e:
-        if e.response["Error"]["Code"] != "404":
-            raise e
-    return True
-
-
 def is_object_storage_path(path: str) -> bool:
     """Ascertain whether a path is in object storage
 
@@ -140,7 +72,7 @@ def is_object_storage_path(path: str) -> bool:
     Returns:
         bool: True if the path is in object storage (s3:// or msc://), False otherwise
     """
-    return _is_s3_path(path) or _is_msc_path(path)
+    return _is_msc_path(path)
 
 
 def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
@@ -154,9 +86,7 @@ def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
     Returns:
         str: The index cache path
     """
-    if _is_s3_path(idx_path):
-        cache_idx_path = os.path.join(path_to_idx_cache, _remove_s3_prefix(idx_path))
-    elif _is_msc_path(idx_path):
+    if _is_msc_path(idx_path):
         cache_idx_path = os.path.join(path_to_idx_cache, _remove_msc_prefix(idx_path))
     else:
         raise ValueError(f"Invalid path: {idx_path}")
@@ -164,29 +94,9 @@ def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
     return cache_idx_path
 
 
-def parse_s3_path(path: str) -> Tuple[str, str]:
-    """Parses the given S3 path returning correspsonding bucket and key.
-
-    Args:
-        path (str): The S3 path
-
-    Returns:
-        Tuple[str, str]: A (bucket, key) tuple
-    """
-    assert _is_s3_path(path)
-    parts = path.replace(S3_PREFIX, "").split("/")
-    bucket = parts[0]
-    if len(parts) > 1:
-        key = "/".join(parts[1:])
-        assert S3_PREFIX + bucket + "/" + key == path
-    else:
-        key = ""
-    return bucket, key
-
-
 def get_object_storage_access(path: str) -> str:
     """Get the object storage access"""
-    return "s3" if _is_s3_path(path) else "msc"
+    return "msc"
 
 
 def dataset_exists(path_prefix: str, idx_path: str, bin_path: str) -> bool:
@@ -202,10 +112,7 @@ def dataset_exists(path_prefix: str, idx_path: str, bin_path: str) -> bool:
     Returns:
         bool: True if the dataset exists on object storage, False otherwise
     """
-    if _is_s3_path(path_prefix):
-        s3_client = boto3.client("s3")
-        return _s3_object_exists(s3_client, idx_path) and _s3_object_exists(s3_client, bin_path)
-    elif _is_msc_path(path_prefix):
+    if _is_msc_path(path_prefix):
         return msc.exists(idx_path) and msc.exists(bin_path)
     else:
         raise ValueError(f"Invalid path: {path_prefix}")
@@ -234,14 +141,7 @@ def cache_file(remote_path: str, local_path: str) -> None:
     else:
         rank = 0
 
-    if _is_s3_path(remote_path):
-        s3_client = boto3.client("s3")
-
-        if not torch_dist_enabled or rank == 0:
-            _s3_download_file(s3_client, remote_path, local_path)
-
-        assert os.path.exists(local_path)
-    elif _is_msc_path(remote_path):
+    if _is_msc_path(remote_path):
         if not torch_dist_enabled or rank == 0:
             msc.download_file(remote_path, local_path)
 

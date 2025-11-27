@@ -16,7 +16,6 @@ from .mixed_precision import normalize_dtype_string, string_to_torch_dtype, torc
 from .object_storage import cache_file, get_index_cache_path, is_object_storage_path
 from .packages import (
     is_aim_available,
-    is_boto3_available,
     is_causal_conv1d_available,
     is_colorlog_available,
     is_flash_attention_2_available,
@@ -94,7 +93,6 @@ def init_distributed(
         (is_torchao_available, "torchao is not installed"),
         (is_zstandard_available, "zstandard is not available"),
         (is_torch_xla_available, "torch_xla is not available"),
-        (is_boto3_available, "boto3 is not available"),
         (is_multi_storage_client_available, "multi-storage-client is not available"),
     ]:
         if not function():

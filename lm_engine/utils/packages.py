@@ -171,15 +171,3 @@ except ImportError:
 
 def is_multi_storage_client_available() -> bool:
     return _IS_MULTI_STORAGE_CLIENT_AVAILABLE
-
-
-try:
-    import boto3
-
-    _IS_BOTO3_AVAILABLE = True
-except ImportError:
-    _IS_BOTO3_AVAILABLE = False
-
-
-def is_boto3_available() -> bool:
-    return _IS_BOTO3_AVAILABLE
