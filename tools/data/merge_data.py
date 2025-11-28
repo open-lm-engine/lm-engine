@@ -2,7 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-import json
+import multiprocessing
 import os
 from argparse import ArgumentParser, Namespace
 
@@ -19,6 +19,8 @@ def get_args() -> Namespace:
         required=False,
         help="Path to directory containing all document files to merge",
     )
+
+    parser.add_argument("--workers", type=int, default=1, required=False, help="number of workers")
 
     parser.add_argument(
         "--input-directory",
@@ -73,10 +75,13 @@ if __name__ == "__main__":
         if args.max_size is None:
             merge_files(input_prefixes=file_groups[0], output_prefix=args.output_prefix)
         else:
-            file_map = {}
+            pool = multiprocessing.Pool(args.workers)
 
             for grp_id, group in enumerate(file_groups):
-                file_map[grp_id] = group
-                merge_files(input_prefixes=group, output_prefix=os.path.join(args.output_prefix, str(grp_id)))
+                pool.apply_async(
+                    merge_files,
+                    kwds=dict(input_prefixes=group, output_prefix=os.path.join(args.output_prefix, str(grp_id))),
+                )
 
-            json.dump(file_map, open(os.path.join(args.output_prefix, "file_map.json"), "w"), indent=4)
+    pool.close()
+    pool.join()
