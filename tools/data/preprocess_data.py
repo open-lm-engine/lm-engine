@@ -64,12 +64,11 @@ def main() -> None:
                 output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
                 os.makedirs(output_prefix, exist_ok=True)
 
-                files.append(
-                    (
-                        os.path.join(root, file),
-                        os.path.join(output_prefix, os.path.splitext(file)[0]),
-                    )
-                )
+                output_prefix = os.path.join(output_prefix, os.path.splitext(file)[0])
+                if output_prefix.endswith(".jsonl"):
+                    output_prefix = os.path.splitext(output_prefix)[0]
+
+                files.append((os.path.join(root, file), output_prefix))
 
         for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
             assert args.json_keys == ["text"]
