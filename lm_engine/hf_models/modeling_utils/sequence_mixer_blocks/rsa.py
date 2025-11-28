@@ -115,7 +115,7 @@ class RSA(nn.Module):
             self.D = nn.Parameter(torch.empty(self.num_heads, self.v_head_dim))
             mark_parameter_as_no_weight_decay(self.D)
 
-        self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.v_head_dim, self.v_head_dim))
+        self.state_weight = nn.Parameter(torch.empty(self.num_weight_heads, self.v_head_dim, self.v_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
