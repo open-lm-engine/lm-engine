@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import json
 import multiprocessing
 import os
 from argparse import ArgumentParser, Namespace
@@ -82,6 +83,8 @@ if __name__ == "__main__":
                     merge_files,
                     kwds=dict(input_prefixes=group, output_prefix=os.path.join(args.output_prefix, str(grp_id))),
                 )
+
+                json.dump(group, open(os.path.join(args.output_prefix, f"file_map-{grp_id}.json"), "w"), indent=4)
 
     pool.close()
     pool.join()
