@@ -65,6 +65,7 @@ def main() -> None:
                 os.makedirs(output_prefix, exist_ok=True)
 
                 output_prefix = os.path.join(output_prefix, os.path.splitext(file)[0])
+                # check for .jsonl.zstd
                 if output_prefix.endswith(".jsonl"):
                     output_prefix = os.path.splitext(output_prefix)[0]
 
