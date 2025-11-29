@@ -65,7 +65,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -79,7 +79,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -93,53 +93,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
-        use_residual: true
-        activation_function: silu
-        normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
-        gradient_clipping: 1
-      - sequence_mixer_type: softmax_attention
-        num_attention_heads: 16
-        num_key_value_heads: 16
-        add_bias: false
-      - sequence_mixer_type: rsa
-        k_head_dim: 16
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 256
-        num_f_heads: 1
-        num_weight_heads: 1
-        use_residual: true
-        activation_function: silu
-        normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
-        gradient_clipping: 1
-      - sequence_mixer_type: rsa
-        k_head_dim: 16
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 256
-        num_f_heads: 1
-        num_weight_heads: 1
-        use_residual: true
-        activation_function: silu
-        normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
-        gradient_clipping: 1
-      - sequence_mixer_type: rsa
-        k_head_dim: 16
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 256
-        num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -157,7 +111,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -171,7 +125,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -185,53 +139,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
-        use_residual: true
-        activation_function: silu
-        normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
-        gradient_clipping: 1
-      - sequence_mixer_type: softmax_attention
-        num_attention_heads: 16
-        num_key_value_heads: 16
-        add_bias: false
-      - sequence_mixer_type: rsa
-        k_head_dim: 16
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 256
-        num_f_heads: 1
-        num_weight_heads: 1
-        use_residual: true
-        activation_function: silu
-        normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
-        gradient_clipping: 1
-      - sequence_mixer_type: rsa
-        k_head_dim: 16
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 256
-        num_f_heads: 1
-        num_weight_heads: 1
-        use_residual: true
-        activation_function: silu
-        normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
-        gradient_clipping: 1
-      - sequence_mixer_type: rsa
-        k_head_dim: 16
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 256
-        num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -249,7 +157,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -263,7 +171,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -277,7 +185,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -295,7 +203,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -309,7 +217,7 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -323,7 +231,99 @@ model_args:
         num_k_heads: 1
         num_v_heads: 256
         num_f_heads: 1
-        num_weight_heads: 1
+        num_weight_heads: 256
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: false
+        gradient_clipping: 1
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        add_bias: false
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_q_heads: 1
+        num_k_heads: 1
+        num_v_heads: 256
+        num_f_heads: 1
+        num_weight_heads: 256
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: false
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_q_heads: 1
+        num_k_heads: 1
+        num_v_heads: 256
+        num_f_heads: 1
+        num_weight_heads: 256
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: false
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_q_heads: 1
+        num_k_heads: 1
+        num_v_heads: 256
+        num_f_heads: 1
+        num_weight_heads: 256
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: false
+        gradient_clipping: 1
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        add_bias: false
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_q_heads: 1
+        num_k_heads: 1
+        num_v_heads: 256
+        num_f_heads: 1
+        num_weight_heads: 256
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: false
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_q_heads: 1
+        num_k_heads: 1
+        num_v_heads: 256
+        num_f_heads: 1
+        num_weight_heads: 256
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: false
+        gradient_clipping: 1
+      - sequence_mixer_type: rsa
+        k_head_dim: 16
+        v_head_dim: 16
+        num_q_heads: 1
+        num_k_heads: 1
+        num_v_heads: 256
+        num_f_heads: 1
+        num_weight_heads: 256
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
