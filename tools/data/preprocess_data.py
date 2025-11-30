@@ -32,8 +32,7 @@ def get_args() -> Namespace:
     group.add_argument("--output-prefix", type=str, required=True, help="Path to binary output file without suffix")
 
     group = parser.add_argument_group(title="runtime")
-    group.add_argument("--workers", type=int, required=True, help="Number of worker processes to launch")
-    group.add_argument("--chunk-size", type=int, required=True, help="Chunk size assigned to each worker process")
+    group.add_argument("--max-processes", type=int, default=16, help="Number of processes to launch")
     args = parser.parse_args()
 
     return args
@@ -45,8 +44,6 @@ def process_file(args: Namespace, input_file: str, output_prefix: str):
         tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
         input_file=input_file,
         output_prefix=output_prefix,
-        workers=args.workers,
-        chunk_size=args.chunk_size,
         subset=args.subset,
         json_keys=args.json_keys,
         append_eos_token=args.append_eod,
@@ -59,13 +56,22 @@ def main() -> None:
     if os.path.isfile(args.input):
         process_file(args, args.input, args.output_prefix)
     elif os.path.isdir(args.input):
-        files = os.listdir(args.input)
+        files = []
         processes = []
 
-        for file in tqdm(files, desc="Submitting jobs"):
-            input_file = os.path.join(args.input, file)
-            output_prefix = os.path.join(args.output_prefix, os.path.splitext(file)[0])
+        for root, _, _files in os.walk(args.input):
+            for file in _files:
+                output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
+                os.makedirs(output_prefix, exist_ok=True)
 
+                output_prefix = os.path.join(output_prefix, os.path.splitext(file)[0])
+                # check for .jsonl.zstd
+                if output_prefix.endswith(".jsonl"):
+                    output_prefix = os.path.splitext(output_prefix)[0]
+
+                files.append((os.path.join(root, file), output_prefix))
+
+        for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
             assert args.json_keys == ["text"]
 
             # Launch subprocess in background
@@ -78,10 +84,6 @@ def main() -> None:
                 output_prefix,
                 "--tokenizer",
                 args.tokenizer,
-                "--workers",
-                str(args.workers),
-                "--chunk-size",
-                str(args.chunk_size),
             ]
 
             if args.subset:
@@ -89,7 +91,7 @@ def main() -> None:
             if args.append_eod:
                 cmd += ["--append-eod"]
 
-            while len(processes) >= 16:
+            while len(processes) >= args.max_processes:
                 # Remove finished processes
                 processes = [p for p in processes if p.poll() is None]
 
