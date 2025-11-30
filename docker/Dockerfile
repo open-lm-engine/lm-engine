@@ -15,3 +15,5 @@ RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine &
     uv sync --extra tpu && \
     cd .. && \
     rm -rf lm-engine
+
+CMD ["bash"]
