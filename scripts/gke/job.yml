@@ -7,7 +7,7 @@ spec:
     spec:
       containers:
       - name: mayank-job
-        image: ghcr.io/open-lm-engine/tpu:latest
+        image: ghcr.io/open-lm-engine/data:latest
         command: ["sleep", "infinity"]
         resources:
           requests:
