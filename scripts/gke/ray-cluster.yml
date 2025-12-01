@@ -13,13 +13,6 @@ spec:
         containers:
         - name: ray-head
           image: ghcr.io/open-lm-engine/data:latest
-          resources:
-            requests:
-              cpu: "500m"
-              memory: "8Gi"
-            limits:
-              cpu: "1"
-              memory: "8Gi"
   workerGroupSpecs:
     - groupName: worker-group
       replicas: 1
@@ -29,10 +22,3 @@ spec:
           containers:
           - name: ray-worker
             image: ghcr.io/open-lm-engine/data:latest
-            resources:
-              requests:
-                cpu: "500m"
-                memory: "8Gi"
-              limits:
-                cpu: "1"
-                memory: "8Gi"
