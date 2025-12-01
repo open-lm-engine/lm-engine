@@ -1,0 +1,38 @@
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: mayank-raycluster
+spec:
+  headGroupSpec:
+    serviceType: ClusterIP
+    rayStartParams:
+      port: "6379"
+      dashboard_host: "0.0.0.0"
+    template:
+      spec:
+        containers:
+        - name: ray-head
+          image: ghcr.io/open-lm-engine/data:latest
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "8Gi"
+            limits:
+              cpu: "1"
+              memory: "8Gi"
+  workerGroupSpecs:
+    - groupName: worker-group
+      replicas: 1
+      rayStartParams: {}
+      template:
+        spec:
+          containers:
+          - name: ray-worker
+            image: ghcr.io/open-lm-engine/data:latest
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "8Gi"
+              limits:
+                cpu: "1"
+                memory: "8Gi"
