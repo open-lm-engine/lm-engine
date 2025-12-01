@@ -1,3 +1,7 @@
+<!-- **************************************************
+Copyright (c) 2025, Mayank Mishra
+************************************************** -->
+
 # Job management on a Kubernetes cluster
 
 ```shell
