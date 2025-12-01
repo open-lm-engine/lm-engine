@@ -1,0 +1,13 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mayank-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: mayank-job
+        image: ghcr.io/open-lm-engine/tpu:latest
+        command: ["sleep", "infinity"]
+      restartPolicy: Never
+  backoffLimit: 0
