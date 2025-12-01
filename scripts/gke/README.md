@@ -9,5 +9,9 @@ kubectl delete job <your-job-name>
 
 # Manage a ray cluster
 
+```shell
+# launch ray cluster
 kubectl apply -f ray-cluster.yml
+# delete ray cluster
 kubectl delete RayCluster <your-cluster-name>
+```
