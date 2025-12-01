@@ -6,7 +6,7 @@ spec:
   headGroupSpec:
     serviceType: ClusterIP
     rayStartParams:
-      port: "6379"
+      port: "1234"
       dashboard_host: "0.0.0.0"
     template:
       spec:

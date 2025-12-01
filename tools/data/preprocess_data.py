@@ -71,6 +71,8 @@ def main() -> None:
 
                 files.append((os.path.join(root, file), output_prefix))
 
+        files = sorted(files, key=lambda x: x[0])
+
         for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
             assert args.json_keys == ["text"]
 

@@ -15,6 +15,6 @@ ARG EXTRA=tpu
 RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
     cd lm-engine && \
     git checkout trainium && \
-    uv sync --extra ${EXTRA} && \
-    cd .. && \
-    rm -rf lm-engine
+    uv sync --extra ${EXTRA}
+
+ENV PATH="/app/lm-engine/.venv/bin:$PATH"
