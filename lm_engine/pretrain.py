@@ -370,7 +370,7 @@ def train(
     if not is_pipeline_parallel_enabled:
         assert len(model_container) == 1
 
-    # model flops per GPU
+    # model flops per accelerator
     model_flops = (
         get_model_tflops(
             config=model_container[0].config,

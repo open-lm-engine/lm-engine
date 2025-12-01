@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mayank-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: mayank-job
+        image: ghcr.io/open-lm-engine/data:latest
+        command: ["sleep", "infinity"]
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "8Gi"
+          limits:
+            cpu: "1"
+            memory: "8Gi"
+      restartPolicy: Never
+  backoffLimit: 0
