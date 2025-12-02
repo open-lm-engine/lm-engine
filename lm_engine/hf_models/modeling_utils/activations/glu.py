@@ -87,4 +87,4 @@ class _ContiguousChunk(torch.autograd.Function):
 
 
 def contiguous_chunk(x: torch.Tensor, chunks: int, dim: int = 0) -> tuple[torch.Tensor]:
-    return _ContiguousChunk.apply(x)
+    return _ContiguousChunk.apply(x, chunks, dim)
