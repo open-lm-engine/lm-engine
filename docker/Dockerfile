@@ -26,6 +26,7 @@ ARG EXTRA=data
 RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
     cd lm-engine && \
     git checkout trainium && \
-    uv sync --extra ${EXTRA}
+    uv sync --extra ${EXTRA} && \
+    rm -rf .git
 
 ENV PATH="/app/lm-engine/.venv/bin:$PATH"
