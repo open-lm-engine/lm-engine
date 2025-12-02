@@ -14,6 +14,7 @@ class _ContiguousChunk(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *dy: tuple[torch.Tensor]) -> tuple[torch.Tensor, None, None]:
+        dy = tuple(i.contiguous() for i in dy)
         return torch.cat(dy, dim=ctx.dim), None, None
 
 
@@ -30,6 +31,7 @@ class _ContiguousSplit(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *dy: tuple[torch.Tensor]) -> tuple[torch.Tensor, None, None]:
+        dy = tuple(i.contiguous() for i in dy)
         return torch.cat(dy, dim=ctx.dim), None, None
 
 
