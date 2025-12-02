@@ -24,7 +24,7 @@ def contiguous_chunk(x: torch.Tensor, chunks: int, dim: int = 0) -> tuple[torch.
 
 class _ContiguousSplit(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x: torch.Tensor, split_size: int, dim: int) -> torch.Tensor:
+    def forward(ctx, x: torch.Tensor, split_size: int | tuple[int, ...], dim: int) -> tuple[torch.Tensor, ...]:
         ctx.dim = dim
         x = x.split(split_size, dim=dim)
         return tuple(i.contiguous() for i in x)
