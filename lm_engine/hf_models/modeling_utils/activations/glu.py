@@ -9,6 +9,7 @@ import torch.nn as nn
 
 from ....kernels import Kernel, is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, is_xma_available
+from ..chunk import contiguous_chunk
 from .base import get_base_activation
 
 
@@ -72,19 +73,3 @@ def get_glu_activation(name: str) -> nn.GLU | GLUActivation:
 
 def is_glu(name: str) -> bool:
     return name.endswith("glu")
-
-
-class _ContiguousChunk(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, x: torch.Tensor, chunks: int, dim: int) -> torch.Tensor:
-        ctx.dim = dim
-        x = x.chunk(chunks, dim=dim)
-        return tuple(i.contiguous() for i in x)
-
-    @staticmethod
-    def backward(ctx, *dy: tuple[torch.Tensor]) -> tuple[torch.Tensor, None, None]:
-        return torch.cat(dy, dim=ctx.dim), None, None
-
-
-def contiguous_chunk(x: torch.Tensor, chunks: int, dim: int = 0) -> tuple[torch.Tensor]:
-    return _ContiguousChunk.apply(x, chunks, dim)
