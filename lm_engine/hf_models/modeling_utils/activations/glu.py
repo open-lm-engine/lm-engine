@@ -42,10 +42,8 @@ class GLUActivation(nn.Module):
             x = swiglu_packed(x)
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
-            x = (
-                contiguous_chunk(x, 2, dim=-1)
-                if Accelerator.get_accelerator() == Accelerator.trainium
-                else x.chunk(2, dim=-1)
+            x = (contiguous_chunk if Accelerator.get_accelerator() == Accelerator.trainium else torch.chunk)(
+                x, 2, dim=-1
             )
 
             x = x[0] * self.base_activation(x[1])
