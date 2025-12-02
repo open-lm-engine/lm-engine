@@ -168,7 +168,11 @@ class Attention(nn.Module):
 
         query, key, value = (
             contiguous_split if Accelerator.get_accelerator() == Accelerator.trainium else torch.split
-        )(((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1)
+        )(
+            hidden_states,
+            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim),
+            dim=-1,
+        )
 
         query = query.reshape(*output_shape)
 
