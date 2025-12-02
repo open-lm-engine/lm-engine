@@ -55,17 +55,17 @@ class GLUActivation(nn.Module):
 def get_glu_activation(name: str) -> nn.GLU | GLUActivation:
     # for glu and sigmoid_glu, we directly return the pytorch's GLU
     if name in ["glu", "sigmoid_glu"]:
-        activation_function = nn.GLU()
-    else:
-        if name in _GLU_BASE_MAPPING:
-            name = _GLU_BASE_MAPPING[name]
-        elif name.endswith("_glu"):
-            name = name.rstrip("_glu")
-        else:
-            raise ValueError("invalid activation function")
+        return nn.GLU()
 
-        base_activation = get_base_activation(name)
-        activation_function = GLUActivation(base_activation)
+    if name in _GLU_BASE_MAPPING:
+        name = _GLU_BASE_MAPPING[name]
+    elif name.endswith("_glu"):
+        name = name.rstrip("_glu")
+    else:
+        raise ValueError("invalid activation function")
+
+    base_activation = get_base_activation(name)
+    activation_function = GLUActivation(base_activation)
 
     return activation_function
 
