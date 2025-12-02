@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 
 from ....kernels import Kernel, is_kernel_allowed, wait_for_ACT
-from ....utils import is_xma_available
+from ....utils import Accelerator, is_xma_available
 from .base import get_base_activation
 
 
@@ -41,7 +41,12 @@ class GLUActivation(nn.Module):
             x = swiglu_packed(x)
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
-            x = x.chunk(2, dim=-1)
+            x = (
+                contiguous_chunk(x, 2, dim=-1)
+                if Accelerator.get_accelerator() == Accelerator.trainium
+                else x.chunk(2, dim=-1)
+            )
+
             x = x[0] * self.base_activation(x[1])
 
         return x
@@ -67,3 +72,19 @@ def get_glu_activation(name: str) -> nn.GLU | GLUActivation:
 
 def is_glu(name: str) -> bool:
     return name.endswith("glu")
+
+
+class _ContiguousChunk(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, chunks: int, dim: int) -> torch.Tensor:
+        ctx.dim = dim
+        x = x.chunk(chunks, dim=dim)
+        return tuple(i.contiguous() for i in x)
+
+    @staticmethod
+    def backward(ctx, *dy: tuple[torch.Tensor]) -> tuple[torch.Tensor, None, None]:
+        return torch.cat(dy, dim=ctx.dim), None, None
+
+
+def contiguous_chunk(x: torch.Tensor, chunks: int, dim: int = 0) -> tuple[torch.Tensor]:
+    return _ContiguousChunk.apply(x)
