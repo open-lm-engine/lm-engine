@@ -7,7 +7,7 @@ import torch
 
 class _ContiguousChunk(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x: torch.Tensor, chunks: int, dim: int) -> torch.Tensor:
+    def forward(ctx, x: torch.Tensor, chunks: int, dim: int) -> tuple[torch.Tensor, ...]:
         ctx.dim = dim
         x = x.chunk(chunks, dim=dim)
         return tuple(i.contiguous() for i in x)
