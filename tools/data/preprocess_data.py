@@ -87,7 +87,7 @@ def process_with_ray(args: Namespace, files: list):
 
     # Initialize Ray
     ray.init()
-    print("Started local Ray cluster")
+    print("Ray initialized for processing.")
 
     # Submit all tasks
     futures = []
@@ -121,8 +121,6 @@ def process_with_subprocess(args: Namespace, files: list):
 
     processes = []
     for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
-        assert args.json_keys == ["text"]
-
         # Launch subprocess in background
         cmd = [
             "python",
@@ -133,6 +131,8 @@ def process_with_subprocess(args: Namespace, files: list):
             output_prefix,
             "--tokenizer",
             args.tokenizer,
+            "--json-keys",
+            *args.json_keys,
         ]
 
         if args.subset:
