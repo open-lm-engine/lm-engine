@@ -9,6 +9,7 @@ metadata:
 spec:
   template:
     spec:
+      serviceAccountName: gcs-access
       containers:
       - name: mayank-job
         image: ghcr.io/open-lm-engine/data:latest
