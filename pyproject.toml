@@ -51,6 +51,10 @@ tpu = [
     "torch==2.8.0",
     "torch-xla[pallas,tpu]==2.8.0",
 ]
+data = [
+    "ray[default]>=2.52.1",
+    "zstandard>=0.25.0",
+]
 
 [tool.uv.sources]
 accelerated-model-architectures = { path = "accelerated-model-architectures", editable = true }
