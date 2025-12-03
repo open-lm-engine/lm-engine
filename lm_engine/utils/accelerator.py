@@ -32,12 +32,12 @@ class Accelerator(Enum):
     @staticmethod
     @lru_cache
     def get_accelerator() -> Accelerator:
-        if is_torch_xla_available():
+        if torch.cuda.is_available():
+            accelerator = Accelerator.rocm if _IS_ROCM_AVAILABLE else Accelerator.cuda
+        elif is_torch_xla_available():
             accelerator = Accelerator.tpu
         elif is_torch_neuronx_available():
             accelerator = Accelerator.trainium
-        elif torch.cuda.is_available():
-            accelerator = Accelerator.rocm if _IS_ROCM_AVAILABLE else Accelerator.cuda
         else:
             accelerator = Accelerator.cpu
 
