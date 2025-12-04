@@ -179,14 +179,10 @@ def _build_megatron_dataset_splits(
             node_uses_local_storage=node_uses_local_storage,
         )
 
-        split_idx_bounds = _get_split_indices(
-            split,
-            (
-                indexed_dataset.sequence_lengths.shape[0]
-                if GPTDataset.is_split_by_sequence()
-                else indexed_dataset.document_indices.shape[0] - 1
-            ),
-        )
+        if GPTDataset.is_split_by_sequence():
+            split_idx_bounds = _get_split_indices(split, indexed_dataset.sequence_lengths.shape[0])
+        else:
+            split_idx_bounds = _get_split_indices(split, indexed_dataset.document_indices.shape[0] - 1)
 
         split_indices = [
             np.arange(
