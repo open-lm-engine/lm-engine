@@ -7,11 +7,9 @@ import os
 from typing import Any
 
 import numpy as np
-import torch
-import torch.distributed
 
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import Accelerator, Communication, ProcessGroupManager
+from ...utils import Communication, ProcessGroupManager
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .gpt_dataset import GPTDataset
