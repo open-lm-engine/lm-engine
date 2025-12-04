@@ -16,7 +16,6 @@ authors = [
     { name = "Mayank Mishra", email = "mayank31398@gmail.com" },
 ]
 dependencies = [
-    "accelerate>=1.11.0",
     "datasets>=4.4.1",
     "gitpython>=3.1.45",
     "ninja>=1.13.0",
@@ -29,10 +28,6 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/open-lm-engine/lm-engine"
 Repository = "https://github.com/open-lm-engine/lm-engine"
-
-[[tool.uv.index]]
-url = "https://us-python.pkg.dev/ml-oss-artifacts-published/jax/simple/"
-default = true
 
 [project.optional-dependencies]
 cuda = [
@@ -56,6 +51,10 @@ tpu = [
     "multi-storage-client[google-cloud-storage]>=0.35.0",
     "torch==2.8.0",
     "torch-xla[pallas,tpu]==2.8.0",
+]
+data = [
+    "ray[default]>=2.52.1",
+    "zstandard>=0.25.0",
 ]
 
 [tool.uv.sources]
