@@ -20,6 +20,7 @@ from .packages import (
     is_flash_attention_2_available,
     is_flash_attention_3_available,
     is_mamba_2_ssm_available,
+    is_multi_storage_client_available,
     is_torch_xla_available,
     is_torchao_available,
     is_triton_available,
@@ -71,6 +72,7 @@ def init_distributed(
     log_rank_0(logging.INFO, process_group_manager)
     log_rank_0(logging.INFO, f"total accelerators = {process_group_manager.get_world_size()}")
     log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
     log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
 
     for function, message in [
@@ -90,6 +92,7 @@ def init_distributed(
         (is_torchao_available, "torchao is not installed"),
         (is_zstandard_available, "zstandard is not available"),
         (is_torch_xla_available, "torch_xla is not available"),
+        (is_multi_storage_client_available, "multi-storage-client is not available"),
     ]:
         if not function():
             warn_rank_0(message)

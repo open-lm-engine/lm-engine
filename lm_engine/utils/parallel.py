@@ -67,7 +67,15 @@ class ProcessGroupManager:
     ) -> ProcessGroupManager:
         from .accelerator import Accelerator
 
-        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE, _CPU_GROUP, _GLOBAL_RANK, _LOCAL_RANK, _WORLD_SIZE
+        global _MESH
+        global _TENSOR_PARALLEL_FIRST_RANK
+        global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
+        global _DATA_PARALLEL_SHARDING_WORLD_SIZE
+        global _CPU_GROUP
+        global _GLOBAL_RANK
+        global _LOCAL_RANK
+        global _WORLD_SIZE
+        global _DATA_PARALLEL_WORLD_SIZE
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -122,7 +130,7 @@ class ProcessGroupManager:
 
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
         _MESH = init_device_mesh(
-            Accelerator.get_device_type(),
+            "cpu" if accelerator == Accelerator.tpu else Accelerator.get_device_type(),
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
@@ -136,10 +144,14 @@ class ProcessGroupManager:
             enable_symm_mem_for_group(ProcessGroupManager.get_tensor_parallel_group().group_name)
             torch._inductor.config._micro_pipeline_tp = True
 
-        group = ProcessGroupManager.get_tensor_parallel_group()
-        ranks = torch.distributed.get_process_group_ranks(group)
+        if accelerator == Accelerator.tpu:
+            assert tensor_parallel_world_size == 1
+            assert pipeline_parallel_world_size == 1
+        else:
+            group = ProcessGroupManager.get_tensor_parallel_group()
+            ranks = torch.distributed.get_process_group_ranks(group)
 
-        _TENSOR_PARALLEL_FIRST_RANK = ranks[0]
+            _TENSOR_PARALLEL_FIRST_RANK = ranks[0]
 
     @staticmethod
     def is_initialized() -> bool:
