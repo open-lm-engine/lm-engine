@@ -1,7 +1,6 @@
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 
 import os
-from typing import Any, Dict, Protocol
 
 from .packages import is_multi_storage_client_available
 from .parallel import ProcessGroupManager
@@ -11,30 +10,6 @@ if is_multi_storage_client_available():
     import multistorageclient as msc
 
 MSC_PREFIX = "msc://"
-
-
-class S3Client(Protocol):
-    """The protocol which all s3 clients should abide by"""
-
-    def download_file(self, Bucket: str, Key: str, Filename: str) -> None:
-        """Download the file from S3 to the local file system"""
-        ...
-
-    def upload_file(self, Filename: str, Bucket: str, Key: str) -> None:
-        """Upload the file to S3"""
-        ...
-
-    def head_object(self, Bucket: str, Key: str) -> Dict[str, Any]:
-        """Get the metadata of the file in S3"""
-        ...
-
-    def get_object(self, Bucket: str, Key: str, Range: str) -> Dict[str, Any]:
-        """Get the file from S3"""
-        ...
-
-    def close(self) -> None:
-        """Close the S3 client"""
-        ...
 
 
 def is_object_storage_path(path: str) -> bool:
