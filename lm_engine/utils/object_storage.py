@@ -60,11 +60,9 @@ def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
         str: The index cache path
     """
     if is_object_storage_path(idx_path):
-        cache_idx_path = os.path.join(path_to_idx_cache, idx_path.removeprefix(MSC_PREFIX))
-    else:
-        raise ValueError(f"Invalid path: {idx_path}")
+        return os.path.join(path_to_idx_cache, idx_path.removeprefix(MSC_PREFIX))
 
-    return cache_idx_path
+    raise ValueError(f"Invalid path: {idx_path}")
 
 
 def cache_file(remote_path: str, local_path: str) -> None:
