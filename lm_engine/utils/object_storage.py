@@ -42,9 +42,7 @@ def cache_file(remote_path: str, local_path: str) -> None:
     """
 
     if is_object_storage_path(remote_path):
-        if not ProcessGroupManager.is_initialized() or ProcessGroupManager.get_global_rank() == 0:
-            msc.download_file(remote_path, local_path)
-
+        msc.download_file(remote_path, local_path)
         assert os.path.exists(local_path)
     else:
         raise ValueError(f"Invalid path: {remote_path}")
