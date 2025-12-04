@@ -6,6 +6,7 @@ from typing import Any, Dict, Protocol
 import torch
 
 from .packages import is_multi_storage_client_available
+from .parallel import ProcessGroupManager
 
 
 if is_multi_storage_client_available():
@@ -85,15 +86,9 @@ def cache_file(remote_path: str, local_path: str) -> None:
     Raises:
         ValueError: If the remote_path is not a valid S3 or MSC path
     """
-    torch_dist_enabled = torch.distributed.is_initialized()
-
-    if torch_dist_enabled:
-        rank = torch.distributed.get_rank()
-    else:
-        rank = 0
 
     if is_object_storage_path(remote_path):
-        if not torch_dist_enabled or rank == 0:
+        if not ProcessGroupManager.is_initialized() or ProcessGroupManager.get_global_rank() == 0:
             msc.download_file(remote_path, local_path)
 
         assert os.path.exists(local_path)
