@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 from typing import Any
 
 import numpy as np
 
+from ...defaults import MSC_PREFIX
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import Communication, ProcessGroupManager
+from ...utils import Communication, ProcessGroupManager, is_multi_storage_client_available, log_rank_0
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .gpt_dataset import GPTDataset
-from .indexed_dataset import MMapIndexedDataset
+from .indexed_dataset import MMapIndexedDataset, _get_index_cache_path, get_idx_path
 from .utils import Split, normalize
+
+
+if is_multi_storage_client_available():
+    import multistorageclient as msc
 
 
 def build(
@@ -169,13 +175,28 @@ def _build_megatron_dataset_splits(
         list[GPTDataset | None]: The GPTDataset (or None) per split
     """
 
+    idx_path = None
+
+    # download the idx file manually first
+    if path_prefix.startswith(MSC_PREFIX):
+        remote_idx_path = get_idx_path(path_prefix)
+        idx_path = os.path.join(config.path_to_cache, "cloud-idx-cache", remote_idx_path.removeprefix(MSC_PREFIX))
+
+        log_rank_0(logging.INFO, f"downloading {remote_idx_path} to {idx_path}")
+
+        if (
+            ProcessGroupManager.get_global_rank() == 0
+            or (node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0)
+            or ProcessGroupManager.is_tensor_parallel_first_rank()
+        ):
+            msc.download_file(remote_idx_path, idx_path)
+
+        Communication.barrier()
+
+        assert os.path.exists(idx_path)
+
     if not ProcessGroupManager.is_initialized() or ProcessGroupManager.is_tensor_parallel_first_rank():
-        indexed_dataset = MMapIndexedDataset(
-            path_prefix,
-            GPTDataset.is_multimodal(),
-            cache_path=os.path.join(config.path_to_cache, "cloud-idx-cache"),
-            node_uses_local_storage=node_uses_local_storage,
-        )
+        indexed_dataset = MMapIndexedDataset(path_prefix, GPTDataset.is_multimodal(), idx_path=idx_path)
 
         if GPTDataset.is_split_by_sequence():
             split_idx_bounds = _get_split_indices(split, indexed_dataset.sequence_lengths.shape[0])

@@ -20,7 +20,7 @@ import numpy as np
 import torch
 
 from ...defaults import MSC_PREFIX
-from ...utils import Communication, ProcessGroupManager, is_multi_storage_client_available, log_rank_0
+from ...utils import is_multi_storage_client_available, log_rank_0
 from .bin import _MMapBinReader, _MultiStorageClientBinReader
 from .dtype import DType
 
@@ -30,22 +30,6 @@ if is_multi_storage_client_available():
 
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"
-
-
-def _get_index_cache_path(idx_path: str, cache_path: str) -> str:
-    """Get the index cache path for the given path
-
-    Args:
-        idx_path (str): The path to the index file
-        path_to_idx_cache (str): path to the idx cache
-
-    Returns:
-        str: The index cache path
-    """
-    if idx_path.startswith(MSC_PREFIX):
-        return os.path.join(cache_path, idx_path.removeprefix(MSC_PREFIX))
-
-    raise ValueError(f"Invalid path: {idx_path}")
 
 
 class _IndexWriter:
@@ -276,48 +260,18 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         multimodal (bool, optional): Whether the dataset is multimodal. Defaults to False.
     """
 
-    def __init__(
-        self,
-        path_prefix: str,
-        multimodal: bool = False,
-        cache_path: str | None = None,
-        node_uses_local_storage: bool = False,
-    ) -> MMapIndexedDataset:
+    def __init__(self, path_prefix: str, multimodal: bool = False, idx_path: str | None = None) -> MMapIndexedDataset:
         super().__init__()
+        self.initialize(path_prefix, multimodal, idx_path)
 
-        is_object_storage = path_prefix.startswith(MSC_PREFIX)
-
-        if is_object_storage:
-            if ProcessGroupManager.get_global_rank() == 0 or (
-                node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0
-            ):
-                remote_idx_path = get_idx_path(path_prefix)
-                idx_path = _get_index_cache_path(remote_idx_path, cache_path)
-                log_rank_0(logging.INFO, f"downloading {remote_idx_path} to {idx_path}")
-
-                msc.download_file(remote_idx_path, idx_path)
-                assert os.path.exists(idx_path)
-
-            Communication.barrier()
-
-        self.initialize(path_prefix, multimodal, cache_path)
-
-    def initialize(self, path_prefix: str, multimodal: bool, cache_path: str) -> None:
+    def initialize(self, path_prefix: str, multimodal: bool, idx_path: str | None) -> None:
         is_object_storage = path_prefix.startswith(MSC_PREFIX)
 
         self.path_prefix = path_prefix
         self.multimodal = multimodal
-        self.cache_path = cache_path
+        self.idx_path = idx_path
 
-        self.index = _IndexReader(
-            (
-                _get_index_cache_path(get_idx_path(path_prefix), self.cache_path)
-                if is_object_storage
-                else get_idx_path(path_prefix)
-            ),
-            self.multimodal,
-        )
-
+        self.index = _IndexReader(get_idx_path(path_prefix) if idx_path is None else idx_path, self.multimodal)
         self.bin_reader = (_MultiStorageClientBinReader if is_object_storage else _MMapBinReader)(
             get_bin_path(self.path_prefix)
         )
@@ -328,7 +282,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         Returns:
             tuple[str, bool]: The state tuple
         """
-        return self.path_prefix, self.multimodal, self.cache_path
+        return self.path_prefix, self.multimodal, self.idx_path
 
     def __setstate__(self, state: tuple[str, bool]) -> None:
         """Set the state during un-pickling
@@ -336,8 +290,8 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         Args:
             state (tuple[str, bool]): The state tuple
         """
-        path_prefix, multimodal, cache_path = state
-        self.initialize(path_prefix, multimodal, cache_path)
+        path_prefix, multimodal, idx_path = state
+        self.initialize(path_prefix, multimodal, idx_path)
 
     def __len__(self) -> int:
         """Return the length of the dataset i.e. the number of sequences in the index
