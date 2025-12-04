@@ -1,3 +1,4 @@
 accelerated-model-architectures/
 copyright/
 lm_engine/data/megatron/
+.venv/
