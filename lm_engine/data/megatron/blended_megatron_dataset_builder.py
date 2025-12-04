@@ -15,7 +15,7 @@ from ...utils import Communication, ProcessGroupManager, is_multi_storage_client
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .gpt_dataset import GPTDataset
-from .indexed_dataset import MMapIndexedDataset, _get_index_cache_path, get_idx_path
+from .indexed_dataset import MMapIndexedDataset, get_idx_path
 from .utils import Split, normalize
 
 
