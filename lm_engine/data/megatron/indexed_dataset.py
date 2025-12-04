@@ -301,7 +301,9 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
                 remote_idx_path = get_idx_path(path_prefix)
                 idx_path = _get_index_cache_path(remote_idx_path, cache_path)
                 log_rank_0(logging.INFO, f"downloading {remote_idx_path} to {idx_path}")
-                cache_file(remote_idx_path, idx_path)
+
+                msc.download_file(remote_idx_path, idx_path)
+                assert os.path.exists(idx_path)
 
             Communication.barrier()
 
