@@ -24,22 +24,6 @@ def is_object_storage_path(path: str) -> bool:
     return path.startswith(MSC_PREFIX)
 
 
-def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
-    """Get the index cache path for the given path
-
-    Args:
-        idx_path (str): The path to the index file
-        path_to_idx_cache (str): path to the idx cache
-
-    Returns:
-        str: The index cache path
-    """
-    if is_object_storage_path(idx_path):
-        return os.path.join(path_to_idx_cache, idx_path.removeprefix(MSC_PREFIX))
-
-    raise ValueError(f"Invalid path: {idx_path}")
-
-
 def cache_file(remote_path: str, local_path: str) -> None:
     """Download a file from object storage to a local path with distributed training support.
     The download only happens on Rank 0, and other ranks will wait for the file to be available.

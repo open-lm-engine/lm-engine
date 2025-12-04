@@ -20,11 +20,10 @@ import numpy as np
 import torch
 
 from ...utils import (
-    Accelerator,
+    MSC_PREFIX,
     Communication,
     ProcessGroupManager,
     cache_file,
-    get_index_cache_path,
     is_multi_storage_client_available,
     is_object_storage_path,
     log_rank_0,
@@ -38,6 +37,22 @@ if is_multi_storage_client_available():
 
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"
+
+
+def _get_index_cache_path(idx_path: str, cache_path: str) -> str:
+    """Get the index cache path for the given path
+
+    Args:
+        idx_path (str): The path to the index file
+        path_to_idx_cache (str): path to the idx cache
+
+    Returns:
+        str: The index cache path
+    """
+    if is_object_storage_path(idx_path):
+        return os.path.join(cache_path, idx_path.removeprefix(MSC_PREFIX))
+
+    raise ValueError(f"Invalid path: {idx_path}")
 
 
 class _IndexWriter:
@@ -284,7 +299,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
                 node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0
             ):
                 remote_idx_path = get_idx_path(path_prefix)
-                idx_path = get_index_cache_path(remote_idx_path, cache_path)
+                idx_path = _get_index_cache_path(remote_idx_path, cache_path)
                 log_rank_0(logging.INFO, f"downloading {remote_idx_path} to {idx_path}")
                 cache_file(remote_idx_path, idx_path)
 
@@ -301,7 +316,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
         self.index = _IndexReader(
             (
-                get_index_cache_path(get_idx_path(path_prefix), self.cache_path)
+                _get_index_cache_path(get_idx_path(path_prefix), self.cache_path)
                 if is_object_storage
                 else get_idx_path(path_prefix)
             ),
