@@ -3,8 +3,6 @@
 import os
 from typing import Any, Dict, Protocol
 
-import torch
-
 from .packages import is_multi_storage_client_available
 from .parallel import ProcessGroupManager
 
@@ -56,7 +54,6 @@ def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
 
     Args:
         idx_path (str): The path to the index file
-
         path_to_idx_cache (str): path to the idx cache
 
     Returns:
