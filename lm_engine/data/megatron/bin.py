@@ -11,7 +11,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from ...utils import is_multi_storage_client_available, is_object_storage_path
+from ...defaults import MSC_PREFIX
+from ...utils import is_multi_storage_client_available
 from .dtype import DType
 
 
@@ -34,7 +35,7 @@ class _MMapBinReader(_BinReader):
     """
 
     def __init__(self, bin_path: str) -> _MMapBinReader:
-        self._bin_file_reader = (msc.open if is_object_storage_path(bin_path) else open)(bin_path, mode="rb")
+        self._bin_file_reader = (msc.open if bin_path.startswith(MSC_PREFIX) else open)(bin_path, mode="rb")
         self._bin_buffer_mmap = np.memmap(self._bin_file_reader, mode="r", order="C")
         self._bin_buffer = memoryview(self._bin_buffer_mmap)
 

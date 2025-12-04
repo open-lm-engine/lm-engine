@@ -19,14 +19,8 @@ from types import TracebackType
 import numpy as np
 import torch
 
-from ...utils import (
-    MSC_PREFIX,
-    Communication,
-    ProcessGroupManager,
-    is_multi_storage_client_available,
-    is_object_storage_path,
-    log_rank_0,
-)
+from ...defaults import MSC_PREFIX
+from ...utils import Communication, ProcessGroupManager, is_multi_storage_client_available, log_rank_0
 from .bin import _MMapBinReader, _MultiStorageClientBinReader
 from .dtype import DType
 
@@ -48,7 +42,7 @@ def _get_index_cache_path(idx_path: str, cache_path: str) -> str:
     Returns:
         str: The index cache path
     """
-    if is_object_storage_path(idx_path):
+    if idx_path.startswith(MSC_PREFIX):
         return os.path.join(cache_path, idx_path.removeprefix(MSC_PREFIX))
 
     raise ValueError(f"Invalid path: {idx_path}")
@@ -73,7 +67,7 @@ class _IndexWriter:
         Returns:
             _IndexWriter: The instance
         """
-        self.idx_writer = (msc.open if is_object_storage_path(self.idx_path) else open)(self.idx_path, "wb")
+        self.idx_writer = (msc.open if self.idx_path.startswith(MSC_PREFIX) else open)(self.idx_path, "wb")
         # fixed, vestigial practice
         self.idx_writer.write(_INDEX_HEADER)
         # fixed, vestigial practice
@@ -291,7 +285,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
     ) -> MMapIndexedDataset:
         super().__init__()
 
-        is_object_storage = is_object_storage_path(path_prefix)
+        is_object_storage = path_prefix.startswith(MSC_PREFIX)
 
         if is_object_storage:
             if ProcessGroupManager.get_global_rank() == 0 or (
@@ -309,7 +303,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         self.initialize(path_prefix, multimodal, cache_path)
 
     def initialize(self, path_prefix: str, multimodal: bool, cache_path: str) -> None:
-        is_object_storage = is_object_storage_path(path_prefix)
+        is_object_storage = path_prefix.startswith(MSC_PREFIX)
 
         self.path_prefix = path_prefix
         self.multimodal = multimodal
