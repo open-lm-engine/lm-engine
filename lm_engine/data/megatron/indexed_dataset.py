@@ -23,7 +23,6 @@ from ...utils import (
     MSC_PREFIX,
     Communication,
     ProcessGroupManager,
-    cache_file,
     is_multi_storage_client_available,
     is_object_storage_path,
     log_rank_0,
