@@ -38,31 +38,6 @@ class S3Client(Protocol):
         ...
 
 
-def _remove_msc_prefix(path: str) -> str:
-    """
-    Remove the MSC prefix from a path
-
-    Args:
-        path (str): The path
-
-    Returns:
-        str: The path without the MSC prefix
-    """
-    return path.removeprefix(MSC_PREFIX)
-
-
-def _is_msc_path(path: str) -> bool:
-    """Checks whether a path is in MSC path (msc://profile/path/to/file)
-
-    Args:
-        path (str): The path
-
-    Returns:
-        bool: True if the path is in MSC path, False otherwise
-    """
-    return path.startswith(MSC_PREFIX)
-
-
 def is_object_storage_path(path: str) -> bool:
     """Ascertain whether a path is in object storage
 
@@ -72,7 +47,7 @@ def is_object_storage_path(path: str) -> bool:
     Returns:
         bool: True if the path is in object storage (s3:// or msc://), False otherwise
     """
-    return _is_msc_path(path)
+    return path.startswith(MSC_PREFIX)
 
 
 def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
@@ -86,36 +61,12 @@ def get_index_cache_path(idx_path: str, path_to_idx_cache: str) -> str:
     Returns:
         str: The index cache path
     """
-    if _is_msc_path(idx_path):
-        cache_idx_path = os.path.join(path_to_idx_cache, _remove_msc_prefix(idx_path))
+    if is_object_storage_path(idx_path):
+        cache_idx_path = os.path.join(path_to_idx_cache, idx_path.removeprefix(MSC_PREFIX))
     else:
         raise ValueError(f"Invalid path: {idx_path}")
 
     return cache_idx_path
-
-
-def get_object_storage_access(path: str) -> str:
-    """Get the object storage access"""
-    return "msc"
-
-
-def dataset_exists(path_prefix: str, idx_path: str, bin_path: str) -> bool:
-    """Check if the dataset exists on object storage
-
-    Args:
-        path_prefix (str): The prefix to the index (.idx) and data (.bin) files
-
-        idx_path (str): The path to the index file
-
-        bin_path (str): The path to the data file
-
-    Returns:
-        bool: True if the dataset exists on object storage, False otherwise
-    """
-    if _is_msc_path(path_prefix):
-        return msc.exists(idx_path) and msc.exists(bin_path)
-    else:
-        raise ValueError(f"Invalid path: {path_prefix}")
 
 
 def cache_file(remote_path: str, local_path: str) -> None:
@@ -141,7 +92,7 @@ def cache_file(remote_path: str, local_path: str) -> None:
     else:
         rank = 0
 
-    if _is_msc_path(remote_path):
+    if is_object_storage_path(remote_path):
         if not torch_dist_enabled or rank == 0:
             msc.download_file(remote_path, local_path)
 
