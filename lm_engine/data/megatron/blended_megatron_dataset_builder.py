@@ -171,7 +171,7 @@ def _build_megatron_dataset_splits(
         list[GPTDataset | None]: The GPTDataset (or None) per split
     """
 
-    if not torch.distributed.is_initialized() or ProcessGroupManager.is_tensor_parallel_first_rank():
+    if not ProcessGroupManager.is_initialized() or ProcessGroupManager.is_tensor_parallel_first_rank():
         indexed_dataset = MMapIndexedDataset(
             path_prefix,
             GPTDataset.is_multimodal(),
@@ -221,7 +221,7 @@ def _build_megatron_dataset_splits(
 def _build_generic_dataset(
     cls: type[BlendedDataset | GPTDataset | MMapIndexedDataset], node_uses_local_storage: bool, **kwargs: Any
 ) -> BlendedDataset | GPTDataset | MMapIndexedDataset | None:
-    if torch.distributed.is_initialized():
+    if ProcessGroupManager.is_initialized():
         caching_allowed = ProcessGroupManager.get_global_rank() == 0 or (
             node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0
         )
