@@ -17,6 +17,18 @@ RUN printf "%s\n" \
 # Install gcloud and git
 RUN dnf install -y google-cloud-cli git && dnf clean all
 
+RUN cat <<'EOF' > /etc/yum.repos.d/gcsfuse.repo
+[gcsfuse]
+name=gcsfuse (packages.cloud.google.com)
+baseurl=https://packages.cloud.google.com/yum/repos/gcsfuse-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+
+RUN yum -y install gcsfuse && yum clean all
+
 # install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
