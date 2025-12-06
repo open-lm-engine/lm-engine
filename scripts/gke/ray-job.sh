@@ -1,4 +1,4 @@
 ray job submit \
   --address http://localhost:8265 \
-  --working-dir . \
+  --working-dir scripts/gke \
     python a.py

@@ -94,7 +94,7 @@ def process_with_ray(args: Namespace, files: list):
     completed = []
     with tqdm(total=len(futures), desc="Tokenizing") as pbar:
         while futures:
-            done, futures = ray.wait(futures, num_returns=1, timeout=1.0)
+            done, futures = ray.wait(futures, num_returns=1)
             for future in done:
                 try:
                     result = ray.get(future)
