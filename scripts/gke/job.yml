@@ -21,5 +21,12 @@ spec:
           limits:
             cpu: "1"
             memory: "8Gi"
+        volumeMounts:
+        - name: gcs-volume
+          mountPath: /data
+      volumes:
+      - name: gcs-volume
+        persistentVolumeClaim:
+          claimName: mayank-data-pvc
       restartPolicy: Never
   backoffLimit: 0
