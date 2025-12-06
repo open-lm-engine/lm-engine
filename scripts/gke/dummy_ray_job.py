@@ -17,7 +17,7 @@ def f():
 
 
 futures = []
-for i in range(10):
+for _ in range(10):
     futures.append(f.remote())
 
 while futures:
