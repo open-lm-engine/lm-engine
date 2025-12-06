@@ -53,6 +53,7 @@ tpu = [
     "torch-xla[pallas,tpu]==2.8.0",
 ]
 data = [
+    "torch>=2.8.0",
     "ray[default]>=2.52.1",
     "zstandard>=0.25.0",
 ]
