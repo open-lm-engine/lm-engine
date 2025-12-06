@@ -8,6 +8,9 @@ metadata:
   name: mayank-job
 spec:
   template:
+    metadata:
+      annotations:
+        gke-gcsfuse/volumes: "true"
     spec:
       serviceAccountName: gcs-access
       containers:
