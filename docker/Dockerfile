@@ -29,3 +29,5 @@ RUN cd lm-engine && \
     uv sync --extra ${EXTRA} && \
     mv .venv ../ && \
     rm -rf lm-engine
+
+ENV PATH="/app/.venv/bin:$PATH"
