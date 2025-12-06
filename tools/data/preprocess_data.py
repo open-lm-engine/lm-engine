@@ -5,16 +5,11 @@
 import os
 from argparse import ArgumentParser, Namespace
 
+import ray
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from lm_engine.data.megatron.preprocess_data import convert_file
-
-
-try:
-    import ray
-except ImportError:
-    ray = None
 
 
 def get_args() -> Namespace:
@@ -176,14 +171,7 @@ def main() -> None:
         print("❌ No files found to process")
         return
 
-    # Choose processing method
-    if args.ray_workers > 0:
-        if ray is None:
-            print("❌ Ray is not installed. Install with: pip install ray")
-            return
-        process_with_ray(args, files)
-    else:
-        process_with_subprocess(args, files)
+    (process_with_ray if args.ray_workers > 0 else process_with_subprocess)(args, files)
 
     print("✅ All files processed successfully.")
 

@@ -1,21 +1,21 @@
 # base image
-FROM registry.access.redhat.com/ubi9/ubi
+FROM ubuntu:22.04
 
 WORKDIR /app
 
-# Add Google Cloud CLI repo (EL10)
-RUN printf "%s\n" \
-    "[google-cloud-cli]" \
-    "name=Google Cloud CLI" \
-    "baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el10-x86_64" \
-    "enabled=1" \
-    "gpgcheck=1" \
-    "repo_gpgcheck=0" \
-    "gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key-v10.gpg" \
-    > /etc/yum.repos.d/google-cloud-sdk.repo
-
-# Install gcloud and git
-RUN dnf install -y google-cloud-cli git && dnf clean all
+# Add Google Cloud CLI and gcsfuse (EL10)
+RUN apt-get update && \
+    apt-get install -y apt-transport-https ca-certificates gnupg curl lsb-release git && \
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    apt-get update && \
+    apt-get install -y google-cloud-cli && \
+    export GCSFUSE_REPO=gcsfuse-`lsb_release -c -s` && \
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.asc] https://packages.cloud.google.com/apt $GCSFUSE_REPO main" | tee /etc/apt/sources.list.d/gcsfuse.list && \
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | tee /usr/share/keyrings/cloud.google.asc && \
+    apt-get update && \
+    apt-get install -y gcsfuse && \
+    apt clean
 
 # install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -25,7 +25,6 @@ ARG EXTRA=data
 # install dependencies
 RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
     cd lm-engine && \
-    git checkout trainium && \
     uv sync --extra ${EXTRA} && \
     rm -rf .git
 
