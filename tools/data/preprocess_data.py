@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import logging
 import os
 from argparse import ArgumentParser, Namespace
 
@@ -10,6 +11,10 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from lm_engine.data.megatron.preprocess_data import convert_file
+from lm_engine.utils import log_rank_0, set_logger
+
+
+set_logger()
 
 
 def get_args() -> Namespace:
@@ -54,6 +59,8 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
         append_eos_token=args.append_eod,
     )
 
+    return input_file
+
 
 def collect_files(args: Namespace):
     """Collect all files to process from input directory or single file."""
@@ -76,13 +83,13 @@ def collect_files(args: Namespace):
     return sorted(files, key=lambda x: x[0])
 
 
-def process_with_ray(args: Namespace, files: list):
+def process_with_ray(args: Namespace, files: list) -> None:
     """Process files using Ray for distributed execution."""
-    print(f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)")
+    log_rank_0(logging.INFO, f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)")
 
     # Initialize Ray
     ray.init()
-    print("Ray initialized for processing.")
+    log_rank_0(logging.INFO, "Ray initialized for processing.")
 
     # Submit all tasks
     futures = []
@@ -91,28 +98,28 @@ def process_with_ray(args: Namespace, files: list):
         futures.append(future)
 
     # Wait for completion with progress bar
-    completed = []
     with tqdm(total=len(futures), desc="Tokenizing") as pbar:
         while futures:
             done, futures = ray.wait(futures, num_returns=1)
             for future in done:
                 try:
                     result = ray.get(future)
-                    completed.append(result)
+                    log_rank_0(logging.INFO, f"✅ Processed file: {result}")
                     pbar.update(1)
                 except Exception as e:
-                    print(f"\n❌ Error processing file: {e}")
+                    log_rank_0(logging.ERROR, f"\n❌ Error processing file: {e}")
                     pbar.update(1)
 
     ray.shutdown()
-    return completed
 
 
 def process_with_subprocess(args: Namespace, files: list):
     """Process files using subprocess for local parallel execution."""
     import subprocess
 
-    print(f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)")
+    log_rank_0(
+        logging.INFO, f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)"
+    )
 
     processes = []
     for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
@@ -161,19 +168,19 @@ def main() -> None:
             append_eos_token=args.append_eod,
         )
 
-        print("✅ File processed successfully.")
+        log_rank_0(logging.INFO, "✅ File processed successfully.")
         return
 
     # Collect all files
     files = collect_files(args)
 
     if not files:
-        print("❌ No files found to process")
+        log_rank_0(logging.INFO, "❌ No files found to process")
         return
 
     (process_with_ray if args.ray_workers > 0 else process_with_subprocess)(args, files)
 
-    print("✅ All files processed successfully.")
+    log_rank_0(logging.INFO, "✅ All files processed successfully.")
 
 
 if __name__ == "__main__":
