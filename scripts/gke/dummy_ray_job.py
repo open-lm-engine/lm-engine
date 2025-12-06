@@ -7,7 +7,7 @@ import time
 import ray
 
 
-ray.init(runtime_env={"excludes": [".git/**", "accelerated-model-architectures/**", ".venv/**"]})
+ray.init()
 
 
 @ray.remote
