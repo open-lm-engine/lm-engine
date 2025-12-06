@@ -12,18 +12,40 @@ spec:
     rayStartParams:
       port: "6379"
       dashboard-host: "0.0.0.0"
-      dashboard-port: "8265" 
+      dashboard-port: "8265"
     template:
+      metadata:
+        annotations:
+          gke-gcsfuse/volumes: "true"
       spec:
+        serviceAccountName: gcs-access
         containers:
         - name: ray-head
           image: ghcr.io/open-lm-engine/data:latest
+          volumeMounts:
+          - name: gcs-volume
+            mountPath: /data
+        volumes:
+        - name: gcs-volume
+          persistentVolumeClaim:
+            claimName: mayank-data-pvc
   workerGroupSpecs:
     - groupName: worker-group
       replicas: 1
       rayStartParams: {}
       template:
+        metadata:
+          annotations:
+            gke-gcsfuse/volumes: "true"
         spec:
+          serviceAccountName: gcs-access
           containers:
           - name: ray-worker
             image: ghcr.io/open-lm-engine/data:latest
+            volumeMounts:
+            - name: gcs-volume
+              mountPath: /data
+          volumes:
+          - name: gcs-volume
+            persistentVolumeClaim:
+              claimName: mayank-data-pvc
