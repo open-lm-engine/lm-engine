@@ -3,7 +3,7 @@
 # **************************************************
 
 profiles:
-  mayank-nemo-cc:
+  data:
     storage_provider:
       type: gcs
       options:
