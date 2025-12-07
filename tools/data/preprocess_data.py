@@ -47,7 +47,6 @@ def get_args() -> Namespace:
     )
     group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
     group.add_argument("--download-locally", action="store_true", help="download file locally")
-    group.add_argument("--tmpdir", action="store_true", help="download file locally")
 
     args = parser.parse_args()
 
@@ -60,8 +59,15 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
     if args.download_locally:
         with tempfile.TemporaryDirectory() as tmpdir:
+            log_rank_0(logging.DEBUG, f"DEBUG: Using {tmpdir} as the temporary directory")
+
             local_input_file = os.path.join(tmpdir, input_file)
             local_output_prefix = os.path.join(tmpdir, output_prefix)
+
+            log_rank_0(logging.DEBUG, f"DEBUG: input_file {input_file} corresponds to {local_input_file} locally")
+            log_rank_0(
+                logging.DEBUG, f"DEBUG: output_prefix {output_prefix} corresponds to {local_output_prefix} locally"
+            )
 
             msc.download_file(f"{MSC_PREFIX}{input_file}", local_input_file)
 
