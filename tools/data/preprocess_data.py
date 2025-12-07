@@ -91,24 +91,29 @@ def process_with_ray(args: Namespace, files: list) -> None:
     ray.init()
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
-    # Submit all tasks
+    num_files = len(files)
     futures = []
-    for input_file, output_prefix in files:
-        future = process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix)
-        futures.append(future)
 
     # Wait for completion with progress bar
-    with tqdm(total=len(futures), desc="Tokenizing") as pbar:
-        while futures:
-            done, futures = ray.wait(futures, num_returns=1)
-            for future in done:
-                try:
-                    result = ray.get(future)
-                    log_rank_0(logging.INFO, f"✅ Processed file: {result}")
-                    pbar.update(1)
-                except Exception as e:
-                    log_rank_0(logging.ERROR, f"\n❌ Error processing file: {e}")
-                    pbar.update(1)
+    with tqdm(total=num_files, desc="Tokenizing") as pbar:
+        while len(files) > 0 and len(futures) < args.ray_workers:
+            if len(files) > 0 and len(futures) < args.ray_workers:
+                input_file, output_prefix = files[0]
+                files = files[1:]
+
+                future = process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix)
+                futures.append(future)
+            elif len(futures) == args.ray_workers:
+                done, futures = ray.wait(futures, num_returns=1)
+
+                for future in done:
+                    try:
+                        result = ray.get(future)
+                        log_rank_0(logging.INFO, f"✅ Processed file: {result}")
+                        pbar.update(1)
+                    except Exception as e:
+                        log_rank_0(logging.ERROR, f"\n❌ Error processing file: {e}")
+                        pbar.update(1)
 
     ray.shutdown()
 
