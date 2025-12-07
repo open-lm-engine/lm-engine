@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 apiVersion: ray.io/v1
 kind: RayCluster
 metadata:
@@ -9,7 +13,6 @@ spec:
       port: "6379"
       dashboard-host: "0.0.0.0"
       dashboard-port: "8265"
-      num-cpus: "32"
     template:
       metadata:
         annotations:
@@ -21,11 +24,9 @@ spec:
           image: ghcr.io/open-lm-engine/data:latest
           resources:
             requests:
-              cpu: "32"
-              memory: "128Gi"
+              memory: "64Gi"
             limits:
-              cpu: "32"
-              memory: "128Gi"
+              memory: "64Gi"
           volumeMounts:
           - name: gcs-volume
             mountPath: /data
@@ -36,8 +37,7 @@ spec:
   workerGroupSpecs:
     - groupName: worker-group
       replicas: 1
-      rayStartParams:
-        num-cpus: "32"
+      rayStartParams: {}
       template:
         metadata:
           annotations:
@@ -49,11 +49,9 @@ spec:
             image: ghcr.io/open-lm-engine/data:latest
             resources:
               requests:
-                cpu: "32"
-                memory: "128Gi"
+                memory: "64Gi"
               limits:
-                cpu: "32"
-                memory: "128Gi"
+                memory: "64Gi"
             volumeMounts:
             - name: gcs-volume
               mountPath: /data
