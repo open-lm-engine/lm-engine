@@ -22,12 +22,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG EXTRA=data
 
-COPY . lm-engine
-
 # install dependencies
-RUN cd lm-engine && \
-    uv sync --extra ${EXTRA} && \
-    mv .venv ../ && \
-    rm -rf lm-engine
+RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
+    cd lm-engine && \
+    UV_CACHE_DIR=tmp uv sync --extra ${EXTRA} && \
+    rm -rf .git tmp
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/lm-engine/.venv/bin:$PATH"
