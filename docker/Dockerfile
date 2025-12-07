@@ -22,7 +22,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG EXTRA=data
 
-COPY msc /app/msc
+COPY configs/msc /app/msc
 COPY pyproject.toml envs/
 COPY .python-version envs/
 
