@@ -3,8 +3,8 @@
 # **************************************************
 
 profiles:
-  mayank-nemo-cc:
+  mayank-data:
     storage_provider:
       type: gcs
       options:
-        base_path: mayank-nemo-cc
+        base_path: mayank-data
