@@ -11,6 +11,7 @@ spec:
     serviceType: ClusterIP
     rayStartParams:
       port: "6379"
+      temp-dir: "/app/ray"
       dashboard-host: "0.0.0.0"
       dashboard-port: "8265"
     template:
