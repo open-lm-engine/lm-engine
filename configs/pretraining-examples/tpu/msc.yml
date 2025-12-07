@@ -3,7 +3,7 @@
 # **************************************************
 
 profiles:
-  data:
+  mayank-data:
     storage_provider:
       type: gcs
       options:
