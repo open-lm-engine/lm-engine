@@ -70,7 +70,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 logging.DEBUG, f"DEBUG: output_prefix {output_prefix} corresponds to {local_output_prefix} locally"
             )
 
-            msc.download_file(f"{MSC_PREFIX}mayank-data/tmp/test/part_000045.parquet", local_input_file)
+            msc.download_file(f"msc://mayank-data/tmp/test/part_000045.parquet", local_input_file)
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
@@ -207,10 +207,6 @@ def process_with_subprocess(args: Namespace, files: list):
 
 def main() -> None:
     args = get_args()
-
-    msc_path = os.environ["MSC_CONFIG"]
-    msc_config = yaml.safe_load(open(msc_path, "r"))
-    print(msc_config)
 
     # Single file processing (direct call, no parallelization)
     if os.path.isfile(args.input) and args.ray_workers == 0:
