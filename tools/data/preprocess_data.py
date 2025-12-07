@@ -72,6 +72,11 @@ def process_file_ray(
                 logging.DEBUG, f"DEBUG: output_prefix {output_prefix} corresponds to {local_output_prefix} locally"
             )
 
+            for i in client.list():
+                print(i)
+                break
+            exit()
+
             client.download_file(f"tmp/test/part_000045.parquet", local_input_file)
 
             convert_file(
