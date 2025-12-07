@@ -209,7 +209,7 @@ def main() -> None:
     args = get_args()
 
     msc_path = os.environ["MSC_CONFIG"]
-    msc_config = yaml.load_yaml(msc_path)
+    msc_config = yaml.safe_load(open(msc_path, "r"))
     print(msc_config)
 
     # Single file processing (direct call, no parallelization)
