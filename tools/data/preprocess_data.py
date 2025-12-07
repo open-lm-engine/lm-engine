@@ -171,8 +171,6 @@ def process_with_subprocess(args: Namespace, files: list):
         logging.INFO, f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)"
     )
 
-    print(os.environ)
-
     processes = []
     for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
         # Launch subprocess in background
@@ -208,6 +206,8 @@ def process_with_subprocess(args: Namespace, files: list):
 
 def main() -> None:
     args = get_args()
+
+    print(os.environ)
 
     # Single file processing (direct call, no parallelization)
     if os.path.isfile(args.input) and args.ray_workers == 0:
