@@ -227,7 +227,8 @@ def main() -> None:
                     "profiles": {
                         "mayank-data": {"storage_provider": {"type": "gcs", "options": {"base_path": "mayank-data"}}}
                     }
-                }
+                },
+                profile="mayank-data",
             )
         )
 
