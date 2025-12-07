@@ -61,6 +61,7 @@ def process_file_ray(
     """Ray remote function to process a single file."""
 
     if args.download_locally:
+        os.makedirs("./tmp", exist_ok=True)
         with tempfile.TemporaryDirectory("./tmp") as tmpdir:
             log_rank_0(logging.DEBUG, f"DEBUG: Using {tmpdir} as the temporary directory")
 
