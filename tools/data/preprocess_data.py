@@ -4,13 +4,13 @@
 
 import logging
 import os
+import subprocess
 import tempfile
 from argparse import ArgumentParser, Namespace
 from collections import deque
 
-import multistorageclient as msc
 import ray
-import yaml
+from multistorageclient import StorageClient, StorageClientConfig
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
@@ -55,7 +55,9 @@ def get_args() -> Namespace:
 
 
 @ray.remote
-def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
+def process_file_ray(
+    args: Namespace, input_file: str, output_prefix: str, client: StorageClient | None = None
+) -> None:
     """Ray remote function to process a single file."""
 
     if args.download_locally:
@@ -70,7 +72,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 logging.DEBUG, f"DEBUG: output_prefix {output_prefix} corresponds to {local_output_prefix} locally"
             )
 
-            msc.download_file(f"msc://mayank-data/tmp/test/part_000045.parquet", local_input_file)
+            client.download_file(f"msc://mayank-data/tmp/test/part_000045.parquet", local_input_file)
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
@@ -81,8 +83,13 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 append_eos_token=args.append_eod,
             )
 
-            msc.upload_file(get_bin_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_bin_path(local_output_prefix))
-            msc.upload_file(get_idx_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_idx_path(local_output_prefix))
+            client.upload_file(
+                get_bin_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_bin_path(local_output_prefix)
+            )
+
+            client.upload_file(
+                get_idx_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_idx_path(local_output_prefix)
+            )
     else:
         convert_file(
             tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
@@ -117,7 +124,7 @@ def collect_files(args: Namespace):
     return sorted(files, key=lambda x: x[0])
 
 
-def process_with_ray(args: Namespace, files: list) -> None:
+def process_with_ray(args: Namespace, files: list, client: StorageClient | None = None) -> None:
     """Process files using Ray for distributed execution."""
     log_rank_0(logging.INFO, f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)")
 
@@ -142,7 +149,11 @@ def process_with_ray(args: Namespace, files: list) -> None:
                     logging.INFO,
                     f"DEBUG: Submitting task for {input_file}. Active futures: {len(futures)}",
                 )
-                futures.append(process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix))
+                futures.append(
+                    process_file_ray.remote(
+                        args=args, input_file=input_file, output_prefix=output_prefix, client=client
+                    )
+                )
 
             log_rank_0(logging.INFO, f"DEBUG: Waiting for tasks. active futures: {len(futures)}")
             # Wait for one task to complete
@@ -166,8 +177,6 @@ def process_with_ray(args: Namespace, files: list) -> None:
 
 def process_with_subprocess(args: Namespace, files: list):
     """Process files using subprocess for local parallel execution."""
-    import subprocess
-
     log_rank_0(
         logging.INFO, f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)"
     )
@@ -208,8 +217,22 @@ def process_with_subprocess(args: Namespace, files: list):
 def main() -> None:
     args = get_args()
 
+    client = None
+    if args.download_locally:
+        client = StorageClient(
+            config=StorageClientConfig.from_dict(
+                config_dict={
+                    "profiles": {
+                        "mayank-data": {"storage_provider": {"type": "gcs", "options": {"base_path": "mayank-data"}}}
+                    }
+                }
+            )
+        )
+
     # Single file processing (direct call, no parallelization)
     if os.path.isfile(args.input) and args.ray_workers == 0:
+        assert client is None
+
         convert_file(
             tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
             input_file=args.input,
@@ -229,7 +252,11 @@ def main() -> None:
         log_rank_0(logging.INFO, "❌ No files found to process")
         return
 
-    (process_with_ray if args.ray_workers > 0 else process_with_subprocess)(args, files)
+    if args.ray_workers > 0:
+        process_with_ray(args, files, client=client)
+    else:
+        assert client is None
+        process_with_subprocess(args, files)
 
     log_rank_0(logging.INFO, "✅ All files processed successfully.")
 
