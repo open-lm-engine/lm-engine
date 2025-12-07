@@ -25,6 +25,7 @@ ARG EXTRA=data
 # install dependencies
 RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
     cd lm-engine && \
+    git checkout test && \
     UV_CACHE_DIR=tmp uv sync --extra ${EXTRA} && \
     rm -rf .git tmp
 
