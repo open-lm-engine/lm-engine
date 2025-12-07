@@ -222,6 +222,8 @@ def process_with_subprocess(args: Namespace, files: list):
 def main() -> None:
     args = get_args()
 
+    print(os.getcwd())
+
     client = None
     if args.download_locally:
         client = StorageClient(
