@@ -171,6 +171,8 @@ def process_with_subprocess(args: Namespace, files: list):
         logging.INFO, f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)"
     )
 
+    print(os.environ)
+
     processes = []
     for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
         # Launch subprocess in background
