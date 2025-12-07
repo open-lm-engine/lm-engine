@@ -58,8 +58,8 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
     if args.download_locally:
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_input_file = os.path.join(tmpdir, input_file.removeprefix(MSC_PREFIX))
-            msc.download_file(input_file, local_input_file)
+            local_input_file = os.path.join(tmpdir, input_file)
+            msc.download_file(f"{MSC_PREFIX}input_file", local_input_file)
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
