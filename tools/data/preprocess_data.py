@@ -72,7 +72,7 @@ def process_file_ray(
                 logging.DEBUG, f"DEBUG: output_prefix {output_prefix} corresponds to {local_output_prefix} locally"
             )
 
-            client.download_file("msc://mayank-data/tmp/test/part_000045.parquet", local_input_file)
+            client.download_file("mayank-data/tmp/test/part_000045.parquet", local_input_file)
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
