@@ -22,8 +22,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG EXTRA=data
 
-COPY configs/msc /app/msc
+COPY configs/msc msc
 COPY pyproject.toml envs/
 COPY .python-version envs/
+# Copy xma directory to satisfy uv.sources resolution (even if not installing)
+COPY accelerated-model-architectures envs/accelerated-model-architectures
 
-ENV PATH="/app/lm-engine/.venv/bin:$PATH"
+RUN cd envs/ && \
+    UV_CACHE_DIR=./tmp uv sync --extra ${EXTRA} && \
+    rm -rf ./tmp
+
+ENV PATH="/app/envs/.venv/bin:$PATH"
