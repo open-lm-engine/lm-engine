@@ -59,8 +59,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
     """Ray remote function to process a single file."""
 
     if args.download_locally:
-        os.makedirs("./tmp", exist_ok=True)
-        with tempfile.TemporaryDirectory("./tmp") as tmpdir:
+        with tempfile.TemporaryDirectory() as tmpdir:
             log_rank_0(logging.DEBUG, f"DEBUG: Using {tmpdir} as the temporary directory")
 
             local_input_file = os.path.join(tmpdir, input_file)
