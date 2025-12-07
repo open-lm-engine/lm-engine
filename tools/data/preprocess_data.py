@@ -4,14 +4,17 @@
 
 import logging
 import os
+import tempfile
 from argparse import ArgumentParser, Namespace
 from collections import deque
 
+import multistorageclient as msc
 import ray
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from lm_engine.data.megatron.preprocess_data import convert_file
+from lm_engine.defaults import MSC_PREFIX
 from lm_engine.utils import log_rank_0, set_logger
 
 
@@ -42,6 +45,7 @@ def get_args() -> Namespace:
         "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when ray-workers=0)"
     )
     group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
+    group.add_argument("--download-locally", action="store_true", help="download file locally")
 
     args = parser.parse_args()
 
@@ -51,14 +55,29 @@ def get_args() -> Namespace:
 @ray.remote
 def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
     """Ray remote function to process a single file."""
-    convert_file(
-        tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-        input_file=input_file,
-        output_prefix=output_prefix,
-        subset=args.subset,
-        json_keys=args.json_keys,
-        append_eos_token=args.append_eod,
-    )
+
+    if args.download_locally:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_input_file = input_file.removeprefix(MSC_PREFIX)
+            msc.download_file(input_file, local_input_file)
+
+            convert_file(
+                tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+                input_file=local_input_file,
+                output_prefix=output_prefix,
+                subset=args.subset,
+                json_keys=args.json_keys,
+                append_eos_token=args.append_eod,
+            )
+    else:
+        convert_file(
+            tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+            input_file=input_file,
+            output_prefix=output_prefix,
+            subset=args.subset,
+            json_keys=args.json_keys,
+            append_eos_token=args.append_eod,
+        )
 
     return input_file
 
