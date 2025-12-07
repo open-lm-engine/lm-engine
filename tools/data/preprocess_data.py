@@ -69,7 +69,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 logging.DEBUG, f"DEBUG: output_prefix {output_prefix} corresponds to {local_output_prefix} locally"
             )
 
-            msc.download_file(f"{MSC_PREFIX}{input_file}", local_input_file)
+            msc.download_file(f"{MSC_PREFIX}mayank-{input_file[1:]}", local_input_file)
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
@@ -80,8 +80,8 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 append_eos_token=args.append_eod,
             )
 
-            msc.upload_file(get_bin_path(f"{MSC_PREFIX}{output_prefix}"), get_bin_path(local_output_prefix))
-            msc.upload_file(get_idx_path(f"{MSC_PREFIX}{output_prefix}"), get_idx_path(local_output_prefix))
+            msc.upload_file(get_bin_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_bin_path(local_output_prefix))
+            msc.upload_file(get_idx_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_idx_path(local_output_prefix))
     else:
         convert_file(
             tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
