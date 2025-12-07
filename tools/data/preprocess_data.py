@@ -209,7 +209,8 @@ def main() -> None:
     args = get_args()
 
     msc_path = os.environ["MSC_CONFIG"]
-    yaml.load_yaml(msc_path)
+    msc_config = yaml.load_yaml(msc_path)
+    print(msc_config)
 
     # Single file processing (direct call, no parallelization)
     if os.path.isfile(args.input) and args.ray_workers == 0:
