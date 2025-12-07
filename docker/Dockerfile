@@ -28,4 +28,6 @@ RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine &
     UV_CACHE_DIR=tmp uv sync --extra ${EXTRA} && \
     rm -rf .git tmp
 
+COPY msc /app/msc
+
 ENV PATH="/app/lm-engine/.venv/bin:$PATH"
