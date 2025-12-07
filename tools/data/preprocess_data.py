@@ -13,6 +13,7 @@ import ray
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
+from lm_engine.data.megatron.indexed_dataset import get_bin_path, get_idx_path
 from lm_engine.data.megatron.preprocess_data import convert_file
 from lm_engine.defaults import MSC_PREFIX
 from lm_engine.utils import log_rank_0, set_logger
@@ -46,6 +47,7 @@ def get_args() -> Namespace:
     )
     group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
     group.add_argument("--download-locally", action="store_true", help="download file locally")
+    group.add_argument("--tmpdir", action="store_true", help="download file locally")
 
     args = parser.parse_args()
 
@@ -59,18 +61,21 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
     if args.download_locally:
         with tempfile.TemporaryDirectory() as tmpdir:
             local_input_file = os.path.join(tmpdir, input_file)
+            local_output_prefix = os.path.join(tmpdir, output_prefix)
+
             msc.download_file(f"{MSC_PREFIX}{input_file}", local_input_file)
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
                 input_file=local_input_file,
-                output_prefix=output_prefix,
+                output_prefix=local_output_prefix,
                 subset=args.subset,
                 json_keys=args.json_keys,
                 append_eos_token=args.append_eod,
             )
 
-            msc.upload_file()
+            msc.upload_file(get_bin_path(f"{MSC_PREFIX}{output_prefix}"), get_bin_path(local_output_prefix))
+            msc.upload_file(get_idx_path(f"{MSC_PREFIX}{output_prefix}"), get_idx_path(local_output_prefix))
     else:
         convert_file(
             tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
