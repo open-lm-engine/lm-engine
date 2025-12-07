@@ -22,10 +22,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG EXTRA=data
 
-# install dependencies
-RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
-    cd lm-engine && \
-    uv sync --extra ${EXTRA} && \
-    rm -rf .git
+COPY msc /app/msc
+COPY pyproject.toml envs/
+COPY .python-version envs/
 
 ENV PATH="/app/lm-engine/.venv/bin:$PATH"

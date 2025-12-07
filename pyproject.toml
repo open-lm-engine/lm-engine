@@ -53,8 +53,10 @@ tpu = [
     "torch-xla[pallas,tpu]==2.8.0",
 ]
 data = [
+    "torch>=2.8.0",
     "ray[default]>=2.52.1",
     "zstandard>=0.25.0",
+    "multi-storage-client[google-cloud-storage]>=0.36.0",
 ]
 
 [tool.uv.sources]
