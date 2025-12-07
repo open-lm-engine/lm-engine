@@ -130,7 +130,7 @@ def process_with_ray(args: Namespace, files: list, client: StorageClient | None 
     log_rank_0(logging.INFO, f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)")
 
     # Initialize Ray
-    ray.init(_temp_dir="/app/test/")
+    ray.init()
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
     len(files)
