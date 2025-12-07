@@ -10,6 +10,7 @@ from collections import deque
 
 import multistorageclient as msc
 import ray
+import yaml
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
@@ -207,7 +208,8 @@ def process_with_subprocess(args: Namespace, files: list):
 def main() -> None:
     args = get_args()
 
-    print(os.environ)
+    msc_path = os.environ["MSC_CONFIG"]
+    yaml.load_yaml(msc_path)
 
     # Single file processing (direct call, no parallelization)
     if os.path.isfile(args.input) and args.ray_workers == 0:
