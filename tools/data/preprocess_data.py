@@ -5,6 +5,7 @@
 import logging
 import os
 from argparse import ArgumentParser, Namespace
+from collections import deque
 
 import ray
 from tqdm import tqdm
@@ -91,29 +92,32 @@ def process_with_ray(args: Namespace, files: list) -> None:
     ray.init()
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
-    num_files = len(files)
+    len(files)
     futures = []
 
     # Wait for completion with progress bar
-    with tqdm(total=num_files, desc="Tokenizing") as pbar:
-        while len(files) > 0 and len(futures) < args.ray_workers:
-            if len(files) > 0 and len(futures) < args.ray_workers:
-                input_file, output_prefix = files[0]
-                files = files[1:]
+    queue = deque(files)
+    futures = []
 
-                future = process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix)
-                futures.append(future)
-            elif len(futures) == args.ray_workers:
-                done, futures = ray.wait(futures, num_returns=1)
+    with tqdm(total=len(files), desc="Tokenizing") as pbar:
+        # Loop until no remaining files OR futures
+        while queue or futures:
+            # Fill up the worker slots
+            while queue and len(futures) < args.ray_workers:
+                input_file, output_prefix = queue.popleft()
+                futures.append(process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix))
 
-                for future in done:
-                    try:
-                        result = ray.get(future)
-                        log_rank_0(logging.INFO, f"✅ Processed file: {result}")
-                        pbar.update(1)
-                    except Exception as e:
-                        log_rank_0(logging.ERROR, f"\n❌ Error processing file: {e}")
-                        pbar.update(1)
+            # Wait for one task to complete
+            done, futures = ray.wait(futures, num_returns=1)
+            future = done[0]
+
+            try:
+                result = ray.get(future)
+                log_rank_0(logging.INFO, f"✅ Processed file: {result}")
+            except Exception as e:
+                log_rank_0(logging.ERROR, f"❌ Error processing file: {e}")
+
+            pbar.update(1)
 
     ray.shutdown()
 
