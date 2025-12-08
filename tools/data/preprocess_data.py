@@ -64,6 +64,8 @@ def get_args() -> Namespace:
 def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
     """Ray remote function to process a single file."""
 
+    return os.environ
+
     if args.download_locally:
         with tempfile.TemporaryDirectory() as tmpdir:
             log_rank_0(logging.DEBUG, f"DEBUG: Using {tmpdir} as the temporary directory")
