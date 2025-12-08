@@ -10,7 +10,6 @@ build-backend = "hatchling.build"
 name = "lm-engine"
 version = "0.1.0"
 description = "A library for efficient LLM training."
-readme = "README.md"
 requires-python = ">=3.12"
 authors = [
     { name = "Mayank Mishra", email = "mayank31398@gmail.com" },
@@ -18,6 +17,7 @@ authors = [
 dependencies = [
     "datasets>=4.4.1",
     "gitpython>=3.1.45",
+    "multi-storage-client[google-cloud-storage]>=0.36.0",
     "ninja>=1.13.0",
     "numpy>=2.3.5",
     "pydantic>=2.12.4",
@@ -54,6 +54,7 @@ tpu = [
 ]
 data = [
     "ray[default]>=2.52.1",
+    "torch>=2.8.0",
     "zstandard>=0.25.0",
 ]
 
