@@ -72,18 +72,11 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
     if args.download_locally:
         with tempfile.TemporaryDirectory() as tmpdir:
-            log_rank_0(logging.DEBUG, f"DEBUG: Using {tmpdir} as the temporary directory")
-
             input_file = _convert_path_to_msc_path(input_file, args.msc_base_path)
             output_prefix = _convert_path_to_msc_path(output_prefix, args.msc_base_path)
 
             local_input_file = os.path.join(tmpdir, input_file)
             local_output_prefix = os.path.join(tmpdir, output_prefix)
-
-            log_rank_0(logging.DEBUG, f"DEBUG: input_file {input_file} corresponds to {local_input_file} locally")
-            log_rank_0(
-                logging.DEBUG, f"DEBUG: output_prefix {output_prefix} corresponds to {local_output_prefix} locally"
-            )
 
             msc.download_file(input_file, local_input_file)
 
@@ -159,13 +152,8 @@ def process_with_ray(args: Namespace, files: list) -> None:
                 )
                 futures.append(process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix))
 
-            log_rank_0(logging.INFO, f"DEBUG: Waiting for tasks. active futures: {len(futures)}")
             # Wait for one task to complete
             done, futures = ray.wait(futures, num_returns=1)
-            log_rank_0(
-                logging.INFO,
-                f"DEBUG: Task completed. done: {len(done)}, pending: {len(futures)}",
-            )
             future = done[0]
 
             try:
