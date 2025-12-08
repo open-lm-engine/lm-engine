@@ -71,7 +71,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
     """Ray remote function to process a single file."""
 
     if args.download_locally:
-        with tempfile.TemporaryDirectory(dir="/tmp") as tmpdir:
+        with tempfile.TemporaryDirectory(dir="/tmpfs") as tmpdir:
             input_file = _convert_path_to_msc_path(input_file, args.msc_base_path)
             output_prefix = _convert_path_to_msc_path(output_prefix, args.msc_base_path)
 
