@@ -80,6 +80,8 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
             msc.download_file(input_file, local_input_file)
 
+            return input_file
+
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
                 input_file=local_input_file,
