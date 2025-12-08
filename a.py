@@ -1,4 +1,4 @@
 import multistorageclient as msc
 
 
-print(msc.list(f"msc://mayank-data/tmp/test/"))
+print(list(msc.list(f"msc://mayank-data/tmp/test/")))
