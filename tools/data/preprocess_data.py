@@ -80,8 +80,6 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
             msc.download_file(input_file, local_input_file)
 
-            return input_file
-
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
                 input_file=local_input_file,
@@ -106,7 +104,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
     return input_file
 
 
-def collect_files(args: Namespace):
+def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
     """Collect all files to process from input directory or single file."""
     if os.path.isfile(args.input):
         return [(args.input, args.output_prefix)]
@@ -115,7 +113,9 @@ def collect_files(args: Namespace):
     for root, _, _files in os.walk(args.input):
         for file in _files:
             output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
-            os.makedirs(output_prefix, exist_ok=True)
+
+            if makedirs:
+                os.makedirs(output_prefix, exist_ok=True)
 
             output_prefix = os.path.join(output_prefix, os.path.splitext(file)[0])
             # check for .jsonl.zstd
@@ -226,7 +226,7 @@ def main() -> None:
         return
 
     # Collect all files
-    files = collect_files(args)
+    files = collect_files(args, makedirs=not args.download_locally)
 
     if not files:
         log_rank_0(logging.INFO, "❌ No files found to process")
