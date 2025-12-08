@@ -49,11 +49,13 @@ def get_args() -> Namespace:
     group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
     group.add_argument("--download-locally", action="store_true", help="download file locally")
     group.add_argument("--msc-base-path", type=str, help="base path for MSC")
+    group.add_argument("--tmpdir", type=str, help="temporary local directory")
 
     args = parser.parse_args()
 
     if args.download_locally:
         assert args.msc_base_path
+        assert args.tmpdir
 
     return args
 
@@ -72,7 +74,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
     """Ray remote function to process a single file."""
 
     if args.download_locally:
-        with tempfile.TemporaryDirectory(dir="/dev/shm") as tmpdir:
+        with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
             input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
                 input_file, args.msc_base_path, tmpdir
             )
