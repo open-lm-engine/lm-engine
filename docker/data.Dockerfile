@@ -21,7 +21,7 @@ RUN apt-get update && \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # install dependencies
-RUN git clone -b test --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
+RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
     cd lm-engine && \
     UV_CACHE_DIR=tmp uv sync --extra data && \
     rm -rf .git tmp
