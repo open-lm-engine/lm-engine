@@ -88,7 +88,6 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
             )
 
             msc.upload_file(get_bin_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_bin_path(local_output_prefix))
-
             msc.upload_file(get_idx_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_idx_path(local_output_prefix))
     else:
         convert_file(
