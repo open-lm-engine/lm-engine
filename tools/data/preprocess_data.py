@@ -28,6 +28,7 @@ def get_args() -> Namespace:
 
     group = parser.add_argument_group(title="input data")
     group.add_argument("--input", type=str, required=True, help="Path to input JSON/Arrow")
+    group.add_argument("--msc-config", type=str, help="MSC config path")
     group.add_argument(
         "--subset", type=str, default=None, help="Subset argument when loading input data from a HuggingFace dataset"
     )
@@ -50,6 +51,9 @@ def get_args() -> Namespace:
     group.add_argument("--download-locally", action="store_true", help="download file locally")
 
     args = parser.parse_args()
+
+    if args.msc_config:
+        os.environ["MSC_CONFIG"] = args.msc_config
 
     return args
 
