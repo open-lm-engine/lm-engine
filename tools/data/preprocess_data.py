@@ -11,6 +11,7 @@ from collections import deque
 
 import multistorageclient as msc
 import ray
+import yaml
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
@@ -54,6 +55,7 @@ def get_args() -> Namespace:
 
     if args.msc_config:
         os.environ["MSC_CONFIG"] = args.msc_config
+        print(yaml.safe_load(open(args.msc_config, "r")))
 
     return args
 
