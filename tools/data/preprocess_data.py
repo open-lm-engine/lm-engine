@@ -11,7 +11,6 @@ from collections import deque
 
 import multistorageclient as msc
 import ray
-import yaml
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
@@ -58,8 +57,6 @@ def get_args() -> Namespace:
 @ray.remote
 def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
     """Ray remote function to process a single file."""
-
-    return os.environ
 
     if args.download_locally:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -234,10 +231,7 @@ def main() -> None:
         log_rank_0(logging.INFO, "❌ No files found to process")
         return
 
-    if args.ray_workers > 0:
-        process_with_ray(args, files)
-    else:
-        process_with_subprocess(args, files)
+    (process_with_ray if args.ray_workers > 0 else process_with_subprocess)(args, files)
 
     log_rank_0(logging.INFO, "✅ All files processed successfully.")
 
