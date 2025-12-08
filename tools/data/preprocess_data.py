@@ -54,6 +54,12 @@ def get_args() -> Namespace:
     return args
 
 
+def _convert_path_to_msc_path(path: str) -> str:
+    path = path.lstrip(os.sep)
+    _, path = path.split(os.sep, 1)
+    return path
+
+
 @ray.remote
 def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
     """Ray remote function to process a single file."""
@@ -61,6 +67,9 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
     if args.download_locally:
         with tempfile.TemporaryDirectory() as tmpdir:
             log_rank_0(logging.DEBUG, f"DEBUG: Using {tmpdir} as the temporary directory")
+
+            input_file = _convert_path_to_msc_path(input_file)
+            output_prefix = _convert_path_to_msc_path(output_prefix)
 
             local_input_file = os.path.join(tmpdir, input_file)
             local_output_prefix = os.path.join(tmpdir, output_prefix)
