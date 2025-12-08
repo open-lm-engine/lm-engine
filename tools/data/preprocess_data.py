@@ -130,7 +130,7 @@ def process_with_ray(args: Namespace, files: list) -> None:
     log_rank_0(logging.INFO, f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)")
 
     # Initialize Ray
-    ray.init(runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}})
+    ray.init(address="auto", runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}})
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
     len(files)
