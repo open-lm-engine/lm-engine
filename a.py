@@ -1,4 +1,4 @@
 import multistorageclient as msc
 
 
-msc.download_file(f"msc://mayank-data/tmp/test/part_000045.parquet", "tmp")
+print(msc.list(f"msc://mayank-data/tmp/test/"))
