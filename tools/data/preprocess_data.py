@@ -48,15 +48,21 @@ def get_args() -> Namespace:
     )
     group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
     group.add_argument("--download-locally", action="store_true", help="download file locally")
+    group.add_argument("--msc-base-path", type=str, help="base path for MSC")
 
     args = parser.parse_args()
+
+    if args.download_locally:
+        assert args.msc_base_path
 
     return args
 
 
-def _convert_path_to_msc_path(path: str) -> str:
+def _convert_path_to_msc_path(path: str, base_msc_path: str) -> str:
     path = path.lstrip(os.sep)
     _, path = path.split(os.sep, 1)
+    path = os.path.join(base_msc_path, path)
+    path = f"{MSC_PREFIX}{path}"
     return path
 
 
@@ -68,8 +74,8 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
         with tempfile.TemporaryDirectory() as tmpdir:
             log_rank_0(logging.DEBUG, f"DEBUG: Using {tmpdir} as the temporary directory")
 
-            input_file = _convert_path_to_msc_path(input_file)
-            output_prefix = _convert_path_to_msc_path(output_prefix)
+            input_file = _convert_path_to_msc_path(input_file, args.msc_base_path)
+            output_prefix = _convert_path_to_msc_path(output_prefix, args.msc_base_path)
 
             local_input_file = os.path.join(tmpdir, input_file)
             local_output_prefix = os.path.join(tmpdir, output_prefix)
@@ -79,7 +85,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 logging.DEBUG, f"DEBUG: output_prefix {output_prefix} corresponds to {local_output_prefix} locally"
             )
 
-            msc.download_file("msc://mayank-data/tmp/test/part_000045.parquet", local_input_file)
+            msc.download_file(input_file, local_input_file)
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
@@ -90,8 +96,8 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 append_eos_token=args.append_eod,
             )
 
-            msc.upload_file(get_bin_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_bin_path(local_output_prefix))
-            msc.upload_file(get_idx_path(f"{MSC_PREFIX}mayank-{output_prefix[1:]}"), get_idx_path(local_output_prefix))
+            msc.upload_file(get_bin_path(output_prefix), get_bin_path(local_output_prefix))
+            msc.upload_file(get_idx_path(output_prefix), get_idx_path(local_output_prefix))
     else:
         convert_file(
             tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
