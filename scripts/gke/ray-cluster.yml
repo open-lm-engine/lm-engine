@@ -25,10 +25,10 @@ spec:
           resources:
             requests:
               memory: "64Gi"
-              cpu: "32"
+              cpu: "8"
             limits:
               memory: "64Gi"
-              cpu: "32"
+              cpu: "8"
           volumeMounts:
           - name: gcs-volume
             mountPath: /data
@@ -52,10 +52,10 @@ spec:
             resources:
               requests:
                 memory: "64Gi"
-                cpu: "32"
+                cpu: "8"
               limits:
                 memory: "64Gi"
-                cpu: "32"
+                cpu: "8"
             volumeMounts:
             - name: gcs-volume
               mountPath: /data
