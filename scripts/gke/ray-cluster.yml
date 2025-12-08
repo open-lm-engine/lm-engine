@@ -2,6 +2,18 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mayank-local-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 400Gi
+---
 apiVersion: ray.io/v1
 kind: RayCluster
 metadata:
@@ -32,10 +44,15 @@ spec:
           volumeMounts:
           - name: gcs-volume
             mountPath: /data
+          - name: local-data
+            mountPath: /local-ssd
         volumes:
         - name: gcs-volume
           persistentVolumeClaim:
             claimName: mayank-data-pvc
+        - name: local-data
+          persistentVolumeClaim:
+            claimName: mayank-local-pvc
   workerGroupSpecs:
     - groupName: worker-group
       replicas: 1
@@ -59,7 +76,12 @@ spec:
             volumeMounts:
             - name: gcs-volume
               mountPath: /data
+            - name: local-data
+              mountPath: /local-ssd
           volumes:
           - name: gcs-volume
             persistentVolumeClaim:
               claimName: mayank-data-pvc
+          - name: local-data
+            persistentVolumeClaim:
+              claimName: mayank-local-pvc
