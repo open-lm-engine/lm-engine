@@ -58,12 +58,13 @@ def get_args() -> Namespace:
     return args
 
 
-def _convert_path_to_msc_path(path: str, base_msc_path: str) -> str:
+def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir: str) -> tuple[str, str]:
     path = path.lstrip(os.sep)
-    _, path = path.split(os.sep, 1)
-    path = os.path.join(base_msc_path, path)
+    _, base_path = path.split(os.sep, 1)
+    path = os.path.join(base_msc_path, base_path)
     path = f"{MSC_PREFIX}{path}"
-    return path
+    local_path = os.path.join(tmpdir, base_path)
+    return path, local_path
 
 
 @ray.remote
@@ -72,11 +73,12 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
     if args.download_locally:
         with tempfile.TemporaryDirectory(dir="/dev/shm") as tmpdir:
-            input_file = _convert_path_to_msc_path(input_file, args.msc_base_path)
-            output_prefix = _convert_path_to_msc_path(output_prefix, args.msc_base_path)
-
-            local_input_file = os.path.join(tmpdir, input_file)
-            local_output_prefix = os.path.join(tmpdir, output_prefix)
+            input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
+                input_file, args.msc_base_path, tmpdir
+            )
+            output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
+                output_prefix, args.msc_base_path, tmpdir
+            )
 
             msc.download_file(input_file, local_input_file)
 
