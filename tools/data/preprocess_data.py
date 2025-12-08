@@ -76,11 +76,14 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
             input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
                 input_file, args.msc_base_path, tmpdir
             )
+
             output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
                 output_prefix, args.msc_base_path, tmpdir
             )
 
             msc.download_file(input_file, local_input_file)
+
+            os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
