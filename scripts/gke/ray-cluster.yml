@@ -55,6 +55,9 @@ spec:
         containers:
         - name: ray-head
           image: ghcr.io/open-lm-engine/data:latest
+          env:
+          - name: RAY_LOG_TO_STDERR
+            value: "1"
           resources:
             requests:
               memory: "64Gi"
@@ -89,6 +92,9 @@ spec:
           containers:
           - name: ray-worker
             image: ghcr.io/open-lm-engine/data:latest
+            env:
+            - name: RAY_LOG_TO_STDERR
+              value: "1"
             resources:
               requests:
                 memory: "64Gi"
