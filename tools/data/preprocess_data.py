@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from argparse import ArgumentParser, Namespace
 from collections import deque
-
+import time
 import multistorageclient as msc
 import ray
 from tqdm import tqdm
@@ -29,25 +29,50 @@ def get_args() -> Namespace:
     group = parser.add_argument_group(title="input data")
     group.add_argument("--input", type=str, required=True, help="Path to input JSON/Arrow")
     group.add_argument(
-        "--subset", type=str, default=None, help="Subset argument when loading input data from a HuggingFace dataset"
+        "--subset",
+        type=str,
+        default=None,
+        help="Subset argument when loading input data from a HuggingFace dataset",
     )
     group.add_argument(
-        "--json-keys", nargs="+", default=["text"], help="space separate listed of keys to extract from json"
+        "--json-keys",
+        nargs="+",
+        default=["text"],
+        help="space separate listed of keys to extract from json",
     )
 
     group = parser.add_argument_group(title="tokenizer")
     group.add_argument("--tokenizer", type=str, required=True, help="Path to the tokenizer")
-    group.add_argument("--append-eod", action="store_true", help="Append an <eod> token to the end of a document.")
+    group.add_argument(
+        "--append-eod",
+        action="store_true",
+        help="Append an <eod> token to the end of a document.",
+    )
 
     group = parser.add_argument_group(title="output data")
-    group.add_argument("--output-prefix", type=str, required=True, help="Path to binary output file without suffix")
+    group.add_argument(
+        "--output-prefix",
+        type=str,
+        required=True,
+        help="Path to binary output file without suffix",
+    )
 
     group = parser.add_argument_group(title="runtime")
     group.add_argument(
-        "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when ray-workers=0)"
+        "--max-local-processes",
+        type=int,
+        default=16,
+        help="Number of processes to launch (used when ray-workers=0)",
     )
-    group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
-    group.add_argument("--download-locally", action="store_true", help="download file locally")
+    group.add_argument(
+        "--ray-workers",
+        type=int,
+        default=0,
+        help="Number of ray workers (0 = use subprocess)",
+    )
+    group.add_argument(
+        "--download-locally", action="store_true", help="download file locally"
+    )
     group.add_argument("--msc-base-path", type=str, help="base path for MSC")
     group.add_argument("--tmpdir", type=str, help="temporary local directory")
 
@@ -60,7 +85,9 @@ def get_args() -> Namespace:
     return args
 
 
-def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir: str) -> tuple[str, str]:
+def _convert_path_to_msc_path_and_tmp_path(
+    path: str, base_msc_path: str, tmpdir: str
+) -> tuple[str, str]:
     path = path.lstrip(os.sep)
     _, base_path = path.split(os.sep, 1)
     path = os.path.join(base_msc_path, base_path)
@@ -73,57 +100,75 @@ def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir
 def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
     """Ray remote function to process a single file."""
 
-    if args.download_locally:
-        with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
-            input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
-                input_file, args.msc_base_path, tmpdir
-            )
+    try:
+        if args.download_locally:
+            with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
+                input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
+                    input_file, args.msc_base_path, tmpdir
+                )
 
-            output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
-                output_prefix, args.msc_base_path, tmpdir
-            )
-            
+                output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
+                    output_prefix, args.msc_base_path, tmpdir
+                )
 
-            log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Downloading {input_file} to {local_input_file}")
-            
-            msc.download_file(input_file, local_input_file)
-            
-            os.sleep(5)
+                log_rank_0(
+                    logging.INFO,
+                    f"!!!!!!!!!!!!!!! Downloading {input_file} to {local_input_file}",
+                )
 
-            os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
+                msc.download_file(input_file, local_input_file)
 
-            log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Done downloading {input_file} to {local_input_file}")
+                os.sleep(5)
 
+                os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
+
+                log_rank_0(
+                    logging.INFO,
+                    f"!!!!!!!!!!!!!!! Done downloading {input_file} to {local_input_file}",
+                )
+
+                convert_file(
+                    tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+                    input_file=local_input_file,
+                    output_prefix=local_output_prefix,
+                    subset=args.subset,
+                    json_keys=args.json_keys,
+                    append_eos_token=args.append_eod,
+                )
+
+                time.sleep(5)
+                return input_file
+
+                log_rank_0(
+                    logging.INFO,
+                    f"!!!!!!!!!!!!!!! Done processing {input_file} to {local_input_file}",
+                )
+
+                msc.upload_file(
+                    get_bin_path(output_prefix), get_bin_path(local_output_prefix)
+                )
+                msc.upload_file(
+                    get_idx_path(output_prefix), get_idx_path(local_output_prefix)
+                )
+
+                log_rank_0(
+                    logging.INFO,
+                    f"!!!!!!!!!!!!!!! Done uploading {input_file} to {local_input_file}",
+                )
+        else:
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-                input_file=local_input_file,
-                output_prefix=local_output_prefix,
+                input_file=input_file,
+                output_prefix=output_prefix,
                 subset=args.subset,
                 json_keys=args.json_keys,
                 append_eos_token=args.append_eod,
             )
-            
-            os.sleep(5)
-            return input_file
 
-            log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Done processing {input_file} to {local_input_file}")
-            
-            msc.upload_file(get_bin_path(output_prefix), get_bin_path(local_output_prefix))
-            msc.upload_file(get_idx_path(output_prefix), get_idx_path(local_output_prefix))
-            
-            log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Done uploading {input_file} to {local_input_file}")
-    else:
-        convert_file(
-            tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-            input_file=input_file,
-            output_prefix=output_prefix,
-            subset=args.subset,
-            json_keys=args.json_keys,
-            append_eos_token=args.append_eod,
-        )
-
-    return input_file
-
+        return input_file
+    except Exception as e:
+        log_rank_0(logging.ERROR, f"!!!!!!!!!!!!!!! Error processing {input_file}: {e}")
+        return str(e)
 
 def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
     """Collect all files to process from input directory or single file."""
@@ -133,7 +178,9 @@ def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
     files = []
     for root, _, _files in os.walk(args.input):
         for file in _files:
-            output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
+            output_prefix = os.path.join(
+                args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep)
+            )
 
             if makedirs:
                 os.makedirs(output_prefix, exist_ok=True)
@@ -150,10 +197,17 @@ def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
 
 def process_with_ray(args: Namespace, files: list) -> None:
     """Process files using Ray for distributed execution."""
-    log_rank_0(logging.INFO, f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)")
+    log_rank_0(
+        logging.INFO,
+        f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)",
+    )
 
     # Initialize Ray
-    ray.init(address="auto", runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}}, log_to_driver=True)
+    ray.init(
+        address="auto",
+        runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}},
+        log_to_driver=True,
+    )
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
     len(files)
@@ -169,7 +223,11 @@ def process_with_ray(args: Namespace, files: list) -> None:
             # Fill up the worker slots
             while queue and len(futures) < args.ray_workers:
                 input_file, output_prefix = queue.popleft()
-                futures.append(process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix))
+                futures.append(
+                    process_file_ray.remote(
+                        args=args, input_file=input_file, output_prefix=output_prefix
+                    )
+                )
 
             # Wait for one task to complete
             done, futures = ray.wait(futures, num_returns=1)
@@ -189,7 +247,8 @@ def process_with_ray(args: Namespace, files: list) -> None:
 def process_with_subprocess(args: Namespace, files: list):
     """Process files using subprocess for local parallel execution."""
     log_rank_0(
-        logging.INFO, f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)"
+        logging.INFO,
+        f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)",
     )
 
     processes = []
