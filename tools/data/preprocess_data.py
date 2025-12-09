@@ -103,8 +103,6 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                         msc.upload_file(
                             path_function(f"{output_prefix}_{key}"), path_function(f"{local_output_prefix}_{key}")
                         )
-
-                return input_file
         else:
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
