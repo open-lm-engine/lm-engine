@@ -99,13 +99,10 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 )
 
                 for key in args.json_keys:
-                    msc.upload_file(
-                        get_bin_path(f"{output_prefix}_{key}"), get_bin_path(f"{local_output_prefix}_{key}")
-                    )
-
-                    msc.upload_file(
-                        get_idx_path(f"{output_prefix}_{key}"), get_idx_path(f"{local_output_prefix}_{key}")
-                    )
+                    for path_function in [get_bin_path, get_idx_path]:
+                        msc.upload_file(
+                            path_function(f"{output_prefix}_{key}"), path_function(f"{local_output_prefix}_{key}")
+                        )
 
                 return input_file
         else:
