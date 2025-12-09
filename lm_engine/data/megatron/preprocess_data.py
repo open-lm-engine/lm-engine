@@ -119,7 +119,7 @@ def convert_file(
 
     for item in encoded_docs:
         count += 1
-        f.write(f"{count}\n")
+        f.write(f"{count}\n", flush=True)
         for key, document in item.items():
             builders[key].add_item(torch.IntTensor(document))
             builders[key].end_document()
