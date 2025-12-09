@@ -44,9 +44,6 @@ flash-attn = [
 mamba2 = [
     "mamba-ssm>=2.2.6.post3",
 ]
-xma = [
-    "accelerated-model-architectures",
-]
 tpu = [
     "multi-storage-client[google-cloud-storage]>=0.35.0",
     "torch==2.8.0",
@@ -57,9 +54,6 @@ data = [
     "torch>=2.8.0",
     "zstandard>=0.25.0",
 ]
-
-[tool.uv.sources]
-accelerated-model-architectures = { path = "accelerated-model-architectures", editable = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["lm_engine"]
