@@ -83,9 +83,13 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 output_prefix, args.msc_base_path, tmpdir
             )
 
+            log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Downloading {input_file} to {local_input_file}")
+            
             msc.download_file(input_file, local_input_file)
 
             os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
+
+            log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Done downloading {input_file} to {local_input_file}")
 
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
@@ -96,8 +100,12 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 append_eos_token=args.append_eod,
             )
 
+            log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Done processing {input_file} to {local_input_file}")
+            
             msc.upload_file(get_bin_path(output_prefix), get_bin_path(local_output_prefix))
             msc.upload_file(get_idx_path(output_prefix), get_idx_path(local_output_prefix))
+            
+            log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Done uploading {input_file} to {local_input_file}")
     else:
         convert_file(
             tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
