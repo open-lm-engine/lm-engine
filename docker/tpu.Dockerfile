@@ -20,8 +20,6 @@ RUN apt-get update && \
 # install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-ARG EXTRAS=""
-
 COPY pyproject.toml envs/
 COPY .python-version envs/
 
