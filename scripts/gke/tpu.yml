@@ -20,7 +20,7 @@ spec:
         cloud.google.com/gke-tpu-topology: 2x2
       containers:
       - name: mayank-job
-        image: ghcr.io/open-lm-engine/data:latest
+        image: ghcr.io/open-lm-engine/tpu:latest
         command: ["sleep", "infinity"]
         resources:
           requests:
