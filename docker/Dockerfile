@@ -20,11 +20,19 @@ RUN apt-get update && \
 # install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# install dependencies
-RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
-    cd lm-engine && \
-    git checkout tpu && \
-    UV_CACHE_DIR=tmp uv sync --extra tpu && \
-    rm -rf .git tmp
+ARG EXTRAS=""
 
-ENV PATH="/app/lm-engine/.venv/bin:$PATH"
+COPY pyproject.toml envs/
+COPY .python-version envs/
+
+# Convert "data dev cuda" → "--extra data --extra dev --extra cuda"
+RUN cd envs && \
+    extra_flags="" && \
+    for extra in ${EXTRAS}; do \
+        extra_flags="$extra_flags --extra $extra"; \
+    done && \
+    echo "Using extras: $extra_flags" && \
+    UV_CACHE_DIR=./tmp uv sync $extra_flags && \
+    rm -rf ./tmp
+
+ENV PATH="/app/envs/.venv/bin:$PATH"
