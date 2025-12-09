@@ -11,7 +11,7 @@ name = "lm-engine"
 version = "0.1.0"
 description = "A library for efficient LLM training."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 authors = [
     { name = "Mayank Mishra", email = "mayank31398@gmail.com" },
 ]
