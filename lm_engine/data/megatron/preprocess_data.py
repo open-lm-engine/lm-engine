@@ -13,7 +13,7 @@ from transformers import AutoTokenizer
 
 from ...tokenizers import TOKENIZER_TYPE, get_tokenizer
 from ...utils import is_zstandard_available
-from .indexed_dataset import DType, MMapIndexedDatasetBuilder
+from .indexed_dataset import DType, MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
 
 
 if is_zstandard_available():
@@ -110,7 +110,9 @@ def convert_file(
         encoded_docs = map(encoder.encode_hf, ds)
 
     builders = {
-        key: MMapIndexedDatasetBuilder(f"{output_prefix}_{key}.bin", dtype=DType.optimal_dtype(tokenizer.vocab_size))
+        key: MMapIndexedDatasetBuilder(
+            get_bin_path(f"{output_prefix}_{key}"), dtype=DType.optimal_dtype(tokenizer.vocab_size)
+        )
         for key in json_keys
     }
 
@@ -120,4 +122,4 @@ def convert_file(
             builders[key].end_document()
 
     for key in json_keys:
-        builders[key].finalize(f"{output_prefix}_{key}.idx")
+        builders[key].finalize(get_idx_path(f"{output_prefix}_{key}"))
