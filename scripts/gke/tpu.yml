@@ -11,6 +11,7 @@ spec:
     metadata:
       annotations:
         gke-gcsfuse/volumes: "true"
+        gke-tpu-runtime: v2-alpha-tpuv6e
     spec:
       serviceAccountName: gcs-access
       nodeSelector:
@@ -23,12 +24,12 @@ spec:
         command: ["sleep", "infinity"]
         resources:
           requests:
-            cpu: 52
-            memory: 768Gi
+            cpu: 1
+            memory: 4Gi
             google.com/tpu: 4
           limits:
-            cpu: 52
-            memory: 768Gi
+            cpu: 1
+            memory: 4Gi
             google.com/tpu: 4
       restartPolicy: Never
   backoffLimit: 0
