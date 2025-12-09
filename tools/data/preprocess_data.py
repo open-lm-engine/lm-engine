@@ -141,16 +141,22 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                     f"!!!!!!!!!!!!!!! Done processing {input_file} to {local_input_file}",
                 )
 
-                msc.upload_file(get_bin_path(output_prefix), get_bin_path(local_output_prefix))
-                msc.upload_file(get_idx_path(output_prefix), get_idx_path(local_output_prefix))
+                for key in args.json_keys:
+                    msc.upload_file(
+                        get_bin_path(f"{output_prefix}_{key}"), get_bin_path(f"{local_output_prefix}_{key}")
+                    )
+
+                    msc.upload_file(
+                        get_idx_path(f"{output_prefix}_{key}"), get_idx_path(f"{local_output_prefix}_{key}")
+                    )
 
                 log_rank_0(
                     logging.INFO,
                     f"!!!!!!!!!!!!!!! Done uploading {input_file} to {local_input_file}",
                 )
-                
+
                 time.sleep(5)
-                
+
                 return input_file
         else:
             convert_file(
