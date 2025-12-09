@@ -235,7 +235,7 @@ def process_with_ray(args: Namespace, files: list) -> None:
             future = done[0]
 
             try:
-                result = ray.get(future)
+                result = ray.get(future, timeout=10000000000)
                 log_rank_0(logging.INFO, f"✅ Processed file: {result}")
             except Exception as e:
                 log_rank_0(logging.ERROR, f"❌ Error processing file: {e}")
