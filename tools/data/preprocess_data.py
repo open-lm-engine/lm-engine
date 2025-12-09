@@ -6,7 +6,6 @@ import logging
 import os
 import subprocess
 import tempfile
-import time
 import traceback
 from argparse import ArgumentParser, Namespace
 from collections import deque
@@ -109,21 +108,9 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                     output_prefix, args.msc_base_path, tmpdir
                 )
 
-                log_rank_0(
-                    logging.INFO,
-                    f"!!!!!!!!!!!!!!! Downloading {input_file} to {local_input_file}",
-                )
-
                 msc.download_file(input_file, local_input_file)
 
-                time.sleep(5)
-
                 os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
-
-                log_rank_0(
-                    logging.INFO,
-                    f"!!!!!!!!!!!!!!! Done downloading {input_file} to {local_input_file}",
-                )
 
                 convert_file(
                     tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
@@ -134,13 +121,6 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                     append_eos_token=args.append_eod,
                 )
 
-                time.sleep(5)
-
-                log_rank_0(
-                    logging.INFO,
-                    f"!!!!!!!!!!!!!!! Done processing {input_file} to {local_input_file}",
-                )
-
                 for key in args.json_keys:
                     msc.upload_file(
                         get_bin_path(f"{output_prefix}_{key}"), get_bin_path(f"{local_output_prefix}_{key}")
@@ -149,13 +129,6 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                     msc.upload_file(
                         get_idx_path(f"{output_prefix}_{key}"), get_idx_path(f"{local_output_prefix}_{key}")
                     )
-
-                log_rank_0(
-                    logging.INFO,
-                    f"!!!!!!!!!!!!!!! Done uploading {input_file} to {local_input_file}",
-                )
-
-                time.sleep(5)
 
                 return input_file
         else:
