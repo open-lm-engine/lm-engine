@@ -4,6 +4,12 @@
 
 accelerator=cuda
 
+docker-data:
+	docker build -f docker/data.Dockerfile --platform linux/amd64 -t ghcr.io/open-lm-engine/data:latest .
+
+docker-tpu:
+	docker build -f docker/tpu.Dockerfile --platform linux/amd64 -t ghcr.io/open-lm-engine/tpu:latest .
+
 test:
 	RUN_SLOW=True uv run --extra dev --extra flash-attn --extra xma pytest tests
 

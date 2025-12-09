@@ -20,16 +20,16 @@ spec:
         cloud.google.com/gke-tpu-topology: 2x2
       containers:
       - name: mayank-job
-        image: ghcr.io/open-lm-engine/data:latest
+        image: ghcr.io/open-lm-engine/tpu:latest
         command: ["sleep", "infinity"]
         resources:
           requests:
-            cpu: 1
-            memory: 4Gi
+            cpu: 4
+            memory: 64Gi
             google.com/tpu: 4
           limits:
-            cpu: 1
-            memory: 4Gi
+            cpu: 4
+            memory: 64Gi
             google.com/tpu: 4
       restartPolicy: Never
   backoffLimit: 0

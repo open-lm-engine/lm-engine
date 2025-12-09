@@ -20,10 +20,24 @@ RUN apt-get update && \
 # install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+<<<<<<<< HEAD:docker/data.Dockerfile
 # install dependencies
 RUN git clone --recurse-submodules https://github.com/open-lm-engine/lm-engine && \
     cd lm-engine && \
     UV_CACHE_DIR=tmp uv sync --extra data && \
     rm -rf .git tmp
 
+COPY msc /app/msc
+
 ENV PATH="/app/lm-engine/.venv/bin:$PATH"
+========
+COPY pyproject.toml envs/
+COPY .python-version envs/
+
+# Convert "data dev cuda" → "--extra data --extra dev --extra cuda"
+RUN cd envs && \
+    UV_CACHE_DIR=./tmp uv sync --extra tpu && \
+    rm -rf ./tmp
+
+ENV PATH="/app/envs/.venv/bin:$PATH"
+>>>>>>>> main:docker/tpu.Dockerfile
