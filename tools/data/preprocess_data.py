@@ -118,7 +118,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
                 msc.download_file(input_file, local_input_file)
 
-                os.sleep(5)
+                time.sleep(5)
 
                 os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
 
