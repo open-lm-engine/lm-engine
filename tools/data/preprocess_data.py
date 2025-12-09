@@ -88,7 +88,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
             
             msc.download_file(input_file, local_input_file)
             
-            return input_file
+            os.sleep(5)
 
             os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
 
@@ -102,6 +102,9 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 json_keys=args.json_keys,
                 append_eos_token=args.append_eod,
             )
+            
+            os.sleep(5)
+            return input_file
 
             log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Done processing {input_file} to {local_input_file}")
             
