@@ -6,10 +6,11 @@ import logging
 import os
 import subprocess
 import tempfile
-from argparse import ArgumentParser, Namespace
-from collections import deque
 import time
 import traceback
+from argparse import ArgumentParser, Namespace
+from collections import deque
+
 import multistorageclient as msc
 import ray
 from tqdm import tqdm
@@ -71,9 +72,7 @@ def get_args() -> Namespace:
         default=0,
         help="Number of ray workers (0 = use subprocess)",
     )
-    group.add_argument(
-        "--download-locally", action="store_true", help="download file locally"
-    )
+    group.add_argument("--download-locally", action="store_true", help="download file locally")
     group.add_argument("--msc-base-path", type=str, help="base path for MSC")
     group.add_argument("--tmpdir", type=str, help="temporary local directory")
 
@@ -86,9 +85,7 @@ def get_args() -> Namespace:
     return args
 
 
-def _convert_path_to_msc_path_and_tmp_path(
-    path: str, base_msc_path: str, tmpdir: str
-) -> tuple[str, str]:
+def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir: str) -> tuple[str, str]:
     path = path.lstrip(os.sep)
     _, base_path = path.split(os.sep, 1)
     path = os.path.join(base_msc_path, base_path)
@@ -145,12 +142,8 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                     f"!!!!!!!!!!!!!!! Done processing {input_file} to {local_input_file}",
                 )
 
-                msc.upload_file(
-                    get_bin_path(output_prefix), get_bin_path(local_output_prefix)
-                )
-                msc.upload_file(
-                    get_idx_path(output_prefix), get_idx_path(local_output_prefix)
-                )
+                msc.upload_file(get_bin_path(output_prefix), get_bin_path(local_output_prefix))
+                msc.upload_file(get_idx_path(output_prefix), get_idx_path(local_output_prefix))
 
                 log_rank_0(
                     logging.INFO,
@@ -171,6 +164,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
         log_rank_0(logging.ERROR, f"!!!!!!!!!!!!!!! Error processing {input_file}: {e}")
         return str(e) + "\n\n" + traceback.format_exc()
 
+
 def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
     """Collect all files to process from input directory or single file."""
     if os.path.isfile(args.input):
@@ -179,9 +173,7 @@ def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
     files = []
     for root, _, _files in os.walk(args.input):
         for file in _files:
-            output_prefix = os.path.join(
-                args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep)
-            )
+            output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
 
             if makedirs:
                 os.makedirs(output_prefix, exist_ok=True)
@@ -224,11 +216,7 @@ def process_with_ray(args: Namespace, files: list) -> None:
             # Fill up the worker slots
             while queue and len(futures) < args.ray_workers:
                 input_file, output_prefix = queue.popleft()
-                futures.append(
-                    process_file_ray.remote(
-                        args=args, input_file=input_file, output_prefix=output_prefix
-                    )
-                )
+                futures.append(process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix))
 
             # Wait for one task to complete
             done, futures = ray.wait(futures, num_returns=1, timeout=10000000000)

@@ -32,14 +32,8 @@ class ArrowIterator:
 
 
 class Encoder:
-    def __init__(
-        self, tokenizer: TOKENIZER_TYPE | str, json_keys: list[str], append_eod: bool
-    ) -> Encoder:
-        self.tokenizer = (
-            get_tokenizer(AutoTokenizer.__name__, tokenizer)
-            if isinstance(tokenizer, str)
-            else tokenizer
-        )
+    def __init__(self, tokenizer: TOKENIZER_TYPE | str, json_keys: list[str], append_eod: bool) -> Encoder:
+        self.tokenizer = get_tokenizer(AutoTokenizer.__name__, tokenizer) if isinstance(tokenizer, str) else tokenizer
         self.json_keys = json_keys
         self.append_eod = append_eod
 
@@ -112,15 +106,11 @@ def convert_file(
         assert subset is None, f"arrow doesn't support a subset"
         encoded_docs = map(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file))
     else:
-        ds = load_dataset(
-            input_file, use_auth_token=True, streaming=True, split="train", data_dir=subset
-        )
+        ds = load_dataset(input_file, use_auth_token=True, streaming=True, split="train", data_dir=subset)
         encoded_docs = map(encoder.encode_hf, ds)
 
     builders = {
-        key: MMapIndexedDatasetBuilder(
-            f"{output_prefix}_{key}.bin", dtype=DType.optimal_dtype(tokenizer.vocab_size)
-        )
+        key: MMapIndexedDatasetBuilder(f"{output_prefix}_{key}.bin", dtype=DType.optimal_dtype(tokenizer.vocab_size))
         for key in json_keys
     }
 
@@ -129,7 +119,7 @@ def convert_file(
 
     for item in encoded_docs:
         count += 1
-        
+
         f.write(f"{count}\n")
         f.flush()
         for key, document in item.items():
