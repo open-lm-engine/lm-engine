@@ -135,7 +135,6 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 )
 
                 time.sleep(5)
-                return input_file
 
                 log_rank_0(
                     logging.INFO,
@@ -149,6 +148,10 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                     logging.INFO,
                     f"!!!!!!!!!!!!!!! Done uploading {input_file} to {local_input_file}",
                 )
+                
+                time.sleep(5)
+                
+                return input_file
         else:
             convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
