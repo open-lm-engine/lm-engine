@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mayank-job
+spec:
+  template:
+    metadata:
+      annotations:
+        gke-gcsfuse/volumes: "true"
+    spec:
+      serviceAccountName: gcs-access
+      nodeSelector:
+        topology.kubernetes.io/zone: asia-northeast1-b
+        cloud.google.com/gke-tpu-accelerator: tpu-v6e-slice
+        cloud.google.com/gke-tpu-topology: 2x2
+      containers:
+      - name: mayank-job
+        image: ghcr.io/open-lm-engine/data:latest
+        command: ["sleep", "infinity"]
+        resources:
+          requests:
+            cpu: 52
+            memory: 768Gi
+            google.com/tpu: 4
+          limits:
+            cpu: 52
+            memory: 768Gi
+            google.com/tpu: 4
+      restartPolicy: Never
+  backoffLimit: 0
