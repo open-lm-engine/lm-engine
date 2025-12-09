@@ -114,12 +114,12 @@ def convert_file(
         for key in json_keys
     }
     
-    f = open("/local-ssd/out.txt", "w")
+    # f = open("/local-ssd/out.txt", "w")
     count = 0
 
     for item in encoded_docs:
         count += 1
-        f.write(f"{count}\n", flush=True)
+        # f.write(f"{count}\n", flush=True)
         for key, document in item.items():
             builders[key].add_item(torch.IntTensor(document))
             builders[key].end_document()
