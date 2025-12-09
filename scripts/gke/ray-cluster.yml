@@ -79,7 +79,7 @@ spec:
             claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
-      replicas: 1
+      replicas: 0
       rayStartParams:
         memory: "51539607552"
       template:

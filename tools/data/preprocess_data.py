@@ -82,10 +82,13 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
             output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
                 output_prefix, args.msc_base_path, tmpdir
             )
+            
 
             log_rank_0(logging.INFO, f"!!!!!!!!!!!!!!! Downloading {input_file} to {local_input_file}")
             
             msc.download_file(input_file, local_input_file)
+            
+            return input_file
 
             os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
 
@@ -147,7 +150,7 @@ def process_with_ray(args: Namespace, files: list) -> None:
     log_rank_0(logging.INFO, f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)")
 
     # Initialize Ray
-    ray.init(address="auto", runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}})
+    ray.init(address="auto", runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}}, log_to_driver=True)
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
     len(files)
