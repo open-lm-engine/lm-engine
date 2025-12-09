@@ -9,6 +9,7 @@ import tempfile
 from argparse import ArgumentParser, Namespace
 from collections import deque
 import time
+import traceback
 import multistorageclient as msc
 import ray
 from tqdm import tqdm
@@ -168,7 +169,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
         return input_file
     except Exception as e:
         log_rank_0(logging.ERROR, f"!!!!!!!!!!!!!!! Error processing {input_file}: {e}")
-        return str(e)
+        return str(e) + "\n\n" + traceback.format_exc()
 
 def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
     """Collect all files to process from input directory or single file."""
