@@ -231,7 +231,7 @@ def process_with_ray(args: Namespace, files: list) -> None:
                 )
 
             # Wait for one task to complete
-            done, futures = ray.wait(futures, num_returns=1)
+            done, futures = ray.wait(futures, num_returns=1, timeout=10000000000)
             future = done[0]
 
             try:
