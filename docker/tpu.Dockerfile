@@ -27,7 +27,7 @@ COPY .python-version envs/
 
 # Convert "data dev cuda" → "--extra data --extra dev --extra cuda"
 RUN cd envs && \
-    UV_CACHE_DIR=./tmp uv sync tpu && \
+    UV_CACHE_DIR=./tmp uv sync --extra tpu && \
     rm -rf ./tmp
 
 ENV PATH="/app/envs/.venv/bin:$PATH"
