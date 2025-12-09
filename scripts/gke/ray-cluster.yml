@@ -50,6 +50,7 @@ spec:
         annotations:
           gke-gcsfuse/volumes: "true"
       spec:
+        restartPolicy: Never
         serviceAccountName: gcs-access
         containers:
         - name: ray-head
@@ -83,6 +84,7 @@ spec:
           annotations:
             gke-gcsfuse/volumes: "true"
         spec:
+          restartPolicy: Never
           serviceAccountName: gcs-access
           containers:
           - name: ray-worker
