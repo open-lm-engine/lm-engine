@@ -1,1 +1,3 @@
-docker build -f docker/Dockerfile --platform linux/amd64 --build-arg EXTRA=data -t ghcr.io/open-lm-engine/data:latest .
+FILE=data
+
+docker build -f docker/$FILE.Dockerfile --platform linux/amd64 -t ghcr.io/open-lm-engine/$FILE:latest .
