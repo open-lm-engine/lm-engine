@@ -27,12 +27,7 @@ COPY .python-version envs/
 
 # Convert "data dev cuda" → "--extra data --extra dev --extra cuda"
 RUN cd envs && \
-    extra_flags="" && \
-    for extra in ${EXTRAS}; do \
-        extra_flags="$extra_flags --extra $extra"; \
-    done && \
-    echo "Using extras: $extra_flags" && \
-    UV_CACHE_DIR=./tmp uv sync $extra_flags && \
+    UV_CACHE_DIR=./tmp uv sync tpu && \
     rm -rf ./tmp
 
 ENV PATH="/app/envs/.venv/bin:$PATH"
