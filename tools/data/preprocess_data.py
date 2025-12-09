@@ -30,47 +30,24 @@ def get_args() -> Namespace:
     group = parser.add_argument_group(title="input data")
     group.add_argument("--input", type=str, required=True, help="Path to input JSON/Arrow")
     group.add_argument(
-        "--subset",
-        type=str,
-        default=None,
-        help="Subset argument when loading input data from a HuggingFace dataset",
+        "--subset", type=str, default=None, help="Subset argument when loading input data from a HuggingFace dataset"
     )
     group.add_argument(
-        "--json-keys",
-        nargs="+",
-        default=["text"],
-        help="space separate listed of keys to extract from json",
+        "--json-keys", nargs="+", default=["text"], help="space separate listed of keys to extract from json"
     )
 
     group = parser.add_argument_group(title="tokenizer")
     group.add_argument("--tokenizer", type=str, required=True, help="Path to the tokenizer")
-    group.add_argument(
-        "--append-eod",
-        action="store_true",
-        help="Append an <eod> token to the end of a document.",
-    )
+    group.add_argument("--append-eod", action="store_true", help="Append an <eod> token to the end of a document.")
 
     group = parser.add_argument_group(title="output data")
-    group.add_argument(
-        "--output-prefix",
-        type=str,
-        required=True,
-        help="Path to binary output file without suffix",
-    )
+    group.add_argument("--output-prefix", type=str, required=True, help="Path to binary output file without suffix")
 
     group = parser.add_argument_group(title="runtime")
     group.add_argument(
-        "--max-local-processes",
-        type=int,
-        default=16,
-        help="Number of processes to launch (used when ray-workers=0)",
+        "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when ray-workers=0)"
     )
-    group.add_argument(
-        "--ray-workers",
-        type=int,
-        default=0,
-        help="Number of ray workers (0 = use subprocess)",
-    )
+    group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
     group.add_argument("--download-locally", action="store_true", help="download file locally")
     group.add_argument("--msc-base-path", type=str, help="base path for MSC")
     group.add_argument("--tmpdir", type=str, help="temporary local directory")
