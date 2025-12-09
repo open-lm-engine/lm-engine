@@ -70,6 +70,16 @@ spec:
             mountPath: /data
           - name: filestore-volume
             mountPath: /local-ssd
+          livenessProbe:
+            exec:
+              command: ["curl", "-f", "http://localhost:8265 || exit 0"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            exec:
+              command: ["curl", "-f", "http://localhost:8265 || exit 0"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
         volumes:
         - name: gcs-volume
           persistentVolumeClaim:
