@@ -55,7 +55,7 @@ spec:
         #     claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
-      replicas: 200
+      replicas: 500
       rayStartParams:
         num-cpus: "4"
         memory: "51539607552"
