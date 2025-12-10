@@ -1,5 +1,5 @@
-INPUT_PATH=/data/tmp/Nemotron-CC-v2
-OUTPUT_PATH=/data/Nemotron-CC-v2
+INPUT_PATH=/data/tmp/dolma3-pool
+OUTPUT_PATH=/data/tmp/dolma3-pool-tokenized
 # INPUT_PATH=/data/tmp/test
 # OUTPUT_PATH=/data/tmp/test-tokenized
 TOKENIZER=ibm-granite/granite-4.0-h-tiny-base

@@ -135,7 +135,7 @@ def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
                 os.makedirs(output_prefix, exist_ok=True)
 
             output_prefix = os.path.join(output_prefix, os.path.splitext(file)[0])
-            # check for .jsonl.zstd
+            # check for .jsonl.zst
             if output_prefix.endswith(".jsonl"):
                 output_prefix = os.path.splitext(output_prefix)[0]
 
