@@ -7,6 +7,7 @@ kind: RayCluster
 metadata:
   name: mayank-raycluster
 spec:
+  enableInTreeAutoscaling: true
   headGroupSpec:
     serviceType: ClusterIP
     rayStartParams:
@@ -56,6 +57,8 @@ spec:
   workerGroupSpecs:
     - groupName: worker-group
       replicas: 500
+      minReplicas: 0
+      maxReplicas: 500
       rayStartParams:
         num-cpus: "4"
         memory: "51539607552"
@@ -84,7 +87,7 @@ spec:
                 cpu: "4"
               limits:
                 memory: "64Gi"
-                cpu: "8"
+                cpu: "16"
             volumeMounts:
             - name: gcs-volume
               mountPath: /data
