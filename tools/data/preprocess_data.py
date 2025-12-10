@@ -2,14 +2,26 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import logging
 import os
+import subprocess
+import tempfile
+import traceback
 from argparse import ArgumentParser, Namespace
+from collections import deque
 
+import multistorageclient as msc
 import ray
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
+from lm_engine.data.megatron.indexed_dataset import get_bin_path, get_idx_path
 from lm_engine.data.megatron.preprocess_data import convert_file
+from lm_engine.defaults import MSC_PREFIX
+from lm_engine.utils import log_rank_0, set_logger
+
+
+set_logger()
 
 
 def get_args() -> Namespace:
@@ -36,26 +48,77 @@ def get_args() -> Namespace:
         "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when ray-workers=0)"
     )
     group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
+    group.add_argument("--download-locally", action="store_true", help="download file locally")
+    group.add_argument("--msc-base-path", type=str, help="base path for MSC")
+    group.add_argument("--tmpdir", type=str, help="temporary local directory")
 
     args = parser.parse_args()
 
+    if args.download_locally:
+        assert args.msc_base_path
+        assert args.tmpdir
+
     return args
+
+
+def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir: str) -> tuple[str, str]:
+    path = path.lstrip(os.sep)
+    _, base_path = path.split(os.sep, 1)
+    path = os.path.join(base_msc_path, base_path)
+    path = f"{MSC_PREFIX}{path}"
+    local_path = os.path.join(tmpdir, base_path)
+    return path, local_path
 
 
 @ray.remote
 def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
     """Ray remote function to process a single file."""
-    convert_file(
-        tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-        input_file=input_file,
-        output_prefix=output_prefix,
-        subset=args.subset,
-        json_keys=args.json_keys,
-        append_eos_token=args.append_eod,
-    )
+
+    try:
+        if args.download_locally:
+            with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
+                input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
+                    input_file, args.msc_base_path, tmpdir
+                )
+
+                output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
+                    output_prefix, args.msc_base_path, tmpdir
+                )
+
+                msc.download_file(input_file, local_input_file)
+
+                os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
+
+                convert_file(
+                    tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+                    input_file=local_input_file,
+                    output_prefix=local_output_prefix,
+                    subset=args.subset,
+                    json_keys=args.json_keys,
+                    append_eos_token=args.append_eod,
+                )
+
+                for key in args.json_keys:
+                    for path_function in [get_bin_path, get_idx_path]:
+                        msc.upload_file(
+                            path_function(f"{output_prefix}_{key}"), path_function(f"{local_output_prefix}_{key}")
+                        )
+        else:
+            convert_file(
+                tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+                input_file=input_file,
+                output_prefix=output_prefix,
+                subset=args.subset,
+                json_keys=args.json_keys,
+                append_eos_token=args.append_eod,
+            )
+
+        return input_file
+    except Exception as e:
+        return "!!!!!!!!!!!!!!! Error Look Here !!!!!!!!!!!!!!!" + str(e) + "\n\n" + traceback.format_exc()
 
 
-def collect_files(args: Namespace):
+def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
     """Collect all files to process from input directory or single file."""
     if os.path.isfile(args.input):
         return [(args.input, args.output_prefix)]
@@ -63,8 +126,13 @@ def collect_files(args: Namespace):
     files = []
     for root, _, _files in os.walk(args.input):
         for file in _files:
+            if file.startswith("."):
+                continue
+
             output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
-            os.makedirs(output_prefix, exist_ok=True)
+
+            if makedirs:
+                os.makedirs(output_prefix, exist_ok=True)
 
             output_prefix = os.path.join(output_prefix, os.path.splitext(file)[0])
             # check for .jsonl.zstd
@@ -76,43 +144,60 @@ def collect_files(args: Namespace):
     return sorted(files, key=lambda x: x[0])
 
 
-def process_with_ray(args: Namespace, files: list):
+def process_with_ray(args: Namespace, files: list) -> None:
     """Process files using Ray for distributed execution."""
-    print(f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)")
+    log_rank_0(
+        logging.INFO,
+        f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)",
+    )
 
     # Initialize Ray
-    ray.init()
-    print("Ray initialized for processing.")
+    ray.init(
+        address="auto",
+        runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}},
+        log_to_driver=True,
+    )
+    log_rank_0(logging.INFO, "Ray initialized for processing.")
 
-    # Submit all tasks
     futures = []
-    for input_file, output_prefix in files:
-        future = process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix)
-        futures.append(future)
 
     # Wait for completion with progress bar
-    completed = []
-    with tqdm(total=len(futures), desc="Tokenizing") as pbar:
-        while futures:
-            done, futures = ray.wait(futures, num_returns=1, timeout=1.0)
-            for future in done:
-                try:
-                    result = ray.get(future)
-                    completed.append(result)
-                    pbar.update(1)
-                except Exception as e:
-                    print(f"\n❌ Error processing file: {e}")
-                    pbar.update(1)
+    queue = deque(files)
+    futures = []
+
+    with tqdm(total=len(files), desc="Tokenizing") as pbar:
+        # Loop until no remaining files OR futures
+        while queue or futures:
+            # Fill up the worker slots
+            while queue and len(futures) < args.ray_workers:
+                input_file, output_prefix = queue.popleft()
+                futures.append(
+                    process_file_ray.options(num_cpus=1).remote(
+                        args=args, input_file=input_file, output_prefix=output_prefix
+                    )
+                )
+
+            # Wait for one task to complete
+            done, futures = ray.wait(futures, num_returns=1)
+            future = done[0]
+
+            try:
+                result = ray.get(future)
+                log_rank_0(logging.INFO, f"✅ Processed file: {result}")
+            except Exception as e:
+                log_rank_0(logging.ERROR, f"❌ Error processing file: {e}")
+
+            pbar.update(1)
 
     ray.shutdown()
-    return completed
 
 
 def process_with_subprocess(args: Namespace, files: list):
     """Process files using subprocess for local parallel execution."""
-    import subprocess
-
-    print(f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)")
+    log_rank_0(
+        logging.INFO,
+        f"🔧 Processing {len(files)} files with subprocesses (max {args.max_local_processes} parallel)",
+    )
 
     processes = []
     for input_file, output_prefix in tqdm(files, desc="Tokenizing"):
@@ -150,6 +235,10 @@ def process_with_subprocess(args: Namespace, files: list):
 def main() -> None:
     args = get_args()
 
+    msc_config_path = os.environ.get("MSC_CONFIG", "")
+    if msc_config_path:
+        assert os.path.isabs(msc_config_path)
+
     # Single file processing (direct call, no parallelization)
     if os.path.isfile(args.input) and args.ray_workers == 0:
         convert_file(
@@ -161,19 +250,19 @@ def main() -> None:
             append_eos_token=args.append_eod,
         )
 
-        print("✅ File processed successfully.")
+        log_rank_0(logging.INFO, "✅ File processed successfully.")
         return
 
     # Collect all files
-    files = collect_files(args)
+    files = collect_files(args, makedirs=not args.download_locally)
 
     if not files:
-        print("❌ No files found to process")
+        log_rank_0(logging.INFO, "❌ No files found to process")
         return
 
     (process_with_ray if args.ray_workers > 0 else process_with_subprocess)(args, files)
 
-    print("✅ All files processed successfully.")
+    log_rank_0(logging.INFO, "✅ All files processed successfully.")
 
 
 if __name__ == "__main__":

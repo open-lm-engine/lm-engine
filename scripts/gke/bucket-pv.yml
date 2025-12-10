@@ -15,7 +15,7 @@ spec:
   mountOptions:
     - implicit-dirs
     - file-cache:enable-parallel-downloads:true
-    - file-cache:max-size-mb:25600
+    - file-cache:max-size-mb:8192
   csi:
     driver: gcsfuse.csi.storage.gke.io
     volumeHandle: mayank-data

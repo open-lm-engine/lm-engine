@@ -12,18 +12,80 @@ spec:
     rayStartParams:
       port: "6379"
       dashboard-host: "0.0.0.0"
-      dashboard-port: "8265" 
+      dashboard-port: "8265"
+      num-cpus: "0"
+      memory: "51539607552"
     template:
+      metadata:
+        annotations:
+          gke-gcsfuse/volumes: "true"
       spec:
+        restartPolicy: Never
+        serviceAccountName: gcs-access
         containers:
         - name: ray-head
           image: ghcr.io/open-lm-engine/data:latest
+          env:
+          # - name: RAY_LOG_TO_STDERR
+          #   value: "1"
+          # - name: MSC_CONFIG
+          #   value: "/app/lm-engine/configs/msc/gcs.yml"
+          resources:
+            requests:
+              memory: "32Gi"
+              cpu: "1"
+            limits:
+              memory: "32Gi"
+              cpu: "8"
+          volumeMounts:
+          - name: gcs-volume
+            mountPath: /data
+          - name: filestore-volume
+            mountPath: /local-ssd
+        volumes:
+        - name: gcs-volume
+          persistentVolumeClaim:
+            claimName: mayank-data-pvc
+        - name: filestore-volume
+          persistentVolumeClaim:
+            claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
       replicas: 1
-      rayStartParams: {}
+      rayStartParams:
+        # num-cpus: "8"
+        memory: "51539607552"
       template:
+        metadata:
+          annotations:
+            gke-gcsfuse/volumes: "true"
         spec:
+          restartPolicy: Never
+          serviceAccountName: gcs-access
           containers:
           - name: ray-worker
             image: ghcr.io/open-lm-engine/data:latest
+            env:
+            # - name: RAY_LOG_TO_STDERR
+            #   value: "1"
+            # - name: MSC_CONFIG
+            #   value: "/app/lm-engine/configs/msc/gcs.yml"
+            resources:
+              requests:
+                memory: "64Gi"
+                cpu: "8"
+              limits:
+                memory: "64Gi"
+                cpu: "8"
+            volumeMounts:
+            - name: gcs-volume
+              mountPath: /data
+            - name: filestore-volume
+              mountPath: /local-ssd
+          volumes:
+          - name: gcs-volume
+            persistentVolumeClaim:
+              claimName: mayank-data-pvc
+          - name: filestore-volume
+            persistentVolumeClaim:
+              claimName: filestore-pvc
