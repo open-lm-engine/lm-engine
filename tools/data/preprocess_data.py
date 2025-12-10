@@ -129,9 +129,7 @@ def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
             if file.startswith("."):
                 continue
 
-            output_prefix = os.path.join(
-                args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep)
-            )
+            output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
 
             if makedirs:
                 os.makedirs(output_prefix, exist_ok=True)
@@ -173,7 +171,11 @@ def process_with_ray(args: Namespace, files: list) -> None:
             # Fill up the worker slots
             while queue and len(futures) < args.ray_workers:
                 input_file, output_prefix = queue.popleft()
-                futures.append(process_file_ray.options(num_cpus=1).remote(args=args, input_file=input_file, output_prefix=output_prefix))
+                futures.append(
+                    process_file_ray.options(num_cpus=1).remote(
+                        args=args, input_file=input_file, output_prefix=output_prefix
+                    )
+                )
 
             # Wait for one task to complete
             done, futures = ray.wait(futures, num_returns=1)
