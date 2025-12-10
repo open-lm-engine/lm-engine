@@ -96,6 +96,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                     subset=args.subset,
                     json_keys=args.json_keys,
                     append_eos_token=args.append_eod,
+                    tmpdir=args.tmpdir,
                 )
 
                 for key in args.json_keys:
@@ -111,6 +112,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 subset=args.subset,
                 json_keys=args.json_keys,
                 append_eos_token=args.append_eod,
+                tmpdir=args.tmpdir,
             )
 
         return input_file
@@ -248,6 +250,7 @@ def main() -> None:
             subset=args.subset,
             json_keys=args.json_keys,
             append_eos_token=args.append_eod,
+            tmpdir=args.tmpdir,
         )
 
         log_rank_0(logging.INFO, "✅ File processed successfully.")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from typing import Iterator
 
@@ -73,6 +74,7 @@ def convert_file(
     subset: str | None = None,
     json_keys: list[str] = ["text"],
     append_eos_token: bool = True,
+    tmpdir: str | None = None,
 ) -> None:
     encoder = Encoder(tokenizer, json_keys, append_eos_token)
 
@@ -81,9 +83,10 @@ def convert_file(
         encoded_docs = map(encoder.encode, open(input_file, "r", encoding="utf-8"))
     elif input_file.endswith(".jsonl.zst"):
         assert subset is None, f"zst jsonl doesn't support a subset"
+        assert tmpdir is not None
 
         dctx = ZstdDecompressor()
-        outfile = tempfile.TemporaryFile(suffix=input_file.rstrip(".zst"))
+        outfile = tempfile.TemporaryFile(suffix=os.path.basename(input_file.rstrip(".zst")), dir=tmpdir)
         with open(input_file, "rb") as infile:
             dctx.copy_stream(infile, outfile)
         outfile.seek(0)
