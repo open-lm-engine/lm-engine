@@ -127,7 +127,12 @@ def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
     files = []
     for root, _, _files in os.walk(args.input):
         for file in _files:
-            output_prefix = os.path.join(args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep))
+            if file.startswith("."):
+                continue
+
+            output_prefix = os.path.join(
+                args.output_prefix, root.removeprefix(args.input).lstrip(os.path.sep)
+            )
 
             if makedirs:
                 os.makedirs(output_prefix, exist_ok=True)
