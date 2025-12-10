@@ -170,7 +170,7 @@ def process_with_ray(args: Namespace, files: list) -> None:
             # Fill up the worker slots
             while queue and len(futures) < args.ray_workers:
                 input_file, output_prefix = queue.popleft()
-                futures.append(process_file_ray.remote(args=args, input_file=input_file, output_prefix=output_prefix))
+                futures.append(process_file_ray.options(num_cpus=1).remote(args=args, input_file=input_file, output_prefix=output_prefix))
 
             # Wait for one task to complete
             done, futures = ray.wait(futures, num_returns=1, timeout=10000000000)

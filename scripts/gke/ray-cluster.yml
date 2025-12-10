@@ -2,36 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: filestore-pv
-spec:
-  capacity:
-    storage: 10Ti
-  accessModes:
-  - ReadWriteMany
-  nfs:
-    path: /hans_ssd
-    server: 10.41.137.218
-
----
-
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: filestore-pvc
-spec:
-  accessModes:
-  - ReadWriteMany
-  storageClassName: ""
-  resources:
-    requests:
-      storage: 10Ti
-  volumeName: filestore-pv
-  
----
-
 apiVersion: ray.io/v1
 kind: RayCluster
 metadata:
@@ -58,10 +28,12 @@ spec:
           env:
           - name: RAY_LOG_TO_STDERR
             value: "1"
+          - name: MSC_CONFIG
+            value: "/app/lm-engine/configs/msc/gcs.yml"
           resources:
             requests:
               memory: "64Gi"
-              cpu: "8"
+              cpu: "1"
             limits:
               memory: "64Gi"
               cpu: "8"
@@ -79,7 +51,7 @@ spec:
             claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
-      replicas: 1
+      replicas: 8
       rayStartParams:
         num-cpus: "8"
         memory: "51539607552"
@@ -96,6 +68,8 @@ spec:
             env:
             - name: RAY_LOG_TO_STDERR
               value: "1"
+            - name: MSC_CONFIG
+              value: "/app/lm-engine/configs/msc/gcs.yml"
             resources:
               requests:
                 memory: "64Gi"
