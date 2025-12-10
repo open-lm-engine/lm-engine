@@ -31,7 +31,7 @@ spec:
           # - name: MSC_CONFIG
           #   value: "/app/lm-engine/configs/msc/gcs.yml"
           - name: RAY_scheduler_schedule_warning_interval_s
-            value: "36000"
+            value: "3600"
           - name: RAY_event_stats
             value: "0"
           resources:
@@ -55,7 +55,7 @@ spec:
         #     claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
-      replicas: 1
+      replicas: 200
       rayStartParams:
         num-cpus: "4"
         memory: "51539607552"
@@ -75,13 +75,13 @@ spec:
             # - name: MSC_CONFIG
             #   value: "/app/lm-engine/configs/msc/gcs.yml"
             - name: RAY_scheduler_schedule_warning_interval_s
-              value: "36000"
+              value: "3600"
             - name: RAY_event_stats
               value: "0"
             resources:
               requests:
                 memory: "64Gi"
-                cpu: "8"
+                cpu: "4"
               limits:
                 memory: "64Gi"
                 cpu: "8"
