@@ -43,7 +43,7 @@ spec:
       port: "6379"
       dashboard-host: "0.0.0.0"
       dashboard-port: "8265"
-      num-cpus: "8"
+      num-cpus: "0"
       memory: "51539607552"
     template:
       metadata:
@@ -79,7 +79,7 @@ spec:
             claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
-      replicas: 0
+      replicas: 1
       rayStartParams:
         num-cpus: "8"
         memory: "51539607552"
