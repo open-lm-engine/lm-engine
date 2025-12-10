@@ -115,8 +115,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
         return input_file
     except Exception as e:
-        log_rank_0(logging.ERROR, f"!!!!!!!!!!!!!!! Error processing {input_file}: {e}")
-        return str(e) + "\n\n" + traceback.format_exc()
+        return "!!!!!!!!!!!!!!! Error Look Here !!!!!!!!!!!!!!!" + str(e) + "\n\n" + traceback.format_exc()
 
 
 def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
@@ -178,11 +177,11 @@ def process_with_ray(args: Namespace, files: list) -> None:
                 futures.append(process_file_ray.options(num_cpus=1).remote(args=args, input_file=input_file, output_prefix=output_prefix))
 
             # Wait for one task to complete
-            done, futures = ray.wait(futures, num_returns=1, timeout=10000000000)
+            done, futures = ray.wait(futures, num_returns=1)
             future = done[0]
 
             try:
-                result = ray.get(future, timeout=10000000000)
+                result = ray.get(future)
                 log_rank_0(logging.INFO, f"✅ Processed file: {result}")
             except Exception as e:
                 log_rank_0(logging.ERROR, f"❌ Error processing file: {e}")
