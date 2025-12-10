@@ -57,7 +57,7 @@ spec:
     - groupName: worker-group
       replicas: 100
       rayStartParams:
-        # num-cpus: "8"
+        num-cpus: "7"
         memory: "51539607552"
       template:
         metadata:
