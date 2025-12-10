@@ -26,16 +26,16 @@ spec:
         - name: ray-head
           image: ghcr.io/open-lm-engine/data:latest
           env:
-          - name: RAY_LOG_TO_STDERR
-            value: "1"
-          - name: MSC_CONFIG
-            value: "/app/lm-engine/configs/msc/gcs.yml"
+          # - name: RAY_LOG_TO_STDERR
+          #   value: "1"
+          # - name: MSC_CONFIG
+          #   value: "/app/lm-engine/configs/msc/gcs.yml"
           resources:
             requests:
-              memory: "64Gi"
+              memory: "32Gi"
               cpu: "1"
             limits:
-              memory: "64Gi"
+              memory: "32Gi"
               cpu: "8"
           volumeMounts:
           - name: gcs-volume
@@ -53,7 +53,7 @@ spec:
     - groupName: worker-group
       replicas: 1
       rayStartParams:
-        num-cpus: "8"
+        # num-cpus: "8"
         memory: "51539607552"
       template:
         metadata:
@@ -66,10 +66,10 @@ spec:
           - name: ray-worker
             image: ghcr.io/open-lm-engine/data:latest
             env:
-            - name: RAY_LOG_TO_STDERR
-              value: "1"
-            - name: MSC_CONFIG
-              value: "/app/lm-engine/configs/msc/gcs.yml"
+            # - name: RAY_LOG_TO_STDERR
+            #   value: "1"
+            # - name: MSC_CONFIG
+            #   value: "/app/lm-engine/configs/msc/gcs.yml"
             resources:
               requests:
                 memory: "64Gi"
