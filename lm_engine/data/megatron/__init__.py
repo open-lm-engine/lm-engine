@@ -3,7 +3,7 @@ import logging
 from ...arguments import TrainingArgs
 from ...defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import ProcessGroupManager, log_rank_0
+from ...utils import Accelerator, ProcessGroupManager, log_rank_0
 from ..dataloader import ResumableDataLoader
 from .blended_megatron_dataset_builder import build
 from .blended_megatron_dataset_config import GPTDatasetConfig
@@ -68,6 +68,8 @@ def get_megatron_gpt_dataloaders(
 
     log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
 
+    accelerator = Accelerator.get_accelerator()
+
     def _get_dataloader(dataset: GPTDataset | None, consumed_samples: int):
         if dataset is None:
             return None
@@ -83,8 +85,9 @@ def get_megatron_gpt_dataloaders(
                 num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
                 rank=ProcessGroupManager.get_data_parallel_rank(),
             ),
-            num_workers=class_args.get("num_workers", 2),
-            pin_memory=True,
+            multiprocessing_context="fork" if accelerator == Accelerator.tpu else None,
+            num_workers=0 if accelerator == Accelerator.trainium else class_args.get("num_workers", 2),
+            pin_memory=accelerator != Accelerator.trainium,
         )
 
         return iter(dataloader)

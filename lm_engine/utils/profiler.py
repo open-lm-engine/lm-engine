@@ -31,7 +31,7 @@ class TorchProfiler:
         self._step = 0
 
         self._profiler = None
-        if self.accelerator == Accelerator.cuda:
+        if self.accelerator != Accelerator.tpu:
             self._profiler = torch.profiler.profile(
                 activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
                 schedule=torch.profiler.schedule(

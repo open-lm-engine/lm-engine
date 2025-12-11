@@ -91,7 +91,7 @@ class TrainingParameters(BaseArgs):
     gradient_accumulation_steps: int = 1
     # interval for evaluation
     eval_interval: int | None = None
-    # batch size per GPU for ZeRO-DP
+    # batch size per accelerator for ZeRO-DP
     micro_batch_size: int = None
     # whether to use val dataset for validation during training
     eval_during_training: bool = True
@@ -230,9 +230,9 @@ class MixedPrecisionArgs(BaseArgs):
 
 
 class ZeroTopologyArgs(BaseArgs):
-    # GPUs to use for replication
+    # accelerators to use for replication
     data_parallel_replication_world_size: int | None = None
-    # GPUs to use for sharding
+    # accelerators to use for sharding
     data_parallel_sharding_world_size: int | None = None
 
     def model_post_init(self, __context: Any) -> None:
@@ -249,7 +249,7 @@ class ZeroTopologyArgs(BaseArgs):
 class DistributedArgs(BaseArgs):
     # ZeRO stage
     stage: int = 3
-    # train with CPU offloading to save GPU memory
+    # train with CPU offloading to save accelerator memory
     cpu_offload: bool = False
     # whether to use gradient checkpointing, enabling leads to lower memory usage with increased step time
     gradient_checkpointing_method: GradientCheckpointingMethod | None = None
