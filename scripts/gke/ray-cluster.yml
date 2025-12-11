@@ -7,7 +7,7 @@ kind: RayCluster
 metadata:
   name: mayank-raycluster
 spec:
-  enableInTreeAutoscaling: true
+  # enableInTreeAutoscaling: true
   headGroupSpec:
     serviceType: ClusterIP
     rayStartParams:
@@ -26,6 +26,14 @@ spec:
         containers:
         - name: ray-head
           image: ghcr.io/open-lm-engine/data:latest
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - |
+                  git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine || true
           env:
           # - name: RAY_LOG_TO_STDERR
           #   value: "1"
@@ -62,9 +70,9 @@ spec:
         #     claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
-      replicas: 0
-      minReplicas: 0
-      maxReplicas: 500
+      replicas: 1
+      # minReplicas: 0
+      # maxReplicas: 500
       rayStartParams:
         num-cpus: "4"
         memory: "51539607552"
@@ -78,6 +86,14 @@ spec:
           containers:
           - name: ray-worker
             image: ghcr.io/open-lm-engine/data:latest
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine || true
             env:
             # - name: RAY_LOG_TO_STDERR
             #   value: "1"
