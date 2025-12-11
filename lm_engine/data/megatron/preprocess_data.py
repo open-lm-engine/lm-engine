@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from typing import Iterator
 
@@ -83,7 +84,7 @@ def convert_file(
         assert subset is None, f"zst jsonl doesn't support a subset"
 
         dctx = ZstdDecompressor()
-        outfile = tempfile.TemporaryFile(suffix=input_file.rstrip(".zstd"))
+        outfile = tempfile.TemporaryFile(suffix=os.path.basename(input_file.rstrip(".zst")))
         with open(input_file, "rb") as infile:
             dctx.copy_stream(infile, outfile)
         outfile.seek(0)
