@@ -1,7 +1,7 @@
-TOKENIZERS_PARALLELISM=false \
+TORCH_NEURONX_ENABLE_STABLEHLO=0 TOKENIZERS_PARALLELISM=false \
 torchrun --nnodes=1 \
     --node_rank=0 \
-    --nproc_per_node=2 \
+    --nproc_per_node=16 \
     --rdzv_id=101 \
     -m lm_engine.pretrain \
     --config ${1}
