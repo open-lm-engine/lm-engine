@@ -106,6 +106,8 @@ class _RSAArgs(_GRUArgs):
     add_bias: bool = False
     gradient_clipping: float | None = None
     normalization_function: str | None = None
+    alpha: float | None = None
+    beta: float | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rsa"

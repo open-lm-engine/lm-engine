@@ -45,6 +45,8 @@ class RSA(nn.Module):
         m_width: float,
         init_method: str,
         normalization_function: str | None,
+        alpha: float | None,
+        beta: float | None,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
@@ -87,7 +89,18 @@ class RSA(nn.Module):
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.state_weight_std = std
+
+        if init_method == "mup":
+            assert alpha is not None
+            assert beta is not None
+
+            self.state_weight_std = initializer_range * 4 * beta / math.sqrt(self.v_head_dim)
+            self.alpha = 16 * alpha / self.k_head_dim
+        else:
+            assert beta is None
+
+            self.state_weight_std = std
+            self.alpha = alpha
 
         self.input_projection = ParameterizedLinear(
             self.input_size, self.conv_dim + self.g_shape, bias=add_bias, std=std
@@ -175,6 +188,9 @@ class RSA(nn.Module):
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
         )
+
+        if self.alpha is not None:
+            input = input * self.alpha
 
         if self.use_residual:
             input = input + v * self.D
