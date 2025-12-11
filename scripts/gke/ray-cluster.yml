@@ -40,7 +40,7 @@ spec:
               memory: "32Gi"
               cpu: "1"
             limits:
-              memory: "64Gi"
+              memory: "32Gi"
               cpu: "8"
           volumeMounts:
           - name: gcs-volume
