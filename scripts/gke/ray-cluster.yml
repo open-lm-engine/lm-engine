@@ -26,6 +26,14 @@ spec:
         containers:
         - name: ray-head
           image: ghcr.io/open-lm-engine/data:latest
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - |
+                  git clone https://github.com/open-lm-engine/lm-engine
           env:
           # - name: RAY_LOG_TO_STDERR
           #   value: "1"
@@ -78,6 +86,14 @@ spec:
           containers:
           - name: ray-worker
             image: ghcr.io/open-lm-engine/data:latest
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    git clone https://github.com/open-lm-engine/lm-engine
             env:
             # - name: RAY_LOG_TO_STDERR
             #   value: "1"
