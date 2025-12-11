@@ -93,7 +93,7 @@ spec:
                 cpu: "4"
               limits:
                 memory: "64Gi"
-                cpu: "16"
+                cpu: "8"
             volumeMounts:
             - name: gcs-volume
               mountPath: /data
