@@ -84,7 +84,6 @@ def convert_file(
         assert subset is None, f"zst jsonl doesn't support a subset"
 
         dctx = ZstdDecompressor()
-        print(f"Decompressing {input_file} to {os.path.basename(input_file.rstrip('.zst'))}")
         outfile = tempfile.TemporaryFile(suffix=os.path.basename(input_file.rstrip(".zst")))
         with open(input_file, "rb") as infile:
             dctx.copy_stream(infile, outfile)

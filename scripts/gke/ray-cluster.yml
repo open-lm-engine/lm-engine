@@ -40,17 +40,23 @@ spec:
               memory: "32Gi"
               cpu: "1"
             limits:
-              memory: "32Gi"
+              memory: "64Gi"
               cpu: "8"
           volumeMounts:
           - name: gcs-volume
             mountPath: /data
+          # - name: local-ssd-volume
+          #   mountPath: /local-ssd
           # - name: filestore-volume
           #   mountPath: /local-ssd
         volumes:
         - name: gcs-volume
           persistentVolumeClaim:
             claimName: mayank-data-pvc
+        # - name: local-ssd-volume
+        #   emptyDir:
+        #     medium: Memory
+        #     sizeLimit: 20Gi
         # - name: filestore-volume
         #   persistentVolumeClaim:
         #     claimName: filestore-pvc
@@ -58,7 +64,7 @@ spec:
     - groupName: worker-group
       replicas: 0
       minReplicas: 0
-      maxReplicas: 0
+      maxReplicas: 500
       rayStartParams:
         num-cpus: "4"
         memory: "51539607552"
