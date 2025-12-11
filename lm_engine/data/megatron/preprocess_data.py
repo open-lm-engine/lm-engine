@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import json
-import os
 import io
+import json
 from typing import Iterator
 
 import pyarrow as pa
@@ -83,11 +82,6 @@ def convert_file(
     elif input_file.endswith(".jsonl.zst"):
         assert subset is None, "zst jsonl doesn't support a subset"
 
-        # Stream-decompress the .zst file line-by-line to avoid a temporary
-        # copy on disk.  Zstandardʼs `stream_reader` yields a readable object
-        # that we wrap in an `io.BufferedReader` to get efficient `readline()`
-        # behaviour.  Each returned line is a bytes object containing one JSON
-        # document.
         with open(input_file, "rb") as compressed:
             reader = ZstdDecompressor().stream_reader(compressed)
             buffered = io.BufferedReader(reader)
