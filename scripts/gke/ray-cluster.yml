@@ -14,7 +14,7 @@ spec:
       port: "6379"
       dashboard-host: "0.0.0.0"
       dashboard-port: "8265"
-      num-cpus: "1"
+      num-cpus: "0"
       memory: "51539607552"
     template:
       metadata:
