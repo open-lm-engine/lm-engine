@@ -169,6 +169,7 @@ def process_with_ray(args: Namespace, files: list) -> None:
         # Loop until no remaining files OR futures
         while queue or futures:
             # Fill up the worker slots
+            # TODO @mayank31398: Ray workers are not useful. Remove this in the future.
             while queue and len(futures) < args.ray_workers:
                 input_file, output_prefix = queue.popleft()
                 futures.append(
