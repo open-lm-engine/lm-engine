@@ -91,7 +91,7 @@ def convert_file(
     subset: str | None = None,
     json_keys: list[str] = ["text"],
     append_eos_token: bool = True,
-) -> None:
+) -> int:
     encoder = Encoder(tokenizer, json_keys, append_eos_token)
 
     if input_file.endswith(".jsonl"):
@@ -132,10 +132,19 @@ def convert_file(
         for key in json_keys
     }
 
+    skipped = 0
+
     for item in encoded_docs:
+        # When the encoder fails to parse a line, it returns an empty dict. Count & skip.
+        if not item:
+            skipped += 1
+            continue
+
         for key, document in item.items():
             builders[key].add_item(torch.IntTensor(document))
             builders[key].end_document()
 
     for key in json_keys:
         builders[key].finalize(get_idx_path(f"{output_prefix}_{key}"))
+
+    return skipped
