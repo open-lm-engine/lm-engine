@@ -10,9 +10,9 @@ from lm_engine.enums import DatasetSplit
 from .test_common import BaseTestCommons
 
 
-class JSONLinesTest(BaseTestCommons):
+class ArgumentsOverrideTest(BaseTestCommons):
     @parameterized.expand([DatasetSplit.train, DatasetSplit.val, DatasetSplit.test])
-    def test_jsonlines_loads(self, split: DatasetSplit) -> None:
+    def test_argument_overrides(self, split: DatasetSplit) -> None:
         config = TrainingArgs()
         keys = self._recursively_get_keys(config.to_dict())
         print(keys)
