@@ -9,6 +9,7 @@ from typing import Iterator
 import pyarrow as pa
 import torch
 from datasets import load_dataset
+from pyarrow.parquet import ParquetFile
 from transformers import AutoTokenizer
 
 from ...tokenizers import TOKENIZER_TYPE, get_tokenizer
@@ -87,10 +88,8 @@ def convert_file(
             buffered = io.BufferedReader(reader)
             encoded_docs = map(encoder.encode_jsonl_zstd, buffered)
     elif input_file.endswith(".parquet"):
-        import pyarrow.parquet as pq
-
         # Open the Parquet file
-        parquet_file = pq.ParquetFile(input_file)
+        parquet_file = ParquetFile(input_file)
 
         ds = []
         for batch in parquet_file.iter_batches(batch_size=10000):
