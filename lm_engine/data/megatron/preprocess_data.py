@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+import io
 import json
-import os
-import tempfile
 from typing import Iterator
 
 import pyarrow as pa
@@ -81,15 +80,12 @@ def convert_file(
         assert subset is None, f"jsonl doesn't support a subset"
         encoded_docs = map(encoder.encode, open(input_file, "r", encoding="utf-8"))
     elif input_file.endswith(".jsonl.zst"):
-        assert subset is None, f"zst jsonl doesn't support a subset"
+        assert subset is None, "zst jsonl doesn't support a subset"
 
-        dctx = ZstdDecompressor()
-        outfile = tempfile.TemporaryFile(suffix=os.path.basename(input_file.rstrip(".zst")))
-        with open(input_file, "rb") as infile:
-            dctx.copy_stream(infile, outfile)
-        outfile.seek(0)
-
-        encoded_docs = map(encoder.encode_jsonl_zstd, outfile)
+        with open(input_file, "rb") as compressed:
+            reader = ZstdDecompressor().stream_reader(compressed)
+            buffered = io.BufferedReader(reader)
+            encoded_docs = map(encoder.encode_jsonl_zstd, buffered)
     elif input_file.endswith(".parquet"):
         import pyarrow.parquet as pq
 
