@@ -49,11 +49,29 @@ class Encoder:
         return ids
 
     def encode(self, json_line) -> dict:
-        data = json.loads(json_line)
-        return self._encode_data(data)
+        """Safely encode a JSONL text line.
+
+        If the line cannot be parsed as JSON or does not contain the expected
+        keys, we return an **empty dictionary** so that the downstream loop
+        silently skips the document instead of raising and aborting the entire
+        preprocessing run. This provides resilience against occasional
+        corrupted records that sometimes appear in large-scale datasets.
+        """
+
+        try:
+            data = json.loads(json_line)
+            return self._encode_data(data)
+        except (json.JSONDecodeError, KeyError, TypeError):
+            # Corrupted JSON or missing fields – skip this line.
+            return {}
 
     def encode_jsonl_zstd(self, bytes_obj) -> dict:
-        json_str = bytes_obj.decode("utf-8")
+        try:
+            json_str = bytes_obj.decode("utf-8")
+        except UnicodeDecodeError:
+            # Skip if the bytes cannot be decoded.
+            return {}
+
         return self.encode(json_str)
 
     def encode_hf(self, sample) -> dict:
