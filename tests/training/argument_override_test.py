@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import typing
+
 from lm_engine.arguments import TrainingArgs
 
 from .test_commons import TestCommons
@@ -20,11 +22,67 @@ class ArgumentsOverrideTest(TestCommons):
             for key in key_split[:-1]:
                 value = value[key]
 
-            value[key_split[-1]] = 1
+            # Get the field type from the pydantic model
+            field_type = self._get_field_type(config, key_split)
+            value[key_split[-1]] = self._get_default_value_for_type(field_type)
 
             updated_config = TrainingArgs(**updated_config)
 
         assert False
+
+    def _get_field_type(self, model: TrainingArgs, key_path: list[str]) -> type:
+        """Get the type of a field from a pydantic model using a key path."""
+        current_model = model.__class__
+
+        for key in key_path:
+            field_info = current_model.model_fields.get(key)
+            if field_info is None:
+                raise ValueError(f"Field {key} not found in {current_model}")
+
+            # Get the annotation type
+            field_type = field_info.annotation
+
+            # If this is not the last key, navigate to the nested model
+            if key != key_path[-1]:
+                # Handle Optional types and unions
+                if typing.get_origin(field_type) is typing.Union:
+                    # Get the non-None type from Optional/Union
+                    args = typing.get_args(field_type)
+                    field_type = next((arg for arg in args if arg is not type(None)), args[0])
+                current_model = field_type
+
+        # Unwrap Optional/Union types for the final field as well
+        if typing.get_origin(field_type) is typing.Union:
+            args = typing.get_args(field_type)
+            field_type = next((arg for arg in args if arg is not type(None)), args[0])
+
+        return field_type
+
+    def _get_default_value_for_type(self, field_type) -> any:
+        """Generate an appropriate default value for a given type."""
+
+        # Handle Union/Optional types
+        if hasattr(typing, "get_origin") and typing.get_origin(field_type) is typing.Union:
+            args = typing.get_args(field_type)
+            # Get the first non-None type
+            field_type = next((arg for arg in args if arg is not type(None)), args[0])
+
+        # Basic type mappings
+        if field_type == int or field_type == "int":
+            return 1
+        elif field_type == float or field_type == "float":
+            return 1.0
+        elif field_type == str or field_type == "str":
+            return "test"
+        elif field_type == bool or field_type == "bool":
+            return True
+        elif hasattr(typing, "get_origin") and typing.get_origin(field_type) == list:
+            return []
+        elif hasattr(typing, "get_origin") and typing.get_origin(field_type) == dict:
+            return {}
+        else:
+            # For enum or custom types, return 1 as fallback
+            return 1
 
     def _get_terminal_keys(self, config: dict) -> list[str]:
         keys = []
