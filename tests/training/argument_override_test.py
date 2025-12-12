@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import types
 import typing
 
 from lm_engine.arguments import TrainingArgs
@@ -30,6 +31,17 @@ class ArgumentsOverrideTest(TestCommons):
 
         assert False
 
+    def _is_union_type(self, field_type) -> bool:
+        """Check if a type is a Union type (either typing.Union or types.UnionType for | syntax)."""
+        origin = typing.get_origin(field_type)
+        # Check for typing.Union (Optional[str], Union[str, None])
+        if origin is typing.Union:
+            return True
+        # Check for types.UnionType (str | None syntax in Python 3.10+)
+        if hasattr(types, "UnionType") and origin is types.UnionType:
+            return True
+        return False
+
     def _get_field_type(self, model: TrainingArgs, key_path: list[str]) -> type:
         """Get the type of a field from a pydantic model using a key path."""
         current_model = model.__class__
@@ -45,14 +57,14 @@ class ArgumentsOverrideTest(TestCommons):
             # If this is not the last key, navigate to the nested model
             if key != key_path[-1]:
                 # Handle Optional types and unions
-                if typing.get_origin(field_type) is typing.Union:
+                if self._is_union_type(field_type):
                     # Get the non-None type from Optional/Union
                     args = typing.get_args(field_type)
                     field_type = next((arg for arg in args if arg is not type(None)), args[0])
                 current_model = field_type
 
         # Unwrap Optional/Union types for the final field as well
-        if typing.get_origin(field_type) is typing.Union:
+        if self._is_union_type(field_type):
             args = typing.get_args(field_type)
             field_type = next((arg for arg in args if arg is not type(None)), args[0])
 
@@ -62,7 +74,7 @@ class ArgumentsOverrideTest(TestCommons):
         """Generate an appropriate default value for a given type."""
 
         # Handle Union/Optional types
-        if hasattr(typing, "get_origin") and typing.get_origin(field_type) is typing.Union:
+        if self._is_union_type(field_type):
             args = typing.get_args(field_type)
             # Get the first non-None type
             field_type = next((arg for arg in args if arg is not type(None)), args[0])
@@ -76,9 +88,9 @@ class ArgumentsOverrideTest(TestCommons):
             return "test"
         elif field_type == bool or field_type == "bool":
             return True
-        elif hasattr(typing, "get_origin") and typing.get_origin(field_type) == list:
+        elif typing.get_origin(field_type) == list:
             return []
-        elif hasattr(typing, "get_origin") and typing.get_origin(field_type) == dict:
+        elif typing.get_origin(field_type) == dict:
             return {}
         else:
             # For enum or custom types, return 1 as fallback
