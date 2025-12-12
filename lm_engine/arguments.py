@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import json
 from argparse import ArgumentParser
 from typing import Any
 
@@ -469,15 +470,97 @@ def args_dict_to_pydantic_args(
     return args_class(**config)
 
 
+def _set_nested_dict(data: dict, keys: list[str], value: Any) -> None:
+    """Set a value in a nested dictionary using a list of keys."""
+    for key in keys[:-1]:
+        if key not in data:
+            data[key] = {}
+        elif not isinstance(data[key], dict):
+            # If the intermediate key exists but is not a dict, we can't traverse further
+            raise ValueError(f"Cannot set nested key: {'.'.join(keys)}. '{key}' is not a dict.")
+        data = data[key]
+
+    data[keys[-1]] = value
+
+
+def _deep_merge(config: TrainingArgs, override: dict) -> dict:
+    """Deep merge override dict into base dict."""
+    result = config.to_dict()
+    result = config.__class__(**result)
+
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+
+    return result
+
+
+def _parse_cli_overrides(unknown_args: list[str]) -> dict:
+    """
+    Parse command-line override arguments into a nested dictionary.
+
+    Supports formats:
+    - --key=value
+    - --nested.key=value
+    - --nested.deeply.nested.key=value
+
+    Values are parsed as JSON if possible (for lists, booleans, numbers),
+    otherwise treated as strings.
+
+    Examples:
+        --model_args.model_name=gpt2
+        --training_parameters.micro_batch_size=8
+        --distributed_args.zero_topology.data_parallel_replication_world_size=2
+        --optimizer_args.class_args.betas=[0.9,0.999]
+        --kernel_args.kernels=["flash_attention","fused_rmsnorm"]
+    """
+    overrides = {}
+
+    i = 0
+    while i < len(unknown_args):
+        arg = unknown_args[i]
+
+        if arg.startswith("--"):
+            # Remove leading --
+            arg = arg[2:]
+
+            # Check if value is in the same argument (--key=value)
+            if "=" in arg:
+                key_path, value = arg.split("=", 1)
+                value = json.loads(value)
+            # Otherwise, check if next argument is the value
+            elif i + 1 < len(unknown_args) and not unknown_args[i + 1].startswith("--"):
+                key_path = arg
+                i += 1
+                value = json.loads(unknown_args[i])
+            else:
+                raise ValueError(f"unexpected key, value pair provided: ({arg})")
+
+            # Split the key path by dots for nested access
+            keys = key_path.split(".")
+            _set_nested_dict(overrides, keys, value)
+
+        i += 1
+
+    return overrides
+
+
 def get_args(
     args_class: type[TrainingArgs | DistillationArgs | UnshardingArgs],
 ) -> TrainingArgs | DistillationArgs | UnshardingArgs:
     parser = ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="path for the config")
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
 
     config: dict = load_yaml(args.config)
-    args: TrainingArgs | UnshardingArgs = args_dict_to_pydantic_args(args_class, **config)
+
+    if unknown_args:
+        cli_overrides = _parse_cli_overrides(unknown_args)
+        config = _deep_merge(config, cli_overrides)
+
+    args: TrainingArgs | UnshardingArgs | DistillationArgs = args_dict_to_pydantic_args(args_class, **config)
 
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
 
