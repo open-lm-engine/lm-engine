@@ -9,7 +9,7 @@ from typing import Any
 
 from ..containers import ModelContainer
 from ..enums import ParamsGroupMethod
-from ..hf_models import is_parameter_with_mup_learning_rate, is_parameter_with_no_weight_decay
+from ..hf_models import is_parameter_with_mup_learning_rate, is_parameter_with_no_weight_decay, get_mup_learning_rate_divisor
 from ..model_wrapper import ModelWrapper
 from ..utils import BaseArgs, log_rank_0
 
@@ -99,33 +99,48 @@ def get_mup_group_with_names(model: ModelWrapper, optimizer_class_args: dict) ->
 
     normal_params = {}
     no_weight_decay_params = {}
-    mup_params = {}
+
+    # group mup params by their divisor (per-parameter divisor overrides model.config.m_width)
+    mup_groups: dict[float, dict[str, Any]] = {}
 
     for name, parameter in model.named_parameters():
         if is_parameter_with_mup_learning_rate(parameter):
-            mup_params[name] = parameter
+            divisor = get_mup_learning_rate_divisor(parameter) or model.config.m_width
+            divisor = float(divisor)
+            mup_groups.setdefault(divisor, {})[name] = parameter
         elif is_parameter_with_no_weight_decay(parameter):
             no_weight_decay_params[name] = parameter
         else:
             normal_params[name] = parameter
 
-    params_group_list = _ParamsGroupsList(
-        params_groups=[
-            _ParamsGroup(name="normal", parameter_name_map=normal_params),
-            _ParamsGroup(
-                name="no_weight_decay",
-                parameter_name_map=no_weight_decay_params,
-                params_group_kwargs={"weight_decay": 0},
-            ),
-            _ParamsGroup(
-                name="mup",
-                parameter_name_map=mup_params,
-                params_group_kwargs={"lr": optimizer_class_args["lr"] / model.config.m_width},
-            ),
-        ]
-    )
+    params_groups: list[_ParamsGroup] = [
+        _ParamsGroup(name="normal", parameter_name_map=normal_params),
+        _ParamsGroup(
+            name="no_weight_decay",
+            parameter_name_map=no_weight_decay_params,
+            params_group_kwargs={"weight_decay": 0},
+        ),
+    ]
 
-    return params_group_list
+    # create one params group per divisor. Keep the original behaviour by naming the
+    # default group "mup" when divisor equals model.config.m_width.
+    for divisor in sorted(mup_groups.keys()):
+        param_map = mup_groups[divisor]
+        if divisor == float(model.config.m_width):
+            group_name = "mup"
+        else:
+            # use a stable, inspectable name for non-default divisors
+            group_name = f"mup_{str(divisor).replace('.', '_')}"
+
+        params_groups.append(
+            _ParamsGroup(
+                name=group_name,
+                parameter_name_map=param_map,
+                params_group_kwargs={"lr": optimizer_class_args["lr"] / divisor},
+            )
+        )
+
+    return _ParamsGroupsList(params_groups=params_groups)
 
 
 _PARAM_GROUPS = {
