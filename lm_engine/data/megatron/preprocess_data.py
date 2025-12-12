@@ -82,10 +82,11 @@ def convert_file(
     elif input_file.endswith(".jsonl.zst"):
         assert subset is None, "zst jsonl doesn't support a subset"
 
-        with open(input_file, "rb") as compressed:
-            reader = ZstdDecompressor().stream_reader(compressed)
-            buffered = io.BufferedReader(reader)
-            encoded_docs = map(encoder.encode_jsonl_zstd, buffered)
+        # Open compressed file without a context manager so it remains open
+        compressed = open(input_file, "rb")
+        reader = ZstdDecompressor().stream_reader(compressed)
+        buffered = io.BufferedReader(reader)
+        encoded_docs = map(encoder.encode_jsonl_zstd, buffered.read().splitlines())
     elif input_file.endswith(".parquet"):
         import pyarrow.parquet as pq
 

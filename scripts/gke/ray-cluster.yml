@@ -7,7 +7,7 @@ kind: RayCluster
 metadata:
   name: mayank-raycluster
 spec:
-  enableInTreeAutoscaling: true
+  # enableInTreeAutoscaling: true
   headGroupSpec:
     serviceType: ClusterIP
     rayStartParams:
@@ -33,7 +33,7 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  git clone https://github.com/open-lm-engine/lm-engine
+                  git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
           env:
           # - name: RAY_LOG_TO_STDERR
           #   value: "1"
@@ -49,7 +49,7 @@ spec:
               cpu: "1"
             limits:
               memory: "32Gi"
-              cpu: "8"
+              cpu: "16"
           volumeMounts:
           - name: gcs-volume
             mountPath: /data
@@ -72,9 +72,9 @@ spec:
     - groupName: worker-group
       replicas: 0
       minReplicas: 0
-      maxReplicas: 500
+      maxReplicas: 200
       rayStartParams:
-        num-cpus: "4"
+        # num-cpus: "8"
         memory: "51539607552"
       template:
         metadata:
@@ -93,7 +93,7 @@ spec:
                   - /bin/sh
                   - -c
                   - |
-                    git clone https://github.com/open-lm-engine/lm-engine
+                    git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
             env:
             # - name: RAY_LOG_TO_STDERR
             #   value: "1"
@@ -106,10 +106,10 @@ spec:
             resources:
               requests:
                 memory: "64Gi"
-                cpu: "4"
+                cpu: "8"
               limits:
                 memory: "64Gi"
-                cpu: "8"
+                cpu: "16"
             volumeMounts:
             - name: gcs-volume
               mountPath: /data
@@ -124,7 +124,7 @@ spec:
           - name: local-ssd-volume
             emptyDir:
               medium: Memory
-              sizeLimit: 20Gi
+              sizeLimit: 25Gi
           # - name: filestore-volume
           #   persistentVolumeClaim:
     # - groupName: worker-group-128g
