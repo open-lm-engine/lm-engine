@@ -2,29 +2,24 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from parameterized import parameterized
-
 from lm_engine.arguments import TrainingArgs
-from lm_engine.enums import DatasetSplit
 
-from .test_common import BaseTestCommons
+from .test_commons import TestCommons
 
 
-class ArgumentsOverrideTest(BaseTestCommons):
+class ArgumentsOverrideTest(TestCommons):
     def test_argument_overrides(self) -> None:
-        config = TrainingArgs()
-        keys = self._recursively_get_keys(config.to_dict())
+        config = TestCommons.load_training_args_for_unit_tests("data_config.yml")
+        keys = self._get_terminal_keys(config.to_dict())
         print(keys)
         assert False
 
-    def _recursively_get_keys(self, config: dict) -> list[str]:
+    def _get_terminal_keys(self, config: dict) -> list[str]:
         keys = []
         for key, value in config.items():
-            keys.append(key)
-
             if isinstance(value, dict):
-                _keys = self._recursively_get_keys(value)
-                _keys = [f"{key}.{i}" for i in _keys]
-                keys += _keys
+                keys += [f"{key}.{i}" for i in self._get_terminal_keys(value)]
+            else:
+                keys += [key]
 
         return keys
