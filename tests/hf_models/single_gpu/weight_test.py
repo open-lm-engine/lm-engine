@@ -3,7 +3,6 @@
 # **************************************************
 
 import torch
-from parameterized import parameterized
 
 from lm_engine.hf_models.modeling_utils import (
     get_sequence_mixer,

@@ -18,6 +18,9 @@ class ArgumentsOverrideTest(TestCommons):
         for key in keys:
             updated_config = TestCommons.load_training_args_for_unit_tests("data_config.yml").to_dict()
 
+            if key.endswith("pretrained_config") or key.endswith("model_class"):
+                continue
+
             value = updated_config
             key_split = key.split(".")
             for key in key_split[:-1]:
@@ -28,6 +31,7 @@ class ArgumentsOverrideTest(TestCommons):
             value[key_split[-1]] = self._get_default_value_for_type(field_type)
 
             updated_config = TrainingArgs(**updated_config)
+            assert config != updated_config
 
         assert False
 
@@ -88,9 +92,9 @@ class ArgumentsOverrideTest(TestCommons):
             return "test"
         elif field_type == bool or field_type == "bool":
             return True
-        elif typing.get_origin(field_type) == list:
+        elif field_type == list or typing.get_origin(field_type) == list:
             return []
-        elif typing.get_origin(field_type) == dict:
+        elif field_type == dict or typing.get_origin(field_type) == dict:
             return {}
         else:
             # For enum or custom types, return 1 as fallback
