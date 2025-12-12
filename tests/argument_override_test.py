@@ -11,8 +11,7 @@ from .test_common import BaseTestCommons
 
 
 class ArgumentsOverrideTest(BaseTestCommons):
-    @parameterized.expand([DatasetSplit.train, DatasetSplit.val, DatasetSplit.test])
-    def test_argument_overrides(self, split: DatasetSplit) -> None:
+    def test_argument_overrides(self) -> None:
         config = TrainingArgs()
         keys = self._recursively_get_keys(config.to_dict())
         print(keys)
