@@ -9,21 +9,20 @@ from .test_commons import TestCommons
 
 class ArgumentsOverrideTest(TestCommons):
     def test_argument_overrides(self) -> None:
-        config = TestCommons.load_training_args_for_unit_tests("data_config.yml")
+        config = TestCommons.load_training_args_for_unit_tests("arguments_override.yml")
         keys = self._get_terminal_keys(config.to_dict())
 
-        updated_config = TestCommons.load_training_args_for_unit_tests("data_config.yml").to_dict()
-        desired_value = 1
-
         for key in keys:
+            updated_config = TestCommons.load_training_args_for_unit_tests("arguments_override.yml").to_dict()
+
             value = updated_config
             key_split = key.split(".")
             for key in key_split[:-1]:
                 value = value[key]
 
-            value[key] = desired_value
+            value[key] = 1
 
-        updated_config = TrainingArgs(**updated_config)
+            updated_config = TrainingArgs(**updated_config)
 
         assert False
 
