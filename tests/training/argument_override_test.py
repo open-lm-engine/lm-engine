@@ -9,11 +9,11 @@ from .test_commons import TestCommons
 
 class ArgumentsOverrideTest(TestCommons):
     def test_argument_overrides(self) -> None:
-        config = TestCommons.load_training_args_for_unit_tests("arguments_override.yml")
+        config = TestCommons.load_training_args_for_unit_tests("data_config.yml")
         keys = self._get_terminal_keys(config.to_dict())
 
         for key in keys:
-            updated_config = TestCommons.load_training_args_for_unit_tests("arguments_override.yml").to_dict()
+            updated_config = TestCommons.load_training_args_for_unit_tests("data_config.yml").to_dict()
 
             value = updated_config
             key_split = key.split(".")
