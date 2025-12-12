@@ -7,7 +7,7 @@ kind: RayCluster
 metadata:
   name: mayank-raycluster
 spec:
-  # enableInTreeAutoscaling: true
+  enableInTreeAutoscaling: true
   headGroupSpec:
     serviceType: ClusterIP
     rayStartParams:
