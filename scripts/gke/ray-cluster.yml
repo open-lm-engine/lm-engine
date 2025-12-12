@@ -70,7 +70,7 @@ spec:
         #     claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
-      replicas: 0
+      replicas: 10
       minReplicas: 0
       maxReplicas: 200
       rayStartParams:
