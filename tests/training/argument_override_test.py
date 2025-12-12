@@ -11,7 +11,20 @@ class ArgumentsOverrideTest(TestCommons):
     def test_argument_overrides(self) -> None:
         config = TestCommons.load_training_args_for_unit_tests("data_config.yml")
         keys = self._get_terminal_keys(config.to_dict())
-        print(keys)
+
+        updated_config = TestCommons.load_training_args_for_unit_tests("data_config.yml").to_dict()
+        desired_value = 1
+
+        for key in keys:
+            value = updated_config
+            key_split = key.split(".")
+            for key in key_split[:-1]:
+                value = value[key]
+
+            value[key] = desired_value
+
+        updated_config = TrainingArgs(**updated_config)
+
         assert False
 
     def _get_terminal_keys(self, config: dict) -> list[str]:
