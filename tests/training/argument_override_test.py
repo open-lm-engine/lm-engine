@@ -20,7 +20,7 @@ class ArgumentsOverrideTest(TestCommons):
             for key in key_split[:-1]:
                 value = value[key]
 
-            value[key] = 1
+            value[key_split[-1]] = 1
 
             updated_config = TrainingArgs(**updated_config)
 
