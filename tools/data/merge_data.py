@@ -102,10 +102,10 @@ def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str
     # Expand path to include sibling directories with same prefix
     path = path.rstrip(os.sep)
     base_dir = os.path.dirname(path)
-    if not base_dir:
-        base_dir = "."
+    # if not base_dir:
+    #     base_dir = "."
     search_prefix = os.path.basename(path)
-
+    print("1111111111111111111111")
     print(base_dir)
     print(path)
     print(search_prefix)
