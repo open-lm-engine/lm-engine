@@ -75,7 +75,7 @@ spec:
       maxReplicas: 200
       rayStartParams:
         # num-cpus: "8"
-        memory: "66571993088"
+        memory: "64424509440"
       template:
         metadata:
           annotations:

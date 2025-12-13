@@ -29,8 +29,8 @@
 INPUT_PATHS=(
 # "finemath-3plus"
 # "finemath-4plus"
-"infiwebmath-3plus"
-"infiwebmath-4plus"
+# "infiwebmath-3plus"
+# "infiwebmath-4plus"
 )
 
 TOKENIZER=/app/lm-engine/tokenizers/granite-4.0-h-tiny-base
@@ -39,7 +39,7 @@ for ITEM in "${INPUT_PATHS[@]}"; do
     INPUT_PATH="/data/tmp/finemath/$ITEM"
     OUTPUT_PATH="/data/tmp/finemath-tokenized/$ITEM"
     
-    RAY_memory_usage_threshold=0.98 ray job submit --address http://localhost:8265 -- bash -c "cd lm-engine && git fetch && git reset --hard origin/test && uv pip install -e . && MSC_CONFIG=/app/lm-engine/configs/msc/gcs.yml python tools/data/preprocess_data.py --input $INPUT_PATH --tokenizer $TOKENIZER --output-prefix $OUTPUT_PATH --append-eod --ray-workers 20000 --download-locally --msc-base-path mayank-data --tmpdir /local-ssd"
+    ray job submit --address http://localhost:8265 -- bash -c "cd lm-engine && git fetch && git reset --hard origin/test && uv pip install -e . && MSC_CONFIG=/app/lm-engine/configs/msc/gcs.yml python tools/data/preprocess_data.py --input $INPUT_PATH --tokenizer $TOKENIZER --output-prefix $OUTPUT_PATH --append-eod --ray-workers 20000 --download-locally --msc-base-path mayank-data --tmpdir /local-ssd"
 done
 
 # ray job stop --address  http://localhost:8265 03000000
