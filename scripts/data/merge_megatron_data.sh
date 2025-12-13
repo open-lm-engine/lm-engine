@@ -1,12 +1,12 @@
 INPUT_PATHS=(
-"common_crawl-education_and_jobs"
-# "common_crawl-electronics_and_hardware"
-# "common_crawl-entertainment"
-# "common_crawl-fashion_and_beauty"
-# "common_crawl-finance_and_business"
-# "common_crawl-food_and_dining"
-# "common_crawl-games"
-# "common_crawl-health"
+# "common_crawl-education_and_jobs"
+"common_crawl-electronics_and_hardware"
+"common_crawl-entertainment"
+"common_crawl-fashion_and_beauty"
+"common_crawl-finance_and_business"
+"common_crawl-food_and_dining"
+"common_crawl-games"
+"common_crawl-health"
 # "common_crawl-history_and_geography"
 # "common_crawl-home_and_hobbies"
 # "common_crawl-industrial"
@@ -41,8 +41,8 @@ INPUT_PATHS=(
 )
 
 for ITEM in "${INPUT_PATHS[@]}"; do
-    INPUT_PATH="/tmp/dolma3-pool-tokenized/data/$ITEM"
-    OUTPUT_PATH="/tmp4/dolma3-pool/$ITEM"
+    INPUT_PATH="/data/tmp/dolma3-pool-tokenized/data/$ITEM"
+    OUTPUT_PATH="/data/tmp4/dolma3-pool/$ITEM"
     
     ray job submit --address http://localhost:8268 -- bash -c "cd lm-engine && uv pip install -e . && MSC_CONFIG=/app/lm-engine/configs/msc/gcs.yml python tools/data/merge_data.py --input-directory $INPUT_PATH --output-prefix $OUTPUT_PATH --max-size 250 --msc-base-path mayank-data --tmpdir /local-ssd --download-locally"
 
