@@ -99,9 +99,34 @@ def merge_files_wrapper(input_prefixes: list[str], output_prefix: str, args: Nam
 
 
 def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str]]:
-    fnames = filter(lambda x: x.endswith(".bin"), os.listdir(path))
-    fnames = [os.path.join(path, i) for i in fnames]
-    fnames = [i.split(".bin")[0] for i in fnames]
+    # Expand path to include sibling directories with same prefix
+    path = path.rstrip(os.sep)
+    base_dir = os.path.dirname(path)
+    if not base_dir:
+        base_dir = "."
+    search_prefix = os.path.basename(path)
+
+    input_dirs = []
+    if os.path.isdir(base_dir):
+        # We need to list directories in base_dir
+        for d in sorted(os.listdir(base_dir)):
+            full_path = os.path.join(base_dir, d)
+            if os.path.isdir(full_path) and d.startswith(search_prefix):
+                input_dirs.append(full_path)
+
+    if not input_dirs:
+        input_dirs = [path]
+
+    print(f"Merging content from directories: {input_dirs}")
+
+    fnames = []
+    for d in input_dirs:
+        if os.path.isdir(d):
+            curr_fnames = filter(lambda x: x.endswith(".bin"), os.listdir(d))
+            curr_fnames = [os.path.join(d, i) for i in curr_fnames]
+            fnames.extend(curr_fnames)
+
+    fnames = [i[:-4] for i in fnames]
 
     if max_size is None:
         return [fnames]
