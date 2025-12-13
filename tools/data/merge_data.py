@@ -106,6 +106,10 @@ def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str
         base_dir = "."
     search_prefix = os.path.basename(path)
 
+    print(base_dir)
+    print(path)
+    print(search_prefix)
+    print(os.listdir(base_dir))
     input_dirs = []
     if os.path.isdir(base_dir):
         # We need to list directories in base_dir
@@ -113,7 +117,7 @@ def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str
             full_path = os.path.join(base_dir, d)
             if os.path.isdir(full_path) and d.startswith(search_prefix):
                 input_dirs.append(full_path)
-
+    print(input_dirs)
     if not input_dirs:
         input_dirs = [path]
 
