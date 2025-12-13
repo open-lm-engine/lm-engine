@@ -124,7 +124,7 @@ spec:
           - name: local-ssd-volume
             emptyDir:
               medium: Memory
-              sizeLimit: 25Gi
+              sizeLimit: 48Gi
           # - name: filestore-volume
           #   persistentVolumeClaim:
     # - groupName: worker-group-128g
