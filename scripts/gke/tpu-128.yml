@@ -17,7 +17,7 @@ spec:
       nodeSelector:
         topology.kubernetes.io/zone: asia-northeast1-b
         cloud.google.com/gke-tpu-accelerator: tpu-v6e-slice
-        cloud.google.com/gke-tpu-topology: 4x4
+        cloud.google.com/gke-tpu-topology: 8x16
       containers:
       - name: mayank-job
         image: ghcr.io/open-lm-engine/tpu:latest
