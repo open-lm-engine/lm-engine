@@ -24,12 +24,12 @@ spec:
         command: ["sleep", "infinity"]
         resources:
           requests:
-            cpu: 64
-            memory: 512Gi
+            cpu: 180
+            memory: 720Gi
             google.com/tpu: 4
           limits:
-            cpu: 64
-            memory: 512Gi
+            cpu: 180
+            memory: 720Gi
             google.com/tpu: 4
       restartPolicy: Never
   backoffLimit: 0
