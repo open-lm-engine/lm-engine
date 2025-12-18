@@ -14,7 +14,7 @@ from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, is_xma_available
+from ....utils import ProcessGroupManager, is_sonicmoe_available, is_xma_available
 from ...loss import add_aux_loss
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
@@ -25,6 +25,10 @@ from .mlp import _get_std_for_linear
 if is_xma_available():
     from xma import continuous_count
     from xma.layers.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
+
+
+if is_sonicmoe_available():
+    from sonicmoe import moe_TC_softmax_topk_layer
 
 
 # TODO add support for combileable bincount in PyTorch directly
@@ -156,6 +160,7 @@ class MoE(nn.Module):
         hidden_size: int,
         intermediate_size: int,
         shared_intermediate_size: int,
+        use_interleaved_weights: bool,
         shared_expert_gating: bool,
         normalized_topk: bool,
         num_experts: int,
@@ -179,6 +184,7 @@ class MoE(nn.Module):
         self.shared_intermediate_size = shared_intermediate_size
         self.shared_expert_gating = shared_expert_gating
         self.normalized_topk = normalized_topk
+        self.use_interleaved_weights = use_interleaved_weights
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
@@ -213,6 +219,7 @@ class MoE(nn.Module):
                 std=std,
             )
 
+        self.activation_function_string = activation_function
         self.act = get_activation_function(activation_function)
 
         std /= math.sqrt(2 * num_layers)
@@ -238,6 +245,8 @@ class MoE(nn.Module):
             torch.cuda.current_device()
         ) >= (9, 0)
 
+        self.stream_id = torch.cuda.current_stream().stream_id if torch.cuda.is_available() else None
+
         mark_parameter_as_mup_learning_rate(self.gate.weight)
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
@@ -252,9 +261,24 @@ class MoE(nn.Module):
 
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
-        router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
+        if is_kernel_allowed(Kernel.sonicmoe):
+            assert self.use_interleaved_weights
+            assert self.activation_function_string == "swiglu"
 
-        moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
+            moe_output, router_logits, expert_frequency = moe_TC_softmax_topk_layer(
+                x=hidden_states,
+                router_w=self.gate.weight,
+                w1=self.c_fc.weight.permute(1, 2, 0),
+                b1=self.c_fc.bias,
+                w2=self.c_proj.weight.permute(1, 2, 0),
+                b2=self.c_proj.bias,
+                K=self.top_k,
+                stream_id=self.stream_id,
+                is_inference_mode_enabled=False,
+            )
+        else:
+            router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
+            moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
 
         if self.shared_intermediate_size is None:
             hidden_states = moe_output
