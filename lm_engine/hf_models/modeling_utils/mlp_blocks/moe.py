@@ -245,7 +245,7 @@ class MoE(nn.Module):
             torch.cuda.current_device()
         ) >= (9, 0)
 
-        self.stream_id = torch.cuda.current_stream().stream_id
+        self.stream_id = torch.cuda.current_stream().stream_id if torch.cuda.is_available() else None
 
         mark_parameter_as_mup_learning_rate(self.gate.weight)
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
