@@ -42,19 +42,27 @@ model_args:
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
+        add_bias: true
       - sequence_mixer_type: mamba2
+        add_bias: true
       - sequence_mixer_type: rnn
+        add_bias: true
       - sequence_mixer_type: gru
+        add_bias: true
     mlp_blocks:
       - activation_function: swiglu
         mlp_type: MLP
+        add_bias: true
       - activation_function: swiglu
         mlp_type: MoE
         shared_intermediate_size: 512
+        add_bias: true
       - activation_function: swiglu
         mlp_type: MLP
+        add_bias: true
       - activation_function: swiglu
         mlp_type: MLP
+        add_bias: true
 
 tuning_args:
   tuning_method: pretraining
@@ -93,4 +101,4 @@ mixed_precision_args:
 distributed_args:
   fsdp_algorithm: 2
   stage: 3
-  tensor_parallel_world_size: 2
+  tensor_parallel_world_size: 1

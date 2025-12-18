@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+import io
 import json
-import multiprocessing
-import tempfile
 from typing import Iterator
 
 import pyarrow as pa
@@ -14,7 +13,7 @@ from transformers import AutoTokenizer
 
 from ...tokenizers import TOKENIZER_TYPE, get_tokenizer
 from ...utils import is_zstandard_available
-from .indexed_dataset import DType, MMapIndexedDatasetBuilder
+from .indexed_dataset import DType, MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
 
 
 if is_zstandard_available():
@@ -71,37 +70,46 @@ def convert_file(
     tokenizer: TOKENIZER_TYPE | str,
     input_file: str,
     output_prefix: str,
-    workers: int,
-    chunk_size: int,
     subset: str | None = None,
     json_keys: list[str] = ["text"],
     append_eos_token: bool = True,
 ) -> None:
     encoder = Encoder(tokenizer, json_keys, append_eos_token)
-    pool = multiprocessing.Pool(workers)
 
     if input_file.endswith(".jsonl"):
         assert subset is None, f"jsonl doesn't support a subset"
-        encoded_docs = pool.imap(encoder.encode, open(input_file, "r", encoding="utf-8"), chunk_size)
+        encoded_docs = map(encoder.encode, open(input_file, "r", encoding="utf-8"))
     elif input_file.endswith(".jsonl.zst"):
-        assert subset is None, f"zst jsonl doesn't support a subset"
+        assert subset is None, "zst jsonl doesn't support a subset"
 
-        dctx = ZstdDecompressor()
-        outfile = tempfile.TemporaryFile(suffix=input_file.rstrip(".zstd"))
-        with open(input_file, "rb") as infile:
-            dctx.copy_stream(infile, outfile)
-        outfile.seek(0)
+        with open(input_file, "rb") as compressed:
+            reader = ZstdDecompressor().stream_reader(compressed)
+            buffered = io.BufferedReader(reader)
+            encoded_docs = map(encoder.encode_jsonl_zstd, buffered)
+    elif input_file.endswith(".parquet"):
+        import pyarrow.parquet as pq
 
-        encoded_docs = pool.imap(encoder.encode_jsonl_zstd, outfile, chunk_size)
+        # Open the Parquet file
+        parquet_file = pq.ParquetFile(input_file)
+
+        ds = []
+        for batch in parquet_file.iter_batches(batch_size=10000):
+            df = batch.to_pandas()
+            for text in df["text"]:
+                ds.append({"text": text})
+
+        encoded_docs = map(encoder.encode_hf, ds)
     elif input_file.endswith(".arrow"):
         assert subset is None, f"arrow doesn't support a subset"
-        encoded_docs = pool.imap(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file), chunk_size)
+        encoded_docs = map(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file))
     else:
         ds = load_dataset(input_file, use_auth_token=True, streaming=True, split="train", data_dir=subset)
-        encoded_docs = pool.imap(encoder.encode_hf, ds, chunk_size)
+        encoded_docs = map(encoder.encode_hf, ds)
 
     builders = {
-        key: MMapIndexedDatasetBuilder(f"{output_prefix}_{key}.bin", dtype=DType.optimal_dtype(tokenizer.vocab_size))
+        key: MMapIndexedDatasetBuilder(
+            get_bin_path(f"{output_prefix}_{key}"), dtype=DType.optimal_dtype(tokenizer.vocab_size)
+        )
         for key in json_keys
     }
 
@@ -111,4 +119,4 @@ def convert_file(
             builders[key].end_document()
 
     for key in json_keys:
-        builders[key].finalize(f"{output_prefix}_{key}.idx")
+        builders[key].finalize(get_idx_path(f"{output_prefix}_{key}"))

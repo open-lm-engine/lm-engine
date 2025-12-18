@@ -10,6 +10,7 @@ from transformers import GenerationConfig, PreTrainedModel
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
+from ....utils import Accelerator
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
@@ -70,7 +71,10 @@ class PreTrainedModelMixin(PreTrainedModel):
                 assert attention_mask is None, error_message.format(variable="attention_mask")
 
                 input_ids, position_ids, labels, cu_seqlens, max_seqlen = convert_padding_free_lists_to_tensors(
-                    input_ids=input_ids, position_ids=position_ids, labels=labels, device=torch.cuda.current_device()
+                    input_ids=input_ids,
+                    position_ids=position_ids,
+                    labels=labels,
+                    device=Accelerator.get_current_device(),
                 )
             else:
                 assert (

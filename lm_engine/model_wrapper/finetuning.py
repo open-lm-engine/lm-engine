@@ -8,12 +8,11 @@ import torch
 import torch.distributed
 from torch.distributed._tensor.placement_types import Replicate
 
-from ..communication import Communication
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..hf_models import CausalLMOutputWithPast, get_autoregressive_language_modeling_loss
 from ..kernels import is_kernel_allowed
-from ..utils import MetricsTrackingDict, ProcessGroupManager
+from ..utils import Accelerator, Communication, MetricsTrackingDict, ProcessGroupManager
 from .base import ModelWrapper
 
 
@@ -82,7 +81,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
         return output
 
     def _broadcast_inputs_for_tensor_parallel(self, batch: dict) -> dict:
-        device = torch.cuda.current_device()
+        device = Accelerator.get_current_device()
 
         is_tp_first_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
         tp_source_rank = ProcessGroupManager.get_tensor_parallel_first_rank()

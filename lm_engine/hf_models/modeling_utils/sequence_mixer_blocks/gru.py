@@ -8,10 +8,9 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_fma_available
+from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..linear import ParameterizedLinear
@@ -19,9 +18,8 @@ from ..normalization import get_normalization_function
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
-if is_fma_available():
-    from fma import KernelBackend
-    from fma.modules.gru import gru
+if is_xma_available():
+    from xma.layers.gru import gru
 
 
 class GRU(nn.Module):
@@ -52,7 +50,6 @@ class GRU(nn.Module):
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
-        self.is_gated_normalization = normalization_function == "silu_gated_rmsnorm"
 
         std = initializer_range
         if init_method == "mup":
@@ -61,7 +58,7 @@ class GRU(nn.Module):
 
         self.input_projection = ParameterizedLinear(
             self.input_size,
-            3 * self.state_size + (self.state_size if self.is_gated_normalization else 0),
+            4 * self.state_size,
             bias=add_bias,
             std=std,
         )
@@ -108,9 +105,7 @@ class GRU(nn.Module):
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         input = self.input_projection(input)
-
-        if self.is_gated_normalization:
-            input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
+        input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
 
         weight = self.state_weight
 
@@ -136,7 +131,6 @@ class GRU(nn.Module):
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
         )
 
         if not self.use_padding_free_transformer and attention_mask is not None:
@@ -149,10 +143,8 @@ class GRU(nn.Module):
 
         input = input.view(*input.size()[:-2], -1)
 
-        if self.is_gated_normalization:
-            input = self.norm(input, gate)
-        else:
-            input = self.norm(input)
+        input = input * F.silu(gate)
+        input = self.norm(input)
 
         input = self.output_projection(input)
 

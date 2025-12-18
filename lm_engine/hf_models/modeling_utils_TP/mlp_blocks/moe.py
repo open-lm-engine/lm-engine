@@ -14,7 +14,7 @@ from torch.distributed._tensor.placement_types import Partial, Replicate, Shard
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import ProcessGroupManager, divide_if_divisible, is_fma_available
+from ....utils import ProcessGroupManager, divide_if_divisible, is_xma_available
 from ...loss import add_aux_loss
 from ...modeling_utils import MoE, ParameterizedExperts, ParameterizedLinear, get_activation_function, is_glu
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
@@ -22,8 +22,8 @@ from ..dtensor_module import DTensorModule
 from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
-if is_fma_available():
-    from fma.modules.moe import scattered_experts
+if is_xma_available():
+    from xma.layers.moe import scattered_experts
 
 
 class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
@@ -53,7 +53,7 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         num_experts: int,
         in_features: int,
         out_features: int,
-        add_bias: bool = True,
+        add_bias: bool = False,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,
@@ -119,7 +119,7 @@ class RowParallelExperts(ColumnParallelExperts):
         num_experts: int,
         in_features: int,
         out_features: int,
-        add_bias: bool = True,
+        add_bias: bool = False,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
         std: float | None = None,

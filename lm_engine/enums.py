@@ -59,14 +59,13 @@ class ExperimentsTrackerName(Enum):
 
 
 class Kernel(Enum):
-    # FMA
+    # XMA
     causal_conv1d = "causal_conv1d"
     continuous_count = "continuous_count"
     cross_entropy = "cross_entropy"
     fused_linear_cross_entropy = "fused_linear_cross_entropy"
     grouped_gemm = "grouped_gemm"
     gru = "gru"
-    p_norm = "p_norm"
     pack_sequence = "pack_sequence"
     rmsnorm = "rmsnorm"
     rmsnorm_memory_efficient = "rmsnorm_memory_efficient"

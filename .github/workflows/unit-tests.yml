@@ -20,12 +20,14 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.11
+          python-version: 3.12
 
       - name: Installation
         run: |
-          make install-dev
-          pip uninstall -y triton
+          git submodule update --init --recursive
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync --extra dev
+          uv pip uninstall triton
 
       - name: Unit Tests
-        run: make test
+        run: make test-fast

@@ -10,12 +10,12 @@ import torch.nn.functional as F
 
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
-from ...utils import is_fma_available
+from ...utils import is_xma_available
 from ..parameter import mark_parameter_as_no_weight_decay
 
 
-if is_fma_available():
-    from fma import p_norm, rmsnorm
+if is_xma_available():
+    from xma import rmsnorm
 
 
 class RMSNorm(nn.RMSNorm):
@@ -50,32 +50,11 @@ class PNorm(RMSNorm):
         super().__init__(normalized_shape, eps, elementwise_affine, device, dtype)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.p_norm):
-            hidden_states = p_norm(x=hidden_states, p=self.p, weight=self.weight, eps=self.eps)
-        else:
-            dtype = hidden_states.dtype
+        dtype = hidden_states.dtype
 
-            hidden_states = hidden_states.float()
-            hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
-            hidden_states = hidden_states.to(dtype)
-
-            if self.weight is not None:
-                hidden_states = self.weight * hidden_states
-
-        return hidden_states
-
-
-class SiluGatedRMSNorm(RMSNorm):
-    def forward(self, hidden_states: torch.Tensor, gate: torch.Tensor) -> torch.Tensor:
-        input_dtype = hidden_states.dtype
         hidden_states = hidden_states.float()
-
-        hidden_states = hidden_states * F.silu(gate.float())
-
-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
-
-        hidden_states = hidden_states.to(input_dtype)
+        hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
+        hidden_states = hidden_states.to(dtype)
 
         if self.weight is not None:
             hidden_states = self.weight * hidden_states
@@ -83,17 +62,12 @@ class SiluGatedRMSNorm(RMSNorm):
         return hidden_states
 
 
-_NORMALIZATION_FUNCTIONS = {
-    "layernorm": nn.LayerNorm,
-    "p_norm": PNorm,
-    "rmsnorm": RMSNorm,
-    "silu_gated_rmsnorm": SiluGatedRMSNorm,
-}
+_NORMALIZATION_FUNCTIONS = {"layernorm": nn.LayerNorm, "p_norm": PNorm, "rmsnorm": RMSNorm}
 
 
 def get_normalization_function(
     normalization_function: str, normalized_shape: int, eps: float = 1e-5, p: int | None = None
-) -> nn.LayerNorm | RMSNorm | PNorm | SiluGatedRMSNorm:
+) -> nn.LayerNorm | RMSNorm | PNorm:
     if normalization_function is None:
         return nn.Identity()
 

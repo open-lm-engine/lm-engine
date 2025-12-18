@@ -11,5 +11,4 @@ from .gpt_base_TP import (
 )
 from .gpt_crosslayer import GPTCrossLayerConfig, GPTCrossLayerForCausalLM, GPTCrossLayerModel
 from .ladder_residual import LadderResidualConfig, LadderResidualForCausalLM, LadderResidualModel
-from .ladder_residual_TP import LadderResidualForCausalLM_TP, LadderResidualModel_TP
 from .palm import PaLMConfig, PaLMForCausalLM, PaLMModel

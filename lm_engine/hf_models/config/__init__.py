@@ -18,7 +18,6 @@ from .sequence_mixer import (
     _MultiHeadLatentAttentionArgs,
     _RNNArgs,
     _SoftmaxAttentionArgs,
-    _StickbreakingAttentionArgs,
 )
 
 
@@ -71,7 +70,6 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "mamba2": _Mamba2Args,
     "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
-    "stickbreaking_attention": _StickbreakingAttentionArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
 }
 
@@ -175,7 +173,12 @@ class CommonConfig(PretrainedConfig):
         return super().to_json_string(use_diff)
 
     def check_equal_for_all_and_get_value(
-        self, key: str, key_block: str, expected_value: Any | None = None, sequence_mixer_type: str | None = None
+        self,
+        key: str,
+        key_block: str,
+        expected_value: Any | None = None,
+        sequence_mixer_type: str | None = None,
+        mlp_type: str | None = None,
     ) -> Any:
         def _get(block, key):
             return block.get(key) if isinstance(block, dict) else getattr(block, key)
@@ -183,6 +186,10 @@ class CommonConfig(PretrainedConfig):
         blocks = getattr(self, key)
         if sequence_mixer_type is not None:
             blocks = filter(lambda block: _get(block, "sequence_mixer_type") == sequence_mixer_type, blocks)
+            blocks = list(blocks)
+
+        if mlp_type is not None:
+            blocks = filter(lambda block: _get(block, "mlp_type") == mlp_type, blocks)
             blocks = list(blocks)
 
         value = _get(blocks[0], key_block)
@@ -205,7 +212,6 @@ class CommonConfig(PretrainedConfig):
             | _MultiHeadLatentAttentionArgs
             | _RNNArgs
             | _SoftmaxAttentionArgs
-            | _StickbreakingAttentionArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])
