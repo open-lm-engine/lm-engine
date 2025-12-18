@@ -81,4 +81,4 @@ class Kernel(Enum):
     checkpointed_mlp = "checkpointed_mlp"
     ladder_residual_overlapped_layer = "ladder_residual_overlapped_layer"
     # smoe
-    smoe = "smoe"
+    sonicmoe = "sonicmoe"

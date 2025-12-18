@@ -261,7 +261,7 @@ class MoE(nn.Module):
 
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
-        if is_kernel_allowed(Kernel.smoe):
+        if is_kernel_allowed(Kernel.sonicmoe):
             assert self.are_weights_interleaved
             assert self.activation_function_string == "swiglu"
 
