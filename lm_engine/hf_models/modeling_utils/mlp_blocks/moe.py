@@ -278,7 +278,6 @@ class MoE(nn.Module):
             )
         else:
             router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
-
             moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
 
         if self.shared_intermediate_size is None:
