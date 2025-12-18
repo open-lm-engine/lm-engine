@@ -9,13 +9,12 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from smoe.smoe import MoE_Function
 from torch.distributed._functional_collectives import all_reduce
 from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, is_xma_available
+from ....utils import ProcessGroupManager, is_sonicmoe_available, is_xma_available
 from ...loss import add_aux_loss
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
@@ -26,6 +25,10 @@ from .mlp import _get_std_for_linear
 if is_xma_available():
     from xma import continuous_count
     from xma.layers.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
+
+
+if is_sonicmoe_available():
+    from sonicmoe import moe_TC_softmax_topk_layer
 
 
 # TODO add support for combileable bincount in PyTorch directly
@@ -157,6 +160,7 @@ class MoE(nn.Module):
         hidden_size: int,
         intermediate_size: int,
         shared_intermediate_size: int,
+        are_weights_interleaved: bool,
         shared_expert_gating: bool,
         normalized_topk: bool,
         num_experts: int,
@@ -180,6 +184,7 @@ class MoE(nn.Module):
         self.shared_intermediate_size = shared_intermediate_size
         self.shared_expert_gating = shared_expert_gating
         self.normalized_topk = normalized_topk
+        self.are_weights_interleaved = are_weights_interleaved
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
@@ -214,6 +219,7 @@ class MoE(nn.Module):
                 std=std,
             )
 
+        self.activation_function_string = activation_function
         self.act = get_activation_function(activation_function)
 
         std /= math.sqrt(2 * num_layers)
@@ -256,13 +262,19 @@ class MoE(nn.Module):
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
         if is_kernel_allowed(Kernel.smoe):
-            hidden_states, router_logits, expert_frequency = MoE_Function.apply(
-                hidden_states,
-                self.gate.weight,
-                self.c_fc.weight.permute(1, 2, 0),
-                self.c_proj.weight.permute(1, 2, 0),
-                self.top_k,
-                self.stream_id,
+            assert self.are_weights_interleaved
+            assert self.activation_function_string == "swiglu"
+
+            hidden_states, router_logits, expert_frequency = moe_TC_softmax_topk_layer(
+                x=hidden_states,
+                router_w=self.gate.weight,
+                w1=self.c_fc.weight.permute(1, 2, 0),
+                b1=self.c_fc.bias,
+                w2=self.c_proj.weight.permute(1, 2, 0),
+                b2=self.c_proj.bias,
+                K=self.top_k,
+                stream_id=self.stream_id,
+                is_inference_mode_enabled=False,
             )
         else:
             router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
