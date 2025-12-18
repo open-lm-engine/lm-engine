@@ -160,7 +160,7 @@ class MoE(nn.Module):
         hidden_size: int,
         intermediate_size: int,
         shared_intermediate_size: int,
-        are_weights_interleaved: bool,
+        use_interleaved_weights: bool,
         shared_expert_gating: bool,
         normalized_topk: bool,
         num_experts: int,
@@ -184,7 +184,7 @@ class MoE(nn.Module):
         self.shared_intermediate_size = shared_intermediate_size
         self.shared_expert_gating = shared_expert_gating
         self.normalized_topk = normalized_topk
-        self.are_weights_interleaved = are_weights_interleaved
+        self.use_interleaved_weights = use_interleaved_weights
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
@@ -262,7 +262,7 @@ class MoE(nn.Module):
         hidden_states = hidden_states.view(-1, self.hidden_size)
 
         if is_kernel_allowed(Kernel.sonicmoe):
-            assert self.are_weights_interleaved
+            assert self.use_interleaved_weights
             assert self.activation_function_string == "swiglu"
 
             hidden_states, router_logits, expert_frequency = moe_TC_softmax_topk_layer(

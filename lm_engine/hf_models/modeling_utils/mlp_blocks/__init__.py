@@ -29,7 +29,7 @@ def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, laye
         mlp = MoE(
             **kwargs,
             shared_intermediate_size=block.shared_intermediate_size,
-            are_weights_interleaved=block.are_weights_interleaved,
+            use_interleaved_weights=block.use_interleaved_weights,
             shared_expert_gating=block.shared_expert_gating,
             normalized_topk=block.normalized_topk,
             num_experts=block.num_experts,
