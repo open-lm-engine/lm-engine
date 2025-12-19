@@ -80,7 +80,7 @@ def get_autoregressive_language_modeling_loss(
             lm_logits = tensor_to_dtensor(lm_logits, device_mesh=tp_mesh, current_placement=Shard(-1))
             labels = tensor_to_dtensor(labels, device_mesh=tp_mesh, current_placement=Replicate())
 
-        lm_logits = lm_logits.float()
+        # lm_logits = lm_logits.float()
 
         with loss_context():
             loss = F.cross_entropy(
