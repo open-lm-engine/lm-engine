@@ -41,7 +41,7 @@ model_args:
     model_type: gpt_base
     normalization_function: rmsnorm
     position_embedding_type: nope
-    hidden_size: 1024
+    hidden_size: 1536
     # m_width: 4
     # m_emb: 12
     # m_residual: 0.2840187787
@@ -59,9 +59,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -73,9 +73,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -87,9 +87,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -101,9 +101,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -115,9 +115,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -129,9 +129,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -143,9 +143,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -157,9 +157,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -171,9 +171,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -185,9 +185,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -199,9 +199,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -213,9 +213,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -227,9 +227,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -241,9 +241,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -255,9 +255,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -269,9 +269,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -283,9 +283,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -297,9 +297,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -311,9 +311,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -325,9 +325,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -339,9 +339,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -353,9 +353,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -367,9 +367,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -381,9 +381,9 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
+        num_v_heads: 190
         num_f_heads: 1
-        num_weight_heads: 84
+        num_weight_heads: 190
         use_residual: true
         activation_function: silu
         normalization_function: rmsnorm
@@ -565,11 +565,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/rsa-2.5b-mva-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints/rsa-4b-mva-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/rsa-2.5b-mva-cosine
+#   load_path: /mnt/vast/proj/checkpoints/mayank/rsa-4b-mva-cosine
 
 logging_args:
   log_interval: 10
@@ -577,7 +577,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: rsa
-    name: rsa-2.5b-mva-cosine
+    name: rsa-4b-mva-cosine
 
 training_parameters:
   num_training_steps: 25000
