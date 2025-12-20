@@ -19,8 +19,14 @@ from types import TracebackType
 import numpy as np
 import torch
 
-from ...utils import log_rank_0
+from ...defaults import MSC_PREFIX
+from ...utils import is_multi_storage_client_available, log_rank_0
+from .bin import _MMapBinReader, _MultiStorageClientBinReader
 from .dtype import DType
+
+
+if is_multi_storage_client_available():
+    import multistorageclient as msc
 
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"
@@ -45,7 +51,7 @@ class _IndexWriter:
         Returns:
             _IndexWriter: The instance
         """
-        self.idx_writer = open(self.idx_path, "wb")
+        self.idx_writer = (msc.open if self.idx_path.startswith(MSC_PREFIX) else open)(self.idx_path, "wb")
         # fixed, vestigial practice
         self.idx_writer.write(_INDEX_HEADER)
         # fixed, vestigial practice
@@ -254,33 +260,21 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         multimodal (bool, optional): Whether the dataset is multimodal. Defaults to False.
     """
 
-    def __init__(self, path_prefix: str, multimodal: bool = False) -> MMapIndexedDataset:
+    def __init__(self, path_prefix: str, multimodal: bool = False, idx_path: str | None = None) -> MMapIndexedDataset:
         super().__init__()
-        self.path_prefix = None
-        self.multimodal = None
+        self.initialize(path_prefix, multimodal, idx_path)
 
-        self.index = None
-        self.bin_buffer = None
-        self.bin_buffer_mmap = None
+    def initialize(self, path_prefix: str, multimodal: bool, idx_path: str | None) -> None:
+        is_object_storage = path_prefix.startswith(MSC_PREFIX)
 
-        self.initialize(path_prefix, multimodal)
-
-    def initialize(self, path_prefix: str, multimodal: bool) -> None:
-        """Initialize the dataset
-
-        This method is called by MMapIndexedDataset.__init__ during object creation and by
-        MMapIndexedDataset.__setstate__ during un-puckling
-
-        Args:
-            path_prefix (str): The index (.idx) and data (.bin) prefix
-
-            multimodal (bool): Whether the dataset is multimodal
-        """
         self.path_prefix = path_prefix
         self.multimodal = multimodal
-        self.index = _IndexReader(get_idx_path(self.path_prefix), self.multimodal)
-        self.bin_buffer_mmap = np.memmap(get_bin_path(self.path_prefix), mode="r", order="C")
-        self.bin_buffer = memoryview(self.bin_buffer_mmap)
+        self.idx_path = idx_path
+
+        self.index = _IndexReader(get_idx_path(path_prefix) if idx_path is None else idx_path, self.multimodal)
+        self.bin_reader = (_MultiStorageClientBinReader if is_object_storage else _MMapBinReader)(
+            get_bin_path(self.path_prefix)
+        )
 
     def __getstate__(self) -> tuple[str, bool]:
         """Get the state during pickling
@@ -288,7 +282,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         Returns:
             tuple[str, bool]: The state tuple
         """
-        return self.path_prefix, self.multimodal
+        return self.path_prefix, self.multimodal, self.idx_path
 
     def __setstate__(self, state: tuple[str, bool]) -> None:
         """Set the state during un-pickling
@@ -296,15 +290,8 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         Args:
             state (tuple[str, bool]): The state tuple
         """
-        path_prefix, multimodal = state
-        self.initialize(path_prefix, multimodal)
-
-    def __del__(self) -> None:
-        """Clean up the object"""
-        if self.bin_buffer_mmap is not None:
-            self.bin_buffer_mmap._mmap.close()
-        del self.bin_buffer_mmap
-        del self.index
+        path_prefix, multimodal, idx_path = state
+        self.initialize(path_prefix, multimodal, idx_path)
 
     def __len__(self) -> int:
         """Return the length of the dataset i.e. the number of sequences in the index
@@ -330,12 +317,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         """
         if isinstance(idx, (int, np.integer)):
             sequence_pointer, sequence_length, sequence_mode = self.index[idx]
-            sequence = np.frombuffer(
-                self.bin_buffer,
-                dtype=self.index.dtype,
-                count=sequence_length,
-                offset=sequence_pointer,
-            )
+            sequence = self.bin_reader.read(dtype=self.index.dtype, count=sequence_length, offset=sequence_pointer)
             return (sequence, sequence_mode) if sequence_mode is not None else sequence
         elif isinstance(idx, slice):
             start, stop, step = idx.indices(len(self))
@@ -345,11 +327,8 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
             sequence_modes = self.index.sequence_modes[idx] if self.multimodal else None
             sequence_offsets = list(accumulate(sequence_lengths))
             sequences = np.split(
-                np.frombuffer(
-                    self.bin_buffer,
-                    dtype=self.index.dtype,
-                    count=sum(sequence_lengths),
-                    offset=self.index.sequence_pointers[start],
+                self.bin_reader.read(
+                    dtype=self.index.dtype, count=sum(sequence_lengths), offset=self.index.sequence_pointers[start]
                 ),
                 sequence_offsets[:-1],
             )
@@ -370,7 +349,7 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         if length is None:
             length = sequence_length - offset
         sequence_pointer += offset * DType.size(self.index.dtype)
-        sequence = np.frombuffer(self.bin_buffer, dtype=self.index.dtype, count=length, offset=sequence_pointer)
+        sequence = self.bin_reader.read(dtype=self.index.dtype, count=length, offset=sequence_pointer)
         return (sequence, sequence_mode) if sequence_mode is not None else sequence
 
     @property

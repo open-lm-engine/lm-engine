@@ -1,0 +1,24 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mayank-data-pv
+spec:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 100Gi
+  storageClassName: mayank-storage-class 
+  mountOptions:
+    - implicit-dirs
+    - file-cache:enable-parallel-downloads:true
+    - file-cache:max-size-mb:8192
+  csi:
+    driver: gcsfuse.csi.storage.gke.io
+    volumeHandle: mayank-data
+  claimRef:
+    name: mayank-data-pvc
+    namespace: default

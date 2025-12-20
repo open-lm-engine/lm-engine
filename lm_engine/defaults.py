@@ -4,3 +4,5 @@
 
 INPUT_FORMAT = "__input__"
 OUTPUT_FORMAT = "__output__"
+
+MSC_PREFIX = "msc://"

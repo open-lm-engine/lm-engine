@@ -225,7 +225,30 @@ def wrap_model_container_for_distributed_training(
     marker_maps = _get_parameter_marker_maps(model_container)
     accelerator = Accelerator.get_accelerator()
 
-    if accelerator == Accelerator.cuda:
+    if accelerator == Accelerator.tpu:
+        assert (
+            ProcessGroupManager.get_data_parallel_world_size()
+            == ProcessGroupManager.get_data_parallel_sharding_world_size()
+        )
+
+        assert num_pipeline_stages == 1
+        assert fsdp_algorithm == 1
+        assert not torch_compile
+
+        for i, model in enumerate(model_container):
+            model_container[i] = XLA_FSDP(
+                model,
+                compute_dtype=torch.bfloat16,
+                buffer_dtype=torch.bfloat16,
+                sharding_groups=[
+                    torch.distributed.get_process_group_ranks(ProcessGroupManager.get_data_parallel_group())
+                ],
+                sharding_rank=ProcessGroupManager.get_data_parallel_rank(),
+                sharding_world_size=ProcessGroupManager.get_data_parallel_sharding_world_size(),
+                auto_wrap_policy=partial(xla_transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
+                param_init_fn=_param_init_fsdp_1 if efficient_initialization else None,
+            )
+    else:
         use_ddp = (stage == 0 or data_parallel_sharding_world_size == 1) and num_pipeline_stages == 1
 
         mixed_precision_policy = _get_fsdp_mixed_precision(
@@ -281,24 +304,26 @@ def wrap_model_container_for_distributed_training(
                 )
 
                 if efficient_initialization:
+                    device = Accelerator.get_current_device()
+
                     # contributed by Yu Chin Fabian Lim
                     # original reference https://github.com/fabianlim/accelerate/pull/1
                     if model_name is None:
-                        model = model.to_empty(device=torch.cuda.current_device())
+                        model = model.to_empty(device=device)
 
                         for module in model.modules():
                             if hasattr(module, "reset_parameters"):
-                                with torch.device(torch.cuda.current_device()):
+                                with torch.device(device):
                                     module.reset_parameters()
                     else:
                         if ProcessGroupManager.get_data_parallel_rank() == 0:
-                            model = model.to(torch.cuda.current_device())
+                            model = model.to(device)
                         else:
-                            model = model.to_empty(device=torch.cuda.current_device())
+                            model = model.to_empty(device=device)
 
                             for module in model.modules():
                                 if hasattr(module, "reset_parameters"):
-                                    with torch.device(torch.cuda.current_device()):
+                                    with torch.device(device):
                                         module.reset_parameters()
 
                         # state dict with DTensors
@@ -308,9 +333,7 @@ def wrap_model_container_for_distributed_training(
                             if ProcessGroupManager.get_data_parallel_rank() == 0:
                                 full_tensor = param
                             else:
-                                full_tensor = torch.empty(
-                                    param.shape, dtype=param.dtype, device=torch.cuda.current_device()
-                                )
+                                full_tensor = torch.empty(param.shape, dtype=param.dtype, device=device)
 
                             new_state_dict[param_name] = distribute_tensor(
                                 full_tensor,
@@ -337,7 +360,7 @@ def wrap_model_container_for_distributed_training(
                     cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
                     mixed_precision=mixed_precision_policy,
                     auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
-                    device_id=torch.cuda.current_device(),
+                    device_id=Accelerator.get_current_device(),
                     limit_all_gathers=True,
                     use_orig_params=True,
                     # https://github.com/meta-llama/llama-recipes/blob/492455dc080f6c25f356e283e443be0cce86aaeb/src/llama_recipes/finetuning.py#L191
@@ -347,29 +370,6 @@ def wrap_model_container_for_distributed_training(
                 )
         else:
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
-    elif accelerator == Accelerator.tpu:
-        assert (
-            ProcessGroupManager.get_data_parallel_world_size()
-            == ProcessGroupManager.get_data_parallel_sharding_world_size()
-        )
-
-        assert num_pipeline_stages == 1
-        assert fsdp_algorithm == 1
-        assert not torch_compile
-
-        for i, model in enumerate(model_container):
-            model_container[i] = XLA_FSDP(
-                model,
-                compute_dtype=torch.bfloat16,
-                buffer_dtype=torch.bfloat16,
-                sharding_groups=[
-                    torch.distributed.get_process_group_ranks(ProcessGroupManager.get_data_parallel_group())
-                ],
-                sharding_rank=ProcessGroupManager.get_data_parallel_rank(),
-                sharding_world_size=ProcessGroupManager.get_data_parallel_sharding_world_size(),
-                auto_wrap_policy=partial(xla_transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
-                param_init_fn=_param_init_fsdp_1 if efficient_initialization else None,
-            )
 
     if torch_compile:
         log_rank_0(logging.INFO, "using torch compile")
@@ -411,7 +411,7 @@ def wrap_model_container_for_distributed_training(
                 model,
                 stage_index=model.pipeline_stage_id,
                 num_stages=num_pipeline_stages,
-                device=torch.cuda.current_device(),
+                device=Accelerator.get_current_device(),
                 input_args=dummy_input_tensor,
                 output_args=dummy_output_tensor,
                 group=ProcessGroupManager.get_pipeline_parallel_group(),
@@ -453,12 +453,14 @@ def wrap_model_container_for_distributed_training(
 def _param_init_fsdp_1(module: nn.Module, teacher_block_names: list[str], model_name: str) -> None:
     assert len(teacher_block_names) == 0, "efficient initialization doesn't support distillation"
 
+    device = Accelerator.get_current_device()
+
     if model_name is None:
-        module = module.to_empty(device=torch.cuda.current_device())
+        module = module.to_empty(device=device)
 
         if hasattr(module, "reset_parameters"):
             with torch.no_grad():
                 module.reset_parameters()
     else:
         if ProcessGroupManager.get_data_parallel_rank() != 0:
-            module = module.to_empty(device=torch.cuda.current_device())
+            module = module.to_empty(device=device)
