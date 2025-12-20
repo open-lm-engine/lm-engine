@@ -27,7 +27,7 @@ kernel_args:
   kernels:
     - rnn
     - gru
-    - sonicmoe
+    - scattermoe
     - mamba2_ssm
     - causal_conv1d
     - flash_attention_2
