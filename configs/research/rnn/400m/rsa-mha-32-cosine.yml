@@ -50,10 +50,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -64,10 +64,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -78,10 +78,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -92,10 +92,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -106,10 +106,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -120,10 +120,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -134,10 +134,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -148,10 +148,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -162,10 +162,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -176,10 +176,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -190,10 +190,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -204,10 +204,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -218,10 +218,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -232,10 +232,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -246,10 +246,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -260,10 +260,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -274,10 +274,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -288,10 +288,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -302,10 +302,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -316,10 +316,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -330,10 +330,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -344,10 +344,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -358,10 +358,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
@@ -372,10 +372,10 @@ model_args:
       - sequence_mixer_type: rsa
         k_head_dim: 16
         v_head_dim: 32
-        num_q_heads: 1
-        num_k_heads: 1
+        num_q_heads: 28
+        num_k_heads: 28
         num_v_heads: 28
-        num_f_heads: 1
+        num_f_heads: 28
         num_weight_heads: 28
         use_residual: true
         activation_function: silu
