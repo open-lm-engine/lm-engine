@@ -486,11 +486,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/rsa-mva-16-400m-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints/rsa-mva-400m-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/rsa-mva-16-400m-cosine
+#   load_path: /mnt/vast/proj/checkpoints/mayank/rsa-mva-400m-cosine
 
 logging_args:
   log_interval: 10
@@ -498,7 +498,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: rsa
-    name: rsa-mva-16-400m-cosine
+    name: rsa-mva-400m-cosine
 
 training_parameters:
   num_training_steps: 25000
