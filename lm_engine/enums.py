@@ -77,7 +77,6 @@ class Kernel(Enum):
     mamba2_ssm = "mamba2_ssm"
     scattermoe = "scattermoe"
     # custom functions
-    checkpointed_mlp = "checkpointed_mlp"
     ladder_residual_overlapped_layer = "ladder_residual_overlapped_layer"
     # sonicmoe
     sonicmoe = "sonicmoe"

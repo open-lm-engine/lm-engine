@@ -336,24 +336,17 @@ class MoE(nn.Module):
                 grouped_out=True,
             )
 
-            def _output_projection(x: torch.Tensor) -> torch.Tensor:
-                x = self.act(x)
-                x = self.c_proj(
-                    input=x,
-                    num_experts_per_token=1,
-                    sorted_expert_idxs=sorted_expert_idxs,
-                    sorted_scattered_idxs=sorted_scattered_idxs,
-                    expert_offsets=expert_offsets,
-                    grouped_in=True,
-                    gates=router_weights,
-                )
+            hidden_states = self.act(hidden_states)
 
-                return x
-
-            if is_kernel_allowed(Kernel.checkpointed_mlp):
-                hidden_states = checkpoint(_output_projection, hidden_states, use_reentrant=False)
-            else:
-                hidden_states = _output_projection(hidden_states)
+            hidden_states = self.c_proj(
+                input=hidden_states,
+                num_experts_per_token=1,
+                sorted_expert_idxs=sorted_expert_idxs,
+                sorted_scattered_idxs=sorted_scattered_idxs,
+                expert_offsets=expert_offsets,
+                grouped_in=True,
+                gates=router_weights,
+            )
 
             hidden_states = self.dropout(hidden_states)
         else:
