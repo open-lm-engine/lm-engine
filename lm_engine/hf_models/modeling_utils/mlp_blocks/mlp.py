@@ -8,10 +8,7 @@ import math
 
 import torch
 import torch.nn as nn
-from torch.utils.checkpoint import checkpoint
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import get_activation_function, is_glu
 from ..linear import ParameterizedLinear
