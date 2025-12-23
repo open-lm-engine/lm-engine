@@ -76,7 +76,6 @@ class ProcessGroupManager:
         global _LOCAL_RANK
         global _WORLD_SIZE
         global _DATA_PARALLEL_WORLD_SIZE
-        global _TENSOR_PARALLEL_WORLD_SIZE
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -128,7 +127,6 @@ class ProcessGroupManager:
 
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
-        _TENSOR_PARALLEL_WORLD_SIZE = tensor_parallel_world_size
 
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
         _MESH = init_device_mesh(
@@ -182,6 +180,9 @@ class ProcessGroupManager:
     # tensor parallel
     @staticmethod
     def get_tensor_parallel_mesh() -> DeviceMesh:
+        if not ProcessGroupManager.is_initialized():
+            return 1
+
         global _TENSOR_PARALLEL_MESH
 
         if _TENSOR_PARALLEL_MESH is None:
