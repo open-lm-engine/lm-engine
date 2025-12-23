@@ -18,7 +18,7 @@ class Dropout(nn.Dropout):
     ) -> Dropout:
         super().__init__(p)
 
-        self.is_tp_enabled = ProcessGroupManager.is_initialized() and ProcessGroupManager.is_tensor_parallel_enabled()
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
         if self.is_tp_enabled:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
