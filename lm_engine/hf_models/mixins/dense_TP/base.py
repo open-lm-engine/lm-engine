@@ -10,8 +10,8 @@ import torch.nn as nn
 from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...modeling_utils import RoPE, YaRNScaledRoPE
-from ...modeling_utils_TP import Dropout_TP, Embedding_TP, get_normalization_function_TP
+from ...modeling_utils import Dropout, RoPE, YaRNScaledRoPE
+from ...modeling_utils_TP import Embedding_TP, get_normalization_function_TP
 from ...utils import is_generation_cache_enabled
 from ..dense import BaseModelMixin, PreTrainedModelMixin
 from ..modeling_outputs import BaseModelOutputWithPast
@@ -65,7 +65,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
             self.embedding_dropout = (
                 nn.Identity()
                 if config.embedding_dropout == 0
-                else Dropout_TP(
+                else Dropout(
                     config.embedding_dropout,
                     use_padding_free_transformer=self.use_padding_free_transformer,
                     sequence_parallel=self.sequence_parallel,

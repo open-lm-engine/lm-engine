@@ -225,7 +225,7 @@ class MoE(nn.Module):
                 std=std,
             )
 
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.dropout = nn.Identity() if dropout == 0 else Dropout(dropout)
 
         self.is_hopper_or_newer_gpu = torch.cuda.is_available() and torch.cuda.get_device_capability(
             torch.cuda.current_device()
