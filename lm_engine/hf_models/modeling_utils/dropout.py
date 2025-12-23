@@ -18,9 +18,11 @@ class Dropout(nn.Dropout):
     ) -> Dropout:
         super().__init__(p)
 
-        self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+
+        if self.is_tp_enabled:
+            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
+            self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # early exit
