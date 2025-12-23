@@ -34,7 +34,7 @@ def main() -> None:
 --version={script['node']['version']} \
 --accelerator-type={script['node']['accelerator']}"""
 
-            if script.get("spot", False):
+            if script["node"].get("spot", False):
                 command += " --spot"
 
             if script["node"].get("disks", None):

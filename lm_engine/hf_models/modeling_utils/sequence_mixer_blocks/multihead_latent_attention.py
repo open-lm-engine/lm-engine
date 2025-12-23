@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ...cache import GenerationCache
+from ..dropout import Dropout
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .utils import flash_attention
@@ -104,8 +105,8 @@ class MultiHeadLatentAttention(nn.Module):
 
         self.softmax_dropout_p = softmax_dropout
 
-        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else nn.Dropout(softmax_dropout)
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.softmax_dropout = Dropout(softmax_dropout)
+        self.dropout = Dropout(dropout)
 
     def forward(
         self,

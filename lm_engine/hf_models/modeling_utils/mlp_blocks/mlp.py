@@ -8,12 +8,10 @@ import math
 
 import torch
 import torch.nn as nn
-from torch.utils.checkpoint import checkpoint
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import get_activation_function, is_glu
+from ..dropout import Dropout
 from ..linear import ParameterizedLinear
 
 
@@ -47,27 +45,17 @@ class MLP(nn.Module):
             intermediate_size, hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
         )
 
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.dropout = Dropout(dropout)
 
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        hidden_states = self.c_fc(hidden_states)
-
-        def _output_projection(x: torch.Tensor) -> torch.Tensor:
-            x = self.act(x)
-            x = self.c_proj(x)
-            return x
-
-        if is_kernel_allowed(Kernel.checkpointed_mlp):
-            hidden_states = checkpoint(_output_projection, hidden_states, use_reentrant=False)
-        else:
-            hidden_states = _output_projection(hidden_states)
-
-        hidden_states = self.dropout(hidden_states)
-
-        return hidden_states
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.c_fc(x)
+        x = self.act(x)
+        x = self.c_proj(x)
+        x = self.dropout(x)
+        return x
 
 
 def _get_std_for_linear(initializer_range: float, init_method: str, m_width: float | None) -> float:

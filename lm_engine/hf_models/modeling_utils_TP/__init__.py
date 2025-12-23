@@ -2,7 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from .dropout import Dropout_TP
 from .dtensor_module import DTensorModule
 from .embedding import Embedding_TP, get_tensor_parallel_vocab_info
 from .linear import ColumnParallelLinear, RowParallelLinear

@@ -10,7 +10,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
-from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
@@ -18,19 +17,14 @@ from ....utils import ProcessGroupManager, is_sonicmoe_available, is_xma_availab
 from ...loss import add_aux_loss
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
+from ..dropout import Dropout
 from ..linear import ParameterizedLinear
 from .mlp import _get_std_for_linear
 
 
 if is_xma_available():
     from xma import continuous_count
-    from xma.layers.moe import (
-        down_projection_experts,
-        group_with_padding,
-        grouped_gemm_experts,
-        ungroup_with_padding,
-        up_projection_experts,
-    )
+    from xma.layers.moe import down_projection_experts, up_projection_experts
 
 
 if is_sonicmoe_available():
@@ -94,20 +88,7 @@ class ParameterizedExperts(nn.Module):
         grouped_in: bool = False,
         grouped_out: bool = False,
     ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.grouped_gemm):
-            assert self.bias is None
-            assert num_experts_per_token is None
-            assert sorted_expert_idxs is None
-            assert sorted_scattered_idxs is None
-            assert expert_offsets is None
-            assert gates is None
-            assert not grouped_in
-            assert not grouped_out
-
-            input = grouped_gemm_experts(
-                x=input, weight=self.weight, M_array=expert_frequency, N_array=self.N_array, K_array=self.K_array
-            )
-        elif is_kernel_allowed(Kernel.scattermoe):
+        if is_kernel_allowed(Kernel.scattermoe):
             assert self.bias is None
 
             if gates is None:
@@ -241,7 +222,7 @@ class MoE(nn.Module):
                 std=std,
             )
 
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.dropout = Dropout(dropout)
 
         self.is_hopper_or_newer_gpu = torch.cuda.is_available() and torch.cuda.get_device_capability(
             torch.cuda.current_device()
@@ -279,6 +260,8 @@ class MoE(nn.Module):
                 is_inference_mode_enabled=False,
             )
         else:
+            assert not self.use_interleaved_weights
+
             router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
             moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
 
@@ -336,52 +319,7 @@ class MoE(nn.Module):
 
         T = hidden_states.size(0)
 
-        if is_kernel_allowed(Kernel.grouped_gemm):
-
-            def _input_projection(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-                x, padded_expert_frequency, expert_padding_offset = group_with_padding(
-                    x=x,
-                    expert_frequency=expert_frequency,
-                    sorted_idxs=sorted_expert_idxs,
-                    scattered_idxs=sorted_scattered_idxs,
-                    top_k=self.top_k,
-                    pad_to_multiple_of=8,
-                )
-
-                x = self.c_fc(input=x, expert_frequency=padded_expert_frequency)
-
-                return x, padded_expert_frequency, expert_padding_offset
-
-            def _output_projection(x: torch.Tensor, padded_expert_frequency: torch.Tensor) -> torch.Tensor:
-                x = self.act(x)
-                x = self.c_proj(input=x, expert_frequency=padded_expert_frequency)
-                return x
-
-            if is_kernel_allowed(Kernel.checkpointed_mlp):
-                hidden_states, padded_expert_frequency, expert_padding_offset = checkpoint(
-                    _input_projection, hidden_states, use_reentrant=False
-                )
-
-                hidden_states = checkpoint(
-                    _output_projection, hidden_states, padded_expert_frequency, use_reentrant=False
-                )
-            else:
-                hidden_states, padded_expert_frequency, expert_padding_offset = _input_projection(hidden_states)
-                hidden_states = _output_projection(hidden_states, padded_expert_frequency)
-
-            hidden_states = ungroup_with_padding(
-                x=hidden_states,
-                expert_padding_offset=expert_padding_offset,
-                sorted_idxs=sorted_expert_idxs,
-                scattered_idxs=sorted_scattered_idxs,
-                top_k=self.top_k,
-                num_tokens=T,
-                pad_to_multiple_of=8,
-            )
-
-            hidden_states = torch.bmm(router_weights.unsqueeze(1), hidden_states)
-            hidden_states = hidden_states.squeeze(1)
-        elif is_kernel_allowed(Kernel.scattermoe):
+        if is_kernel_allowed(Kernel.scattermoe):
             with torch.no_grad():
                 expert_offsets = expert_frequency.cumsum(-1)
 
@@ -394,24 +332,17 @@ class MoE(nn.Module):
                 grouped_out=True,
             )
 
-            def _output_projection(x: torch.Tensor) -> torch.Tensor:
-                x = self.act(x)
-                x = self.c_proj(
-                    input=x,
-                    num_experts_per_token=1,
-                    sorted_expert_idxs=sorted_expert_idxs,
-                    sorted_scattered_idxs=sorted_scattered_idxs,
-                    expert_offsets=expert_offsets,
-                    grouped_in=True,
-                    gates=router_weights,
-                )
+            hidden_states = self.act(hidden_states)
 
-                return x
-
-            if is_kernel_allowed(Kernel.checkpointed_mlp):
-                hidden_states = checkpoint(_output_projection, hidden_states, use_reentrant=False)
-            else:
-                hidden_states = _output_projection(hidden_states)
+            hidden_states = self.c_proj(
+                input=hidden_states,
+                num_experts_per_token=1,
+                sorted_expert_idxs=sorted_expert_idxs,
+                sorted_scattered_idxs=sorted_scattered_idxs,
+                expert_offsets=expert_offsets,
+                grouped_in=True,
+                gates=router_weights,
+            )
 
             hidden_states = self.dropout(hidden_states)
         else:
