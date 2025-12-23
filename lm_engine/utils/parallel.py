@@ -253,7 +253,7 @@ class ProcessGroupManager:
 
     @staticmethod
     def is_tensor_parallel_enabled() -> bool:
-        return ProcessGroupManager.get_tensor_parallel_world_size() > 1
+        return ProcessGroupManager.is_initialized() and ProcessGroupManager.get_tensor_parallel_world_size() > 1
 
     @staticmethod
     def is_tensor_parallel_first_rank() -> bool:
