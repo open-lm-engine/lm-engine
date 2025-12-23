@@ -24,7 +24,7 @@ from .mlp import _get_std_for_linear
 
 if is_xma_available():
     from xma import continuous_count
-    from xma.layers.moe import group_with_padding, grouped_gemm_experts, scattered_experts, ungroup_with_padding
+    from xma.layers.moe import scattered_experts
 
 
 if is_sonicmoe_available():
@@ -100,20 +100,7 @@ class ParameterizedExperts(nn.Module):
         grouped_in: bool = False,
         grouped_out: bool = False,
     ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.grouped_gemm):
-            assert self.bias is None
-            assert num_experts_per_token is None
-            assert sorted_expert_idxs is None
-            assert sorted_scattered_idxs is None
-            assert expert_offsets is None
-            assert gates is None
-            assert not grouped_in
-            assert not grouped_out
-
-            input = grouped_gemm_experts(
-                x=input, weight=self.weight, M_array=expert_frequency, N_array=self.N_array, K_array=self.K_array
-            )
-        elif is_kernel_allowed(Kernel.scattermoe):
+        if is_kernel_allowed(Kernel.scattermoe):
             assert self.bias is None
 
             input = scattered_experts(
@@ -334,52 +321,7 @@ class MoE(nn.Module):
 
         T = hidden_states.size(0)
 
-        if is_kernel_allowed(Kernel.grouped_gemm):
-
-            def _input_projection(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-                x, padded_expert_frequency, expert_padding_offset = group_with_padding(
-                    x=x,
-                    expert_frequency=expert_frequency,
-                    sorted_idxs=sorted_expert_idxs,
-                    scattered_idxs=sorted_scattered_idxs,
-                    top_k=self.top_k,
-                    pad_to_multiple_of=8,
-                )
-
-                x = self.c_fc(input=x, expert_frequency=padded_expert_frequency)
-
-                return x, padded_expert_frequency, expert_padding_offset
-
-            def _output_projection(x: torch.Tensor, padded_expert_frequency: torch.Tensor) -> torch.Tensor:
-                x = self.act(x)
-                x = self.c_proj(input=x, expert_frequency=padded_expert_frequency)
-                return x
-
-            if is_kernel_allowed(Kernel.checkpointed_mlp):
-                hidden_states, padded_expert_frequency, expert_padding_offset = checkpoint(
-                    _input_projection, hidden_states, use_reentrant=False
-                )
-
-                hidden_states = checkpoint(
-                    _output_projection, hidden_states, padded_expert_frequency, use_reentrant=False
-                )
-            else:
-                hidden_states, padded_expert_frequency, expert_padding_offset = _input_projection(hidden_states)
-                hidden_states = _output_projection(hidden_states, padded_expert_frequency)
-
-            hidden_states = ungroup_with_padding(
-                x=hidden_states,
-                expert_padding_offset=expert_padding_offset,
-                sorted_idxs=sorted_expert_idxs,
-                scattered_idxs=sorted_scattered_idxs,
-                top_k=self.top_k,
-                num_tokens=T,
-                pad_to_multiple_of=8,
-            )
-
-            hidden_states = torch.bmm(router_weights.unsqueeze(1), hidden_states)
-            hidden_states = hidden_states.squeeze(1)
-        elif is_kernel_allowed(Kernel.scattermoe):
+        if is_kernel_allowed(Kernel.scattermoe):
             with torch.no_grad():
                 expert_offsets = expert_frequency.cumsum(-1)
 

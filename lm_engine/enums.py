@@ -64,7 +64,6 @@ class Kernel(Enum):
     continuous_count = "continuous_count"
     cross_entropy = "cross_entropy"
     fused_linear_cross_entropy = "fused_linear_cross_entropy"
-    grouped_gemm = "grouped_gemm"
     gru = "gru"
     pack_sequence = "pack_sequence"
     rmsnorm = "rmsnorm"
