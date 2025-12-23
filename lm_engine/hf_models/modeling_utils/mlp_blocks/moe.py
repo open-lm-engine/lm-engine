@@ -264,6 +264,8 @@ class MoE(nn.Module):
                 is_inference_mode_enabled=False,
             )
         else:
+            assert not self.use_interleaved_weights
+
             router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
             moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
 
