@@ -107,7 +107,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         self.wte = ParameterizedEmbedding(config.vocab_size, self.embed_dim, std=self.initializer_range)
 
-        self.embedding_dropout = nn.Identity() if config.embedding_dropout == 0 else Dropout(config.embedding_dropout)
+        self.embedding_dropout = Dropout(config.embedding_dropout)
         self.h = nn.ModuleList(
             [
                 self.layer_class(config, use_padding_free_transformer=self.use_padding_free_transformer, layer_idx=i)

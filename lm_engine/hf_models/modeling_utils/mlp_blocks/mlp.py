@@ -45,7 +45,7 @@ class MLP(nn.Module):
             intermediate_size, hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
         )
 
-        self.dropout = nn.Identity() if dropout == 0 else Dropout(dropout)
+        self.dropout = Dropout(dropout)
 
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)

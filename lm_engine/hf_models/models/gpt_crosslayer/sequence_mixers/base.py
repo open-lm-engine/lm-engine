@@ -70,8 +70,8 @@ class CrossLayerAttention(nn.Module):
         )
 
         self.softmax_dropout_p = softmax_dropout
-        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else Dropout(softmax_dropout)
-        self.dropout = nn.Identity() if dropout == 0 else Dropout(dropout)
+        self.softmax_dropout = Dropout(softmax_dropout)
+        self.dropout = Dropout(dropout)
 
         assert (
             self.num_key_value_heads is not None

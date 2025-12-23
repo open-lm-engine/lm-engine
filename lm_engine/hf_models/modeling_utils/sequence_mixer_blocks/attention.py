@@ -132,8 +132,8 @@ class Attention(nn.Module):
 
         self.softmax_dropout_p = softmax_dropout
 
-        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else Dropout(softmax_dropout)
-        self.dropout = nn.Identity() if dropout == 0 else Dropout(dropout)
+        self.softmax_dropout = Dropout(softmax_dropout)
+        self.dropout = Dropout(dropout)
 
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)

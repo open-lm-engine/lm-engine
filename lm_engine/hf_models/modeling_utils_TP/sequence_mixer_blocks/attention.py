@@ -104,23 +104,16 @@ class Attention_TP(Attention):
 
         self.softmax_dropout_p = softmax_dropout
 
-        self.softmax_dropout = (
-            nn.Identity()
-            if softmax_dropout == 0
-            else Dropout(
-                softmax_dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
+        self.softmax_dropout = Dropout(
+            softmax_dropout,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
-        self.dropout = (
-            nn.Identity()
-            if dropout == 0
-            else Dropout(
-                dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
+
+        self.dropout = Dropout(
+            dropout,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
 
     def forward(
