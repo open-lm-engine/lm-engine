@@ -14,19 +14,19 @@ from .TP import get_module_placements
 
 class Dropout(nn.Dropout):
     def __init__(
-        self,
-        p: float = 0.5,
-        inplace: bool = False,
-        use_padding_free_transformer: bool = False,
-        sequence_parallel: bool = False,
+        self, p: float = 0.5, use_padding_free_transformer: bool = False, sequence_parallel: bool = False
     ) -> Dropout:
-        super().__init__(p, inplace)
+        super().__init__(p)
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # early exit
+        if self.p == 0:
+            return x
+
         if self.is_tp_enabled:
             x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=self.placement)
 
