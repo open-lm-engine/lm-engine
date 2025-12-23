@@ -10,7 +10,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
-from torch.utils.checkpoint import checkpoint
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
