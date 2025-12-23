@@ -180,9 +180,6 @@ class ProcessGroupManager:
     # tensor parallel
     @staticmethod
     def get_tensor_parallel_mesh() -> DeviceMesh:
-        if not ProcessGroupManager.is_initialized():
-            return 1
-
         global _TENSOR_PARALLEL_MESH
 
         if _TENSOR_PARALLEL_MESH is None:
