@@ -76,6 +76,7 @@ class ProcessGroupManager:
         global _LOCAL_RANK
         global _WORLD_SIZE
         global _DATA_PARALLEL_WORLD_SIZE
+        global _TENSOR_PARALLEL_WORLD_SIZE
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -253,7 +254,11 @@ class ProcessGroupManager:
 
     @staticmethod
     def is_tensor_parallel_enabled() -> bool:
-        return ProcessGroupManager.is_initialized() and ProcessGroupManager.get_tensor_parallel_world_size() > 1
+        return (
+            ProcessGroupManager.is_initialized()
+            and "tp" in ProcessGroupManager.get_mesh().mesh_dim_names
+            and ProcessGroupManager.get_tensor_parallel_world_size() > 1
+        )
 
     @staticmethod
     def is_tensor_parallel_first_rank() -> bool:
