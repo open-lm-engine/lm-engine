@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 """
 Check sizes of .bin files in GCS bucket folders.
 
@@ -10,7 +14,9 @@ Usage:
 
 import argparse
 from collections import defaultdict
+
 from google.cloud import storage
+
 
 def parse_gcs_path(gcs_path: str) -> tuple[str, str]:
     """Parse a GCS path into bucket name and prefix."""
@@ -27,6 +33,7 @@ def parse_gcs_path(gcs_path: str) -> tuple[str, str]:
         prefix += "/"
 
     return bucket_name, prefix
+
 
 def list_files_grouped_by_dir(bucket_name: str, prefix: str) -> dict[str, dict[str, int]]:
     """
@@ -57,14 +64,15 @@ def list_files_grouped_by_dir(bucket_name: str, prefix: str) -> dict[str, dict[s
 
     return grouped_files
 
+
 def format_size(size_bytes: int) -> str:
     """Format size in bytes.
 
     - If the size is over 1 TB (1024 GB), display it in TB
     - Otherwise display it in GB
     """
-    GB = 1024 ** 3
-    TB = 1024 ** 4
+    GB = 1024**3
+    TB = 1024**4
 
     if size_bytes >= TB:
         tb_size = size_bytes / TB
@@ -73,10 +81,9 @@ def format_size(size_bytes: int) -> str:
         gb_size = size_bytes / GB
         return f"{size_bytes:,} bytes ({gb_size:.2f} GB)"
 
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="Check .bin file sizes in GCS bucket folders."
-    )
+    parser = argparse.ArgumentParser(description="Check .bin file sizes in GCS bucket folders.")
     parser.add_argument(
         "gcs_paths",
         type=str,
@@ -92,28 +99,27 @@ def main():
             bucket_name, prefix = parse_gcs_path(gcs_path)
             print(f"Scanning: gs://{bucket_name}/{prefix} recursively...")
             print("=" * 80)
-            
+
             grouped_files = list_files_grouped_by_dir(bucket_name, prefix)
             sorted_dirs = sorted(grouped_files.keys())
-            
+
             path_total_size = 0
             path_file_count = 0
 
             for directory in sorted_dirs:
                 files = grouped_files[directory]
-                full_dir_path = (
-                    f"gs://{bucket_name}/{directory}" if directory else f"gs://{bucket_name}/"
-                )
+                full_dir_path = f"gs://{bucket_name}/{directory}" if directory else f"gs://{bucket_name}/"
 
                 # Filter for .bin files
                 bin_files = {f: s for f, s in files.items() if f.endswith(".bin")}
-                
+
                 if not bin_files:
                     continue
 
                 print(f"\n📁 {full_dir_path}")
-                
+
                 folder_size = 0
+
                 # Sort numerically by the number before the extension (e.g., 2.bin, 10.bin)
                 def _numeric_key(item: tuple[str, int]):
                     filename, _ = item
@@ -121,14 +127,14 @@ def main():
                     return int(num_part) if num_part.isdigit() else filename
 
                 sorted_files = sorted(bin_files.items(), key=_numeric_key)
-                
+
                 for filename, size in sorted_files:
                     print(f"  - {filename:<30} : {format_size(size)}")
                     folder_size += size
-                
+
                 print(f"  {'-'*60}")
                 print(f"  Total Folder Size              : {format_size(folder_size)}")
-                
+
                 path_total_size += folder_size
                 path_file_count += len(bin_files)
 
@@ -142,6 +148,6 @@ def main():
             print(f"Error processing {gcs_path}: {e}")
             print("\n")
 
+
 if __name__ == "__main__":
     main()
-

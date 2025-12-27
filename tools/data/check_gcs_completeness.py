@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 """
 Check file completeness in a GCS bucket folder.
 
@@ -10,9 +14,10 @@ Usage:
 """
 
 import argparse
+import json
 import re
 from collections import defaultdict
-import json
+
 from google.cloud import storage
 
 
@@ -100,9 +105,7 @@ def check_sizes(files: dict[str, int]) -> list[str]:
     return size_issues
 
 
-def check_completeness(
-    files: list[str], verbose: bool = False
-) -> tuple[list[str], list[str], dict]:
+def check_completeness(files: list[str], verbose: bool = False) -> tuple[list[str], list[str], dict]:
     """
     Check file completeness.
 
@@ -178,9 +181,7 @@ def check_completeness(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Check file completeness in a GCS bucket folder (recursively)."
-    )
+    parser = argparse.ArgumentParser(description="Check file completeness in a GCS bucket folder (recursively).")
     parser.add_argument(
         "gcs_paths",
         type=str,
@@ -211,17 +212,13 @@ def main():
 
         for directory in sorted_dirs:
             files = grouped_files[directory]
-            full_dir_path = (
-                f"gs://{bucket_name}/{directory}" if directory else f"gs://{bucket_name}/"
-            )
+            full_dir_path = f"gs://{bucket_name}/{directory}" if directory else f"gs://{bucket_name}/"
 
             print(f"\n📁 Checking: {full_dir_path}")
             print(f"Found {len(files)} files")
 
             # Count file types
-            file_maps = [
-                f for f in files if f.startswith("file_map-") and f.endswith(".json")
-            ]
+            file_maps = [f for f in files if f.startswith("file_map-") and f.endswith(".json")]
             bins = [f for f in files if f.endswith(".bin")]
             idxs = [f for f in files if f.endswith(".idx")]
 
@@ -229,9 +226,7 @@ def main():
             print(f"  - .bin files: {len(bins)}")
             print(f"  - .idx files: {len(idxs)}")
 
-            missing_files, orphan_files, complete_sets = check_completeness(
-                list(files.keys()), args.verbose
-            )
+            missing_files, orphan_files, complete_sets = check_completeness(list(files.keys()), args.verbose)
 
             # Check sizes (prints details to stdout)
             size_issues = check_sizes(files)

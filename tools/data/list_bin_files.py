@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 """
 List all .bin files and their sizes in a GCS bucket folder (recursively).
 
@@ -6,6 +10,7 @@ Usage:
 """
 
 import argparse
+
 from google.cloud import storage
 
 
@@ -29,7 +34,7 @@ def parse_gcs_path(gcs_path: str) -> tuple[str, str]:
 def list_bin_files(gcs_path: str):
     """List .bin files and their sizes recursively."""
     bucket_name, prefix = parse_gcs_path(gcs_path)
-    
+
     try:
         client = storage.Client()
         bucket = client.bucket(bucket_name)
@@ -77,9 +82,7 @@ def list_bin_files(gcs_path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="List .bin files and their sizes in a GCS bucket folder."
-    )
+    parser = argparse.ArgumentParser(description="List .bin files and their sizes in a GCS bucket folder.")
     parser.add_argument(
         "gcs_path",
         nargs="?",
@@ -93,4 +96,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
