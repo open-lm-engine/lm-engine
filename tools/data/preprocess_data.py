@@ -89,7 +89,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
 
                 os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
 
-                convert_file(
+                skipped_line_count = convert_file(
                     tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
                     input_file=local_input_file,
                     output_prefix=local_output_prefix,
@@ -104,7 +104,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                             path_function(f"{output_prefix}_{key}"), path_function(f"{local_output_prefix}_{key}")
                         )
         else:
-            convert_file(
+            skipped_line_count = convert_file(
                 tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
                 input_file=input_file,
                 output_prefix=output_prefix,
@@ -113,9 +113,9 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                 append_eos_token=args.append_eod,
             )
 
-        return input_file
+        return input_file, skipped_line_count
     except Exception as e:
-        return "!!!!!!!!!!!!!!! Error Look Here !!!!!!!!!!!!!!!" + str(e) + "\n\n" + traceback.format_exc()
+        return "!!!!!!!!!!!!!!! Error Look Here !!!!!!!!!!!!!!!" + str(e) + "\n\n" + traceback.format_exc(), 0
 
 
 def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
@@ -183,10 +183,15 @@ def process_with_ray(args: Namespace, files: list) -> None:
             future = done[0]
 
             try:
-                result = ray.get(future)
-                log_rank_0(logging.INFO, f"✅ Processed file: {result}")
+                result, skipped_line_count = ray.get(future)
+                if "Error" in result:
+                    log_rank_0(logging.ERROR, f"❌ Error processing file: {result}")
+                else:
+                    log_rank_0(logging.INFO, f"✅ Processed file: {result}")
+                if skipped_line_count > 0:
+                    log_rank_0(logging.WARNING, f"❌ Skipped {skipped_line_count} lines for file: {result}")
             except Exception as e:
-                log_rank_0(logging.ERROR, f"❌ Error processing file: {e}")
+                log_rank_0(logging.ERROR, f"❌ Error processing file: {e}. {traceback.format_exc()}")
 
             pbar.update(1)
 

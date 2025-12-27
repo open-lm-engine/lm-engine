@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import io
 import json
 from typing import Iterator
@@ -49,11 +50,29 @@ class Encoder:
         return ids
 
     def encode(self, json_line) -> dict:
-        data = json.loads(json_line)
-        return self._encode_data(data)
+        """Safely encode a JSONL text line.
+
+        If the line cannot be parsed as JSON or does not contain the expected
+        keys, we return an **empty dictionary** so that the downstream loop
+        silently skips the document instead of raising and aborting the entire
+        preprocessing run. This provides resilience against occasional
+        corrupted records that sometimes appear in large-scale datasets.
+        """
+
+        try:
+            data = json.loads(json_line)
+            return self._encode_data(data)
+        except (json.JSONDecodeError, KeyError, TypeError):
+            # Corrupted JSON or missing fields – skip this line.
+            return {}
 
     def encode_jsonl_zstd(self, bytes_obj) -> dict:
-        json_str = bytes_obj.decode("utf-8")
+        try:
+            json_str = bytes_obj.decode("utf-8")
+        except UnicodeDecodeError:
+            # Skip if the bytes cannot be decoded.
+            return {}
+
         return self.encode(json_str)
 
     def encode_hf(self, sample) -> dict:
@@ -73,7 +92,7 @@ def convert_file(
     subset: str | None = None,
     json_keys: list[str] = ["text"],
     append_eos_token: bool = True,
-) -> None:
+) -> int:
     encoder = Encoder(tokenizer, json_keys, append_eos_token)
 
     if input_file.endswith(".jsonl"):
@@ -82,23 +101,32 @@ def convert_file(
     elif input_file.endswith(".jsonl.zst"):
         assert subset is None, "zst jsonl doesn't support a subset"
 
-        with open(input_file, "rb") as compressed:
-            reader = ZstdDecompressor().stream_reader(compressed)
-            buffered = io.BufferedReader(reader)
-            encoded_docs = map(encoder.encode_jsonl_zstd, buffered)
+        # Use a generator to stream lines and ensure the file is closed properly
+        def zstd_iterator(path):
+            with open(path, "rb") as compressed:
+                dctx = ZstdDecompressor()
+                with dctx.stream_reader(compressed) as reader:
+                    # Use a large buffer (16MB) to ensure efficient reading of very long lines
+                    buffered = io.BufferedReader(reader, buffer_size=64 * 1024 * 1024)
+                    for line in buffered:
+                        yield line
+
+        encoded_docs = map(encoder.encode_jsonl_zstd, zstd_iterator(input_file))
+    elif input_file.endswith(".json.gz"):
+        assert subset is None, "json.gz doesn't support a subset"
+        encoded_docs = map(encoder.encode, gzip.open(input_file, "rt", encoding="utf-8"))
     elif input_file.endswith(".parquet"):
         import pyarrow.parquet as pq
 
-        # Open the Parquet file
         parquet_file = pq.ParquetFile(input_file)
 
-        ds = []
-        for batch in parquet_file.iter_batches(batch_size=10000):
-            df = batch.to_pandas()
-            for text in df["text"]:
-                ds.append({"text": text})
+        def parquet_iterator():
+            for batch in parquet_file.iter_batches(columns=json_keys, batch_size=10000):
+                # to_pylist() is much faster than to_pandas() + row iteration
+                for row in batch.to_pylist():
+                    yield row
 
-        encoded_docs = map(encoder.encode_hf, ds)
+        encoded_docs = map(encoder.encode_hf, parquet_iterator())
     elif input_file.endswith(".arrow"):
         assert subset is None, f"arrow doesn't support a subset"
         encoded_docs = map(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file))
@@ -113,10 +141,19 @@ def convert_file(
         for key in json_keys
     }
 
+    skipped = 0
+
     for item in encoded_docs:
+        # When the encoder fails to parse a line, it returns an empty dict. Count & skip.
+        if not item:
+            skipped += 1
+            continue
+
         for key, document in item.items():
             builders[key].add_item(torch.IntTensor(document))
             builders[key].end_document()
 
     for key in json_keys:
         builders[key].finalize(get_idx_path(f"{output_prefix}_{key}"))
+
+    return skipped
