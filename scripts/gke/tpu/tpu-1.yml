@@ -5,7 +5,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: mayank-job
+  name: train-job
 spec:
   template:
     metadata:
@@ -19,17 +19,38 @@ spec:
         cloud.google.com/gke-tpu-accelerator: tpu-v6e-slice
         cloud.google.com/gke-tpu-topology: 1x1
       containers:
-      - name: mayank-job
+      - name: train-job
         image: ghcr.io/open-lm-engine/tpu:latest
-        command: ["sleep", "infinity"]
+        lifecycle:
+            postStart:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - |
+                  git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
+                  cd lm-engine && uv pip install -e .
+        env:
+        - name: DATA_MIXTURE
+          value: '${DATA_MIXTURE}'
+        - name: MSC_CONFIG
+          value: '${MSC_CONFIG}'
+        command: ["/bin/bash", "-c", "${COMMAND}"]
         resources:
           requests:
-            cpu: 44
-            memory: 176Gi
+            cpu: 42
+            memory: 170Gi
             google.com/tpu: 1
           limits:
-            cpu: 44
-            memory: 176Gi
+            cpu: 42
+            memory: 170Gi
             google.com/tpu: 1
+        volumeMounts:
+        - mountPath: /local-ssd
+          name: filestore-pvc-ssd
+      volumes:
+      - name: filestore-pvc-ssd
+        persistentVolumeClaim:
+          claimName: filestore-pvc-ssd
       restartPolicy: Never
   backoffLimit: 0

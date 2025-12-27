@@ -5,7 +5,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: mayank-job
+  name: train-job
 spec:
   template:
     metadata:
@@ -19,9 +19,12 @@ spec:
         cloud.google.com/gke-tpu-accelerator: tpu-v6e-slice
         cloud.google.com/gke-tpu-topology: 2x2
       containers:
-      - name: mayank-job
+      - name: train-job
         image: ghcr.io/open-lm-engine/tpu:latest
-        command: ["sleep", "infinity"]
+        env:
+        - name: DATA_MIXTURE
+          value: '${DATA_MIXTURE}'
+        command: ["/bin/bash", "-c", "${COMMAND}"]
         resources:
           requests:
             cpu: 180

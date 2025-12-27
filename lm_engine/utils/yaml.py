@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import os
 import re
 
 import yaml
@@ -24,4 +25,10 @@ def load_yaml(file_path: str) -> dict:
         list("-+0123456789."),
     )
 
-    return yaml.load(open(file_path, "r"), loader)
+    with open(file_path, "r") as f:
+        content = f.read()
+
+    pattern = re.compile(r"\$\{([A-Za-z0-9_]+)\}")
+    content = pattern.sub(lambda match: os.environ.get(match.group(1), match.group(0)), content)
+
+    return yaml.load(content, loader)

@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 
 from ...arguments import TrainingArgs
 from ...defaults import INPUT_FORMAT, OUTPUT_FORMAT
@@ -10,6 +12,40 @@ from .blended_megatron_dataset_config import GPTDatasetConfig
 from .gpt_dataset import GPTDataset
 from .sampler import MegatronBatchSampler
 from .utils import compile_helpers
+
+
+def _resolve_data_path(class_args: dict, key: str) -> list | None:
+    """Resolve data_path from direct config or environment variable.
+    
+    Supports two ways to specify data paths:
+    1. Direct config: `data_path: [weight, path, ...]`
+    2. Environment variable name: `data_path_env: DATA_MIXTURE`
+       The env var should contain a JSON array string, e.g.:
+       export DATA_MIXTURE='[252, "msc://bucket/path/0", 252, "msc://bucket/path/1"]'
+    """
+    env_key = f"{key}_env"
+    
+    # Check for env var-based config first
+    if class_args.get(env_key):
+        env_var_name = class_args.get(env_key)
+        env_value = os.environ.get(env_var_name)
+        if not env_value:
+            raise ValueError(f"Environment variable '{env_var_name}' not set or empty")
+        return _parse_data_path_string(env_value)
+    
+    # Fall back to direct config
+    return class_args.get(key)
+
+
+def _parse_data_path_string(value: str) -> list:
+    """Parse data path from JSON array string.
+    
+    Example: '[252, "msc://path/0", 252, "msc://path/1"]'
+    """
+    try:
+        return json.loads(value.strip())
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in data path: {e}")
 
 
 def get_megatron_gpt_dataloaders(
@@ -35,6 +71,7 @@ def get_megatron_gpt_dataloaders(
     # Option 1: data loading using --data-path with single file
     # Option 2: data loading using --data-path with multiple weighted files
     # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
+    # All options support external file via *_file suffix (e.g., data_path_file: /path/to/mixture.yml)
     train_ds, val_ds, test_ds = build(
         sizes=_get_train_val_test_samples(
             args.training_parameters.num_training_steps,
@@ -45,11 +82,11 @@ def get_megatron_gpt_dataloaders(
         ),
         config=GPTDatasetConfig(
             sequence_length=class_args.get("sequence_length"),
-            blend=class_args.get("data_path"),
+            blend=_resolve_data_path(class_args, "data_path"),
             blend_per_split=[
-                class_args.get("train_data_path"),
-                class_args.get("val_data_path"),
-                class_args.get("test_data_path"),
+                _resolve_data_path(class_args, "train_data_path"),
+                _resolve_data_path(class_args, "val_data_path"),
+                _resolve_data_path(class_args, "test_data_path"),
             ],
             split=class_args.get("split"),
             path_to_cache=class_args.get("data_cache_path"),
