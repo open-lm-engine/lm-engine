@@ -2,7 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-#!/usr/bin/env python3
 """
 Download files from The Stack v2 dataset using Ray for parallelization
 and aiobotocore for async parallel S3 downloads.
