@@ -9,35 +9,9 @@ import torch.nn as nn
 
 
 class ParameterizedEmbedding(nn.Embedding):
-    def __init__(
-        self,
-        num_embeddings: int,
-        embedding_dim: int,
-        padding_idx: int | None = None,
-        max_norm: float | None = None,
-        norm_type: float = 2,
-        scale_grad_by_freq: bool = False,
-        sparse: bool = False,
-        _weight: torch.Tensor | None = None,
-        _freeze: bool = False,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
-    ) -> ParameterizedEmbedding:
+    def __init__(self, num_embeddings: int, embedding_dim: int, std: float | None = None) -> ParameterizedEmbedding:
         self.std = std
-        super().__init__(
-            num_embeddings,
-            embedding_dim,
-            padding_idx,
-            max_norm,
-            norm_type,
-            scale_grad_by_freq,
-            sparse,
-            _weight,
-            _freeze,
-            device,
-            dtype,
-        )
+        super().__init__(num_embeddings, embedding_dim)
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
