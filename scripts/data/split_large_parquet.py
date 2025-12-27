@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 #!/usr/bin/env python3
 import argparse
 import logging
@@ -69,9 +73,7 @@ def _delete_gcs_file(msc_path: str) -> None:
     blob.delete()
 
 
-def _convert_path_to_msc_path_and_tmp_path(
-    path: str, base_msc_path: str, tmpdir: str
-) -> tuple[str, str]:
+def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir: str) -> tuple[str, str]:
     """Convert path to MSC path and local temp path.
     Assumes path starts with /data (GCS mount) or similar mount point.
     """
@@ -87,16 +89,12 @@ def _convert_path_to_msc_path_and_tmp_path(
 
 
 @ray.remote
-def process_single_file(
-    source_path, input_base, output_base, target_size_mb, msc_base_path
-):
+def process_single_file(source_path, input_base, output_base, target_size_mb, msc_base_path):
     """
     Download/Copy file to local SSD, split it, and upload/copy back.
     """
     # Force configure logging on the worker
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True)
 
     try:
         # Create temp directory on local SSD
@@ -113,9 +111,7 @@ def process_single_file(
             os.makedirs(os.path.dirname(local_input_file), exist_ok=True)
 
             msc.download_file(msc_source_path, local_input_file)
-            logger.info(
-                f"[{os.path.basename(source_path)}] Downloaded to {local_input_file}"
-            )
+            logger.info(f"[{os.path.basename(source_path)}] Downloaded to {local_input_file}")
 
             # 2. Split and Upload
             uploaded_count = 0
@@ -143,9 +139,7 @@ def process_single_file(
                     f"[{os.path.basename(source_path)}] Found {pf.num_row_groups} row groups in {local_input_file}"
                 )
 
-                for i in tqdm(
-                    range(pf.num_row_groups), desc="Reading row groups", unit="group"
-                ):
+                for i in tqdm(range(pf.num_row_groups), desc="Reading row groups", unit="group"):
                     rg = pf.read_row_group(i)
 
                     for batch in rg.to_batches():
@@ -184,9 +178,7 @@ def process_single_file(
 
                     # Upload immediately
                     target_path = os.path.join(target_dir, chunk_filename)
-                    msc_target_path, _ = _convert_path_to_msc_path_and_tmp_path(
-                        target_path, msc_base_path, tmpdir
-                    )
+                    msc_target_path, _ = _convert_path_to_msc_path_and_tmp_path(target_path, msc_base_path, tmpdir)
                     msc.upload_file(msc_target_path, chunk_local_path)
 
                     # Delete local copy
@@ -196,9 +188,7 @@ def process_single_file(
 
             # 4. Delete original file from GCS bucket
             _delete_gcs_file(msc_source_path)
-            logger.info(
-                f"[{os.path.basename(source_path)}] Deleted original file from GCS: {msc_source_path}"
-            )
+            logger.info(f"[{os.path.basename(source_path)}] Deleted original file from GCS: {msc_source_path}")
 
             return {"status": "success", "source": source_path, "chunks": uploaded_count}
 
@@ -211,9 +201,7 @@ def process_single_file(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Split large parquet files into smaller chunks using Ray"
-    )
+    parser = argparse.ArgumentParser(description="Split large parquet files into smaller chunks using Ray")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -299,9 +287,7 @@ def main():
                     result = ray.get(future)
                     results.append(result)
                     if result["status"] == "success":
-                        logger.info(
-                            f"✅ {os.path.basename(result['source'])} -> {result['chunks']} chunks"
-                        )
+                        logger.info(f"✅ {os.path.basename(result['source'])} -> {result['chunks']} chunks")
                     else:
                         logger.error(f"✗ {result['source']}: {result['error']}")
                 except Exception as e:

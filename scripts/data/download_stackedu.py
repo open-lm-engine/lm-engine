@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 #!/usr/bin/env python3
 """
 Download files from The Stack v2 dataset using Ray for parallelization
@@ -110,9 +114,7 @@ async def _download_all_blobs(
             tasks.append(task)
 
         # Execute all tasks with progress bar
-        with tqdm(
-            total=len(tasks), desc=f"Downloading {source_basename}", unit="blob"
-        ) as pbar:
+        with tqdm(total=len(tasks), desc=f"Downloading {source_basename}", unit="blob") as pbar:
             for coro in asyncio.as_completed(tasks):
                 result = await coro
                 if result["status"] == "success":
@@ -120,9 +122,7 @@ async def _download_all_blobs(
                     blob_id_to_content[result["blob_id"]] = result["content"]
                 else:
                     error_count += 1
-                    logger.warning(
-                        f"Failed to download {result['blob_id']}: {result.get('error')}"
-                    )
+                    logger.warning(f"Failed to download {result['blob_id']}: {result.get('error')}")
                 pbar.update(1)
 
     return blob_id_to_content, success_count, error_count
@@ -170,8 +170,7 @@ def process_parquet_file(
             # The Stack v2 uses 'blob_id' column for the blob identifier
             if "blob_id" not in table.column_names:
                 raise ValueError(
-                    f"Could not find 'blob_id' column in {source_path}. "
-                    f"Available columns: {table.column_names}"
+                    f"Could not find 'blob_id' column in {source_path}. " f"Available columns: {table.column_names}"
                 )
 
             blob_ids = table["blob_id"].to_pylist()
@@ -182,9 +181,7 @@ def process_parquet_file(
             else:
                 src_encodings = ["utf-8"] * len(blob_ids)
 
-            logger.info(
-                f"[{os.path.basename(source_path)}] Found {len(blob_ids)} blobs to download"
-            )
+            logger.info(f"[{os.path.basename(source_path)}] Found {len(blob_ids)} blobs to download")
 
             # Download blobs in parallel using async aiobotocore
             blob_id_to_content, success_count, error_count = asyncio.run(
@@ -209,9 +206,7 @@ def process_parquet_file(
 
             # Write to local parquet file
             pq.write_table(output_table, local_output_file, compression="zstd")
-            logger.info(
-                f"[{os.path.basename(source_path)}] Wrote {len(output_table)} rows to parquet"
-            )
+            logger.info(f"[{os.path.basename(source_path)}] Wrote {len(output_table)} rows to parquet")
 
             # Upload to MSC if needed
             if download_locally:
@@ -379,9 +374,7 @@ def main():
     # Summary
     success_count = sum(1 for r in results if r["status"] == "success")
     error_count = sum(1 for r in results if r["status"] == "error")
-    total_blobs = sum(
-        r.get("success_count", 0) for r in results if r["status"] == "success"
-    )
+    total_blobs = sum(r.get("success_count", 0) for r in results if r["status"] == "success")
 
     logger.info(f"\n{'='*60}")
     logger.info("SUMMARY")
