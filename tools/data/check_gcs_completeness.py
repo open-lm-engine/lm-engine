@@ -67,7 +67,7 @@ def list_files_grouped_by_dir(bucket_name: str, prefix: str) -> dict[str, dict[s
 
 def check_sizes(files: dict[str, int]) -> list[str]:
     """
-    Check if .idx files are within 230-290GB, excluding the last index.
+    Check if .bin files are within 230-290GB, excluding the last index.
     Returns a list of size violation messages.
     """
     idx_pattern = re.compile(r"^(\d+)\.bin$")
