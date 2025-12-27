@@ -1,0 +1,1 @@
+ray job submit --address http://localhost:8270 -- bash -c "cd lm-engine && git fetch && git reset --hard origin/test && uv pip install -e . && MSC_CONFIG=/app/lm-engine/configs/msc/gcs.yml python scripts/data/split_large_parquet.py --msc-base-path mayank-data --dry-run"
