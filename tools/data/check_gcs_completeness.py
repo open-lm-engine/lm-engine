@@ -5,15 +5,13 @@ For each file_map-{id}.json, verifies that corresponding {id}.bin and {id}.idx f
 Checks files recursively at every directory level found under the specified path.
 
 Usage:
-    python check_gcs_completeness.py gs://bucket-name/path/to/folder
+    python check_gcs_completeness.py gs://mayank-data/dolma1/ gs://mayank-data/dolma3-pool/ gs://mayank-data/arxiv-redpajama/ gs://mayank-data/Nemotron-CC-v2/ gs://mayank-data/finemath/ gs://mayank-data/the-stack-v2-dedup/ gs://mayank-data/stack-edu/
     python check_gcs_completeness.py gs://bucket-name/path/to/folder --verbose
 """
 
 import argparse
 import re
-import sys
 from collections import defaultdict
-from typing import overload
 import json
 from google.cloud import storage
 
@@ -183,11 +181,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Check file completeness in a GCS bucket folder (recursively)."
     )
-    # parser.add_argument( 
-    #     "gcs_path",
-    #     type=str,
-    #     help="GCS path to check (e.g., gs://bucket-name/path/to/folder)",
-    # )
+    parser.add_argument(
+        "gcs_paths",
+        type=str,
+        nargs="+",
+        help="List of GCS paths to check (e.g., gs://bucket-name/path/to/folder)",
+    )
     parser.add_argument(
         "--verbose",
         "-v",
@@ -196,16 +195,7 @@ def main():
     )
     args = parser.parse_args()
 
-    all_paths = [
-        "gs://mayank-data/dolma1/",
-        "gs://mayank-data/dolma3-pool/",
-        "gs://mayank-data/arxiv-redpajama/",
-        "gs://mayank-data/Nemotron-CC-v2/",
-        "gs://mayank-data/finemath/",
-        "gs://mayank-data/the-stack-v2-dedup/",
-        "gs://mayank-data/stack-edu/",
-        
-    ]
+    all_paths = args.gcs_paths
 
     overall_status = {}
     for gcs_path in all_paths:
@@ -229,7 +219,9 @@ def main():
             print(f"Found {len(files)} files")
 
             # Count file types
-            file_maps = [f for f in files if f.startswith("file_map-") and f.endswith(".json")]
+            file_maps = [
+                f for f in files if f.startswith("file_map-") and f.endswith(".json")
+            ]
             bins = [f for f in files if f.endswith(".bin")]
             idxs = [f for f in files if f.endswith(".idx")]
 
@@ -274,7 +266,7 @@ def main():
                 for f in orphan_files:
                     print(f"  - {f}")
                 any_issues = True
-            
+
             if any_issues:
                 overall_status[gcs_path] = "❌"
             # else:
@@ -282,6 +274,7 @@ def main():
             print("-" * 60)
 
     print(json.dumps(overall_status, indent=4))
+
 
 if __name__ == "__main__":
     main()

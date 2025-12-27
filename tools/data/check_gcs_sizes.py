@@ -5,7 +5,7 @@ Iterates over specified GCS paths, lists all .bin files, and reports their sizes
 (in bytes and GB) grouped by folder structure. Also calculates total folder sizes.
 
 Usage:
-    python check_gcs_sizes.py
+    python check_gcs_sizes.py gs://mayank-data/dolma1/ gs://mayank-data/dolma3-pool/ gs://mayank-data/arxiv-redpajama/ gs://mayank-data/Nemotron-CC-v2/ gs://mayank-data/finemath/ gs://mayank-data/the-stack-v2-dedup/ gs://mayank-data/stack-edu/
 """
 
 import argparse
@@ -77,19 +77,15 @@ def main():
     parser = argparse.ArgumentParser(
         description="Check .bin file sizes in GCS bucket folders."
     )
-    # Optional: allow overriding paths via arguments if needed in future
+    parser.add_argument(
+        "gcs_paths",
+        type=str,
+        nargs="+",
+        help="List of GCS paths to check (e.g., gs://bucket-name/path/to/folder)",
+    )
     args = parser.parse_args()
 
-    all_paths = [
-        "gs://mayank-data/dolma1/",
-        "gs://mayank-data/dolma3-pool/",
-        "gs://mayank-data/arxiv-redpajama/",
-        "gs://mayank-data/Nemotron-CC-v2/",
-        "gs://mayank-data/finemath/",
-        "gs://mayank-data/the-stack-v2-dedup/",
-        "gs://mayank-data/stack-edu/",
-        
-    ]
+    all_paths = args.gcs_paths
 
     for gcs_path in all_paths:
         try:
