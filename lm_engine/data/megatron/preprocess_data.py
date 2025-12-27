@@ -100,11 +100,17 @@ def convert_file(
     elif input_file.endswith(".jsonl.zst"):
         assert subset is None, "zst jsonl doesn't support a subset"
 
-        # Open compressed file without a context manager so it remains open
-        compressed = open(input_file, "rb")
-        reader = ZstdDecompressor().stream_reader(compressed)
-        buffered = io.BufferedReader(reader)
-        encoded_docs = map(encoder.encode_jsonl_zstd, buffered.read().splitlines())
+        # Use a generator to stream lines and ensure the file is closed properly
+        def zstd_iterator(path):
+            with open(path, "rb") as compressed:
+                dctx = ZstdDecompressor()
+                with dctx.stream_reader(compressed) as reader:
+                    # Use a large buffer (16MB) to ensure efficient reading of very long lines
+                    buffered = io.BufferedReader(reader, buffer_size=64 * 1024 * 1024)
+                    for line in buffered:
+                        yield line
+
+        encoded_docs = map(encoder.encode_jsonl_zstd, zstd_iterator(input_file))
     elif input_file.endswith(".json.gz"):
         assert subset is None, "json.gz doesn't support a subset"
         encoded_docs = map(encoder.encode, gzip.open(input_file, "rt", encoding="utf-8"))
