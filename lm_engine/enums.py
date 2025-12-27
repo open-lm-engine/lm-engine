@@ -76,7 +76,5 @@ class Kernel(Enum):
     flash_attention_3 = "flash_attention_3"
     mamba2_ssm = "mamba2_ssm"
     scattermoe = "scattermoe"
-    # custom functions
-    ladder_residual_overlapped_layer = "ladder_residual_overlapped_layer"
     # sonicmoe
     sonicmoe = "sonicmoe"
