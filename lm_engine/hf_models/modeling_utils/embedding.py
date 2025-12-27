@@ -18,7 +18,6 @@ class ParameterizedEmbedding(nn.Embedding):
         if self.std is None:
             super().reset_parameters()
         else:
-            # nn.init.trunc_normal_(self.weight, mean=0, std=self.std)
             self.weight.data.normal_(mean=0, std=self.std)
             if self.padding_idx is not None:
                 self.weight.data[self.padding_idx].zero_()
