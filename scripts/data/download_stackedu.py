@@ -98,10 +98,9 @@ async def _download_all_blobs(
     blob_id_to_content = {}
 
     session = aiobotocore.session.get_session()
+
     async with session.create_client(
-        "s3",
-        aws_access_key_id=access_key_id,
-        aws_secret_access_key=secret_access_key,
+        "s3", aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key
     ) as s3_client:
         # Create all download tasks
         tasks = []
