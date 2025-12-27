@@ -42,10 +42,7 @@ def enable_kernels(kernels: list[Kernel]):
 
 @contextmanager
 def enable_all_kernels():
-    all_kernels = filter(lambda k: k != Kernel.ladder_residual_overlapped_layer, Kernel)
-    all_kernels = list(all_kernels)
-
-    with enable_kernels(all_kernels):
+    with enable_kernels(list(Kernel)):
         yield
 
 
