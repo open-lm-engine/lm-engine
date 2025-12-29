@@ -6,7 +6,7 @@ import gzip
 import io
 import json
 from typing import Iterator
-import gzip
+
 import pyarrow as pa
 import torch
 from datasets import load_dataset

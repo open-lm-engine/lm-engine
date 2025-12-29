@@ -29,9 +29,7 @@ def get_args() -> Namespace:
         help="Path to directory containing all document files to merge",
     )
 
-    parser.add_argument(
-        "--workers", type=int, default=1, required=False, help="number of workers"
-    )
+    parser.add_argument("--workers", type=int, default=1, required=False, help="number of workers")
 
     parser.add_argument(
         "--input-directory",
@@ -54,9 +52,7 @@ def get_args() -> Namespace:
         help="Run only specific group index",
     )
 
-    parser.add_argument(
-        "--download-locally", action="store_true", help="download file locally"
-    )
+    parser.add_argument("--download-locally", action="store_true", help="download file locally")
     parser.add_argument("--msc-base-path", type=str, help="base path for MSC")
     parser.add_argument("--tmpdir", type=str, help="temporary local directory")
 
@@ -70,9 +66,7 @@ def get_args() -> Namespace:
     return args
 
 
-def _convert_path_to_msc_path_and_tmp_path(
-    path: str, base_msc_path: str, tmpdir: str
-) -> tuple[str, str]:
+def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir: str) -> tuple[str, str]:
     path = path.lstrip(os.sep)
     try:
         _, base_path = path.split(os.sep, 1)
@@ -101,9 +95,7 @@ def _gcs_file_exists(msc_path: str) -> bool:
         return False
 
 
-def merge_files_wrapper(
-    subdir: str, input_prefixes: list[str], output_prefix: str, args: Namespace
-) -> None:
+def merge_files_wrapper(subdir: str, input_prefixes: list[str], output_prefix: str, args: Namespace) -> None:
     if args.download_locally:
         with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
             local_input_prefixes = []
@@ -111,9 +103,7 @@ def merge_files_wrapper(
             msc_output_path, local_output_path = _convert_path_to_msc_path_and_tmp_path(
                 output_prefix, args.msc_base_path, tmpdir
             )
-            if _gcs_file_exists(f"{msc_output_path}.idx") and _gcs_file_exists(
-                f"{msc_output_path}.bin"
-            ):
+            if _gcs_file_exists(f"{msc_output_path}.idx") and _gcs_file_exists(f"{msc_output_path}.bin"):
                 print(f"File {msc_output_path} already exists, skipping download.")
                 return
             for prefix in tqdm(input_prefixes, desc="Downloading files"):
@@ -126,17 +116,13 @@ def merge_files_wrapper(
                 os.makedirs(os.path.dirname(local_prefix_path), exist_ok=True)
 
                 for ext in [".bin", ".idx"]:
-                    msc.download_file(
-                        f"{msc_prefix_path}{ext}", f"{local_prefix_path}{ext}"
-                    )
+                    msc.download_file(f"{msc_prefix_path}{ext}", f"{local_prefix_path}{ext}")
 
                 local_input_prefixes.append(local_prefix_path)
 
             os.makedirs(os.path.dirname(local_output_path), exist_ok=True)
 
-            merge_files(
-                input_prefixes=local_input_prefixes, output_prefix=local_output_path
-            )
+            merge_files(input_prefixes=local_input_prefixes, output_prefix=local_output_path)
 
             for ext in [".bin", ".idx"]:
                 remote_path = f"{msc_output_path}{ext}"
@@ -147,9 +133,7 @@ def merge_files_wrapper(
 
 
 @ray.remote
-def merge_files_remote(
-    subdir: str, input_prefixes: list[str], output_prefix: str, args: Namespace
-) -> None:
+def merge_files_remote(subdir: str, input_prefixes: list[str], output_prefix: str, args: Namespace) -> None:
     try:
         merge_files_wrapper(subdir, input_prefixes, output_prefix, args)
     except Exception as e:
@@ -238,9 +222,7 @@ def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str
         curr_subdir_groups = []
 
         # Get all .bin files in this subdirectory
-        curr_fnames = filter(
-            lambda x: x.endswith(".bin"), os.listdir(os.path.join(path, subdir))
-        )
+        curr_fnames = filter(lambda x: x.endswith(".bin"), os.listdir(os.path.join(path, subdir)))
         curr_fnames = [os.path.join(path, subdir, i) for i in curr_fnames]
         fnames = curr_fnames
 
@@ -279,9 +261,7 @@ if __name__ == "__main__":
 
     if args.input_prefixes is not None:
         assert args.max_size is None
-        merge_files_wrapper(
-            input_prefixes=args.input_prefixes, output_prefix=args.output_prefix, args=args
-        )
+        merge_files_wrapper(input_prefixes=args.input_prefixes, output_prefix=args.output_prefix, args=args)
     elif args.input_directory is not None:
         file_groups = get_groups_by_sizes(args.input_directory, args.max_size)
         if args.max_size is None:
@@ -305,9 +285,7 @@ if __name__ == "__main__":
                     json.dump(
                         {"subdir": subdir, "grp_id": grp_id, "group": group},
                         open(
-                            os.path.join(
-                                args.output_prefix, subdir, f"file_map-{grp_id}.json"
-                            ),
+                            os.path.join(args.output_prefix, subdir, f"file_map-{grp_id}.json"),
                             "w",
                         ),
                         indent=4,
@@ -325,9 +303,7 @@ if __name__ == "__main__":
                         merge_files_remote.remote(
                             subdir=subdir,
                             input_prefixes=group,
-                            output_prefix=os.path.join(
-                                args.output_prefix, subdir, str(grp_id)
-                            ),
+                            output_prefix=os.path.join(args.output_prefix, subdir, str(grp_id)),
                             args=args,
                         )
                     )
