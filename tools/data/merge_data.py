@@ -236,10 +236,6 @@ def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str
 
     for subdir in subdirs:
         curr_subdir_groups = []
-        # if subdir.rstrip(os.sep) not in ["YAML", "XML", "JavaScript", "HTML"]:
-        #     continue
-        # if subdir.rstrip(os.sep) in ["Jupyter_Notebook", "Text", "JSON", "YAML", "XML", "JavaScript", "HTML"]:
-        #     continue
 
         # Get all .bin files in this subdirectory
         curr_fnames = filter(
