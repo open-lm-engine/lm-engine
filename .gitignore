@@ -8,5 +8,4 @@ __pycache__
 build/
 uv.lock
 .venv
-
 .DS_Store

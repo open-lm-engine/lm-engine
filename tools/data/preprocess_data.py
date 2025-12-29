@@ -105,7 +105,7 @@ def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> No
                         )
         else:
             skipped_line_count = convert_file(
-                tokenizer=AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=False),
+                tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
                 input_file=input_file,
                 output_prefix=output_prefix,
                 subset=args.subset,

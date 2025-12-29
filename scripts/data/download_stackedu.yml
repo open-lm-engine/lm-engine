@@ -2,7 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-
 apiVersion: ray.io/v1
 kind: RayCluster
 metadata:
@@ -109,4 +108,3 @@ spec:
           - name: filestore-volume
             persistentVolumeClaim:
               claimName: filestore-pvc
-
