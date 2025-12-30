@@ -185,8 +185,48 @@ def get_model_tflops(
 
             # sigmoid(Wh + x)
             sequence_mixer_flops += 3 * s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
+        elif sequence_mixer_type == "gated_deltanet":
+            # Estimate FLOPs for GatedDeltaNet:
+            # - input projection (qkv_ab_proj)
+            # - optional short convolution over qkv
+            # - recurrent delta-rule computation (approximate)
+            # - output projection (o_proj)
+            # head_dim = getattr(block, "head_dim", None) or getattr(block, "head_k_dim", None) or 1
+            # num_heads = getattr(block, "num_heads", 1)
+            # num_v_heads = getattr(block, "num_v_heads", num_heads)
+            # expand_v = getattr(block, "expand_v", 1.0)
+
+            # key_dim = int(num_heads * head_dim)
+            # head_v_dim = int(head_dim * expand_v)
+            # value_dim = int(num_v_heads * head_v_dim)
+
+            # # projection output size depends on use_gate
+            # use_gate = getattr(block, "use_gate", True)
+            # if use_gate:
+            #     proj_out = 2 * key_dim + 2 * value_dim + 2 * num_v_heads
+            # else:
+            #     proj_out = 2 * key_dim + value_dim + 2 * num_v_heads
+
+            # projection_flops = _get_linear_flops(b * s, h, proj_out, gradient_checkpointing=gradient_checkpointing_enabled)
+
+            # # short convolution FLOPs (depthwise conv approximation)
+            # conv_flops = 0
+            # if getattr(block, "use_short_conv", False):
+            #     conv_size = getattr(block, "conv_size", 1)
+            #     conv_channels = 2 * key_dim + value_dim
+            #     # each output element does conv_size multiply-adds per channel
+            #     conv_flops = b * s * conv_channels * conv_size * 2
+
+            # # recurrent delta-rule: approximate as proportional to value_dim * head_dim per token
+            # recurrent_flops = 2 * b * s * value_dim * max(1, int(head_dim))
+
+            # o_proj_flops = _get_linear_flops(b * s, value_dim, h, gradient_checkpointing=gradient_checkpointing_enabled)
+
+            # sequence_mixer_flops = projection_flops + conv_flops + recurrent_flops + o_proj_flops
+            sequence_mixer_flops = 0.
         else:
             raise NotImplementedError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
+
 
         total_flops += sequence_mixer_flops
 

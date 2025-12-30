@@ -98,3 +98,21 @@ class _CausalConvolution(BaseArgs):
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "causal_convolution"
+
+
+class _GatedDeltaNetArgs(BaseArgs):
+    sequence_mixer_type: str = "gated_deltanet"
+    expand_v: float = 2.0
+    head_dim: int = 256
+    num_heads: int = 6
+    num_v_heads: int | None = None
+    mode: str = "chunk"
+    use_gate: bool = True
+    use_short_conv: bool = True
+    allow_neg_eigval: bool = False
+    conv_size: int = 4
+    conv_bias: bool = False
+    norm_eps: float = 1e-5
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "gated_deltanet"

@@ -13,10 +13,11 @@ from .gru import GRU
 from .mamba2 import Mamba2
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
+from .gated_deltanet import GatedDeltaNet
 from .utils import flash_attention
 
 
-SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN
+SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN | GatedDeltaNet
 
 
 def get_sequence_mixer(
@@ -104,6 +105,23 @@ def get_sequence_mixer(
             use_padding_free_transformer=use_padding_free_transformer,
             normalization_function=block.normalization_function,
             layer_norm_epsilon=config.layer_norm_epsilon,
+        )
+    elif sequence_mixer_type == "gated_deltanet":
+        return GatedDeltaNet(
+            hidden_size=config.hidden_size,
+            expand_v=block.expand_v,
+            head_dim=block.head_dim,
+            num_heads=block.num_heads,
+            num_v_heads=block.num_v_heads,
+            mode=block.mode,
+            use_gate=block.use_gate,
+            use_short_conv=block.use_short_conv,
+            allow_neg_eigval=block.allow_neg_eigval,
+            conv_size=block.conv_size,
+            conv_bias=block.conv_bias,
+            layer_idx=layer_idx,
+            norm_eps=block.norm_eps,
+            use_padding_free_transformer=use_padding_free_transformer,
         )
     else:
         sequence_mixer_kwargs = dict(

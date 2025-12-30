@@ -18,6 +18,7 @@ from .sequence_mixer import (
     _MultiHeadLatentAttentionArgs,
     _RNNArgs,
     _SoftmaxAttentionArgs,
+    _GatedDeltaNetArgs,
 )
 
 
@@ -71,6 +72,7 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
+    "gated_deltanet": _GatedDeltaNetArgs,
 }
 
 _MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
@@ -212,6 +214,7 @@ class CommonConfig(PretrainedConfig):
             | _MultiHeadLatentAttentionArgs
             | _RNNArgs
             | _SoftmaxAttentionArgs
+            | _GatedDeltaNetArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])
