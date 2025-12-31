@@ -1,0 +1,189 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: mayank-raycluster-overall
+spec:
+  enableInTreeAutoscaling: true
+  headGroupSpec:
+    serviceType: ClusterIP
+    rayStartParams:
+      port: "6379"
+      dashboard-host: "0.0.0.0"
+      dashboard-port: "8265"
+      num-cpus: "0"
+      memory: "60277025792"
+    template:
+      metadata:
+        annotations:
+          gke-gcsfuse/volumes: "true"
+      spec:
+        restartPolicy: Never
+        serviceAccountName: gcs-access
+        containers:
+        - name: ray-head
+          image: ghcr.io/open-lm-engine/data:latest
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - |
+                  git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
+          env:
+          # - name: RAY_LOG_TO_STDERR
+          #   value: "1"
+          # - name: MSC_CONFIG
+          #   value: "/app/lm-engine/configs/msc/gcs.yml"
+          - name: RAY_scheduler_schedule_warning_interval_s
+            value: "3600"
+          - name: RAY_event_stats
+            value: "0"
+          resources:
+            requests:
+              memory: "64Gi"
+              cpu: "4"
+            limits:
+              memory: "64Gi"
+              cpu: "8"
+          volumeMounts:
+          - name: gcs-volume
+            mountPath: /data
+          # - name: local-ssd-volume
+          #   mountPath: /local-ssd-fast
+          - name: filestore-volume
+            mountPath: /local-ssd
+        volumes:
+        - name: gcs-volume
+          persistentVolumeClaim:
+            claimName: mayank-data-pvc
+        # - name: local-ssd-volume
+        #   emptyDir:
+        #     medium: Memory
+        #     sizeLimit: 20Gi
+        - name: filestore-volume
+          persistentVolumeClaim:
+            claimName: filestore-pvc
+  workerGroupSpecs:
+    - groupName: worker-group-small
+      replicas: 20
+      minReplicas: 0
+      maxReplicas: 100
+      rayStartParams:
+        num-cpus: "2"
+        memory: "32277025792"
+      template:
+        metadata:
+          annotations:
+            gke-gcsfuse/volumes: "true"
+        spec:
+          restartPolicy: Never
+          serviceAccountName: gcs-access
+          containers:
+          - name: ray-worker
+            image: ghcr.io/open-lm-engine/data:latest
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
+            env:
+            # - name: RAY_LOG_TO_STDERR
+            #   value: "1"
+            # - name: MSC_CONFIG
+            #   value: "/app/lm-engine/configs/msc/gcs.yml"
+            - name: RAY_scheduler_schedule_warning_interval_s
+              value: "3600"
+            - name: RAY_event_stats
+              value: "0"
+            resources:
+              requests:
+                memory: "32Gi"
+                cpu: "4"
+              limits:
+                memory: "32Gi"
+                cpu: "8"
+            volumeMounts:
+            - name: gcs-volume
+              mountPath: /data
+            - name: local-ssd-volume
+              mountPath: /local-ssd-fast
+            - name: filestore-volume
+              mountPath: /local-ssd
+          volumes:
+          - name: gcs-volume
+            persistentVolumeClaim:
+              claimName: mayank-data-pvc
+          - name: local-ssd-volume
+            emptyDir:
+              medium: Memory
+              sizeLimit: 27Gi
+          - name: filestore-volume
+            persistentVolumeClaim:
+              claimName: filestore-pvc
+    - groupName: worker-group-large
+      replicas: 200
+      minReplicas: 0
+      maxReplicas: 500
+      rayStartParams:
+        num-cpus: "2"
+        memory: "62277025792"
+      template:
+        metadata:
+          annotations:
+            gke-gcsfuse/volumes: "true"
+        spec:
+          restartPolicy: Never
+          serviceAccountName: gcs-access
+          containers:
+          - name: ray-worker
+            image: ghcr.io/open-lm-engine/data:latest
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
+            env:
+            # - name: RAY_LOG_TO_STDERR
+            #   value: "1"
+            # - name: MSC_CONFIG
+            #   value: "/app/lm-engine/configs/msc/gcs.yml"
+            - name: RAY_scheduler_schedule_warning_interval_s
+              value: "3600"
+            - name: RAY_event_stats
+              value: "0"
+            resources:
+              requests:
+                memory: "64Gi"
+                cpu: "4"
+              limits:
+                memory: "64Gi"
+                cpu: "16"
+            volumeMounts:
+            - name: gcs-volume
+              mountPath: /data
+            - name: local-ssd-volume
+              mountPath: /local-ssd-fast
+            - name: filestore-volume
+              mountPath: /local-ssd
+          volumes:
+          - name: gcs-volume
+            persistentVolumeClaim:
+              claimName: mayank-data-pvc
+          - name: local-ssd-volume
+            emptyDir:
+              medium: Memory
+              sizeLimit: 56Gi
+          - name: filestore-volume
+            persistentVolumeClaim:
+              claimName: filestore-pvc

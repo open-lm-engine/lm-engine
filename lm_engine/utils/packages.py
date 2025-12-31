@@ -159,3 +159,27 @@ except ImportError:
 
 def is_torch_neuronx_available() -> bool:
     return _IS_TORCH_NEURONX_AVAILABLE
+
+
+try:
+    import multistorageclient
+
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = True
+except ImportError:
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = False
+
+
+def is_multi_storage_client_available() -> bool:
+    return _IS_MULTI_STORAGE_CLIENT_AVAILABLE
+
+
+try:
+    import sonicmoe
+
+    _IS_SONIC_MOE_AVAILABLE = True
+except ImportError:
+    _IS_SONIC_MOE_AVAILABLE = False
+
+
+def is_sonicmoe_available() -> bool:
+    return _IS_SONIC_MOE_AVAILABLE

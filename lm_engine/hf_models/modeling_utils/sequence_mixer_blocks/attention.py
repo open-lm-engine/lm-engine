@@ -15,6 +15,8 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate
+from ..chunk import contiguous_split
+from ..dropout import Dropout
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
@@ -130,8 +132,8 @@ class Attention(nn.Module):
 
         self.softmax_dropout_p = softmax_dropout
 
-        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else nn.Dropout(softmax_dropout)
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.softmax_dropout = Dropout(softmax_dropout)
+        self.dropout = Dropout(dropout)
 
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
@@ -165,8 +167,12 @@ class Attention(nn.Module):
         hidden_states = self.c_attn(hidden_states)
         hidden_states = hidden_states.view(*input_shape)
 
-        query, key, value = hidden_states.split(
-            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
+        query, key, value = (
+            contiguous_split if Accelerator.get_accelerator() == Accelerator.trainium else torch.split
+        )(
+            hidden_states,
+            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim),
+            dim=-1,
         )
 
         query = query.reshape(*output_shape)

@@ -30,4 +30,4 @@ jobs:
           uv pip uninstall triton
 
       - name: Unit Tests
-        run: make test-fast-cpu
+        run: make test-fast

@@ -1,14 +1,4 @@
-# export PYTHONFAULTHANDLER=1
-# export NCCL_DEBUG="INFO"
-# export NCCL_DEBUG_FILE="$LOG_PATH/NCCL_DEBUG.%h.%p.txt"
-# export NCCL_TOPO_DUMP_FILE="$LOG_PATH/NCCL_TOP.%h.xml"
-export NCCL_SOCKET_IFNAME="ib,bond"
-export NCCL_IB_CUDA_SUPPORT=1
-
-# MASTER_ADDRESS=$(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | head -n 1)
-# MASTER_PORT=5${LSB_JOBID: -5:-1}
-# NNODES=$(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | sed 'n; d' | wc -w)
-# GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -w)
-# NODE_RANK=$(($(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | sed 'n; d' | grep -n -m1 $(echo $HOSTNAME | cut -d'.' -f1) | cut -d':' -f1)-1))
-
-PJRT_DEVICE=TPU TOKENIZERS_PARALLELISM=false python -m lm_engine.pretrain --config ${1}
+MSC_CONFIG=configs/msc/gcs.yml \
+    PJRT_DEVICE=TPU \
+    TOKENIZERS_PARALLELISM=false \
+    python -m lm_engine.pretrain --config ${1}
