@@ -121,9 +121,6 @@ model_args:
         add_bias: true
     position_embedding_type: learned_absolute
 
-tuning_args:
-  tuning_method: pretraining
-
 save_args:
   save_path: checkpoints
   save_interval: 50

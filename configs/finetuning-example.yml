@@ -30,9 +30,6 @@ random_args:
   # for replication of experiment (however, flash attention is non-deterministic so replication generally won't work)
   seed: 42
 
-tuning_args:
-  tuning_method: full_finetuning
-
 save_args:
   save_path: checkpoints
   save_interval: 5000

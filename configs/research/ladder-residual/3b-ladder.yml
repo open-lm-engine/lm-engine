@@ -239,9 +239,6 @@ model_args:
         activation_function: swiglu
   efficient_initialization: false
 
-tuning_args:
-  tuning_method: pretraining
-
 save_args:
   save_path: /proj/checkpoints/mayank/experiments/3b-ladder
   save_interval: 5000

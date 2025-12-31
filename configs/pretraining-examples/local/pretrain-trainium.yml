@@ -141,9 +141,6 @@ model_args:
     position_embedding_type: learned_absolute
   efficient_initialization: true
 
-tuning_args:
-  tuning_method: pretraining
-
 save_args:
   save_path: checkpoints
   save_interval: 5000

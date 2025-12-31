@@ -283,9 +283,6 @@ model_args:
         intermediate_size: 8192
   efficient_initialization: false
 
-tuning_args:
-  tuning_method: pretraining
-
 save_args:
   save_path: /proj/checkpoints/mayank/mla-experiments/3b-base-cla
   save_interval: 5000

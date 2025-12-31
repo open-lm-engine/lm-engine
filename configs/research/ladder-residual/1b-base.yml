@@ -279,9 +279,6 @@ model_args:
         intermediate_size: 4096
   efficient_initialization: false
 
-tuning_args:
-  tuning_method: pretraining
-
 save_args:
   save_path: /proj/checkpoints/mayank/experiments/1b-base
   save_interval: 2500

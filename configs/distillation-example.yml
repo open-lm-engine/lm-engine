@@ -31,9 +31,6 @@ teacher_args:
   kl_divergence_method: forward
   kl_divergence_weight: 1
 
-tuning_args:
-  tuning_method: distillation
-
 save_args:
   save_path: /proj/checkpoints/mayank/tmp
   save_interval: 5000
