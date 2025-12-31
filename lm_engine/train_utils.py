@@ -223,10 +223,9 @@ def get_model_tflops(
             # o_proj_flops = _get_linear_flops(b * s, value_dim, h, gradient_checkpointing=gradient_checkpointing_enabled)
 
             # sequence_mixer_flops = projection_flops + conv_flops + recurrent_flops + o_proj_flops
-            sequence_mixer_flops = 0.
+            sequence_mixer_flops = 0.0
         else:
             raise NotImplementedError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
-
 
         total_flops += sequence_mixer_flops
 

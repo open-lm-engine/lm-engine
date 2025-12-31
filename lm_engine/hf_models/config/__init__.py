@@ -13,12 +13,12 @@ from ...utils import BaseArgs, divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import (
     _CausalConvolution,
+    _GatedDeltaNetArgs,
     _GRUArgs,
     _Mamba2Args,
     _MultiHeadLatentAttentionArgs,
     _RNNArgs,
     _SoftmaxAttentionArgs,
-    _GatedDeltaNetArgs,
 )
 
 

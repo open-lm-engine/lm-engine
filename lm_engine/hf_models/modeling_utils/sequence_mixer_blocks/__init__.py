@@ -9,11 +9,11 @@ from .attention import (
     split_query_key_value_tensor_for_attention,
 )
 from .causal_convolution import CausalConvolution
+from .gated_deltanet import GatedDeltaNet
 from .gru import GRU
 from .mamba2 import Mamba2
 from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
-from .gated_deltanet import GatedDeltaNet
 from .utils import flash_attention
 
 
