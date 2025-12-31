@@ -4,7 +4,6 @@
 
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import ModelContainer
-from ..enums import TuningMethod
 from ..kernels import enable_kernels
 from ..utils import get_pipeline_stage_ids_on_current_rank
 from .base import ModelWrapper
@@ -14,24 +13,15 @@ from .pretraining import ModelWrapperForPretraining
 from .utils import broadcast_tensor_parallel_input
 
 
-_MODEL_CLASS_MAPPING = {
-    TuningMethod.pretraining: ModelWrapperForPretraining,
-    TuningMethod.full_finetuning: ModelWrapperForFinetuning,
-    TuningMethod.distillation: ModelWrapperForDistillation,
-}
-
-
 def get_model_container(
     args: TrainingArgs | UnshardingArgs | DistillationArgs, efficient_initialization: bool, keep_in_fp32: bool
 ) -> ModelContainer:
-    tuning_method = args.tuning_args.tuning_method
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
 
-    if tuning_method != TuningMethod.pretraining:
-        assert num_pipeline_stages == 1, "pipeline parallelism is only supported with pretraining"
-
-    if tuning_method not in _MODEL_CLASS_MAPPING:
-        raise ValueError(f"unexpected tuning_method ({tuning_method})")
+    if isinstance(args, DistillationArgs):
+        model_class = ModelWrapperForDistillation
+    else:
+        model_class = ModelWrapperForPretraining
 
     kwargs = {
         "model_name": args.model_args.model_name,
@@ -67,6 +57,6 @@ def get_model_container(
         model_list = []
         for pipeline_stage_id in get_pipeline_stage_ids_on_current_rank(num_pipeline_stages):
             kwargs["pipeline_stage_id"] = pipeline_stage_id
-            model_list.append(_MODEL_CLASS_MAPPING[tuning_method](**kwargs))
+            model_list.append(model_class(**kwargs))
 
     return ModelContainer(model_list)

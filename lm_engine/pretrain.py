@@ -159,7 +159,7 @@ def train_step_without_pipeline_parallel(
     backward_context: AbstractContextManager,
     sync_every_gradient_accumulation_step: bool,
     lm_loss_multiplier: float,
-    tuning_method: TuningMethod,
+    finetuning_mode: bool,
 ) -> MetricsTrackingDict:
     """runs backpropagation and applies the gradient if at the edge of gradient accumulation boundary
 
@@ -173,7 +173,7 @@ def train_step_without_pipeline_parallel(
         backward_context (AbstractContextManager): a context that is used for every model backward call
         sync_every_gradient_accumulation_step (bool): whether to sync on every gradient accumulation step
         lm_loss_multiplier (int): lm loss multiplier
-        tuning_method (TuningMethod): tuning method for the current run
+        finetuning_mode (bool): whether we are in finetuning mode
 
     Returns:
         MetricsTrackingDict: metrics to track
@@ -196,7 +196,7 @@ def train_step_without_pipeline_parallel(
 
     gradient_accumulation_steps = StepTracker.get_gradient_accumulation_steps()
 
-    if tuning_method == TuningMethod.full_finetuning:
+    if finetuning_mode:
         assert lm_loss_multiplier is None
 
         # note the effect of gradient accumulation division is already in the lm_loss_multiplier
@@ -418,7 +418,7 @@ def train(
                 backward_context=backward_context,
                 sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
                 lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
-                tuning_method=args.tuning_args.tuning_method,
+                finetuning_mode=False,
             )
 
         metrics_tracker = metrics_tracker + loss_step_dict
@@ -580,16 +580,8 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
 
     args: TrainingArgs | DistillationArgs = get_args(args_class)
 
-    if args_class == TrainingArgs:
-        assert (
-            args.tuning_args.tuning_method == TuningMethod.pretraining
-        ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
-    elif args_class == DistillationArgs:
+    if args_class == DistillationArgs:
         assert args.distributed_args.fsdp_algorithm == 2, "Distillation is only supported with FSDP-2"
-
-        assert (
-            args.tuning_args.tuning_method == TuningMethod.distillation
-        ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
 
     # initialize distributed with nccl for multi-node communications
     init_distributed(

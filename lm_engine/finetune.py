@@ -14,7 +14,7 @@ from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from .data import ResumableDataLoader, custom_iterator, get_finetuning_dataloader, get_next_batch
 from .distributed import wrap_model_container_for_distributed_training
 from .dtensors import dtensor_to_tensor
-from .enums import DatasetSplit, TuningMethod
+from .enums import DatasetSplit
 from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
 from .model_wrapper import get_model_container
@@ -96,7 +96,7 @@ def train(
             backward_context=backward_context,
             sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
             lm_loss_multiplier=None,
-            tuning_method=args.tuning_args.tuning_method,
+            finetuning_mode=True,
         )
 
         metrics_tracker = metrics_tracker + loss_step_dict
@@ -204,10 +204,6 @@ def main() -> None:
     setup_tf32()
 
     args: TrainingArgs = get_args(TrainingArgs)
-
-    assert (
-        args.tuning_args.tuning_method == TuningMethod.full_finetuning
-    ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
 
     # initialize distributed with nccl for multi-node communications
     init_distributed(

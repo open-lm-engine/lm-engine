@@ -339,7 +339,6 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
 
     # turn off distillation for unsharding
     if "teacher_args" in args_from_checkpoint:
-        args_from_checkpoint["tuning_args"]["tuning_method"] = "pretraining"
         args_from_checkpoint.pop("teacher_args")
 
     args_from_checkpoint = args_dict_to_pydantic_args(TrainingArgs, **args_from_checkpoint)
