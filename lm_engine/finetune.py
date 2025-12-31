@@ -29,6 +29,7 @@ from .utils import (
     StepTracker,
     TorchProfiler,
     init_distributed,
+    log_environment,
     setup_tf32,
 )
 
@@ -218,6 +219,9 @@ def main() -> None:
         timeout_minutes=args.distributed_args.timeout_minutes,
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
     )
+
+    args.log_args()
+    log_environment()
 
     StepTracker(
         micro_batch_size=args.training_parameters.micro_batch_size,

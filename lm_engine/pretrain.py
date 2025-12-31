@@ -505,7 +505,7 @@ def evaluate(
     group_names: list[str],
     lm_loss_multiplier: float,
     context: str,
-) -> float:
+) -> MetricsTrackingDict:
     """main validation loop for the program
 
     Args:
