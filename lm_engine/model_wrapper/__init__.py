@@ -8,7 +8,6 @@ from ..kernels import enable_kernels
 from ..utils import get_pipeline_stage_ids_on_current_rank
 from .base import ModelWrapper
 from .distillation import ModelWrapperForDistillation
-from .finetuning import ModelWrapperForFinetuning
 from .pretraining import ModelWrapperForPretraining
 from .utils import broadcast_tensor_parallel_input
 
