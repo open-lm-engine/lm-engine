@@ -181,9 +181,6 @@ model_args:
         activation_function: swiglu
         add_bias: false
 
-tuning_args:
-  tuning_method: pretraining
-
 save_args:
   save_path: dummy
   save_interval: 500

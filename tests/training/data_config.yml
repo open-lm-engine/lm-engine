@@ -16,9 +16,6 @@ model_args:
   model_name: ibm-granite/granite-3b-code-base-2k
   model_class: AutoModelForCausalLM
 
-tuning_args:
-  tuning_method: full_finetuning
-
 save_args:
   save_path: checkpoints/full_finetuning
   save_interval: 500

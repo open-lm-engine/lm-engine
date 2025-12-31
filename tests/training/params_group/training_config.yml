@@ -64,9 +64,6 @@ model_args:
         mlp_type: MLP
         add_bias: true
 
-tuning_args:
-  tuning_method: pretraining
-
 save_args:
   save_path: dummy
   save_interval: 500
