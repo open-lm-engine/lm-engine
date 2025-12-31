@@ -29,14 +29,6 @@ class DatasetSplit(Enum):
     test = "test"
 
 
-class TuningMethod(Enum):
-    """training method"""
-
-    pretraining = "pretraining"
-    full_finetuning = "full_finetuning"
-    distillation = "distillation"
-
-
 class LossMask(Enum):
     """Type of loss masking method"""
 

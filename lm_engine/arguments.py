@@ -74,14 +74,6 @@ class ModelArgs(BaseArgs):
         self.model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM = getattr(transformers, self.model_class)
 
 
-class TuningArgs(BaseArgs):
-    # type of tuning, full finetuning / pretraining / distillation
-    tuning_method: TuningMethod = None
-
-    def model_post_init(self, __context: Any) -> None:
-        _check_not_None([(self.tuning_method, "tuning_method")])
-
-
 class TrainingParameters(BaseArgs):
     # whether to use sequential sampler for validation
     ignore_sampling_proportion_for_validation: bool = False
@@ -386,8 +378,6 @@ class TrainingArgs(BaseArgs):
     tokenizer_args: TokenizerArgs = TokenizerArgs()
     # model related arguments
     model_args: ModelArgs = None
-    # tuning related arguments
-    tuning_args: TuningArgs = None
     # optimizer related arguments
     optimizer_args: OptimizerArgs = OptimizerArgs()
     # lr_scheduler related arguments
