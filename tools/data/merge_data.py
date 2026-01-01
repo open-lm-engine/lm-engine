@@ -56,18 +56,18 @@ def get_args() -> Namespace:
     parser.add_argument("--msc-base-path", type=str, help="base path for MSC")
     parser.add_argument("--tmpdir", type=str, help="temporary local directory")
 
-    parser.add_argument("--ray-job", action="store_true", help="whether to use ray")
+    parser.add_argument("--use-ray", action="store_true", help="whether to use ray")
 
     args = parser.parse_args()
     assert args.input_prefixes is not None or args.input_directory is not None
 
     if args.download_locally:
-        assert args.ray_job
+        assert args.use_ray
         assert args.msc_base_path
         assert args.tmpdir
 
     if args.msc_base_path:
-        assert args.ray_job
+        assert args.use_ray
 
     return args
 
