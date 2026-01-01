@@ -49,7 +49,7 @@ def get_args() -> Namespace:
     )
 
     parser.add_argument("--output-prefix", type=str, required=True, help="Path to binary output file without suffix")
-    parser.add_argument("--max-size", type=int, required=False, help="max file size")
+    parser.add_argument("--max-size", type=int, default=250, required=False, help="max file size")
     parser.add_argument("--specific-group", type=int, required=False, help="Run only specific group index")
 
     parser.add_argument("--download-locally", action="store_true", help="download file locally")
@@ -215,54 +215,52 @@ if __name__ == "__main__":
         merge_files_wrapper(input_prefixes=args.input_prefixes, output_prefix=args.output_prefix, args=args)
     elif args.input_directory is not None:
         file_groups = get_groups_by_sizes(args.input_directory, args.max_size)
-        if args.max_size is None:
-            raise ValueError("Max size is required")
-        else:
-            ray.init(
-                address="auto",
-                runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}},
-            )
 
-            queue = deque()
-            for subdir, subdir_groups in file_groups:
-                for grp_id, group in enumerate(subdir_groups):
-                    if args.specific_group is not None and grp_id != args.specific_group:
-                        continue
+        ray.init(
+            address="auto",
+            runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}},
+        )
 
-                    os.makedirs(os.path.join(args.output_prefix, subdir), exist_ok=True)
-                    json.dump(
-                        {"subdir": subdir, "grp_id": grp_id, "group": group},
-                        open(
-                            os.path.join(args.output_prefix, subdir, f"file_map-{grp_id}.json"),
-                            "w",
-                        ),
-                        indent=4,
+        queue = deque()
+        for subdir, subdir_groups in file_groups:
+            for grp_id, group in enumerate(subdir_groups):
+                if args.specific_group is not None and grp_id != args.specific_group:
+                    continue
+
+                os.makedirs(os.path.join(args.output_prefix, subdir), exist_ok=True)
+                json.dump(
+                    {"subdir": subdir, "grp_id": grp_id, "group": group},
+                    open(
+                        os.path.join(args.output_prefix, subdir, f"file_map-{grp_id}.json"),
+                        "w",
+                    ),
+                    indent=4,
+                )
+                queue.append((subdir, grp_id, group))
+
+        pbar = tqdm(total=len(queue), desc="Merging files")
+        futures = []
+
+        while queue or futures:
+            # Submit tasks up to args.workers
+            while queue and len(futures) < args.workers:
+                subdir, grp_id, group = queue.popleft()
+                futures.append(
+                    merge_files_remote.remote(
+                        subdir=subdir,
+                        input_prefixes=group,
+                        output_prefix=os.path.join(args.output_prefix, subdir, str(grp_id)),
+                        args=args,
                     )
-                    queue.append((subdir, grp_id, group))
+                )
 
-            pbar = tqdm(total=len(queue), desc="Merging files")
-            futures = []
+            if futures:
+                done, futures = ray.wait(futures, num_returns=1)
+                try:
+                    ray.get(done[0])
+                except Exception as e:
+                    print(f"Task failed: {e}")
+                pbar.update(1)
 
-            while queue or futures:
-                # Submit tasks up to args.workers
-                while queue and len(futures) < args.workers:
-                    subdir, grp_id, group = queue.popleft()
-                    futures.append(
-                        merge_files_remote.remote(
-                            subdir=subdir,
-                            input_prefixes=group,
-                            output_prefix=os.path.join(args.output_prefix, subdir, str(grp_id)),
-                            args=args,
-                        )
-                    )
-
-                if futures:
-                    done, futures = ray.wait(futures, num_returns=1)
-                    try:
-                        ray.get(done[0])
-                    except Exception as e:
-                        print(f"Task failed: {e}")
-                    pbar.update(1)
-
-            pbar.close()
-            ray.shutdown()
+        pbar.close()
+        ray.shutdown()
