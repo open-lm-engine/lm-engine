@@ -168,7 +168,9 @@ def get_model_tflops(
         elif sequence_mixer_type == "rnn":
             num_heads = max(block.num_input_heads, block.num_weight_heads)
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, block.state_head_dim * num_heads)
+            sequence_mixer_flops = _get_linear_flops(
+                b * s, h, (block.num_input_heads + num_heads) * block.state_head_dim
+            )
             # output projection FLOPs
             sequence_mixer_flops += _get_linear_flops(b * s, block.state_head_dim * num_heads, h)
 
@@ -189,7 +191,12 @@ def get_model_tflops(
             )
 
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, 3 * block.state_head_dim * num_heads)
+            sequence_mixer_flops = _get_linear_flops(
+                b * s,
+                h,
+                (block.num_input_heads + block.num_forget_input_heads + block.num_reset_input_heads + num_heads)
+                * block.state_head_dim,
+            )
             # output projection FLOPs
             sequence_mixer_flops += _get_linear_flops(b * s, block.state_head_dim * num_heads, h)
 

@@ -62,7 +62,10 @@ class RNN(nn.Module):
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.input_projection = ParameterizedLinear(input_size, 2 * self.state_size, bias=add_bias, std=std)
+        self.input_projection = ParameterizedLinear(
+            input_size, (self.num_input_heads + self.num_heads) * self.state_head_dim, bias=add_bias, std=std
+        )
+
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
@@ -104,9 +107,11 @@ class RNN(nn.Module):
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         input = self.input_projection(input)
-        input, gate = input.chunk(2, dim=-1)
+        input, gate = input.split(
+            (self.num_input_heads * self.state_head_dim, self.num_heads * self.state_head_dim), dim=-1
+        )
 
-        input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
+        input = input.view(*input.size()[:-1], -1, self.state_head_dim)
 
         input, input_state = rnn(
             input=input,
