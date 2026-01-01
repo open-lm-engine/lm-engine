@@ -26,9 +26,14 @@ class GRU(nn.Module):
     def __init__(
         self,
         input_size: int,
-        state_size: int,
+        state_head_dim: int,
         output_size: int,
-        num_heads: int,
+        num_input_heads: int,
+        num_forget_input_heads: int,
+        num_reset_input_heads: int,
+        num_weight_heads: int,
+        num_forget_weight_heads: int,
+        num_reset_weight_heads: int,
         add_bias: bool,
         gradient_clipping: float | None,
         initializer_range: float,
@@ -42,14 +47,36 @@ class GRU(nn.Module):
     ) -> GRU:
         super().__init__()
 
-        self.input_size = input_size
-        self.state_size = state_size
-        self.output_size = output_size
-        self.num_heads = num_heads
+        self.num_input_heads = num_input_heads
+        self.num_forget_input_heads = num_forget_input_heads
+        self.num_reset_input_heads = num_reset_input_heads
+        self.num_weight_heads = num_weight_heads
+        self.num_forget_weight_heads = num_forget_weight_heads
+        self.num_reset_weight_heads = num_forget_weight_heads
+
+        self.num_heads = max(
+            num_input_heads,
+            num_forget_input_heads,
+            num_reset_input_heads,
+            num_weight_heads,
+            num_forget_weight_heads,
+            num_reset_weight_heads,
+        )
+
+        divide_if_divisible(self.num_heads, self.num_input_heads)
+        divide_if_divisible(self.num_heads, self.num_forget_input_heads)
+        divide_if_divisible(self.num_heads, self.num_reset_input_heads)
+
+        divide_if_divisible(self.num_heads, self.num_weight_heads)
+        divide_if_divisible(self.num_heads, self.num_forget_weight_heads)
+        divide_if_divisible(self.num_heads, self.num_reset_weight_heads)
+
         self.gradient_clipping = gradient_clipping
+        self.state_head_dim = state_head_dim
+        self.state_size = self.num_heads * self.state_head_dim
+
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
-        self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
 
         std = initializer_range
         if init_method == "mup":
@@ -57,18 +84,25 @@ class GRU(nn.Module):
         self.state_weight_std = std
 
         self.input_projection = ParameterizedLinear(
-            self.input_size,
-            4 * self.state_size,
+            input_size,
+            (self.num_input_heads + self.num_forget_input_heads + self.num_reset_input_heads + self.num_heads)
+            * self.state_head_dim,
             bias=add_bias,
             std=std,
         )
 
-        self.state_weight = nn.Parameter(torch.empty(3 * self.num_heads, self.state_head_dim, self.state_head_dim))
+        self.state_weight = nn.Parameter(
+            torch.empty(
+                self.num_weight_heads + self.num_forget_weight_heads + self.num_reset_weight_heads,
+                self.state_head_dim,
+                self.state_head_dim,
+            )
+        )
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.output_projection = ParameterizedLinear(self.state_size, self.output_size, bias=False, std=std)
+        self.output_projection = ParameterizedLinear(self.state_size, output_size, bias=False, std=std)
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
 
@@ -105,22 +139,25 @@ class GRU(nn.Module):
         input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         input = self.input_projection(input)
-        input, gate = input.split((3 * self.state_size, self.state_size), dim=-1)
-
-        weight = self.state_weight
-
-        if self.scaling_factor != 1:
-            input = input * self.scaling_factor
-            weight = weight * self.scaling_factor
-
-        input, forget_input, reset_input = input.chunk(3, dim=-1)
-        weight, forget_weight, reset_weight = weight.chunk(3, dim=0)
+        input, forget_input, reset_input, gate = input.split(
+            (
+                self.num_input_heads * self.state_head_dim,
+                self.num_forget_input_heads * self.state_head_dim,
+                self.num_reset_input_heads * self.state_head_dim,
+                self.num_heads * self.state_head_dim,
+            ),
+            dim=-1,
+        )
 
         input, forget_input, reset_input = [
-            i.view(*input.size()[:-1], self.num_heads, self.state_head_dim) for i in (input, forget_input, reset_input)
+            i.view(*i.size()[:-1], -1, self.state_head_dim) for i in (input, forget_input, reset_input)
         ]
 
-        input = gru(
+        weight, forget_weight, reset_weight = weight.split(
+            (self.num_weight_heads, self.num_forget_weight_heads, self.num_reset_weight_heads), dim=0
+        )
+
+        input, input_state = gru(
             input=input,
             weight=weight,
             forget_input=forget_input,
@@ -139,7 +176,7 @@ class GRU(nn.Module):
             )
 
         if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+            cache_params.update(state=input_state, num_tokens_added=input.size(1), layer_idx=self.layer_idx)
 
         input = input.view(*input.size()[:-2], -1)
 

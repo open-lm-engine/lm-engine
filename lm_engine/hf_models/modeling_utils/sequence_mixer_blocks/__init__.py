@@ -44,6 +44,23 @@ def get_sequence_mixer(
             layer_idx=layer_idx,
             use_padding_free_transformer=use_padding_free_transformer,
         )
+    elif sequence_mixer_type == "gru":
+        return GRU(
+            input_size=config.hidden_size,
+            state_head_dim=block.state_head_dim,
+            output_size=config.hidden_size,
+            num_input_heads=block.num_input_heads,
+            num_weight_heads=block.num_weight_heads,
+            add_bias=block.add_bias,
+            gradient_clipping=block.gradient_clipping,
+            initializer_range=config.initializer_range,
+            m_width=config.m_width,
+            init_method=config.init_method,
+            normalization_function=block.normalization_function,
+            num_layers=config.num_layers,
+            layer_idx=layer_idx,
+            use_padding_free_transformer=use_padding_free_transformer,
+        )
     elif sequence_mixer_type == "rnn":
         return RNN(
             input_size=config.hidden_size,
