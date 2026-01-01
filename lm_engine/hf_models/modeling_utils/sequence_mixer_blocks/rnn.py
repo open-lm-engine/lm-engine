@@ -26,47 +26,52 @@ class RNN(nn.Module):
     def __init__(
         self,
         input_size: int,
-        state_size: int,
+        state_head_dim: int,
         output_size: int,
-        num_heads: int,
+        num_input_heads: int,
+        num_weight_heads: int,
         add_bias: bool,
         gradient_clipping: float | None,
         initializer_range: float,
         m_width: float,
         init_method: str,
         normalization_function: str | None,
-        scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
     ) -> RNN:
         super().__init__()
 
-        self.input_size = input_size
-        self.state_size = state_size
-        self.output_size = output_size
-        self.num_heads = num_heads
+        self.num_input_heads = num_input_heads
+        self.num_weight_heads = num_weight_heads
+        self.num_heads = max(num_input_heads, num_weight_heads)
+
+        divide_if_divisible(self.num_heads, self.num_input_heads)
+        divide_if_divisible(self.num_heads, self.num_weight_heads)
+
         self.gradient_clipping = gradient_clipping
+
+        self.state_head_dim = state_head_dim
+        self.state_size = self.num_heads * self.state_head_dim
+
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
-        self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
 
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.state_weight_std = std
 
-        self.input_projection = ParameterizedLinear(self.input_size, 2 * self.state_size, bias=add_bias, std=std)
+        self.input_projection = ParameterizedLinear(input_size, 2 * self.state_size, bias=add_bias, std=std)
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.output_projection = ParameterizedLinear(self.state_size, self.output_size, bias=False, std=std)
+        self.output_projection = ParameterizedLinear(self.state_size, output_size, bias=False, std=std)
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
 
-        self.scaling_factor = scaling_factor
         self.reset_parameters()
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
@@ -103,15 +108,9 @@ class RNN(nn.Module):
 
         input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
 
-        weight = self.state_weight
-
-        if self.scaling_factor != 1:
-            input = input * self.scaling_factor
-            weight = weight * self.scaling_factor
-
         input = rnn(
             input=input,
-            weight=weight,
+            weight=self.state_weight,
             input_state=input_state,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
