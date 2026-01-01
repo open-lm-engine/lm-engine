@@ -69,19 +69,29 @@ class _Mamba2Args(BaseArgs):
 
 class _GRUArgs(BaseArgs):
     sequence_mixer_type: str = "gru"
-    state_size: int = 2048
-    num_heads: int = 128
+    state_head_dim: int
+    num_input_heads: int
+    num_forget_input_heads: int
+    num_reset_input_heads: int
+    num_weight_heads: int
+    num_forget_weight_heads: int
+    num_reset_weight_heads: int
     add_bias: bool = False
     normalization_function: str | None = None
     gradient_clipping: float | None = None
-    scaling_factor: float = 1
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gru"
 
 
-class _RNNArgs(_GRUArgs):
+class _RNNArgs(BaseArgs):
     sequence_mixer_type: str = "rnn"
+    state_head_dim: int
+    num_input_heads: int
+    num_weight_heads: int
+    add_bias: bool = False
+    normalization_function: str | None = None
+    gradient_clipping: float | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rnn"
