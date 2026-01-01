@@ -135,7 +135,6 @@ def merge_files_wrapper(subdir: str, input_prefixes: list[str], output_prefix: s
             for ext in [".bin", ".idx"]:
                 remote_path = f"{msc_output_path}{ext}"
                 msc.upload_file(remote_path, f"{local_output_path}{ext}")
-
     else:
         merge_files(input_prefixes=input_prefixes, output_prefix=output_prefix)
 
