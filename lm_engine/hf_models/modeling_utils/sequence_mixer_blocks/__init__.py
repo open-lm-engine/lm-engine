@@ -51,7 +51,6 @@ def get_sequence_mixer(
             output_size=config.hidden_size,
             num_input_heads=block.num_input_heads,
             num_weight_heads=block.num_weight_heads,
-            num_heads=block.num_heads,
             add_bias=block.add_bias,
             gradient_clipping=block.gradient_clipping,
             initializer_range=config.initializer_range,
