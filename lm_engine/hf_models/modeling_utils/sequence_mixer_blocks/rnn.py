@@ -108,7 +108,7 @@ class RNN(nn.Module):
 
         input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
 
-        input = rnn(
+        input, input_state = rnn(
             input=input,
             weight=self.state_weight,
             input_state=input_state,
@@ -123,7 +123,7 @@ class RNN(nn.Module):
             )
 
         if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+            cache_params.update(state=input_state, num_tokens_added=input.size(1), layer_idx=self.layer_idx)
 
         input = input.view(*input.size()[:-2], -1)
 
