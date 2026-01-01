@@ -96,7 +96,7 @@ def get_args() -> Namespace:
     group.add_argument(
         "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when ray-workers=0)"
     )
-    group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
+    group.add_argument("--use-ray", action="store_true", help="whether to use Ray")
     group.add_argument("--download-locally", action="store_true", help="download file locally")
     group.add_argument("--msc-base-path", type=str, help="base path for MSC")
     group.add_argument("--tmpdir", type=str, help="temporary local directory")
@@ -234,7 +234,7 @@ def main() -> None:
         assert os.path.isabs(msc_config_path)
 
     # Single file processing (direct call, no parallelization)
-    if os.path.isfile(args.input) and args.ray_workers == 0:
+    if os.path.isfile(args.input) and not args.use_ray:
         convert_file(
             tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
             input_file=args.input,
@@ -254,7 +254,7 @@ def main() -> None:
         log_rank_0(logging.INFO, "❌ No files found to process")
         return
 
-    if args.ray_workers > 0:
+    if args.use_ray:
         assert is_ray_available()
         process_with_ray(args, files)
     else:
