@@ -46,8 +46,18 @@ model_args:
       - sequence_mixer_type: mamba2
         add_bias: true
       - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 1
+        num_weight_heads: 1
         add_bias: true
       - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 1
+        num_forget_input_heads: 1
+        num_reset_input_heads: 1
+        num_weight_heads: 1
+        num_forget_weight_heads: 1
+        num_reset_weight_heads: 1
         add_bias: true
     mlp_blocks:
       - activation_function: swiglu

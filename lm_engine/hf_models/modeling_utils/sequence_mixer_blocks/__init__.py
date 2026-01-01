@@ -45,19 +45,40 @@ def get_sequence_mixer(
             layer_idx=layer_idx,
             use_padding_free_transformer=use_padding_free_transformer,
         )
-    elif sequence_mixer_type in ["rnn", "gru"]:
-        return (GRU if sequence_mixer_type == "gru" else RNN)(
+    elif sequence_mixer_type == "gru":
+        return GRU(
             input_size=config.hidden_size,
-            state_size=block.state_size,
+            state_head_dim=block.state_head_dim,
             output_size=config.hidden_size,
-            num_heads=block.num_heads,
+            num_input_heads=block.num_input_heads,
+            num_forget_input_heads=block.num_forget_input_heads,
+            num_reset_input_heads=block.num_reset_input_heads,
+            num_weight_heads=block.num_weight_heads,
+            num_forget_weight_heads=block.num_forget_weight_heads,
+            num_reset_weight_heads=block.num_reset_weight_heads,
             add_bias=block.add_bias,
             gradient_clipping=block.gradient_clipping,
             initializer_range=config.initializer_range,
             m_width=config.m_width,
             init_method=config.init_method,
             normalization_function=block.normalization_function,
-            scaling_factor=block.scaling_factor,
+            num_layers=config.num_layers,
+            layer_idx=layer_idx,
+            use_padding_free_transformer=use_padding_free_transformer,
+        )
+    elif sequence_mixer_type == "rnn":
+        return RNN(
+            input_size=config.hidden_size,
+            state_head_dim=block.state_head_dim,
+            output_size=config.hidden_size,
+            num_input_heads=block.num_input_heads,
+            num_weight_heads=block.num_weight_heads,
+            add_bias=block.add_bias,
+            gradient_clipping=block.gradient_clipping,
+            initializer_range=config.initializer_range,
+            m_width=config.m_width,
+            init_method=config.init_method,
+            normalization_function=block.normalization_function,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
             use_padding_free_transformer=use_padding_free_transformer,
