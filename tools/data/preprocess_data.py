@@ -11,14 +11,64 @@ from argparse import ArgumentParser, Namespace
 from collections import deque
 
 import multistorageclient as msc
-import ray
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from lm_engine.data.megatron.indexed_dataset import get_bin_path, get_idx_path
 from lm_engine.data.megatron.preprocess_data import convert_file
 from lm_engine.defaults import MSC_PREFIX
-from lm_engine.utils import log_rank_0, set_logger
+from lm_engine.utils import is_ray_available, log_rank_0, set_logger
+
+
+if is_ray_available():
+    import ray
+
+    @ray.remote
+    def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
+        """Ray remote function to process a single file."""
+
+        try:
+            if args.download_locally:
+                with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
+                    input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
+                        input_file, args.msc_base_path, tmpdir
+                    )
+
+                    output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
+                        output_prefix, args.msc_base_path, tmpdir
+                    )
+
+                    msc.download_file(input_file, local_input_file)
+
+                    os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
+
+                    skipped_line_count = convert_file(
+                        tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+                        input_file=local_input_file,
+                        output_prefix=local_output_prefix,
+                        subset=args.subset,
+                        json_keys=args.json_keys,
+                        append_eos_token=args.append_eod,
+                    )
+
+                    for key in args.json_keys:
+                        for path_function in [get_bin_path, get_idx_path]:
+                            msc.upload_file(
+                                path_function(f"{output_prefix}_{key}"), path_function(f"{local_output_prefix}_{key}")
+                            )
+            else:
+                skipped_line_count = convert_file(
+                    tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+                    input_file=input_file,
+                    output_prefix=output_prefix,
+                    subset=args.subset,
+                    json_keys=args.json_keys,
+                    append_eos_token=args.append_eod,
+                )
+
+            return input_file, skipped_line_count
+        except Exception as e:
+            return "!!!!!!!!!!!!!!! Error Look Here !!!!!!!!!!!!!!!" + str(e) + "\n\n" + traceback.format_exc(), 0
 
 
 set_logger()
@@ -68,54 +118,6 @@ def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir
     path = f"{MSC_PREFIX}{path}"
     local_path = os.path.join(tmpdir, base_path)
     return path, local_path
-
-
-@ray.remote
-def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
-    """Ray remote function to process a single file."""
-
-    try:
-        if args.download_locally:
-            with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
-                input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
-                    input_file, args.msc_base_path, tmpdir
-                )
-
-                output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
-                    output_prefix, args.msc_base_path, tmpdir
-                )
-
-                msc.download_file(input_file, local_input_file)
-
-                os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
-
-                skipped_line_count = convert_file(
-                    tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-                    input_file=local_input_file,
-                    output_prefix=local_output_prefix,
-                    subset=args.subset,
-                    json_keys=args.json_keys,
-                    append_eos_token=args.append_eod,
-                )
-
-                for key in args.json_keys:
-                    for path_function in [get_bin_path, get_idx_path]:
-                        msc.upload_file(
-                            path_function(f"{output_prefix}_{key}"), path_function(f"{local_output_prefix}_{key}")
-                        )
-        else:
-            skipped_line_count = convert_file(
-                tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-                input_file=input_file,
-                output_prefix=output_prefix,
-                subset=args.subset,
-                json_keys=args.json_keys,
-                append_eos_token=args.append_eod,
-            )
-
-        return input_file, skipped_line_count
-    except Exception as e:
-        return "!!!!!!!!!!!!!!! Error Look Here !!!!!!!!!!!!!!!" + str(e) + "\n\n" + traceback.format_exc(), 0
 
 
 def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
@@ -266,7 +268,11 @@ def main() -> None:
         log_rank_0(logging.INFO, "❌ No files found to process")
         return
 
-    (process_with_ray if args.ray_workers > 0 else process_with_subprocess)(args, files)
+    if args.ray_workers > 0:
+        assert is_ray_available()
+        process_with_ray(args, files)
+    else:
+        process_with_subprocess(args, files)
 
     log_rank_0(logging.INFO, "✅ All files processed successfully.")
 
