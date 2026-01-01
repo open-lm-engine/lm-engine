@@ -148,10 +148,6 @@ def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
 
 def process_with_ray(args: Namespace, files: list) -> None:
     """Process files using Ray for distributed execution."""
-    log_rank_0(
-        logging.INFO,
-        f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)",
-    )
 
     # Initialize Ray
     ray.init(
