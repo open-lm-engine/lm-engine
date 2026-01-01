@@ -84,7 +84,7 @@ class _GRUArgs(BaseArgs):
         assert self.sequence_mixer_type == "gru"
 
 
-class _RNNArgs(_GRUArgs):
+class _RNNArgs(BaseArgs):
     sequence_mixer_type: str = "rnn"
     state_head_dim: int
     num_input_heads: int
