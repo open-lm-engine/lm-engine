@@ -157,8 +157,6 @@ def process_with_ray(args: Namespace, files: list) -> None:
     )
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
-    futures = []
-
     # Wait for completion with progress bar
     queue = deque(files)
     futures = []
