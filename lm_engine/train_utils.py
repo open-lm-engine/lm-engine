@@ -197,7 +197,7 @@ def get_model_tflops(
             sequence_mixer_flops += (
                 3
                 * s
-                * block.num_heads
+                * num_heads
                 * (_get_linear_flops(b, block.state_head_dim, block.state_head_dim) + b * block.state_head_dim)
             )
         else:
