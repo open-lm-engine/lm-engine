@@ -210,6 +210,8 @@ if __name__ == "__main__":
 
     if args.input_prefixes is not None:
         assert args.max_size is None
+        assert not args.use_ray
+
         merge_files_wrapper(input_prefixes=args.input_prefixes, output_prefix=args.output_prefix, args=args)
     elif args.input_directory is not None:
         file_groups = get_groups_by_sizes(args.input_directory, args.max_size)
