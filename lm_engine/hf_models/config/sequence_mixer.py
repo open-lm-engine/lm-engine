@@ -71,7 +71,11 @@ class _GRUArgs(BaseArgs):
     sequence_mixer_type: str = "gru"
     state_head_dim: int
     num_input_heads: int
+    num_forget_input_heads: int
+    num_reset_input_heads: int
     num_weight_heads: int
+    num_forget_weight_heads: int
+    num_reset_weight_heads: int
     add_bias: bool = False
     normalization_function: str | None = None
     gradient_clipping: float | None = None
