@@ -51,7 +51,7 @@ class GRU(nn.Module):
         self.num_reset_input_heads = num_reset_input_heads
         self.num_weight_heads = num_weight_heads
         self.num_forget_weight_heads = num_forget_weight_heads
-        self.num_reset_weight_heads = num_forget_weight_heads
+        self.num_reset_weight_heads = num_reset_weight_heads
 
         self.num_heads = max(
             num_input_heads,
