@@ -215,10 +215,7 @@ if __name__ == "__main__":
     elif args.input_directory is not None:
         file_groups = get_groups_by_sizes(args.input_directory, args.max_size)
 
-        ray.init(
-            address="auto",
-            runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}},
-        )
+        ray.init(address="auto", runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}})
 
         queue = deque()
         for subdir, subdir_groups in file_groups:
