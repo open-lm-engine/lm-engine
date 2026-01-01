@@ -10,12 +10,25 @@ from argparse import ArgumentParser, Namespace
 from collections import deque
 
 import multistorageclient as msc
-import ray
 from google.cloud import storage
 from tqdm import tqdm
 
 from lm_engine.data.megatron.merge_data import merge_files
 from lm_engine.defaults import MSC_PREFIX
+from lm_engine.utils import is_ray_available
+
+
+if is_ray_available():
+    import ray
+
+    @ray.remote
+    def merge_files_remote(subdir: str, input_prefixes: list[str], output_prefix: str, args: Namespace) -> None:
+        try:
+            merge_files_wrapper(subdir, input_prefixes, output_prefix, args)
+        except Exception as e:
+            print(f"Error processing {output_prefix}: {e}")
+            traceback.print_exc()
+            raise e
 
 
 def get_args() -> Namespace:
@@ -125,16 +138,6 @@ def merge_files_wrapper(subdir: str, input_prefixes: list[str], output_prefix: s
 
     else:
         merge_files(input_prefixes=input_prefixes, output_prefix=output_prefix)
-
-
-@ray.remote
-def merge_files_remote(subdir: str, input_prefixes: list[str], output_prefix: str, args: Namespace) -> None:
-    try:
-        merge_files_wrapper(subdir, input_prefixes, output_prefix, args)
-    except Exception as e:
-        print(f"Error processing {output_prefix}: {e}")
-        traceback.print_exc()
-        raise e
 
 
 def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str]]:
