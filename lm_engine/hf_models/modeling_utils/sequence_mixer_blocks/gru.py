@@ -151,7 +151,7 @@ class GRU(nn.Module):
             i.view(*i.size()[:-1], -1, self.state_head_dim) for i in (input, forget_input, reset_input)
         ]
 
-        weight, forget_weight, reset_weight = weight.split(
+        weight, forget_weight, reset_weight = self.state_weight.split(
             (self.num_weight_heads, self.num_forget_weight_heads, self.num_reset_weight_heads), dim=0
         )
 
