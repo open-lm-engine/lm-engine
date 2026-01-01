@@ -8,7 +8,6 @@ import subprocess
 import tempfile
 import traceback
 from argparse import ArgumentParser, Namespace
-from collections import deque
 
 import multistorageclient as msc
 from tqdm import tqdm
@@ -158,22 +157,15 @@ def process_with_ray(args: Namespace, files: list) -> None:
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
     # Wait for completion with progress bar
-    queue = deque(files)
     futures = []
+    for input_file, output_prefix in files:
+        futures.append(
+            process_file_ray.options(num_cpus=1).remote(args=args, input_file=input_file, output_prefix=output_prefix)
+        )
 
     with tqdm(total=len(files), desc="Tokenizing") as pbar:
         # Loop until no remaining files OR futures
-        while queue or futures:
-            # Fill up the worker slots
-            # TODO @mayank31398: Ray workers are not useful. Remove this in the future.
-            while queue and len(futures) < args.ray_workers:
-                input_file, output_prefix = queue.popleft()
-                futures.append(
-                    process_file_ray.options(num_cpus=1).remote(
-                        args=args, input_file=input_file, output_prefix=output_prefix
-                    )
-                )
-
+        while futures:
             # Wait for one task to complete
             done, futures = ray.wait(futures, num_returns=1)
             future = done[0]
