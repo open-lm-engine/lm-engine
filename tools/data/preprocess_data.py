@@ -94,7 +94,7 @@ def get_args() -> Namespace:
 
     group = parser.add_argument_group(title="runtime")
     group.add_argument(
-        "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when ray-workers=0)"
+        "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when --use-ray)"
     )
     group.add_argument("--use-ray", action="store_true", help="whether to use Ray")
     group.add_argument("--download-locally", action="store_true", help="download file locally")
