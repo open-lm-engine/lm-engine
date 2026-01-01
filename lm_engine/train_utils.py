@@ -166,15 +166,18 @@ def get_model_tflops(
             sequence_mixer_flops = projection_flops + ssm_flops
             sequence_mixer_flops *= 2
         elif sequence_mixer_type == "rnn":
+            num_heads = max(block.num_input_heads, block.num_weight_heads)
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, block.state_size)
+            sequence_mixer_flops = _get_linear_flops(b * s, h, block.state_head_dim * num_heads)
             # output projection FLOPs
-            sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
-
-            head_dim = block.state_size / block.num_heads
+            sequence_mixer_flops += _get_linear_flops(b * s, block.state_head_dim * num_heads, h)
 
             # sigmoid(Wh + x)
-            sequence_mixer_flops += s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
+            sequence_mixer_flops += (
+                s
+                * num_heads
+                * (_get_linear_flops(b, block.state_head_dim, block.state_head_dim) + b * block.state_head_dim)
+            )
         elif sequence_mixer_type == "gru":
             # input projection FLOPs
             sequence_mixer_flops = _get_linear_flops(b * s, h, 3 * block.state_size)
