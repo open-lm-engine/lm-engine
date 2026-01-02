@@ -49,7 +49,7 @@ def get_args() -> Namespace:
     )
 
     parser.add_argument("--output-prefix", type=str, required=True, help="Path to binary output file without suffix")
-    parser.add_argument("--max-size", type=int, default=250, required=False, help="max file size")
+    parser.add_argument("--max-size", type=int, required=False, help="max file size")
     parser.add_argument("--specific-group", type=int, required=False, help="Run only specific group index")
 
     parser.add_argument("--download-locally", action="store_true", help="download file locally")
@@ -150,35 +150,20 @@ def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str
     Returns:
         List of groups, where each group is a list of file prefixes to merge
     """
-    path = path.rstrip(os.sep)
-
-    # Get all subdirectories in the input path
-    subdirs = []
-    if os.path.isdir(path):
-        for d in sorted(os.listdir(path)):
-            full_path = os.path.join(path, d)
-            if os.path.isdir(full_path):
-                subdirs.append(d)
-
-    if not subdirs:
-        # If no subdirs, treat path itself as the only directory
-        subdirs = [""]
 
     groups = []
 
-    for subdir in subdirs:
-        curr_subdir_groups = []
-
+    for root, _, fnames in os.walk(path):
         # Get all .bin files in this subdirectory
-        curr_fnames = filter(lambda x: x.endswith(".bin"), os.listdir(os.path.join(path, subdir)))
-        curr_fnames = [os.path.join(path, subdir, i) for i in curr_fnames]
-        fnames = curr_fnames
-
-        # Remove .bin extension to get prefixes
-        fnames = sorted([i[:-4] for i in fnames])
+        fnames = filter(lambda x: x.endswith(".bin"), fnames)
+        fnames = [os.path.join(root, i) for i in fnames]
 
         if not fnames:
             continue
+
+        # Remove .bin extension to get prefixes
+        fnames = sorted([i[:-4] for i in fnames])
+        curr_subdir_groups = []
 
         if max_size is None:
             # All files in this subdir form one group
@@ -198,7 +183,7 @@ def get_groups_by_sizes(path: str, max_size: int | None = None) -> list[list[str
                     current_grp = []
                     current_size = 0
 
-        groups.append((subdir, curr_subdir_groups))
+        groups.append((root, curr_subdir_groups))
 
     return groups
 
@@ -214,8 +199,6 @@ if __name__ == "__main__":
         merge_files_wrapper(input_prefixes=args.input_prefixes, output_prefix=args.output_prefix, args=args)
     elif args.input_directory is not None:
         file_groups = get_groups_by_sizes(args.input_directory, args.max_size)
-
-        ray.init(address="auto", runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}})
 
         queue = deque()
         for subdir, subdir_groups in file_groups:
@@ -235,28 +218,37 @@ if __name__ == "__main__":
                 queue.append((subdir, grp_id, group))
 
         pbar = tqdm(total=len(queue), desc="Merging files")
-        futures = []
 
-        while queue or futures:
-            # Submit tasks up to args.workers
-            while queue and len(futures) < args.workers:
-                subdir, grp_id, group = queue.popleft()
-                futures.append(
-                    merge_files_remote.remote(
-                        subdir=subdir,
-                        input_prefixes=group,
-                        output_prefix=os.path.join(args.output_prefix, subdir, str(grp_id)),
-                        args=args,
+        if args.use_ray:
+            futures = []
+            ray.init(address="auto", runtime_env={"env_vars": {"MSC_CONFIG": os.environ.get("MSC_CONFIG", "")}})
+
+            while queue or futures:
+                # Submit tasks up to args.workers
+                while queue and len(futures) < args.workers:
+                    subdir, grp_id, group = queue.popleft()
+                    output_prefix = os.path.join(args.output_prefix, subdir, str(grp_id))
+
+                    futures.append(
+                        merge_files_remote.remote(
+                            subdir=subdir, input_prefixes=group, output_prefix=output_prefix, args=args
+                        )
                     )
-                )
 
-            if futures:
-                done, futures = ray.wait(futures, num_returns=1)
-                try:
-                    ray.get(done[0])
-                except Exception as e:
-                    print(f"Task failed: {e}")
+                if futures:
+                    done, futures = ray.wait(futures, num_returns=1)
+                    try:
+                        ray.get(done[0])
+                    except Exception as e:
+                        print(f"Task failed: {e}")
+                    pbar.update(1)
+
+            ray.shutdown()
+        else:
+            while queue:
+                subdir, grp_id, group = queue.popleft()
+                output_prefix = os.path.join(args.output_prefix, subdir, str(grp_id))
+                merge_files_wrapper(subdir=subdir, input_prefixes=group, output_prefix=output_prefix, args=args)
                 pbar.update(1)
 
         pbar.close()
-        ray.shutdown()
