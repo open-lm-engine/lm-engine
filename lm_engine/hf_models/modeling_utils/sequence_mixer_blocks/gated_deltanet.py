@@ -265,11 +265,7 @@ class GatedDeltaNet(nn.Module):
         k = k.view(*q_size[:-1], -1, self.head_k_dim)
         v = v.view(*v.size()[:-1], -1, self.head_v_dim)
 
-        # q, k = map(lambda x: rearrange(x, '... (h d) -> ... h d', d=self.head_k_dim), (q, k))
-        # v = rearrange(v, '... (h d) -> ... h d', d=self.head_v_dim)
-
         if self.num_v_heads > self.num_heads:
-            # q, k = map(lambda x: repeat(x, '... h d -> ... (h g) d', g=self.num_v_heads // self.num_heads), (q, k)
             q = q.repeat_interleave(repeats=self.num_v_heads // self.num_heads, dim=-2)
             k = k.repeat_interleave(repeats=self.num_v_heads // self.num_heads, dim=-2)
 
@@ -277,7 +273,6 @@ class GatedDeltaNet(nn.Module):
         if self.allow_neg_eigval:
             beta = beta * 2.0
 
-        # g = -self.A_log.float().exp() * F.softplus(self.a_proj(hidden_states).float() + self.dt_bias)
         g = -self.A_log.float().exp() * F.softplus(a.float() + self.dt_bias)
 
         recurrent_state = last_state["recurrent_state"] if last_state is not None else None
