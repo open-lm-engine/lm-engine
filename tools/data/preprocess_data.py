@@ -8,17 +8,66 @@ import subprocess
 import tempfile
 import traceback
 from argparse import ArgumentParser, Namespace
-from collections import deque
 
 import multistorageclient as msc
-import ray
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from lm_engine.data.megatron.indexed_dataset import get_bin_path, get_idx_path
 from lm_engine.data.megatron.preprocess_data import convert_file
 from lm_engine.defaults import MSC_PREFIX
-from lm_engine.utils import log_rank_0, set_logger
+from lm_engine.utils import is_ray_available, log_rank_0, set_logger
+
+
+if is_ray_available():
+    import ray
+
+    @ray.remote
+    def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
+        """Ray remote function to process a single file."""
+
+        try:
+            if args.download_locally:
+                with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
+                    input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
+                        input_file, args.msc_base_path, tmpdir
+                    )
+
+                    output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
+                        output_prefix, args.msc_base_path, tmpdir
+                    )
+
+                    msc.download_file(input_file, local_input_file)
+
+                    os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
+
+                    skipped_line_count = convert_file(
+                        tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+                        input_file=local_input_file,
+                        output_prefix=local_output_prefix,
+                        subset=args.subset,
+                        json_keys=args.json_keys,
+                        append_eos_token=args.append_eod,
+                    )
+
+                    for key in args.json_keys:
+                        for path_function in [get_bin_path, get_idx_path]:
+                            msc.upload_file(
+                                path_function(f"{output_prefix}_{key}"), path_function(f"{local_output_prefix}_{key}")
+                            )
+            else:
+                skipped_line_count = convert_file(
+                    tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
+                    input_file=input_file,
+                    output_prefix=output_prefix,
+                    subset=args.subset,
+                    json_keys=args.json_keys,
+                    append_eos_token=args.append_eod,
+                )
+
+            return input_file, skipped_line_count
+        except Exception as e:
+            return "!!!!!!!!!!!!!!! Error Look Here !!!!!!!!!!!!!!!" + str(e) + "\n\n" + traceback.format_exc(), 0
 
 
 set_logger()
@@ -45,9 +94,9 @@ def get_args() -> Namespace:
 
     group = parser.add_argument_group(title="runtime")
     group.add_argument(
-        "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when ray-workers=0)"
+        "--max-local-processes", type=int, default=16, help="Number of processes to launch (used when --use-ray)"
     )
-    group.add_argument("--ray-workers", type=int, default=0, help="Number of ray workers (0 = use subprocess)")
+    group.add_argument("--use-ray", action="store_true", help="whether to use Ray")
     group.add_argument("--download-locally", action="store_true", help="download file locally")
     group.add_argument("--msc-base-path", type=str, help="base path for MSC")
     group.add_argument("--tmpdir", type=str, help="temporary local directory")
@@ -68,54 +117,6 @@ def _convert_path_to_msc_path_and_tmp_path(path: str, base_msc_path: str, tmpdir
     path = f"{MSC_PREFIX}{path}"
     local_path = os.path.join(tmpdir, base_path)
     return path, local_path
-
-
-@ray.remote
-def process_file_ray(args: Namespace, input_file: str, output_prefix: str) -> None:
-    """Ray remote function to process a single file."""
-
-    try:
-        if args.download_locally:
-            with tempfile.TemporaryDirectory(dir=args.tmpdir) as tmpdir:
-                input_file, local_input_file = _convert_path_to_msc_path_and_tmp_path(
-                    input_file, args.msc_base_path, tmpdir
-                )
-
-                output_prefix, local_output_prefix = _convert_path_to_msc_path_and_tmp_path(
-                    output_prefix, args.msc_base_path, tmpdir
-                )
-
-                msc.download_file(input_file, local_input_file)
-
-                os.makedirs(os.path.dirname(local_output_prefix), exist_ok=True)
-
-                skipped_line_count = convert_file(
-                    tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-                    input_file=local_input_file,
-                    output_prefix=local_output_prefix,
-                    subset=args.subset,
-                    json_keys=args.json_keys,
-                    append_eos_token=args.append_eod,
-                )
-
-                for key in args.json_keys:
-                    for path_function in [get_bin_path, get_idx_path]:
-                        msc.upload_file(
-                            path_function(f"{output_prefix}_{key}"), path_function(f"{local_output_prefix}_{key}")
-                        )
-        else:
-            skipped_line_count = convert_file(
-                tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
-                input_file=input_file,
-                output_prefix=output_prefix,
-                subset=args.subset,
-                json_keys=args.json_keys,
-                append_eos_token=args.append_eod,
-            )
-
-        return input_file, skipped_line_count
-    except Exception as e:
-        return "!!!!!!!!!!!!!!! Error Look Here !!!!!!!!!!!!!!!" + str(e) + "\n\n" + traceback.format_exc(), 0
 
 
 def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
@@ -146,10 +147,6 @@ def collect_files(args: Namespace, makedirs: bool) -> list[tuple[str, str]]:
 
 def process_with_ray(args: Namespace, files: list) -> None:
     """Process files using Ray for distributed execution."""
-    log_rank_0(
-        logging.INFO,
-        f"🚀 Processing {len(files)} files with Ray ({args.ray_workers} workers)",
-    )
 
     # Initialize Ray
     ray.init(
@@ -159,25 +156,16 @@ def process_with_ray(args: Namespace, files: list) -> None:
     )
     log_rank_0(logging.INFO, "Ray initialized for processing.")
 
-    futures = []
-
     # Wait for completion with progress bar
-    queue = deque(files)
     futures = []
+    for input_file, output_prefix in files:
+        futures.append(
+            process_file_ray.options(num_cpus=1).remote(args=args, input_file=input_file, output_prefix=output_prefix)
+        )
 
     with tqdm(total=len(files), desc="Tokenizing") as pbar:
         # Loop until no remaining files OR futures
-        while queue or futures:
-            # Fill up the worker slots
-            # TODO @mayank31398: Ray workers are not useful. Remove this in the future.
-            while queue and len(futures) < args.ray_workers:
-                input_file, output_prefix = queue.popleft()
-                futures.append(
-                    process_file_ray.options(num_cpus=1).remote(
-                        args=args, input_file=input_file, output_prefix=output_prefix
-                    )
-                )
-
+        while futures:
             # Wait for one task to complete
             done, futures = ray.wait(futures, num_returns=1)
             future = done[0]
@@ -246,7 +234,7 @@ def main() -> None:
         assert os.path.isabs(msc_config_path)
 
     # Single file processing (direct call, no parallelization)
-    if os.path.isfile(args.input) and args.ray_workers == 0:
+    if os.path.isfile(args.input) and not args.use_ray:
         convert_file(
             tokenizer=AutoTokenizer.from_pretrained(args.tokenizer),
             input_file=args.input,
@@ -266,7 +254,11 @@ def main() -> None:
         log_rank_0(logging.INFO, "❌ No files found to process")
         return
 
-    (process_with_ray if args.ray_workers > 0 else process_with_subprocess)(args, files)
+    if args.use_ray:
+        assert is_ray_available()
+        process_with_ray(args, files)
+    else:
+        process_with_subprocess(args, files)
 
     log_rank_0(logging.INFO, "✅ All files processed successfully.")
 
