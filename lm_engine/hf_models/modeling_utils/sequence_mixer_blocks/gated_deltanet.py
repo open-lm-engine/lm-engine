@@ -222,12 +222,6 @@ class GatedDeltaNet(nn.Module):
         if past_key_values is not None and len(past_key_values) > self.layer_idx:
             last_state = past_key_values[self.layer_idx]
 
-        # cu_seqlens = kwargs.get('cu_seqlens', None)
-        # if attention_mask is not None:
-        #     indices, cu_seqlens, _ = get_unpad_data(attention_mask[:, -q_len:])
-        #     # hidden_states = index_first_axis(rearrange(hidden_states, "b s ... -> (b s) ..."), indices).unsqueeze(0)
-        #     hidden_states = index_first_axis(hidden_states.flatten(0, 1), indices).unsqueeze(0)
-        # assert cu_seqlens is None
         cu_seqlens = None
 
         if self.use_gate:
