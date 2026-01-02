@@ -330,4 +330,4 @@ class GatedDeltaNet(nn.Module):
         if attention_mask is not None:
             o = pad_input(o.squeeze(0), indices, batch_size, q_len)
 
-        return o, None, past_key_values
+        return o

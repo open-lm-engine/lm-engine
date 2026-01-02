@@ -103,14 +103,13 @@ class Block(nn.Module):
             )
         elif self.sequence_mixer_type == "gated_deltanet":
             # GatedDeltaNet returns (output, attentions, past_key_values)
-            out, _, past = self.sequence_mixer(
+            hidden_states = self.sequence_mixer(
                 hidden_states,
                 attention_mask=attention_mask,
                 past_key_values=past_key_values,
                 use_cache=False,
                 output_attentions=False,
             )
-            hidden_states = out
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")
 
