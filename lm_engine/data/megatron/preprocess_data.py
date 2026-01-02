@@ -106,7 +106,7 @@ def convert_file(
             with open(path, "rb") as compressed:
                 dctx = ZstdDecompressor()
                 with dctx.stream_reader(compressed) as reader:
-                    # Use a large buffer (16MB) to ensure efficient reading of very long lines
+                    # Use a large buffer (64MB) to ensure efficient reading of very long lines
                     buffered = io.BufferedReader(reader, buffer_size=64 * 1024 * 1024)
                     for line in buffered:
                         yield line

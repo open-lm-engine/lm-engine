@@ -20,15 +20,12 @@ if is_xma_available():
 
 class RMSNorm(nn.RMSNorm):
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        rmsnorm_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm)
-        rmsnorm_memory_efficient_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm_memory_efficient)
-
-        if rmsnorm_kernel_allowed or rmsnorm_memory_efficient_kernel_allowed:
+        if is_kernel_allowed(Kernel.rmsnorm) or is_kernel_allowed(Kernel.rmsnorm_memory_efficient):
             hidden_states = rmsnorm(
                 x=hidden_states,
                 weight=self.weight,
                 eps=self.eps,
-                memory_efficient=rmsnorm_memory_efficient_kernel_allowed,
+                memory_efficient=is_kernel_allowed(Kernel.rmsnorm_memory_efficient),
             )
         else:
             hidden_states = super().forward(hidden_states)
