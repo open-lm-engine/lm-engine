@@ -12,12 +12,14 @@ import warnings
 
 import torch
 import torch.nn as nn
-from fla.layers.utils import pad_input
+
+# from fla.layers.utils import pad_input
 from fla.modules import FusedRMSNormGated
 from fla.ops.gated_delta_rule import chunk_gated_delta_rule, fused_recurrent_gated_delta_rule
 from torch.nn import functional as F
 
-from ...modeling_utils.convolution import ParameterizedConv1d
+from ...cache import GenerationCache
+from ..convolution import ParameterizedConv1d
 from ..normalization import RMSNorm, get_normalization_function
 from .causal_convolution import causal_convolution
 
@@ -141,9 +143,6 @@ class GatedDeltaNet(nn.Module):
             )
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
 
-        # self.q_proj = nn.Linear(hidden_size, self.key_dim, bias=False)
-        # self.k_proj = nn.Linear(hidden_size, self.key_dim, bias=False)
-        # self.v_proj = nn.Linear(hidden_size, self.value_dim, bias=False)
         if use_gate:
             self.qkv_ab_proj = nn.Linear(
                 hidden_size, 2 * self.key_dim + self.value_dim + 2 * self.num_v_heads + self.value_dim, bias=False
@@ -152,8 +151,6 @@ class GatedDeltaNet(nn.Module):
             self.qkv_ab_proj = nn.Linear(
                 hidden_size, 2 * self.key_dim + self.value_dim + 2 * self.num_v_heads, bias=False
             )
-        # self.a_proj = nn.Linear(hidden_size, self.num_v_heads, bias=False)
-        # self.b_proj = nn.Linear(hidden_size, self.num_v_heads, bias=False)
 
         A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
         self.A_log = nn.Parameter(torch.log(A))
@@ -200,11 +197,11 @@ class GatedDeltaNet(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        past_key_values: None = None,
-        use_cache: bool = False,
-        **kwargs,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Cache]]:
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
+    ) -> torch.Tensor:
         if attention_mask is not None:
             assert len(attention_mask.shape) == 2, (
                 "Expected attention_mask as a 0-1 matrix with shape [batch_size, seq_len] "
@@ -219,10 +216,10 @@ class GatedDeltaNet(nn.Module):
             assert mode == "chunk", "Only chunk mode is supported in training."
 
         last_state = None
-        if past_key_values is not None and len(past_key_values) > self.layer_idx:
+        if cache_params is not None and len(cache_params) > self.layer_idx:
             last_state = past_key_values[self.layer_idx]
 
-        cu_seqlens = None
+        use_cache = cache_params is not None
 
         if self.use_gate:
             qkv, a, b, gate = self.qkv_ab_proj(hidden_states).split(
@@ -297,8 +294,8 @@ class GatedDeltaNet(nn.Module):
         else:
             raise NotImplementedError(f"Not supported mode `{mode}`.")
 
-        if past_key_values is not None:
-            past_key_values.update(
+        if cache_params is not None:
+            cache_params.update(
                 recurrent_state=recurrent_state,
                 conv_state=conv_state_qkv if self.use_short_conv else None,
                 layer_idx=self.layer_idx,
@@ -312,7 +309,7 @@ class GatedDeltaNet(nn.Module):
             o = self.o_norm(o, g)
         else:
             o = self.o_norm(o)
-        # o = rearrange(o, 'b t h d -> b t (h d)')
+
         o = o.flatten(-2, -1)
         o = self.o_proj(o)
 
