@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
-from fla.layers.utils import get_unpad_data, index_first_axis, pad_input
+from fla.layers.utils import pad_input
 from fla.modules import FusedRMSNormGated
 from fla.ops.gated_delta_rule import chunk_gated_delta_rule, fused_recurrent_gated_delta_rule
 from torch.nn import functional as F
@@ -21,11 +20,6 @@ from torch.nn import functional as F
 from ...modeling_utils.convolution import ParameterizedConv1d
 from ..normalization import RMSNorm, get_normalization_function
 from .causal_convolution import causal_convolution
-
-
-if TYPE_CHECKING:
-    from fla.models.utils import Cache
-    from transformers.processing_utils import Unpack
 
 
 @torch.compile
@@ -206,11 +200,10 @@ class GatedDeltaNet(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        past_key_values: Optional[Cache] = None,
-        use_cache: Optional[bool] = False,
-        output_attentions: Optional[bool] = False,
-        **kwargs: Unpack[Dict],
+        attention_mask: torch.Tensor | None = None,
+        past_key_values: None = None,
+        use_cache: bool = False,
+        **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Cache]]:
         if attention_mask is not None:
             assert len(attention_mask.shape) == 2, (
