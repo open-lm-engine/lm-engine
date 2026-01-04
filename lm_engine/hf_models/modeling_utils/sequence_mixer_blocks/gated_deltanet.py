@@ -266,8 +266,6 @@ class GatedDeltaNet(nn.Module):
             )
 
         if self.use_gate:
-            # g = rearrange(self.g_proj(hidden_states), '... (h d) -> ... h d', d=self.v_head_dim)
-            # g = self.g_proj(hidden_states)
             g = gate.view(*gate.size()[:-1], -1, self.v_head_dim)
             o = o * F.silu(g)
 
