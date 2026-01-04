@@ -112,8 +112,8 @@ class _CausalConvolution(BaseArgs):
 
 class _GatedDeltaNetArgs(BaseArgs):
     sequence_mixer_type: str = "gated_deltanet"
-    expand_v: float = 2.0
     head_dim: int = 256
+    v_head_dim: int = 512
     num_heads: int = 6
     num_v_heads: int | None = None
     mode: str = "chunk"

@@ -130,8 +130,8 @@ def get_sequence_mixer(
     elif sequence_mixer_type == "gated_deltanet":
         return GatedDeltaNet(
             hidden_size=config.hidden_size,
-            expand_v=block.expand_v,
             head_dim=block.head_dim,
+            v_head_dim=block.v_head_dim,
             num_heads=block.num_heads,
             num_v_heads=block.num_v_heads,
             mode=block.mode,
