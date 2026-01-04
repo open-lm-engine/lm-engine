@@ -140,6 +140,9 @@ def get_sequence_mixer(
             conv_size=block.conv_size,
             layer_idx=layer_idx,
             norm_eps=config.layer_norm_epsilon,
+            init_method=config.init_method,
+            initializer_range=config.initializer_range,
+            num_layers=config.num_layers,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     else:

@@ -127,7 +127,7 @@ class GatedDeltaNet(nn.Module):
         self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=std)
 
         self.ab_proj = ParameterizedLinear(
-            hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False
+            hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False, std=std
         )
 
         A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
@@ -154,12 +154,14 @@ class GatedDeltaNet(nn.Module):
             padding=conv_size - 1,
             groups=2 * self.key_dim + self.value_dim,
             bias=False,
-            std=None,  # TODO
+            std=std,  # TODO
         )
         self.activation_string = "silu"
 
+        std = initializer_range / math.sqrt(2 * num_layers)
+
         self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
-        self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False)
+        self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False, std=std)
 
     def forward(
         self,
