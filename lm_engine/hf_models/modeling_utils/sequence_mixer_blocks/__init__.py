@@ -139,9 +139,8 @@ def get_sequence_mixer(
             use_short_conv=block.use_short_conv,
             allow_neg_eigval=block.allow_neg_eigval,
             conv_size=block.conv_size,
-            conv_bias=block.conv_bias,
             layer_idx=layer_idx,
-            norm_eps=block.norm_eps,
+            norm_eps=config.layer_norm_epsilon,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     else:

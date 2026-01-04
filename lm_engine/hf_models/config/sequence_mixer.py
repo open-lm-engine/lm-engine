@@ -121,8 +121,6 @@ class _GatedDeltaNetArgs(BaseArgs):
     use_short_conv: bool = True
     allow_neg_eigval: bool = False
     conv_size: int = 4
-    conv_bias: bool = False
-    norm_eps: float = 1e-5
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gated_deltanet"
