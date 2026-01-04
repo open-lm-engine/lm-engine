@@ -16,6 +16,7 @@ from fla.ops.gated_delta_rule import chunk_gated_delta_rule, fused_recurrent_gat
 
 from ...cache import GenerationCache
 from ..convolution import ParameterizedConv1d
+from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 
@@ -118,9 +119,11 @@ class GatedDeltaNet(nn.Module):
 
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
 
-        self.qkv_proj = nn.Linear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False)
+        self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False)
 
-        self.ab_proj = nn.Linear(hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False)
+        self.ab_proj = ParameterizedLinear(
+            hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False
+        )
 
         A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
         self.A_log = nn.Parameter(torch.log(A))
@@ -151,7 +154,7 @@ class GatedDeltaNet(nn.Module):
         self.activation_string = "silu"
 
         self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
-        self.o_proj = nn.Linear(self.value_dim, hidden_size, bias=False)
+        self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False)
 
     def forward(
         self,
