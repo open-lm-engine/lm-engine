@@ -188,7 +188,7 @@ class GatedDeltaNet(nn.Module):
                 (self.num_v_heads, self.num_v_heads, self.value_dim), dim=-1
             )
         else:
-            a, b = self.ab_proj(hidden_states).split((self.num_v_heads, self.num_v_heads), dim=-1)
+            a, b = self.ab_proj(hidden_states).chunk(2, dim=-1)
 
         conv_state_qkv = None
         if last_state is not None:
