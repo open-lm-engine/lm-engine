@@ -11,9 +11,8 @@ import math
 
 import torch
 import torch.nn as nn
-from fla.modules import FusedRMSNormGated
+import torch.nn.functional as F
 from fla.ops.gated_delta_rule import chunk_gated_delta_rule, fused_recurrent_gated_delta_rule
-from torch.nn import functional as F
 
 from ...cache import GenerationCache
 from ..convolution import ParameterizedConv1d
