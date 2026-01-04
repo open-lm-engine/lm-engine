@@ -11,8 +11,6 @@ import math
 
 import torch
 import torch.nn as nn
-
-# from fla.layers.utils import pad_input
 from fla.modules import FusedRMSNormGated
 from fla.ops.gated_delta_rule import chunk_gated_delta_rule, fused_recurrent_gated_delta_rule
 from torch.nn import functional as F
