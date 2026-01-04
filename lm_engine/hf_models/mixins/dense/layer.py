@@ -105,10 +105,10 @@ class Block(nn.Module):
             # GatedDeltaNet returns (output, attentions, past_key_values)
             hidden_states = self.sequence_mixer(
                 hidden_states,
+                cache_params=past_key_values,
                 attention_mask=attention_mask,
-                past_key_values=past_key_values,
-                use_cache=False,
-                output_attentions=False,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")
