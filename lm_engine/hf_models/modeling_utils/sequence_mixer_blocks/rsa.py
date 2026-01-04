@@ -79,10 +79,9 @@ class RSA(nn.Module):
         self.q_shape = self.num_q_heads * self.k_head_dim
         self.k_shape = self.num_k_heads * self.k_head_dim
         self.v_shape = self.num_v_heads * self.v_head_dim
-        self.f_shape = self.num_f_heads * self.k_head_dim
         self.g_shape = self.num_heads * self.v_head_dim
 
-        self.conv_dim = self.q_shape + self.k_shape + self.v_shape + self.f_shape
+        self.conv_dim = self.q_shape + self.k_shape + self.v_shape + self.num_f_heads
 
         std = initializer_range
         if init_method == "mup":
@@ -157,12 +156,11 @@ class RSA(nn.Module):
                 conv1d_stride=1,
             )
 
-        q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.f_shape), dim=-1)
+        q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.num_f_heads), dim=-1)
 
         q = q.view(*q.size()[:-1], self.num_q_heads, self.k_head_dim)
         k = k.view(*k.size()[:-1], self.num_k_heads, self.k_head_dim)
         v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
-        f = f.view(*f.size()[:-1], self.num_f_heads, self.k_head_dim)
 
         input, rsa_state = rsa(
             query=q,
