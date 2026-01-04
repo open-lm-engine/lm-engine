@@ -17,7 +17,7 @@ from torch.nn import functional as F
 
 from ...cache import GenerationCache
 from ..convolution import ParameterizedConv1d
-from ..normalization import RMSNorm, get_normalization_function
+from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 
 
