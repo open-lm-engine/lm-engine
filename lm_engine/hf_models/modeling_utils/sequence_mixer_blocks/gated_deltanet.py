@@ -184,11 +184,11 @@ class GatedDeltaNet(nn.Module):
         qkv = self.qkv_proj(hidden_states)
 
         if self.use_gate:
-            a, b, gate = self.qkv_ab_proj(hidden_states).split(
+            a, b, gate = self.ab_proj(hidden_states).split(
                 (self.num_v_heads, self.num_v_heads, self.value_dim), dim=-1
             )
         else:
-            a, b = self.qkv_ab_proj(hidden_states).split((self.num_v_heads, self.num_v_heads), dim=-1)
+            a, b = self.ab_proj(hidden_states).split((self.num_v_heads, self.num_v_heads), dim=-1)
 
         conv_state_qkv = None
         if last_state is not None:
