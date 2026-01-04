@@ -118,7 +118,6 @@ class _GatedDeltaNetArgs(BaseArgs):
     num_v_heads: int | None = None
     mode: str = "chunk"
     use_gate: bool = True
-    use_short_conv: bool = True
     allow_neg_eigval: bool = False
     conv_size: int = 4
 

@@ -136,7 +136,6 @@ def get_sequence_mixer(
             num_v_heads=block.num_v_heads,
             mode=block.mode,
             use_gate=block.use_gate,
-            use_short_conv=block.use_short_conv,
             allow_neg_eigval=block.allow_neg_eigval,
             conv_size=block.conv_size,
             layer_idx=layer_idx,
