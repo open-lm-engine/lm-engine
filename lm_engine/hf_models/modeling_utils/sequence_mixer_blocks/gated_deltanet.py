@@ -92,6 +92,9 @@ class GatedDeltaNet(nn.Module):
         conv_size: int = 4,
         layer_idx: int = None,
         norm_eps: float = 1e-5,
+        init_method: str = "normal",
+        initializer_range: float = 0.02,
+        num_layers: int = 24,
         use_padding_free_transformer: bool = False,
     ) -> GatedDeltaNet:
         super().__init__()
@@ -118,7 +121,10 @@ class GatedDeltaNet(nn.Module):
 
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
 
-        self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False)
+        assert init_method == "normal"
+        std = initializer_range
+
+        self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=std)
 
         self.ab_proj = ParameterizedLinear(
             hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False
