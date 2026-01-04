@@ -119,14 +119,9 @@ class GatedDeltaNet(nn.Module):
 
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
 
-        if use_gate:
-            self.qkv_ab_proj = nn.Linear(
-                hidden_size, 2 * self.key_dim + self.value_dim + 2 * self.num_v_heads + self.value_dim, bias=False
-            )
-        else:
-            self.qkv_ab_proj = nn.Linear(
-                hidden_size, 2 * self.key_dim + self.value_dim + 2 * self.num_v_heads, bias=False
-            )
+        self.qkv_proj = nn.Linear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False)
+
+        self.ab_proj = nn.Linear(hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False)
 
         A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
         self.A_log = nn.Parameter(torch.log(A))
@@ -186,14 +181,14 @@ class GatedDeltaNet(nn.Module):
 
         use_cache = cache_params is not None
 
+        qkv = self.qkv_proj(hidden_states)
+
         if self.use_gate:
-            qkv, a, b, gate = self.qkv_ab_proj(hidden_states).split(
-                (2 * self.key_dim + self.value_dim, self.num_v_heads, self.num_v_heads, self.value_dim), dim=-1
+            a, b, gate = self.qkv_ab_proj(hidden_states).split(
+                (self.num_v_heads, self.num_v_heads, self.value_dim), dim=-1
             )
         else:
-            qkv, a, b = self.qkv_ab_proj(hidden_states).split(
-                (2 * self.key_dim + self.value_dim, self.num_v_heads, self.num_v_heads), dim=-1
-            )
+            a, b = self.qkv_ab_proj(hidden_states).split((self.num_v_heads, self.num_v_heads), dim=-1)
 
         conv_state_qkv = None
         if last_state is not None:
