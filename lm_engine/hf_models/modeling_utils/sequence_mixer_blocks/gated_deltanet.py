@@ -154,7 +154,7 @@ class GatedDeltaNet(nn.Module):
             bias=False,
             std=None,  # TODO
         )
-        self.activation_str = "silu"
+        self.activation_string = "silu"
 
         self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
         self.o_proj = nn.Linear(self.value_dim, hidden_size, bias=False)
@@ -198,17 +198,18 @@ class GatedDeltaNet(nn.Module):
         conv_state_qkv = None
         if last_state is not None:
             conv_state_qkv = last_state["conv_state"]
+
         qkv, conv_state_qkv = causal_convolution(
             hidden_states=qkv,
             input_state=conv_state_qkv,
             attention_mask=attention_mask,
             conv1d_weight=self.qkv_conv1d.weight,
-            conv1d_num_groups=self.qkv_conv1d.weight.size(0),
-            activation_string=self.activation_str,
-            conv1d_padding=self.qkv_conv1d.weight.size(2) - 1,
+            conv1d_bias=self.qkv_conv1d.bias,
+            conv1d_num_groups=qkv.size(-1),
+            return_cache_state=cache_params is not None,
+            activation_string=self.activation_string,
+            conv1d_padding=self.conv_size - 1,
             conv1d_stride=1,
-            conv1d_bias=None,
-            return_cache_state=True,
         )
 
         q, k, v = qkv.split((self.key_dim, self.key_dim, self.value_dim), dim=-1)
