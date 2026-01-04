@@ -93,7 +93,6 @@ class GatedDeltaNet(nn.Module):
         conv_size: int = 4,
         layer_idx: int = None,
         norm_eps: float = 1e-5,
-        **kwargs,
     ) -> GatedDeltaNet:
         super().__init__()
 
