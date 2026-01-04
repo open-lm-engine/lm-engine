@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 
 import torch
 import torch.nn as nn
@@ -73,15 +72,11 @@ class GatedDeltaNet(nn.Module):
             Whether to use beta. Default: `True`.
         use_gate (bool, Optional):
             Whether to use output gate. Default: `True`.
-        use_short_conv (bool, Optional):
-            Whether to use short convolutions. Default: `True`.
         allow_neg_eigval (bool, Optional):
             Allow negative eigenvalues. Default: `False`. If set to `True`, the beta will be multiplied by 2.
             See reference: [Unlocking State-Tracking in Linear RNNs Through Negative Eigenvalues](https://arxiv.org/abs/2411.12537)
         conv_size (int, Optional):
             The kernel size of the short convolution, only used when `use_short_conv` is `True`. Default: 4.
-        conv_bias (bool, Optional):
-            Whether to use bias in the short convolution, only used when `use_short_conv` is `True`. Default: `False`.
         layer_idx (int, Optional):
             The index of the layer. Default: None.
         norm_eps (float, Optional):
@@ -91,16 +86,14 @@ class GatedDeltaNet(nn.Module):
     def __init__(
         self,
         hidden_size: int = 2048,
-        expand_v: float = 2,
         head_dim: int = 256,
+        v_head_dim: int = 512,
         num_heads: int = 6,
         num_v_heads: int = None,
         mode: str = "chunk",
         use_gate: bool = True,
-        use_short_conv: bool = True,
         allow_neg_eigval: bool = False,
         conv_size: int = 4,
-        conv_bias: bool = False,
         layer_idx: int = None,
         norm_eps: float = 1e-5,
         **kwargs,
@@ -110,37 +103,23 @@ class GatedDeltaNet(nn.Module):
         self.mode = mode
         self.allow_neg_eigval = allow_neg_eigval
         self.hidden_size = hidden_size
-        self.expand_v = expand_v
 
         self.use_gate = use_gate
-        self.use_short_conv = use_short_conv
         self.conv_size = conv_size
-        self.conv_bias = conv_bias
 
         self.head_dim = head_dim
         self.num_heads = num_heads
         self.num_v_heads = num_v_heads if num_v_heads is not None else num_heads
 
-        self.head_k_dim = head_dim
-        self.head_v_dim = int(self.head_dim * self.expand_v)
-        self.key_dim = int(self.num_heads * self.head_k_dim)
-        self.value_dim = int(self.num_v_heads * self.head_v_dim)
+        self.k_head_dim = head_dim
+        self.v_head_dim = v_head_dim
+        self.key_dim = int(self.num_heads * self.k_head_dim)
+        self.value_dim = int(self.num_v_heads * self.v_head_dim)
         self.layer_idx = layer_idx
 
-        # Consistency check: Ensure expand_v produces integer values
-        if not math.isclose(self.num_v_heads * self.head_dim * expand_v, self.value_dim, rel_tol=1e-5):
-            raise ValueError(
-                f"expand_v={expand_v} does not produce an integer value when multiplied by key_dim={self.key_dim}. "
-                f"Resulting value_dim would be {self.num_v_heads * self.head_dim * expand_v}, which is invalid for nn.Linear."
-            )
         if self.num_v_heads > self.num_heads and self.num_v_heads % self.num_heads != 0:
             raise ValueError(f"num_v_heads={self.num_v_heads} must be divisible by num_heads={self.num_heads}.")
 
-        if not math.isclose(head_dim * expand_v, self.head_v_dim, rel_tol=1e-5):
-            raise ValueError(
-                f"expand_v={expand_v} does not produce an integer value when multiplied by head_dim={head_dim}. "
-                f"Resulting head_v_dim would be {head_dim * expand_v}, which is invalid for FusedRMSNormGated."
-            )
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
 
         if use_gate:
@@ -168,29 +147,23 @@ class GatedDeltaNet(nn.Module):
         # name.endswith("bias") in param_grouping.py
         self.dt_bias._no_weight_decay = True
 
-        if use_short_conv:
-            self.conv_size = conv_size
-            self.qkv_conv1d = ParameterizedConv1d(
-                in_channels=2 * self.key_dim + self.value_dim,
-                out_channels=2 * self.key_dim + self.value_dim,
-                kernel_size=conv_size,
-                padding=conv_size - 1,
-                groups=2 * self.key_dim + self.value_dim,
-                bias=conv_bias,
-                std=None,  # TODO
-            )
-            self.activation_str = "silu"
+        self.conv_size = conv_size
+        self.qkv_conv1d = ParameterizedConv1d(
+            in_channels=2 * self.key_dim + self.value_dim,
+            out_channels=2 * self.key_dim + self.value_dim,
+            kernel_size=conv_size,
+            padding=conv_size - 1,
+            groups=2 * self.key_dim + self.value_dim,
+            bias=False,
+            std=None,  # TODO
+        )
+        self.activation_str = "silu"
 
-        else:
-            warnings.warn(
-                "ShortConvolution is crucial to the performance. "
-                "Do not turn it off, i.e., setting `use_short_conv=False` unless you know what you are doing."
-            )
         self.use_gate = use_gate
         if use_gate:
-            self.o_norm = FusedRMSNormGated(self.head_v_dim, eps=norm_eps)
+            self.o_norm = FusedRMSNormGated(self.v_head_dim, eps=norm_eps)
         else:
-            self.o_norm = RMSNorm(self.head_v_dim, eps=norm_eps)
+            self.o_norm = RMSNorm(self.v_head_dim, eps=norm_eps)
 
         self.o_proj = nn.Linear(self.value_dim, hidden_size, bias=False)
 
@@ -230,31 +203,28 @@ class GatedDeltaNet(nn.Module):
                 (2 * self.key_dim + self.value_dim, self.num_v_heads, self.num_v_heads), dim=-1
             )
 
-        if self.use_short_conv:
-            conv_state_qkv = None
-            if last_state is not None:
-                conv_state_qkv = last_state["conv_state"]
-            qkv, conv_state_qkv = causal_convolution(
-                hidden_states=qkv,
-                input_state=conv_state_qkv,
-                attention_mask=attention_mask,
-                conv1d_weight=self.qkv_conv1d.weight,
-                conv1d_num_groups=self.qkv_conv1d.weight.size(0),
-                activation_string=self.activation_str,
-                conv1d_padding=self.qkv_conv1d.weight.size(2) - 1,
-                conv1d_stride=1,
-                conv1d_bias=None,
-                return_cache_state=True,
-            )
+        conv_state_qkv = None
+        if last_state is not None:
+            conv_state_qkv = last_state["conv_state"]
+        qkv, conv_state_qkv = causal_convolution(
+            hidden_states=qkv,
+            input_state=conv_state_qkv,
+            attention_mask=attention_mask,
+            conv1d_weight=self.qkv_conv1d.weight,
+            conv1d_num_groups=self.qkv_conv1d.weight.size(0),
+            activation_string=self.activation_str,
+            conv1d_padding=self.qkv_conv1d.weight.size(2) - 1,
+            conv1d_stride=1,
+            conv1d_bias=None,
+            return_cache_state=True,
+        )
 
-        else:
-            qkv = F.silu(qkv)
         q, k, v = qkv.split((self.key_dim, self.key_dim, self.value_dim), dim=-1)
 
         q_size = q.size()
-        q = q.view(*q_size[:-1], -1, self.head_k_dim)
-        k = k.view(*q_size[:-1], -1, self.head_k_dim)
-        v = v.view(*v.size()[:-1], -1, self.head_v_dim)
+        q = q.view(*q_size[:-1], -1, self.k_head_dim)
+        k = k.view(*q_size[:-1], -1, self.k_head_dim)
+        v = v.view(*v.size()[:-1], -1, self.v_head_dim)
 
         if self.num_v_heads > self.num_heads:
             q = q.repeat_interleave(repeats=self.num_v_heads // self.num_heads, dim=-2)
@@ -297,15 +267,15 @@ class GatedDeltaNet(nn.Module):
         if cache_params is not None:
             cache_params.update(
                 recurrent_state=recurrent_state,
-                conv_state=conv_state_qkv if self.use_short_conv else None,
+                conv_state=conv_state_qkv,
                 layer_idx=self.layer_idx,
                 offset=q_len,
             )
 
         if self.use_gate:
-            # g = rearrange(self.g_proj(hidden_states), '... (h d) -> ... h d', d=self.head_v_dim)
+            # g = rearrange(self.g_proj(hidden_states), '... (h d) -> ... h d', d=self.v_head_dim)
             # g = self.g_proj(hidden_states)
-            g = gate.view(*gate.size()[:-1], -1, self.head_v_dim)
+            g = gate.view(*gate.size()[:-1], -1, self.v_head_dim)
             o = self.o_norm(o, g)
         else:
             o = self.o_norm(o)
