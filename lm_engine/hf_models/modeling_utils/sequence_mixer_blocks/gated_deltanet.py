@@ -157,12 +157,7 @@ class GatedDeltaNet(nn.Module):
         )
         self.activation_str = "silu"
 
-        self.use_gate = use_gate
-        if use_gate:
-            self.o_norm = FusedRMSNormGated(self.v_head_dim, eps=norm_eps)
-        else:
-            self.o_norm = RMSNorm(self.v_head_dim, eps=norm_eps)
-
+        self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
         self.o_proj = nn.Linear(self.value_dim, hidden_size, bias=False)
 
     def forward(
@@ -274,10 +269,9 @@ class GatedDeltaNet(nn.Module):
             # g = rearrange(self.g_proj(hidden_states), '... (h d) -> ... h d', d=self.v_head_dim)
             # g = self.g_proj(hidden_states)
             g = gate.view(*gate.size()[:-1], -1, self.v_head_dim)
-            o = self.o_norm(o, g)
-        else:
-            o = self.o_norm(o)
+            o = o * F.silu(g)
 
+        o = self.o_norm(o)
         o = o.flatten(-2, -1)
         o = self.o_proj(o)
 
