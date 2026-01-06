@@ -104,6 +104,7 @@ def get_sequence_mixer(
             init_method=config.init_method,
             normalization_function=block.normalization_function,
             use_softplus_decay=block.use_softplus_decay,
+            norm_after_flatten=block.norm_after_flatten,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
             use_padding_free_transformer=use_padding_free_transformer,

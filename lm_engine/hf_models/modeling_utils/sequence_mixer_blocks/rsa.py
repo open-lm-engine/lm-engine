@@ -47,6 +47,7 @@ class RSA(nn.Module):
         init_method: str,
         normalization_function: str | None,
         use_softplus_decay: bool,
+        norm_after_flatten: bool,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
@@ -64,6 +65,7 @@ class RSA(nn.Module):
         self.use_padding_free_transformer = use_padding_free_transformer
         self.use_residual = use_residual
         self.use_softplus_decay = use_softplus_decay
+        self.norm_after_flatten = norm_after_flatten
 
         self.num_q_heads = num_q_heads
         self.num_k_heads = num_k_heads
@@ -127,7 +129,9 @@ class RSA(nn.Module):
             std /= math.sqrt(m_width)
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
 
-        self.g_norm = get_normalization_function(normalization_function, self.num_heads * self.v_head_dim)
+        self.g_norm = get_normalization_function(
+            normalization_function, (self.num_heads if self.norm_after_flatten else 1) * self.v_head_dim
+        )
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
@@ -192,9 +196,15 @@ class RSA(nn.Module):
                 conv_state=conv_state, ssm_state=rsa_state, num_tokens_added=x.size(1), layer_idx=self.layer_idx
             )
 
-        x = x.flatten(-2, -1)
-        x = x * F.silu(g)
-        x = self.g_norm(x)
+        if self.norm_after_flatten:
+            x = x.flatten(-2, -1)
+            x = x * F.silu(g)
+            x = self.g_norm(x)
+        else:
+            g = g.view(*g.size()[:-1], -1, self.v_head_dim)
+            x = x * F.silu(g)
+            x = self.g_norm(x)
+            x = x.flatten(-2, -1)
 
         x = self.output_projection(x)
 
