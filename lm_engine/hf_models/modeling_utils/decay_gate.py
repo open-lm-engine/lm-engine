@@ -33,6 +33,8 @@ class SoftplusDecayGate(nn.Module):
         mark_parameter_as_no_weight_decay(self.dt_bias)
 
     def forward(self, x: torch.Tensor, final_exponential: bool) -> torch.Tensor:
+        dtype = x.dtype
+
         if self.has_projection:
             x = self.proj(x)
 
@@ -43,6 +45,8 @@ class SoftplusDecayGate(nn.Module):
 
         if final_exponential:
             x = torch.exp(x)
+
+        x = x.to(dtype)
 
         return x
 
