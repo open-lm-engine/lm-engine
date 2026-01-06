@@ -25,11 +25,11 @@ class SoftplusDecayGate(nn.Module):
 
         if has_projection:
             self.proj = ParameterizedLinear(hidden_size, self.output_size, std=std)
+            mark_parameter_as_mup_learning_rate(self.proj.weight)
 
         self.A_log = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
         self.dt_bias = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
 
-        mark_parameter_as_mup_learning_rate(self.proj.weight)
         mark_parameter_as_no_weight_decay(self.dt_bias)
 
     def forward(self, x: torch.Tensor, final_exponential: bool) -> torch.Tensor:
