@@ -49,7 +49,7 @@ class SoftplusDecayGate(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         A = 16 * torch.rand(self.output_size, dtype=torch.float32)
-        self.A_log.fill_(torch.log(A))
+        self.A_log.copy_(torch.log(A))
 
         dt_min = 0.001
         dt_max = 0.1
@@ -58,4 +58,4 @@ class SoftplusDecayGate(nn.Module):
         dt = torch.clamp(dt, min=dt_init_floor)
 
         inv_dt = dt + torch.log(-torch.expm1(-dt))
-        self.dt_bias.fill_(inv_dt)
+        self.dt_bias.copy_(inv_dt)
