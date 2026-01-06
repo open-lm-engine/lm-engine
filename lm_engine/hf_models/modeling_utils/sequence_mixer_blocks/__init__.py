@@ -93,6 +93,7 @@ def get_sequence_mixer(
             num_k_heads=block.num_k_heads,
             num_v_heads=block.num_v_heads,
             num_f_heads=block.num_f_heads,
+            num_g_heads=block.num_g_heads,
             num_weight_heads=block.num_weight_heads,
             use_residual=block.use_residual,
             kernel_size=block.kernel_size,

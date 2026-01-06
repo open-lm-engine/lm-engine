@@ -36,6 +36,7 @@ class RSA(nn.Module):
         num_k_heads: int,
         num_v_heads: int,
         num_f_heads: int,
+        num_g_heads: int,
         num_weight_heads: int,
         use_residual: bool,
         kernel_size: int | None,
@@ -71,6 +72,7 @@ class RSA(nn.Module):
         self.num_k_heads = num_k_heads
         self.num_v_heads = num_v_heads
         self.num_f_heads = num_f_heads
+        self.num_g_heads = num_g_heads
         self.num_weight_heads = num_weight_heads
 
         self.num_heads = max(num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads)
@@ -80,11 +82,12 @@ class RSA(nn.Module):
         divide_if_divisible(self.num_heads, self.num_v_heads)
         divide_if_divisible(self.num_heads, self.num_f_heads)
         divide_if_divisible(self.num_heads, self.num_weight_heads)
+        divide_if_divisible(self.num_heads, self.num_g_heads)
 
         self.q_shape = self.num_q_heads * self.k_head_dim
         self.k_shape = self.num_k_heads * self.k_head_dim
         self.v_shape = self.num_v_heads * self.v_head_dim
-        self.g_shape = self.num_heads * self.v_head_dim
+        self.g_shape = self.num_g_heads * self.v_head_dim
 
         self.conv_dim = self.q_shape + self.k_shape + self.v_shape
 
@@ -198,10 +201,12 @@ class RSA(nn.Module):
 
         if self.norm_after_flatten:
             x = x.flatten(-2, -1)
+            g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)
             x = x * F.silu(g)
             x = self.g_norm(x)
         else:
             g = g.view(*g.size()[:-1], -1, self.v_head_dim)
+            g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-2)
             x = x * F.silu(g)
             x = self.g_norm(x)
             x = x.flatten(-2, -1)

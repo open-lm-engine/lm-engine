@@ -99,6 +99,7 @@ class _RSAArgs(_GRUArgs):
     num_k_heads: int = 128
     num_v_heads: int = 128
     num_f_heads: int = 128
+    num_g_heads: int = 128
     num_weight_heads: int = 128
     use_residual: bool = True
     kernel_size: int | None = None
