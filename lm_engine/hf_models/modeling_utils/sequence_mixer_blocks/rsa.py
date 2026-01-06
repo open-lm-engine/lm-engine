@@ -15,6 +15,7 @@ from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import is_glu
 from ..convolution import ParameterizedConv1d
+from ..decay_gate import SoftplusDecayGate
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
@@ -45,6 +46,7 @@ class RSA(nn.Module):
         m_width: float,
         init_method: str,
         normalization_function: str | None,
+        use_softplus_decay: bool,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
@@ -61,6 +63,7 @@ class RSA(nn.Module):
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.use_residual = use_residual
+        self.use_softplus_decay = use_softplus_decay
 
         self.num_q_heads = num_q_heads
         self.num_k_heads = num_k_heads
@@ -92,6 +95,9 @@ class RSA(nn.Module):
             self.input_size, self.conv_dim + self.num_f_heads + self.g_shape, bias=add_bias, std=std
         )
         self.input_activation = nn.SiLU()
+
+        if self.use_softplus_decay:
+            self.decay_gate = SoftplusDecayGate(0, self.num_heads, std=None, has_projection=False)
 
         if kernel_size is None:
             assert activation_function is None
@@ -142,6 +148,9 @@ class RSA(nn.Module):
         x = self.input_projection(x)
         x, f, g = x.split((self.conv_dim, self.num_f_heads, self.g_shape), dim=-1)
 
+        if self.use_softplus_decay:
+            f = self.decay_gate(f, final_exponential=True)
+
         if self.kernel_size is not None:
             x, conv_state = causal_convolution(
                 hidden_states=x,
@@ -172,6 +181,7 @@ class RSA(nn.Module):
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
+            do_gate_sigmoid=self.use_softplus_decay,
         )
 
         if self.use_residual:
