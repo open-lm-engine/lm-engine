@@ -81,7 +81,7 @@ class RSA(nn.Module):
         self.v_shape = self.num_v_heads * self.v_head_dim
         self.g_shape = self.num_heads * self.v_head_dim
 
-        self.conv_dim = self.q_shape + self.k_shape + self.v_shape + self.num_f_heads
+        self.conv_dim = self.q_shape + self.k_shape + self.v_shape
 
         std = initializer_range
         if init_method == "mup":
@@ -89,7 +89,7 @@ class RSA(nn.Module):
         self.state_weight_std = std
 
         self.input_projection = ParameterizedLinear(
-            self.input_size, self.conv_dim + self.g_shape, bias=add_bias, std=std
+            self.input_size, self.conv_dim + self.num_f_heads + self.g_shape, bias=add_bias, std=std
         )
         self.input_activation = nn.SiLU()
 
@@ -131,7 +131,7 @@ class RSA(nn.Module):
 
     def forward(
         self,
-        input: torch.Tensor,
+        x: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -139,12 +139,12 @@ class RSA(nn.Module):
     ) -> torch.Tensor:
         conv_state, rsa_state = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
 
-        input = self.input_projection(input)
-        input, gate = input.split((self.conv_dim, self.g_shape), dim=-1)
+        x = self.input_projection(x)
+        x, f, g = x.split((self.conv_dim, self.num_f_heads, self.g_shape), dim=-1)
 
         if self.kernel_size is not None:
-            input, conv_state = causal_convolution(
-                hidden_states=input,
+            x, conv_state = causal_convolution(
+                hidden_states=x,
                 input_state=conv_state,
                 attention_mask=attention_mask,
                 conv1d_weight=self.conv1d.weight,
@@ -156,13 +156,13 @@ class RSA(nn.Module):
                 conv1d_stride=1,
             )
 
-        q, k, v, f = input.split((self.q_shape, self.k_shape, self.v_shape, self.num_f_heads), dim=-1)
+        q, k, v = x.split((self.q_shape, self.k_shape, self.v_shape), dim=-1)
 
         q = q.view(*q.size()[:-1], self.num_q_heads, self.k_head_dim)
         k = k.view(*k.size()[:-1], self.num_k_heads, self.k_head_dim)
         v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
 
-        input, rsa_state = rsa(
+        x, rsa_state = rsa(
             query=q,
             key=k,
             value=v,
@@ -175,20 +175,20 @@ class RSA(nn.Module):
         )
 
         if self.use_residual:
-            input = input + v * self.D
+            x = x + v * self.D
 
         if cache_params is not None:
             cache_params.update(
-                conv_state=conv_state, ssm_state=rsa_state, num_tokens_added=input.size(1), layer_idx=self.layer_idx
+                conv_state=conv_state, ssm_state=rsa_state, num_tokens_added=x.size(1), layer_idx=self.layer_idx
             )
 
-        input = input.flatten(-2, -1)
-        input = input * F.silu(gate)
-        input = self.g_norm(input)
+        x = x.flatten(-2, -1)
+        x = x * F.silu(g)
+        x = self.g_norm(x)
 
-        input = self.output_projection(input)
+        x = self.output_projection(x)
 
-        return input
+        return x
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
