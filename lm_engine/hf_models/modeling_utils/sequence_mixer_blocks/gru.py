@@ -162,8 +162,7 @@ class GRU(nn.Module):
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
                 x = pack_sequence(inputs=x, cu_seqlens=cu_seqlens)
 
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-        conv_state = None
+        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         x = self.input_projection(x)
         x, xf, xr, g = x.split((self.x_shape, self.xf_shape, self.xr_shape, self.g_shape), dim=-1)
@@ -171,9 +170,9 @@ class GRU(nn.Module):
         if self.kernel_size is None:
             x = self.activation_function(x)
         else:
-            x, conv_state = causal_convolution(
+            x, c = causal_convolution(
                 hidden_states=x,
-                input_state=conv_state,
+                input_state=c,
                 attention_mask=attention_mask,
                 conv1d_weight=self.conv1d.weight,
                 conv1d_bias=self.conv1d.bias,
@@ -190,14 +189,14 @@ class GRU(nn.Module):
             (self.num_weight_heads, self.num_forget_weight_heads, self.num_reset_weight_heads), dim=0
         )
 
-        x, input_state = gru(
+        x, h = gru(
             input=x,
             weight=W,
             forget_input=xf,
             forget_weight=Wf,
             reset_input=xr,
             reset_weight=Wr,
-            input_state=input_state,
+            input_state=h,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
@@ -207,7 +206,7 @@ class GRU(nn.Module):
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         if cache_params is not None:
-            cache_params.update(state=input_state, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
+            cache_params.update(conv_state=c, ssm_state=h, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
 
         x = x.flatten(-2, -1)
         x = x * F.silu(g)
