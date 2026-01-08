@@ -119,7 +119,7 @@ class _GatedDeltaNetArgs(BaseArgs):
     head_dim: int = 256
     v_head_dim: int = 512
     num_heads: int = 6
-    num_v_heads: int | None = None
+    num_v_heads: int = 6
     mode: str = "chunk"
     use_gate: bool = True
     allow_neg_eigval: bool = False
