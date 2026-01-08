@@ -17,7 +17,7 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import ProcessGroupManager, divide_if_divisible, is_xma_available
 from ...loss import add_aux_loss
 from ...modeling_utils import Dropout, MoE, ParameterizedExperts, ParameterizedLinear, get_activation_function, is_glu
-from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
+from ...modeling_utils.mixers.mlp import _get_std_for_linear
 from ..dtensor_module import DTensorModule
 from ..linear import ColumnParallelLinear, RowParallelLinear
 

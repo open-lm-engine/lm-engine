@@ -15,7 +15,7 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...modeling_utils import Attention, Dropout, apply_rotary_pos_emb, flash_attention
-from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
+from ...modeling_utils.mixers.mlp import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
