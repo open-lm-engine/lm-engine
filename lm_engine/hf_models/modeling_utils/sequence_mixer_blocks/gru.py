@@ -132,7 +132,6 @@ class GRU(nn.Module):
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
 
-        mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
