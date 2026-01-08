@@ -48,11 +48,14 @@ def get_sequence_mixer(
     elif sequence_mixer_type == "gru":
         return GRU(
             input_size=config.hidden_size,
-            state_size=block.state_size,
+            state_head_dim=block.state_head_dim,
             output_size=config.hidden_size,
-            low_rank=block.low_rank,
-            low_rank_norm=block.low_rank_norm,
-            num_heads=block.num_heads,
+            num_input_heads=block.num_input_heads,
+            num_forget_input_heads=block.num_forget_input_heads,
+            num_reset_input_heads=block.num_reset_input_heads,
+            num_weight_heads=block.num_weight_heads,
+            num_forget_weight_heads=block.num_forget_weight_heads,
+            num_reset_weight_heads=block.num_reset_weight_heads,
             kernel_size=block.kernel_size,
             activation_function=block.activation_function,
             add_bias=block.add_bias,
@@ -68,9 +71,10 @@ def get_sequence_mixer(
     elif sequence_mixer_type == "rnn":
         return RNN(
             input_size=config.hidden_size,
-            state_size=block.state_size,
+            state_head_dim=block.state_head_dim,
             output_size=config.hidden_size,
-            num_heads=block.num_heads,
+            num_input_heads=block.num_input_heads,
+            num_weight_heads=block.num_weight_heads,
             kernel_size=block.kernel_size,
             activation_function=block.activation_function,
             add_bias=block.add_bias,

@@ -183,3 +183,15 @@ except ImportError:
 
 def is_sonicmoe_available() -> bool:
     return _IS_SONIC_MOE_AVAILABLE
+
+
+try:
+    import ray
+
+    _IS_RAY_AVAILABLE = True
+except ImportError:
+    _IS_RAY_AVAILABLE = False
+
+
+def is_ray_available() -> bool:
+    return _IS_RAY_AVAILABLE

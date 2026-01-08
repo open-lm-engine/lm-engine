@@ -21,6 +21,7 @@ from .packages import (
     is_flash_attention_3_available,
     is_mamba_2_ssm_available,
     is_multi_storage_client_available,
+    is_ray_available,
     is_sonicmoe_available,
     is_torch_xla_available,
     is_torchao_available,
