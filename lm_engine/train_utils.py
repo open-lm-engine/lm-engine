@@ -207,6 +207,8 @@ def get_model_tflops(
                 * num_heads
                 * (_get_linear_flops(b, block.state_head_dim, block.state_head_dim) + b * block.state_head_dim)
             )
+        elif sequence_mixer_type == "gated_deltanet":
+            return 0
         else:
             raise NotImplementedError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
 

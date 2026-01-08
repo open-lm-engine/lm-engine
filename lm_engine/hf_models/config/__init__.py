@@ -13,6 +13,7 @@ from ...utils import BaseArgs, divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import (
     _CausalConvolution,
+    _GatedDeltaNetArgs,
     _GRUArgs,
     _Mamba2Args,
     _MultiHeadLatentAttentionArgs,
@@ -71,6 +72,7 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
+    "gated_deltanet": _GatedDeltaNetArgs,
 }
 
 _MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
@@ -212,6 +214,7 @@ class CommonConfig(PretrainedConfig):
             | _MultiHeadLatentAttentionArgs
             | _RNNArgs
             | _SoftmaxAttentionArgs
+            | _GatedDeltaNetArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])
