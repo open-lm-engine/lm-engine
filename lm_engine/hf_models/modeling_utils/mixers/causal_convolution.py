@@ -200,19 +200,13 @@ class CausalConvolution(nn.Module):
         mark_parameter_as_no_weight_decay(self.output_projection.bias)
 
     def forward(
-        self,
-        hidden_states: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-        sequence_length = hidden_states.size(1)
+        x = self.input_projection(x)
 
-        hidden_states = self.input_projection(hidden_states)
-
-        hidden_states, input_state = causal_convolution(
-            hidden_states=hidden_states,
-            input_state=input_state,
+        x, c = causal_convolution(
+            hidden_states=x,
+            input_state=None if cache_params is None else cache_params.get_cache(self.layer_idx),
             attention_mask=attention_mask,
             conv1d_weight=self.conv1d.weight,
             conv1d_bias=self.conv1d.bias,
@@ -224,8 +218,8 @@ class CausalConvolution(nn.Module):
         )
 
         if cache_params is not None:
-            cache_params.update(state=input_state, num_tokens_added=sequence_length, layer_idx=self.layer_idx)
+            cache_params.update(state=c, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
 
-        hidden_states = self.output_projection(hidden_states)
+        x = self.output_projection(x)
 
-        return hidden_states
+        return x
