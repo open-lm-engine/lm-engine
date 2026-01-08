@@ -12,73 +12,21 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fla.ops.gated_delta_rule import chunk_gated_delta_rule, fused_recurrent_gated_delta_rule
 
+from ....utils import is_fla_available
 from ...cache import GenerationCache
+from ...parameter import mark_parameter_as_no_weight_decay
 from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 
 
-@torch.compile
-def elu_p1(x):
-    return (F.elu(x, 1.0, False) + 1.0).to(x)
-
-
-@torch.compile
-def sum_norm(x):
-    return (x / x.sum(-1, keepdim=True)).to(x)
+if is_fla_available():
+    from fla.ops.gated_delta_rule import chunk_gated_delta_rule, fused_recurrent_gated_delta_rule
 
 
 class GatedDeltaNet(nn.Module):
-    """
-    The layer implementaion for [Gated Delta Networks: Improving Mamba2 with Delta Rule](https://arxiv.org/abs/2412.06464).  # noqa
-
-    Similar to Mamba2, each layer contains around 6*hidden_size*hidden_size parameters.
-
-    Parameter alloation when use_gate=True:
-        - 0.75 * hidden_size * hidden_size for the q_proj and k_proj each
-        - 1.5 * hidden_size * hidden_size for the v_proj, g_proj and o_proj each
-        - Others are ignorably small.
-        - In total = 0.75 * 2 + 1.5 * 3 = 6 * hidden_size * hidden_size
-    NOTE: num_heads * head_dim = 0.75 * hidden_size, please make sure to set the correct num_heads and head_dim.
-
-    Parameter allocation when use_gate=False:
-        - 1 * hidden_size * hidden_size for the q_proj and k_proj each
-        - 2 * hidden_size * hidden_size for the v_proj and o_proj each
-        - Others are ignorably small.
-        - In total = 1 * 2 + 2 * 2 = 6 * hidden_size * hidden_size
-
-    Args:
-        hidden_size (int, Optional):
-            The hidden size of the input. Default: 2048.
-        expand_v (float, Optional):
-            The expansion ratio for the value dim. Default: 2.0.
-        head_dim (int, Optional):
-            The dimension of each head. Default: 256.
-        num_heads (int, Optional):
-            The number of heads. Default: 4.
-        num_v_heads (int, Optional):
-            The number of heads for the value projection, equal to `num_heads` if `None`.
-            GVA is applied if `num_v_heads` > `num_heads`. Default: `None`.
-        mode (str, Optional):
-            Which Gated DeltaNet kernel to use.
-            Currently available: `chunk` and `fused_recurrent`.
-            Default: `chunk`.
-        use_beta (bool, Optional):
-            Whether to use beta. Default: `True`.
-        use_gate (bool, Optional):
-            Whether to use output gate. Default: `True`.
-        allow_neg_eigval (bool, Optional):
-            Allow negative eigenvalues. Default: `False`. If set to `True`, the beta will be multiplied by 2.
-            See reference: [Unlocking State-Tracking in Linear RNNs Through Negative Eigenvalues](https://arxiv.org/abs/2411.12537)
-        layer_idx (int, Optional):
-            The index of the layer. Default: None.
-        norm_eps (float, Optional):
-            The epsilon value for the normalization layer. Default: 1e-5.
-    """
-
     def __init__(
         self,
         hidden_size: int = 2048,
@@ -141,10 +89,9 @@ class GatedDeltaNet(nn.Module):
         dt = torch.clamp(dt, min=dt_init_floor)
         # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
         inv_dt = dt + torch.log(-torch.expm1(-dt))
+
         self.dt_bias = nn.Parameter(inv_dt)
-        # Just to be explicit. Without this we already don't put wd on dt_bias because of the check
-        # name.endswith("bias") in param_grouping.py
-        self.dt_bias._no_weight_decay = True
+        mark_parameter_as_no_weight_decay(self.dt_bias)
 
         self.conv_size = conv_size
         self.qkv_conv1d = ParameterizedConv1d(
