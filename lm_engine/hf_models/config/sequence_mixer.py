@@ -116,14 +116,13 @@ class _CausalConvolution(BaseArgs):
 
 class _GatedDeltaNetArgs(BaseArgs):
     sequence_mixer_type: str = "gated_deltanet"
-    head_dim: int = 256
+    k_head_dim: int = 256
     v_head_dim: int = 512
-    num_heads: int = 6
+    num_k_heads: int = 6
     num_v_heads: int = 6
-    mode: str = "chunk"
     use_gate: bool = True
     allow_neg_eigval: bool = False
-    conv_size: int = 4
+    kernel_size: int = 4
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gated_deltanet"

@@ -134,11 +134,10 @@ def get_sequence_mixer(
     elif sequence_mixer_type == "gated_deltanet":
         return GatedDeltaNet(
             hidden_size=config.hidden_size,
-            head_dim=block.head_dim,
+            k_head_dim=block.k_head_dim,
             v_head_dim=block.v_head_dim,
-            num_heads=block.num_heads,
+            num_k_heads=block.num_k_heads,
             num_v_heads=block.num_v_heads,
-            mode=block.mode,
             use_gate=block.use_gate,
             allow_neg_eigval=block.allow_neg_eigval,
             conv_size=block.conv_size,

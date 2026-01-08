@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ....utils import is_fla_available
+from ....utils import divide_if_divisible, is_fla_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_no_weight_decay
 from ..convolution import ParameterizedConv1d
@@ -29,43 +29,43 @@ if is_fla_available():
 class GatedDeltaNet(nn.Module):
     def __init__(
         self,
-        hidden_size: int = 2048,
-        head_dim: int = 256,
-        v_head_dim: int = 512,
-        num_heads: int = 6,
-        num_v_heads: int = None,
-        mode: str = "chunk",
-        use_gate: bool = True,
-        allow_neg_eigval: bool = False,
-        conv_size: int = 4,
-        layer_idx: int = None,
-        norm_eps: float = 1e-5,
-        init_method: str = "normal",
-        initializer_range: float = 0.02,
-        num_layers: int = 24,
-        use_padding_free_transformer: bool = False,
+        hidden_size,
+        k_head_dim,
+        v_head_dim,
+        num_k_heads,
+        num_v_heads,
+        use_gate: bool,
+        allow_neg_eigval,
+        conv_size: int,
+        layer_idx: int,
+        norm_eps: float,
+        init_method: str,
+        initializer_range: float,
+        num_layers: int,
+        use_padding_free_transformer: bool,
     ) -> GatedDeltaNet:
         super().__init__()
 
-        self.mode = mode
+        assert not use_padding_free_transformer
+
+        self.mode = "chunk"
         self.allow_neg_eigval = allow_neg_eigval
         self.hidden_size = hidden_size
 
         self.use_gate = use_gate
         self.conv_size = conv_size
 
-        self.head_dim = head_dim
-        self.num_heads = num_heads
+        self.num_k_heads = num_k_heads
         self.num_v_heads = num_v_heads if num_v_heads is not None else num_heads
 
-        self.k_head_dim = head_dim
+        self.k_head_dim = k_head_dim
         self.v_head_dim = v_head_dim
-        self.key_dim = int(self.num_heads * self.k_head_dim)
-        self.value_dim = int(self.num_v_heads * self.v_head_dim)
+
+        self.key_dim = self.num_k_heads * self.k_head_dim
+        self.value_dim = self.num_v_heads * self.v_head_dim
         self.layer_idx = layer_idx
 
-        if self.num_v_heads > self.num_heads and self.num_v_heads % self.num_heads != 0:
-            raise ValueError(f"num_v_heads={self.num_v_heads} must be divisible by num_heads={self.num_heads}.")
+        divide_if_divisible(self.num_v_heads, self.num_k_heads)
 
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
 
@@ -170,9 +170,9 @@ class GatedDeltaNet(nn.Module):
         k = k.view(*q_size[:-1], -1, self.k_head_dim)
         v = v.view(*v.size()[:-1], -1, self.v_head_dim)
 
-        if self.num_v_heads > self.num_heads:
-            q = q.repeat_interleave(repeats=self.num_v_heads // self.num_heads, dim=-2)
-            k = k.repeat_interleave(repeats=self.num_v_heads // self.num_heads, dim=-2)
+        if self.num_v_heads > self.num_k_heads:
+            q = q.repeat_interleave(repeats=self.num_v_heads // self.num_k_heads, dim=-2)
+            k = k.repeat_interleave(repeats=self.num_v_heads // self.num_k_heads, dim=-2)
 
         beta = b.sigmoid()
         if self.allow_neg_eigval:
