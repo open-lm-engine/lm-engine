@@ -9,7 +9,7 @@ import math
 import torch.nn as nn
 
 from ...modeling_utils import MLP, Dropout, get_activation_function, is_glu
-from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
+from ...modeling_utils.mixers.mlp import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
 
 

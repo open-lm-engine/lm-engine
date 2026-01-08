@@ -18,7 +18,7 @@ from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_
 from ..activations import get_activation_function, is_glu
 from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
-from ..mlp_blocks.mlp import _get_std_for_linear
+from .mlp import _get_std_for_linear
 
 
 if is_causal_conv1d_available():
