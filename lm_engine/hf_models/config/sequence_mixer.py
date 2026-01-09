@@ -101,7 +101,7 @@ class _RNNArgs(BaseArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
-class _RSAArgs(_GRUArgs):
+class _RSAArgs(BaseArgs):
     sequence_mixer_type: str = "rsa"
     k_head_dim: int = 16
     v_head_dim: int = 16
