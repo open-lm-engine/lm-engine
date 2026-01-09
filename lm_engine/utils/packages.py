@@ -195,3 +195,15 @@ except ImportError:
 
 def is_ray_available() -> bool:
     return _IS_RAY_AVAILABLE
+
+
+try:
+    import fla
+
+    _IS_FLA_AVAILABLE = True
+except ImportError:
+    _IS_FLA_AVAILABLE = False
+
+
+def is_fla_available() -> bool:
+    return _IS_FLA_AVAILABLE

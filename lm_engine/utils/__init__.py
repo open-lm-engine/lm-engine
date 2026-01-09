@@ -17,6 +17,7 @@ from .packages import (
     is_aim_available,
     is_causal_conv1d_available,
     is_colorlog_available,
+    is_fla_available,
     is_flash_attention_2_available,
     is_flash_attention_3_available,
     is_mamba_2_ssm_available,
