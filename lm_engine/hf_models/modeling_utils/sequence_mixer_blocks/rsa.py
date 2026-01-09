@@ -94,7 +94,6 @@ class RSA(nn.Module):
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.state_weight_std = std
 
         self.input_projection = ParameterizedLinear(
             self.input_size, self.conv_dim + self.num_f_heads + self.g_shape, bias=add_bias, std=std
@@ -217,7 +216,9 @@ class RSA(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        nn.init.normal_(self.state_weight, std=self.state_weight_std)
+        W = torch.eye(self.v_head_dim)
+        W = W[None, ...].expand(self.num_heads, -1, -1)
+        self.state_weight.copy_(W)
 
         if self.use_residual:
             nn.init.ones_(self.D)
