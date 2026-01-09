@@ -48,7 +48,6 @@ class GatedDeltaNet(nn.Module):
 
         assert not use_padding_free_transformer
 
-        self.mode = "chunk"
         self.allow_neg_eigval = allow_neg_eigval
         self.hidden_size = hidden_size
 
@@ -56,7 +55,7 @@ class GatedDeltaNet(nn.Module):
         self.conv_size = conv_size
 
         self.num_k_heads = num_k_heads
-        self.num_v_heads = num_v_heads if num_v_heads is not None else num_heads
+        self.num_v_heads = num_v_heads
 
         self.k_head_dim = k_head_dim
         self.v_head_dim = v_head_dim
@@ -66,8 +65,6 @@ class GatedDeltaNet(nn.Module):
         self.layer_idx = layer_idx
 
         divide_if_divisible(self.num_v_heads, self.num_k_heads)
-
-        assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
 
         assert init_method == "normal"
         std = initializer_range
@@ -127,7 +124,7 @@ class GatedDeltaNet(nn.Module):
 
         batch_size, q_len, _ = hidden_states.shape
         # change to inference mode.
-        mode = "fused_recurrent" if q_len <= 64 else self.mode
+        mode = "fused_recurrent" if q_len <= 64 else "chunk"
         if self.training:
             assert mode == "chunk", "Only chunk mode is supported in training."
 
