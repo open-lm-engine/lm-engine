@@ -40,7 +40,6 @@ def unpad_input(
             # There is a memcpy here, that is very bad.
             cu_seqlens_q = torch.arange(batch_size + 1, dtype=torch.int32, device=query.device)
             query = query.squeeze(1)
-            key, value = pack_sequence(inputs=(key, value), cu_seqlens=cu_seqlens_k)
             max_seqlen_q = 1
         else:
             # The -q_len: slice assumes left padding.
