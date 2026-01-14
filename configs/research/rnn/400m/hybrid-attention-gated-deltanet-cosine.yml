@@ -79,6 +79,10 @@ model_args:
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        add_bias: false
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
@@ -135,6 +139,10 @@ model_args:
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        add_bias: false
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
@@ -191,30 +199,10 @@ model_args:
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        add_bias: false
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
@@ -342,11 +330,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/gated-deltanet-400m-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints/hybrid-gated-deltanet-400m-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/gated-deltanet-400m-cosine
+#   load_path: /mnt/vast/proj/checkpoints/mayank/hybrid-gated-deltanet-400m-cosine
 
 logging_args:
   log_interval: 10
@@ -354,7 +342,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: rsa
-    name: gated-deltanet-400m-cosine
+    name: hybrid-gated-deltanet-400m-cosine
 
 training_parameters:
   num_training_steps: 25000
