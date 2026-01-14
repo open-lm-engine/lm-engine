@@ -28,6 +28,7 @@ kernel_args:
     - rnn
     - gru
     - flash_attention_2
+    - sonicmoe
 
 model_args:
   model_class: AutoModelForCausalLM

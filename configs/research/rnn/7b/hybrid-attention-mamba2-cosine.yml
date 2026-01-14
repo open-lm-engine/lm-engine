@@ -30,6 +30,7 @@ kernel_args:
     - causal_conv1d
     - mamba2_ssm
     - flash_attention_2
+    - sonicmoe
 
 model_args:
   model_class: AutoModelForCausalLM

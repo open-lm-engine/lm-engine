@@ -29,6 +29,7 @@ kernel_args:
     - gru
     - causal_conv1d
     - flash_attention_2
+    - sonicmoe
 
 model_args:
   model_class: AutoModelForCausalLM
