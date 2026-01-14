@@ -53,9 +53,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -63,9 +63,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -73,9 +73,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -83,9 +83,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -93,9 +93,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -103,9 +103,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -113,9 +113,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -123,9 +123,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -133,9 +133,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -143,9 +143,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -153,9 +153,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -163,9 +163,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -173,9 +173,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -183,9 +183,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -193,9 +193,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -203,9 +203,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -213,9 +213,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -223,9 +223,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -233,9 +233,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -243,9 +243,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -253,9 +253,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -263,9 +263,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -273,9 +273,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -283,9 +283,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -293,9 +293,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -303,9 +303,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -313,9 +313,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -323,9 +323,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -333,9 +333,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -343,9 +343,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -353,9 +353,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -363,9 +363,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -373,9 +373,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -383,9 +383,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -393,9 +393,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -403,9 +403,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -413,9 +413,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -423,9 +423,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -433,9 +433,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -443,9 +443,9 @@ model_args:
         activation_function: silu
         add_bias: false
         use_conv_bias: true
-        num_heads: 64
+        num_heads: 32
         state_size: 128
-        intermediate_size: 4096
+        intermediate_size: 2048
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
