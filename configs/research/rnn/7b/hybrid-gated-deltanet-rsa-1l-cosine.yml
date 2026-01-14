@@ -89,8 +89,8 @@ model_args:
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: softmax_attention
-        num_attention_heads: 16
-        num_key_value_heads: 16
+        num_attention_heads: 24
+        num_key_value_heads: 24
         add_bias: false
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -149,8 +149,8 @@ model_args:
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: softmax_attention
-        num_attention_heads: 16
-        num_key_value_heads: 16
+        num_attention_heads: 24
+        num_key_value_heads: 24
         add_bias: false
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -209,8 +209,8 @@ model_args:
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: softmax_attention
-        num_attention_heads: 16
-        num_key_value_heads: 16
+        num_attention_heads: 24
+        num_key_value_heads: 24
         add_bias: false
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -269,8 +269,8 @@ model_args:
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: softmax_attention
-        num_attention_heads: 16
-        num_key_value_heads: 16
+        num_attention_heads: 24
+        num_key_value_heads: 24
         add_bias: false
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -329,8 +329,8 @@ model_args:
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: softmax_attention
-        num_attention_heads: 16
-        num_key_value_heads: 16
+        num_attention_heads: 24
+        num_key_value_heads: 24
         add_bias: false
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
