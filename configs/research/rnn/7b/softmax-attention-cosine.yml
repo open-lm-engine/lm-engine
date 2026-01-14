@@ -212,6 +212,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -219,6 +220,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -226,6 +228,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -233,6 +236,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -240,6 +244,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -247,6 +252,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -254,6 +260,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -261,6 +268,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -268,6 +276,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -275,6 +284,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -282,6 +292,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -289,6 +300,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -296,6 +308,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -303,6 +316,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -310,6 +324,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -317,6 +332,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -324,6 +340,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -331,6 +348,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -338,6 +356,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -345,6 +364,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -352,6 +372,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -359,6 +380,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -366,6 +388,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -373,6 +396,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -380,6 +404,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -387,6 +412,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -394,6 +420,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -401,6 +428,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -408,6 +436,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -415,6 +444,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -422,6 +452,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -429,6 +460,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -436,6 +468,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -443,6 +476,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -450,6 +484,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -457,6 +492,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -464,6 +500,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -471,6 +508,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -478,6 +516,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
@@ -485,6 +524,7 @@ model_args:
         shared_intermediate_size: 1024
         num_experts: 128
         num_experts_per_tok: 8
+        use_interleaved_weights: true
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
