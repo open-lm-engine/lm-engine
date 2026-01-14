@@ -128,9 +128,7 @@ class GatedDeltaNet(nn.Module):
         if self.training:
             assert mode == "chunk", "Only chunk mode is supported in training."
 
-        last_state = None
-        if cache_params is not None and len(cache_params) > self.layer_idx:
-            last_state = past_key_values[self.layer_idx]
+        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         use_cache = cache_params is not None
 
@@ -143,13 +141,9 @@ class GatedDeltaNet(nn.Module):
         else:
             a, b = self.ab_proj(hidden_states).chunk(2, dim=-1)
 
-        conv_state_qkv = None
-        if last_state is not None:
-            conv_state_qkv = last_state["conv_state"]
-
-        qkv, conv_state_qkv = causal_convolution(
+        qkv, c = causal_convolution(
             hidden_states=qkv,
-            input_state=conv_state_qkv,
+            input_state=c,
             attention_mask=attention_mask,
             conv1d_weight=self.qkv_conv1d.weight,
             conv1d_bias=self.qkv_conv1d.bias,
@@ -177,27 +171,26 @@ class GatedDeltaNet(nn.Module):
 
         g = -self.A_log.float().exp() * F.softplus(a.float() + self.dt_bias)
 
-        recurrent_state = last_state["recurrent_state"] if last_state is not None else None
         if mode == "chunk":
-            o, recurrent_state = chunk_gated_delta_rule(
+            o, h = chunk_gated_delta_rule(
                 q=q,
                 k=k,
                 v=v,
                 g=g,
                 beta=beta,
-                initial_state=recurrent_state,
+                initial_state=h,
                 output_final_state=use_cache,
                 cu_seqlens=cu_seqlens,
                 use_qk_l2norm_in_kernel=True,
             )
         elif mode == "fused_recurrent":
-            o, recurrent_state = fused_recurrent_gated_delta_rule(
+            o, h = fused_recurrent_gated_delta_rule(
                 q=q,
                 k=k,
                 v=v,
                 g=g,
                 beta=beta,
-                initial_state=recurrent_state,
+                initial_state=h,
                 output_final_state=use_cache,
                 cu_seqlens=cu_seqlens,
                 use_qk_l2norm_in_kernel=True,
@@ -207,10 +200,7 @@ class GatedDeltaNet(nn.Module):
 
         if cache_params is not None:
             cache_params.update(
-                recurrent_state=recurrent_state,
-                conv_state=conv_state_qkv,
-                layer_idx=self.layer_idx,
-                offset=q_len,
+                conv_state=c, ssm_state=h, num_tokens_added=hidden_states.size(1), layer_idx=self.layer_idx
             )
 
         if self.use_gate:
