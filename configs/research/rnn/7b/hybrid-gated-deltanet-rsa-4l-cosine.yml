@@ -77,10 +77,10 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
-        num_f_heads: 84
-        num_g_heads: 84
-        num_weight_heads: 84
+        num_v_heads: 184
+        num_f_heads: 184
+        num_g_heads: 184
+        num_weight_heads: 184
         use_residual: true
         activation_function: silu
         use_softplus_decay: true
@@ -145,10 +145,10 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
-        num_f_heads: 84
-        num_g_heads: 84
-        num_weight_heads: 84
+        num_v_heads: 184
+        num_f_heads: 184
+        num_g_heads: 184
+        num_weight_heads: 184
         use_residual: true
         activation_function: silu
         use_softplus_decay: true
@@ -213,10 +213,10 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
-        num_f_heads: 84
-        num_g_heads: 84
-        num_weight_heads: 84
+        num_v_heads: 184
+        num_f_heads: 184
+        num_g_heads: 184
+        num_weight_heads: 184
         use_residual: true
         activation_function: silu
         use_softplus_decay: true
@@ -281,10 +281,10 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
-        num_f_heads: 84
-        num_g_heads: 84
-        num_weight_heads: 84
+        num_v_heads: 184
+        num_f_heads: 184
+        num_g_heads: 184
+        num_weight_heads: 184
         use_residual: true
         activation_function: silu
         use_softplus_decay: true
@@ -349,10 +349,10 @@ model_args:
         v_head_dim: 16
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
-        num_f_heads: 84
-        num_g_heads: 84
-        num_weight_heads: 84
+        num_v_heads: 184
+        num_f_heads: 184
+        num_g_heads: 184
+        num_weight_heads: 184
         use_residual: true
         activation_function: silu
         use_softplus_decay: true
