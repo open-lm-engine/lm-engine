@@ -51,320 +51,320 @@ model_args:
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
         v_head_dim: 512
-        num_k_heads: 2
-        num_v_heads: 2
+        num_k_heads: 3
+        num_v_heads: 3
         use_gate: true
         allow_neg_eigval: false
         kernel_size: 4
