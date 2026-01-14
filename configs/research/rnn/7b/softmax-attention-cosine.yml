@@ -249,11 +249,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/softmax-attention-400m-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints/softmax-attention-7b-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /u/shawntan/proj/mayank/checkpoints/softmax-attention-400m-cosine
+#   load_path: /u/shawntan/proj/mayank/checkpoints/softmax-attention-7b-cosine
 
 logging_args:
   log_interval: 10
@@ -261,7 +261,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: rsa
-    name: softmax-attention-400m-cosine
+    name: softmax-attention-7b-cosine
 
 training_parameters:
   num_training_steps: 25000
