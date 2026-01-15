@@ -35,12 +35,14 @@ class GatedDeltaNet(nn.Module):
         num_k_heads,
         num_v_heads,
         use_gate: bool,
+        attention_multiplier: float | None,
         allow_neg_eigval,
         conv_size: int,
         layer_idx: int,
         norm_eps: float,
         init_method: str,
         initializer_range: float,
+        m_width: float | None,
         num_layers: int,
         use_padding_free_transformer: bool,
     ) -> GatedDeltaNet:
@@ -64,11 +66,13 @@ class GatedDeltaNet(nn.Module):
         self.value_dim = self.num_v_heads * self.v_head_dim
         self.layer_idx = layer_idx
 
+        self.attention_multiplier = attention_multiplier
+
         divide_if_divisible(self.num_v_heads, self.num_k_heads)
 
-        assert init_method == "normal"
         std = initializer_range
-
+        if init_method == "mup":
+            std /= math.sqrt(m_width)
         self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=std)
 
         self.ab_proj = ParameterizedLinear(
@@ -102,9 +106,11 @@ class GatedDeltaNet(nn.Module):
         )
         self.activation_string = "silu"
 
-        std = initializer_range / math.sqrt(2 * num_layers)
-
         self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
+
+        std = initializer_range / math.sqrt(2 * num_layers)
+        if init_method == "mup":
+            std /= math.sqrt(m_width)
         self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False, std=std)
 
     def forward(
@@ -178,6 +184,7 @@ class GatedDeltaNet(nn.Module):
                 v=v,
                 g=g,
                 beta=beta,
+                scale=self.attention_multiplier,
                 initial_state=h,
                 output_final_state=use_cache,
                 cu_seqlens=cu_seqlens,
@@ -190,6 +197,7 @@ class GatedDeltaNet(nn.Module):
                 v=v,
                 g=g,
                 beta=beta,
+                scale=self.attention_multiplier,
                 initial_state=h,
                 output_final_state=use_cache,
                 cu_seqlens=cu_seqlens,

@@ -98,7 +98,6 @@ class RSA(nn.Module):
         self.input_projection = ParameterizedLinear(
             self.input_size, self.conv_dim + self.num_f_heads + self.g_shape, bias=add_bias, std=std
         )
-        self.input_activation = nn.SiLU()
 
         if self.use_softplus_decay:
             self.decay_gate = SoftplusDecayGate(0, self.num_heads, std=None, has_projection=False)
