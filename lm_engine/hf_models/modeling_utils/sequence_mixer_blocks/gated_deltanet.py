@@ -123,19 +123,6 @@ class GatedDeltaNet(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        if self.use_padding_free_transformer:
-            assert cache_params is None
-            assert attention_mask is None
-        else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
-
-            B, S = hidden_states.size()[:2]
-
-            if attention_mask is not None:
-                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                hidden_states = pack_sequence(inputs=hidden_states, cu_seqlens=cu_seqlens)
-
         # change to inference mode.
         mode = "fused_recurrent" if S <= 64 else "chunk"
         if self.training:
@@ -184,6 +171,19 @@ class GatedDeltaNet(nn.Module):
 
         g = -self.A_log.float().exp() * F.softplus(a.float() + self.dt_bias)
 
+        if self.use_padding_free_transformer:
+            assert cache_params is None
+            assert attention_mask is None
+        else:
+            assert cu_seqlens is None
+            assert max_seqlen is None
+
+            B, S = q.size()[:2]
+
+            if attention_mask is not None:
+                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+                hidden_states = pack_sequence(inputs=(q, k, v, g), cu_seqlens=cu_seqlens)
+
         if mode == "chunk":
             o, h = chunk_gated_delta_rule(
                 q=q,
@@ -213,6 +213,9 @@ class GatedDeltaNet(nn.Module):
         else:
             raise NotImplementedError(f"Not supported mode `{mode}`.")
 
+        if not self.use_padding_free_transformer and attention_mask is not None:
+            o = unpack_sequence(inputs=o, cu_seqlens=cu_seqlens, output_shape=(B, S, *hidden_states.size()[1:]))
+
         if cache_params is not None:
             cache_params.update(
                 conv_state=c, ssm_state=h, num_tokens_added=hidden_states.size(1), layer_idx=self.layer_idx
@@ -225,8 +228,5 @@ class GatedDeltaNet(nn.Module):
         o = self.o_norm(o)
         o = o.flatten(-2, -1)
         o = self.o_proj(o)
-
-        if not self.use_padding_free_transformer and attention_mask is not None:
-            o = unpack_sequence(inputs=o, cu_seqlens=cu_seqlens, output_shape=(B, S, *hidden_states.size()[1:]))
 
         return o
