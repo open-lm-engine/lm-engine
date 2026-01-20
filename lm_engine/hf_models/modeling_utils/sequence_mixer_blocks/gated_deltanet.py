@@ -123,13 +123,7 @@ class GatedDeltaNet(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        # change to inference mode.
-        mode = "fused_recurrent" if S <= 64 else "chunk"
-        if self.training:
-            assert mode == "chunk", "Only chunk mode is supported in training."
-
         c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
-
         use_cache = cache_params is not None
 
         qkv = self.qkv_proj(hidden_states)
@@ -183,6 +177,11 @@ class GatedDeltaNet(nn.Module):
             if attention_mask is not None:
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
                 hidden_states = pack_sequence(inputs=(q, k, v, g), cu_seqlens=cu_seqlens)
+
+        # change to inference mode.
+        mode = "fused_recurrent" if S <= 64 else "chunk"
+        if self.training:
+            assert mode == "chunk", "Only chunk mode is supported in training."
 
         if mode == "chunk":
             o, h = chunk_gated_delta_rule(
