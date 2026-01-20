@@ -176,7 +176,7 @@ class GatedDeltaNet(nn.Module):
 
             if attention_mask is not None:
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                hidden_states = pack_sequence(inputs=(q, k, v, g), cu_seqlens=cu_seqlens)
+                hidden_states = pack_sequence(inputs=(q, k, v, g, beta), cu_seqlens=cu_seqlens)
 
         # change to inference mode.
         mode = "fused_recurrent" if S <= 64 else "chunk"
