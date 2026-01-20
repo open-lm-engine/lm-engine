@@ -93,16 +93,7 @@ class Block(nn.Module):
             hidden_states = self.sequence_mixer(
                 hidden_states, cache_params=past_key_values, attention_mask=attention_mask
             )
-        elif self.sequence_mixer_type in ["gru", "rnn", "rsa"]:
-            hidden_states = self.sequence_mixer(
-                hidden_states,
-                cache_params=past_key_values,
-                attention_mask=attention_mask,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
-        elif self.sequence_mixer_type == "gated_deltanet":
-            # GatedDeltaNet returns (output, attentions, past_key_values)
+        elif self.sequence_mixer_type in ["gru", "rnn", "rsa", "gated_deltanet"]:
             hidden_states = self.sequence_mixer(
                 hidden_states,
                 cache_params=past_key_values,

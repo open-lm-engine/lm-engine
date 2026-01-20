@@ -19,6 +19,7 @@ from ..decay_gate import SoftplusDecayGate
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
+from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
 if is_xma_available():
@@ -148,6 +149,19 @@ class RSA(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
+        if self.use_padding_free_transformer:
+            assert cache_params is None
+            assert attention_mask is None
+        else:
+            assert cu_seqlens is None
+            assert max_seqlen is None
+
+            B, S = x.size()[:2]
+
+            if attention_mask is not None:
+                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+                x = pack_sequence(inputs=x, cu_seqlens=cu_seqlens)
+
         conv_state, rsa_state = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
 
         x = self.input_projection(x)
@@ -210,6 +224,9 @@ class RSA(nn.Module):
             x = x.flatten(-2, -1)
 
         x = self.output_projection(x)
+
+        if not self.use_padding_free_transformer and attention_mask is not None:
+            x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         return x
 
