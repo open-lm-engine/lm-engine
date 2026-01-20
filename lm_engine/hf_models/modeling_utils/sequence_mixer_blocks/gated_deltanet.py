@@ -20,6 +20,7 @@ from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
+from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
 if is_fla_available():
@@ -49,6 +50,7 @@ class GatedDeltaNet(nn.Module):
         super().__init__()
 
         assert not use_padding_free_transformer
+        self.use_padding_free_transformer = use_padding_free_transformer
 
         self.allow_neg_eigval = allow_neg_eigval
         self.hidden_size = hidden_size
@@ -121,16 +123,21 @@ class GatedDeltaNet(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        if attention_mask is not None:
-            assert len(attention_mask.shape) == 2, (
-                "Expected attention_mask as a 0-1 matrix with shape [batch_size, seq_len] "
-                "for padding purposes (0 indicating padding). "
-                "Arbitrary attention masks of shape [batch_size, seq_len, seq_len] are not allowed."
-            )
+        if self.use_padding_free_transformer:
+            assert cache_params is None
+            assert attention_mask is None
+        else:
+            assert cu_seqlens is None
+            assert max_seqlen is None
 
-        batch_size, q_len, _ = hidden_states.shape
+            B, S = hidden_states.size()[:2]
+
+            if attention_mask is not None:
+                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+                hidden_states = pack_sequence(inputs=hidden_states, cu_seqlens=cu_seqlens)
+
         # change to inference mode.
-        mode = "fused_recurrent" if q_len <= 64 else "chunk"
+        mode = "fused_recurrent" if S <= 64 else "chunk"
         if self.training:
             assert mode == "chunk", "Only chunk mode is supported in training."
 
@@ -219,7 +226,7 @@ class GatedDeltaNet(nn.Module):
         o = o.flatten(-2, -1)
         o = self.o_proj(o)
 
-        if attention_mask is not None:
-            o = pad_input(o.squeeze(0), indices, batch_size, q_len)
+        if not self.use_padding_free_transformer and attention_mask is not None:
+            o = unpack_sequence(inputs=o, cu_seqlens=cu_seqlens, output_shape=(B, S, *hidden_states.size()[1:]))
 
         return o
