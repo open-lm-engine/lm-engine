@@ -495,7 +495,8 @@ class Mamba2(nn.Module):
                 dt_softplus=True,
             )
             hidden_states = hidden_states.view(batch_size, self.num_heads * self.head_dim)
-            hidden_states = self.norm(hidden_states, gate)
+            hidden_states = hidden_states * F.silu(gate)
+            hidden_states = self.norm(hidden_states)
 
             # 4. Final linear projection
             out = self.out_proj(hidden_states)[:, None, ...]
