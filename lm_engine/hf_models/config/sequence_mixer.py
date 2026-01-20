@@ -144,7 +144,7 @@ class _GatedDeltaNetArgs(BaseArgs):
     num_k_heads: int
     num_v_heads: int
     use_gate: bool
-    attention_multiplier: float | None
+    attention_multiplier: float | None = None
     allow_neg_eigval: bool
     kernel_size: int
 
