@@ -16,6 +16,15 @@ _ENABLE_KERNELS = os.getenv("ENABLE_KERNELS", "")
 _KERNELS = {kernel: False for kernel in Kernel}
 
 
+def enable_kernels_from_env_variable() -> None:
+    global _KERNELS
+    kernels = os.getenv("ENABLE_KERNELS", "").split(",")
+
+    for kernel in kernels:
+        kernel = Kernel(kernel.strip())
+        _KERNELS[kernel] = True
+
+
 if _ENABLE_ALL_KERNELS:
     assert not _ENABLE_KERNELS
 elif _ENABLE_KERNELS:
@@ -34,7 +43,8 @@ def enable_kernels(kernels: list[Kernel]):
 
     _KERNELS = {}
     for kernel in Kernel:
-        _KERNELS[kernel] = kernel in kernels
+        if not _KERNELS[kernel]:
+            _KERNELS[kernel] = kernel in kernels
 
     yield
 
