@@ -16,6 +16,12 @@ _ENABLE_KERNELS = os.getenv("ENABLE_KERNELS", "")
 _KERNELS = {kernel: False for kernel in Kernel}
 
 
+if _ENABLE_ALL_KERNELS:
+    assert not _ENABLE_KERNELS
+elif _ENABLE_KERNELS:
+    assert not _ENABLE_ALL_KERNELS
+
+
 def enable_kernels_from_env_variable() -> None:
     global _KERNELS
     kernels = os.getenv("ENABLE_KERNELS", "").split(",")
@@ -25,10 +31,7 @@ def enable_kernels_from_env_variable() -> None:
         _KERNELS[kernel] = True
 
 
-if _ENABLE_ALL_KERNELS:
-    assert not _ENABLE_KERNELS
-elif _ENABLE_KERNELS:
-    assert not _ENABLE_ALL_KERNELS
+enable_kernels_from_env_variable()
 
 
 def is_kernel_allowed(kernel: Kernel) -> bool:
