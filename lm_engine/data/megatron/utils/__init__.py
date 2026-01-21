@@ -39,6 +39,15 @@ def compile_helpers() -> None:
 
     Communication.barrier()
 
+    if ProcessGroupManager.get_global_rank() != 0:
+        helpers = load_cpp_extension(
+            "helpers",
+            sources=os.path.join(os.path.dirname(__file__), "helpers.cpp"),
+            extra_cflags=["-O3", "-Wall", "-shared", "-std=c++11", "-fPIC", "-fdiagnostics-color"],
+            build_directory=build_directory,
+            verbose=True,
+        )
+
 
 def build_blending_indices(
     dataset_index: np.ndarray, dataset_sample_index: np.ndarray, weights: list[float], num_datasets: int, size: int
