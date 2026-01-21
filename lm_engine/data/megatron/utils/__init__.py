@@ -52,8 +52,6 @@ def compile_helpers() -> None:
 def build_blending_indices(
     dataset_index: np.ndarray, dataset_sample_index: np.ndarray, weights: list[float], num_datasets: int, size: int
 ) -> None:
-    import helpers
-
     helpers.build_blending_indices(dataset_index, dataset_sample_index, weights, num_datasets, size)
 
 
