@@ -2,23 +2,24 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import os
 from contextlib import contextmanager
 
 import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor
 
 from .enums import Kernel
-from .utils import is_xma_available
 
 
-if is_xma_available():
-    from xma.utils import get_boolean_env_variable
-
-    _ENABLE_ALL_KERNELS = get_boolean_env_variable("ENABLE_ALL_KERNELS", False)
-else:
-    _ENABLE_ALL_KERNELS = False
-
+_ENABLE_ALL_KERNELS = os.getenv("ENABLE_ALL_KERNELS", "False").lower() in ["1", "true"]
+_ENABLE_KERNELS = os.getenv("ENABLE_KERNELS", "")
 _KERNELS = {kernel: False for kernel in Kernel}
+
+
+if _ENABLE_ALL_KERNELS:
+    assert not _ENABLE_KERNELS
+elif _ENABLE_KERNELS:
+    assert not _ENABLE_ALL_KERNELS
 
 
 def is_kernel_allowed(kernel: Kernel) -> bool:
