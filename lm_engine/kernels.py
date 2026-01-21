@@ -24,7 +24,10 @@ elif _ENABLE_KERNELS:
 
 def enable_kernels_from_env_variable() -> None:
     global _KERNELS
+
     kernels = os.getenv("ENABLE_KERNELS", "").split(",")
+    if kernels == [""]:
+        return
 
     for kernel in kernels:
         kernel = Kernel(kernel.strip())
