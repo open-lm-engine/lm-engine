@@ -4,6 +4,7 @@
 
 import os
 from contextlib import contextmanager
+from copy import deepcopy
 
 import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor
@@ -42,14 +43,16 @@ def is_kernel_allowed(kernel: Kernel) -> bool:
 
 
 @contextmanager
-def enable_kernels(kernels: list[Kernel]):
+def enable_kernels(kernels: list[Kernel], reset: bool = False):
     global _KERNELS
 
-    original_kernels = _KERNELS
+    original_kernels = deepcopy(_KERNELS)
 
-    _KERNELS = {}
+    if reset:
+        _KERNELS = {}
+
     for kernel in Kernel:
-        if not _KERNELS[kernel]:
+        if not original_kernels[kernel]:
             _KERNELS[kernel] = kernel in kernels
 
     yield
