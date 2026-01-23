@@ -17,10 +17,10 @@ from .rnn import _RNNCache
 _CACHE_CLASSES = {
     "causal_convolution": _RNNCache,
     "gated_deltanet": _Mamba2Cache,
-    "gru": _RNNCache,
+    "gru": _Mamba2Cache,
     "mamba2": _Mamba2Cache,
     "multihead_latent_attention": _SoftmaxAttentionCache,
-    "rnn": _RNNCache,
+    "rnn": _Mamba2Cache,
     "rsa": _Mamba2Cache,
     "softmax_attention": _SoftmaxAttentionCache,
 }
