@@ -98,9 +98,7 @@ class GRU(nn.Module):
             input_size, self.x_shape + self.xf_shape + self.xr_shape + self.g_shape, bias=add_bias, std=std
         )
 
-        if kernel_size is None:
-            assert activation_function is None
-        else:
+        if kernel_size is not None:
             assert not is_glu(self.activation_string)
 
             self.conv1d = ParameterizedConv1d(

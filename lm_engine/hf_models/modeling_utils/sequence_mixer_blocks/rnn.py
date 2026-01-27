@@ -73,9 +73,7 @@ class RNN(nn.Module):
 
         self.input_projection = ParameterizedLinear(input_size, self.x_shape + self.g_shape, bias=add_bias, std=std)
 
-        if kernel_size is None:
-            assert activation_function is None
-        else:
+        if kernel_size is not None:
             assert not is_glu(self.activation_string)
 
             self.conv1d = ParameterizedConv1d(
@@ -100,7 +98,6 @@ class RNN(nn.Module):
         self.output_projection = ParameterizedLinear(self.state_size, output_size, bias=False, std=std)
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
-        self.input_norm = get_normalization_function("rmsnorm", self.state_size)
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
