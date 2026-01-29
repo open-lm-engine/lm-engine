@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
