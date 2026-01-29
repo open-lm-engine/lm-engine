@@ -60,6 +60,14 @@ def plot(raw_text, ax, title):
     ax.set_xticklabels(sequence_lengths, rotation=45, ha="right")
     ax.grid(True)
 
+    ax.axvline(
+        x=4096,
+        color="black",
+        linestyle="--",
+        linewidth=1.5,
+        alpha=0.8,
+    )
+
 
 sns.set(style="whitegrid")
 
