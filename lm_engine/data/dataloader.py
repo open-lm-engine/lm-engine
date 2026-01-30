@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
+import torch
 from torch.utils.data import BatchSampler, DataLoader, Dataset
+
+from ..utils import Accelerator
 
 
 class ResumableDataLoader(DataLoader):
@@ -23,4 +26,6 @@ class TrainiumDataLoader(ResumableDataLoader):
 
     def __iter__(self):
         for batch_indices in self.batch_sampler:
-            yield {"text": [self.dataset[i] for i in batch_indices]}
+            yield {
+                "text": torch.tensor([self.dataset[i] for i in batch_indices], device=Accelerator.get_current_device())
+            }
