@@ -39,6 +39,7 @@ dev = [
     "pytest>=9.0.1",
 ]
 flash-attn = [
+    "torch>=2.8.0",
     "flash-attn>=2.8.3",
 ]
 mamba2 = [
