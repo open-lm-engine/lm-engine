@@ -50,8 +50,6 @@ _MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
 
 
 class CommonConfig(PretrainedConfig):
-    keys_to_ignore_at_inference = ["past_key_values"]
-
     def __init__(
         self,
         vocab_size: int = 50304,
