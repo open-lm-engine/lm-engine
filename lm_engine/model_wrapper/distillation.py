@@ -110,11 +110,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             torch.Tensor: loss tensor
         """
 
-        # for pretraining we compute loss externally here instead of relying on transformers.
-        # this is done because megatron's dataset returns batches of length (sequence_length + 1)
-        # instead of (sequence_length), so we need to trim the input_ids before forward pass.
-        # transformers does forward pass before however and then trims the tokens.
-
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
         output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)

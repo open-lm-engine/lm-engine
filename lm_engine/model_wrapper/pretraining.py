@@ -104,11 +104,6 @@ class ModelWrapperForPretraining(ModelWrapper):
             torch.Tensor: loss tensor
         """
 
-        # for pretraining we compute loss externally here instead of relying on transformers.
-        # this is done because megatron's dataset returns batches of length (sequence_length + 1)
-        # instead of (sequence_length), so we need to trim the input_ids before forward pass.
-        # transformers does forward pass before however and then trims the tokens.
-
         if not self.is_custom_model:
             assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
