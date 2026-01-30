@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from torch.utils.data import DataLoader
+from torch.utils.data import BatchSampler, DataLoader, Dataset
 
 
 class ResumableDataLoader(DataLoader):
@@ -14,3 +14,12 @@ class ResumableDataLoader(DataLoader):
     def load_state_dict(self, state_dict: dict) -> None:
         self.dataset.load_state_dict(state_dict.get("dataset"))
         self.sampler.load_state_dict(state_dict.get("sampler"))
+
+
+class TrainiumDataLoader(ResumableDataLoader):
+    def __init__(self, dataset: Dataset, batch_sampler: BatchSampler) -> TrainiumDataLoader:
+        self.dataset = dataset
+        self.batch_sampler = batch_sampler
+
+    def __iter__(self):
+        return super().__iter__()
