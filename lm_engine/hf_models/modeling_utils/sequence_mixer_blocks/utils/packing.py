@@ -5,6 +5,8 @@
 import torch
 import torch.nn.functional as F
 
+from .....enums import Kernel
+from .....kernels import is_kernel_allowed
 from .....utils import is_xma_available
 
 
@@ -29,10 +31,28 @@ def pack_sequence(
     if is_tensor:
         inputs = [inputs]
 
-    inputs = _pack_sequence(inputs=inputs, cu_seqlens=cu_seqlens, total_tokens=cu_seqlens[-1].item())
+    if is_kernel_allowed(Kernel.pack_sequence):
+        outputs = _pack_sequence(inputs=inputs, cu_seqlens=cu_seqlens, total_tokens=cu_seqlens[-1].item())
+    else:
+        outputs = []
+
+        for x in inputs:
+            assert x.dim() >= 2
+            assert x.size(0) == cu_seqlens.size(0) - 1
+
+            B, S = x.size()[:2]
+            seqlens = cu_seqlens[1:] - cu_seqlens[:-1]
+            batch_indices = torch.arange(B, device=x.device).repeat_interleave(seqlens)
+
+            pad_tokens = S - seqlens
+            seq_indices = torch.cat([torch.arange(sl, S, device=x.device) for sl in pad_tokens])
+
+            x = x[batch_indices, seq_indices]
+
+            outputs.append(x)
 
     if is_tensor:
-        inputs = inputs[0]
+        outputs = outputs[0]
 
     return inputs
 
