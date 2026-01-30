@@ -2,8 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-"""Logic is copied from transformers.models.llama.modeling_utils with slight modifications"""
-
 from __future__ import annotations
 
 import math
