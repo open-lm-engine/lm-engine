@@ -2,8 +2,21 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from transformers.activations import ACT2CLS, ClassInstantier
+
+
+class ReLUSquared(nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(x)
+
+        y = x.to(torch.float32)
+        y *= 2
+        y = y.type_as(x)
+
+        return y
 
 
 _BASE_ACTIVATIONS = {
@@ -17,14 +30,13 @@ _BASE_ACTIVATIONS = {
     "hard_swish": nn.Hardswish,
     "hard_tanh": nn.Hardtanh,
     "identity": nn.Identity,
-    "laplace": ACT2CLS["laplace"],
     "leaky_reLU": nn.LeakyReLU,
     "log_sigmoid": nn.LogSigmoid,
     "mish": nn.Mish,
     "prelu": nn.PReLU,
     "relu": nn.ReLU,
-    "relu2": ACT2CLS["relu2"],
-    "relu_squared": ACT2CLS["relu2"],
+    "relu2": ReLUSquared,
+    "relu_squared": ReLUSquared,
     "relu6": nn.ReLU6,
     "rrelu": nn.RReLU,
     "sigmoid": nn.Sigmoid,
