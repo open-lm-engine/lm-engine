@@ -8,7 +8,7 @@ import tempfile
 import torch
 from parameterized import parameterized
 
-from lm_engine.utils import torch_dtype_to_string
+from lm_engine.utils import is_flash_attention_2_available, torch_dtype_to_string
 
 from ...test_common import TestCommons
 
@@ -39,6 +39,9 @@ class TensorParallelTest(TestCommons):
             ("flash_attention_2", torch.float16),
         ]:
             self.skipTest("skipping test since running all takes too long")
+
+        if attention_implementation == "flash_attention_2" and not is_flash_attention_2_available():
+            self.skipTest("skipping test since flash-attn is unavialable")
 
         if use_padding_free_transformer and attention_implementation != "flash_attention_2":
             self.skipTest("skipping test since flash attention is needed for padding free transformer")
