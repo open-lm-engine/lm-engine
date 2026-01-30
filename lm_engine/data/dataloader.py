@@ -24,4 +24,4 @@ class DummyDataLoader:
     def __iter__(self):
         B = 1
         S = 4096
-        yield {"text": torch.tensor(B * list(range(S + 1)), device=Accelerator.get_current_device())}
+        yield {"text": torch.tensor(B * [list(range(S + 1))], device=Accelerator.get_current_device())}
