@@ -36,11 +36,6 @@ def _hold_base_args(key: str) -> Callable:
     return _holded_function
 
 
-def _update_with_key_value(block: dict, kwargs: dict, key: str) -> None:
-    if key in block:
-        kwargs[key] = block.pop(key)
-
-
 # for erroring out on legacy configs
 _NAKED_DISALLOWED_ARGS = [
     "activation_function",
