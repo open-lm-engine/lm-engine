@@ -27,5 +27,7 @@ class TrainiumDataLoader(ResumableDataLoader):
     def __iter__(self):
         for batch_indices in self.batch_sampler:
             yield {
-                "text": torch.tensor([self.dataset[i] for i in batch_indices], device=Accelerator.get_current_device())
+                "text": torch.tensor(
+                    [self.dataset[i]["text"] for i in batch_indices], device=Accelerator.get_current_device()
+                )
             }
