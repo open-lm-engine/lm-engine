@@ -39,7 +39,6 @@ dev = [
     "pytest>=9.0.1",
 ]
 flash-attn = [
-    "torch>=2.8.0",
     "flash-attn>=2.8.3",
 ]
 mamba2 = [
@@ -54,6 +53,9 @@ data = [
     "torch>=2.8.0",
     "zstandard>=0.25.0",
     "aiobotocore>=3.0.0",
+]
+torch = [
+    "torch>=2.8.0",
 ]
 
 [tool.hatch.build.targets.wheel]
