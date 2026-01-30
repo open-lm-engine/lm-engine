@@ -5,7 +5,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers.activations import ClassInstantier
 
 
 class ReLUSquared(nn.Module):
@@ -49,8 +48,6 @@ _BASE_ACTIVATIONS = {
     "tanh": nn.Tanh,
     "tanh_shrink": nn.Tanhshrink,
 }
-# instantiates the module when __getitem__ is called
-_BASE_ACTIVATIONS = ClassInstantier(_BASE_ACTIVATIONS)
 
 
 def get_base_activation(name: str) -> nn.Module:
