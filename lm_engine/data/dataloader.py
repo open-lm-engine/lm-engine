@@ -20,15 +20,8 @@ class ResumableDataLoader(DataLoader):
         self.sampler.load_state_dict(state_dict.get("sampler"))
 
 
-class TrainiumDataLoader:
-    def __init__(self, dataset: Dataset, batch_sampler: BatchSampler) -> TrainiumDataLoader:
-        self.dataset = dataset
-        self.batch_sampler = batch_sampler
-
+class DummyDataLoader:
     def __iter__(self):
-        for batch_indices in self.batch_sampler:
-            yield {
-                "text": torch.tensor(
-                    np.array([self.dataset[i]["text"] for i in batch_indices]), device=Accelerator.get_current_device()
-                )
-            }
+        B = 1
+        S = 4096
+        yield {"text": torch.tensor(B * list(range(S + 1)), device=Accelerator.get_current_device())}
