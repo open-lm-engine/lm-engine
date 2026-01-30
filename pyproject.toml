@@ -21,7 +21,7 @@ dependencies = [
     "ninja>=1.13.0",
     "numpy>=2.3.5",
     "pydantic>=2.12.4",
-    "transformers>=4.57.1",
+    "transformers>=4.57.3",
     "wandb>=0.23.0",
 ]
 
