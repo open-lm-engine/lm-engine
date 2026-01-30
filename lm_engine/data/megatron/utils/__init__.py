@@ -16,6 +16,9 @@ class Split(Enum):
     test = 2
 
 
+_HELPERS = None
+
+
 def compile_helpers() -> None:
     """Compile C++ helper functions at runtime. Make sure this is invoked on a single process."""
 
@@ -24,8 +27,9 @@ def compile_helpers() -> None:
     build_directory = os.path.join(os.path.dirname(__file__), "build")
     os.makedirs(build_directory, exist_ok=True)
 
-    if ProcessGroupManager.get_global_rank() == 0:
-        load_cpp_extension(
+    def _compile():
+        global _HELPERS
+        _HELPERS = load_cpp_extension(
             "helpers",
             sources=os.path.join(os.path.dirname(__file__), "helpers.cpp"),
             extra_cflags=["-O3", "-Wall", "-shared", "-std=c++11", "-fPIC", "-fdiagnostics-color"],
@@ -33,28 +37,30 @@ def compile_helpers() -> None:
             verbose=True,
         )
 
+    if ProcessGroupManager.get_global_rank() == 0:
+        _compile()
+
     Communication.barrier()
+
+    if ProcessGroupManager.get_global_rank() != 0:
+        _compile()
 
 
 def build_blending_indices(
     dataset_index: np.ndarray, dataset_sample_index: np.ndarray, weights: list[float], num_datasets: int, size: int
 ) -> None:
-    import helpers
-
-    helpers.build_blending_indices(dataset_index, dataset_sample_index, weights, num_datasets, size)
+    _HELPERS.build_blending_indices(dataset_index, dataset_sample_index, weights, num_datasets, size)
 
 
 def build_sample_idx(
     sizes: np.ndarray, doc_idx: np.ndarray, sequence_length: int, num_epochs: int, tokens_per_epoch: int
 ) -> np.ndarray:
-    import helpers
-
     if doc_idx.dtype == np.int32:
         log_rank_0(logging.INFO, f"using int32 for sample idx")
-        sample_idx = helpers.build_sample_idx_int32(sizes, doc_idx, sequence_length, num_epochs, tokens_per_epoch)
+        sample_idx = _HELPERS.build_sample_idx_int32(sizes, doc_idx, sequence_length, num_epochs, tokens_per_epoch)
     elif doc_idx.dtype == np.int64:
         log_rank_0(logging.INFO, f"using int64 for sample idx")
-        sample_idx = helpers.build_sample_idx_int64(sizes, doc_idx, sequence_length, num_epochs, tokens_per_epoch)
+        sample_idx = _HELPERS.build_sample_idx_int64(sizes, doc_idx, sequence_length, num_epochs, tokens_per_epoch)
     else:
         raise ValueError("unexpected dtype for doc_idx")
 
