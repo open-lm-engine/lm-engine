@@ -21,7 +21,6 @@ datasets:
 
 model_args:
   model_name: ibm-granite/granite-3b-code-base
-  model_class: AutoModelForCausalLM
   # padding free transformer needs a gpt_base model.
   # To convert granite models to this class and convert back after training,
   # take a look at the readme of this repo

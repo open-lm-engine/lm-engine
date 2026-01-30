@@ -25,7 +25,6 @@ class ModelWrapper(nn.Module):
         self,
         model_name: str | None,
         pretrained_config: dict | None,
-        model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
         dtype: torch.dtype,
         efficient_initialization: bool,
         use_padding_free_transformer: bool,
@@ -42,7 +41,6 @@ class ModelWrapper(nn.Module):
         Args:
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
-            model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
             dtype (torch.dtype): dtype for the model
             efficient_initialization (bool): whether to use efficient initialization for the model initialization, saves CPU memory
             use_padding_free_transformer (bool): whether to use padding free transformer
@@ -59,7 +57,6 @@ class ModelWrapper(nn.Module):
 
         self.model_name = model_name
         self.pretrained_config = pretrained_config
-        self.model_class = model_class
         self.efficient_initialization = efficient_initialization
         self.dtype = dtype
         self.use_padding_free_transformer = use_padding_free_transformer
@@ -86,7 +83,6 @@ class ModelWrapper(nn.Module):
 
         if use_model_parallelism:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
-            self.model_class = get_model_parallel_class(self.config.model_type)
 
         if self.use_padding_free_transformer:
             assert self.is_custom_model, "padding free transformer is not supported with the specified model"
@@ -197,11 +193,13 @@ class ModelWrapper(nn.Module):
             if self.model_name is None:
                 if self.is_pipeline_parallel_enabled or ProcessGroupManager.is_tensor_parallel_enabled():
                     # avoid inferring the model class so use _from_config instead of from_config
-                    self.model = self.model_class._from_config(**model_kwargs, **kwargs)
+                    self.model = get_model_parallel_class(self.config.model_type)._from_config(
+                        **model_kwargs, **kwargs
+                    )
                 else:
-                    self.model = self.model_class.from_config(**model_kwargs, **kwargs)
+                    self.model = AutoModelForCausalLM.from_config(**model_kwargs, **kwargs)
             else:
-                self.model = self.model_class.from_pretrained(**model_kwargs, **kwargs)
+                self.model = AutoModelForCausalLM.from_pretrained(**model_kwargs, **kwargs)
 
     def calculate_num_parameters(self) -> tuple[int, int]:
         model_kwargs = self._get_model_kwargs()
@@ -210,7 +208,7 @@ class ModelWrapper(nn.Module):
             if self.model_name is not None:
                 model_kwargs["config"] = AutoConfig.from_pretrained(model_kwargs.pop("pretrained_model_name_or_path"))
 
-            model: nn.Module = self.model_class.from_config(**model_kwargs)
+            model: nn.Module = AutoModelForCausalLM.from_config(**model_kwargs)
 
             num_parameters = 0
             for param in model.parameters():

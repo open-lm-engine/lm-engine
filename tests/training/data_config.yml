@@ -14,7 +14,6 @@ datasets:
 
 model_args:
   model_name: ibm-granite/granite-3b-code-base-2k
-  model_class: AutoModelForCausalLM
 
 tuning_args:
   tuning_method: full_finetuning

@@ -28,7 +28,6 @@ class ModelWrapperForPretraining(ModelWrapper):
         self,
         model_name: str | None,
         pretrained_config: dict | None,
-        model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
         dtype: torch.dtype,
         efficient_initialization: bool,
         use_padding_free_transformer: bool,
@@ -49,7 +48,6 @@ class ModelWrapperForPretraining(ModelWrapper):
         Args:
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
-            model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
             dtype (torch.dtype): dtype for the model
             efficient_initialization (bool): whether to use efficient initialization for the model initialization, saves CPU memory
             use_padding_free_transformer (bool): whether to use padding free transformer
@@ -74,7 +72,6 @@ class ModelWrapperForPretraining(ModelWrapper):
         super().__init__(
             model_name=model_name,
             pretrained_config=pretrained_config,
-            model_class=model_class,
             dtype=dtype,
             efficient_initialization=efficient_initialization,
             use_padding_free_transformer=use_padding_free_transformer,
