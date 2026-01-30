@@ -8,7 +8,7 @@ import logging
 
 import torch
 import torch.nn.functional as F
-from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM
+from transformers import AutoConfig, AutoModelForCausalLM
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel, KLDivergenceMethod
@@ -174,6 +174,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         self.teacher_model = AutoModelForCausalLM.from_pretrained(
             self.teacher_model_name, dtype=string_to_torch_dtype(self.teacher_model_dtype)
         )
+
         self.teacher_model.eval()
 
     def has_teacher_model(self) -> bool:
