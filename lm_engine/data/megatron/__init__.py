@@ -74,19 +74,17 @@ def get_megatron_gpt_dataloaders(
         if dataset is None:
             return None
 
-        batch_sampler = MegatronBatchSampler(
-            total_samples=len(dataset),
-            consumed_samples=consumed_samples,
-            micro_batch_size=(
-                micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
-            ),
-            num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
-            rank=ProcessGroupManager.get_data_parallel_rank(),
-        )
-
         dataloader = ResumableDataLoader(
             dataset,
-            batch_sampler=batch_sampler,
+            batch_sampler=MegatronBatchSampler(
+                total_samples=len(dataset),
+                consumed_samples=consumed_samples,
+                micro_batch_size=(
+                    micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
+                ),
+                num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
+                rank=ProcessGroupManager.get_data_parallel_rank(),
+            ),
             multiprocessing_context="fork" if accelerator == Accelerator.tpu else None,
             num_workers=0 if accelerator == Accelerator.trainium else class_args.get("num_workers", 2),
             pin_memory=accelerator != Accelerator.trainium,
