@@ -38,9 +38,6 @@ dev = [
     "pre-commit>=4.4.0",
     "pytest>=9.0.1",
 ]
-flash-attn = [
-    "flash-attn>=2.8.3",
-]
 mamba2 = [
     "mamba-ssm>=2.2.6.post3",
 ]
