@@ -23,5 +23,5 @@ class TrainiumDataLoader(ResumableDataLoader):
 
     def __iter__(self):
         for batch_indices in self.batch_sampler:
-            batch = [self.dataset[i] for i in batch_indices]
+            batch = {"text": [self.dataset[i] for i in batch_indices]}
             yield batch
