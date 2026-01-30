@@ -12,7 +12,7 @@ class ReLUSquared(nn.Module):
         x = F.relu(x)
 
         y = x.to(torch.float32)
-        y *= 2
+        y *= y
         y = y.type_as(x)
 
         return y
