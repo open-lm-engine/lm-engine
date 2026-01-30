@@ -36,30 +36,6 @@ def _hold_base_args(key: str) -> Callable:
     return _holded_function
 
 
-# for erroring out on legacy configs
-_NAKED_DISALLOWED_ARGS = [
-    "activation_function",
-    "attn_pdrop",
-    "embd_pdrop",
-    "resid_pdrop",
-    "intermediate_size",
-    "shared_intermediate_size",
-    "num_experts",
-    "num_experts_per_tok",
-    "add_bias",
-    "attention_blocks",
-    "num_key_value_heads",
-    "attention_head_type",
-    "attention_multiplier",
-    "n_embd",
-    "n_head",
-    "n_inner",
-    "n_layer",
-    "n_positions",
-    "scale_attn_weights",
-    "num_attention_heads",
-]
-
 _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "causal_convolution": _CausalConvolution,
     "gru": _GRUArgs,
@@ -147,9 +123,6 @@ class CommonConfig(PretrainedConfig):
         assert len(self.mlp_blocks) == self.num_layers
 
         self.router_aux_loss_coef = router_aux_loss_coef
-
-        for i in _NAKED_DISALLOWED_ARGS:
-            assert i not in kwargs, f"found naked argument ({i})"
 
         super().__init__(
             bos_token_id=bos_token_id,
