@@ -42,7 +42,8 @@ def compile_helpers() -> None:
 
     Communication.barrier()
 
-    _compile()
+    if ProcessGroupManager.get_global_rank() != 0:
+        _compile()
 
 
 def build_blending_indices(
