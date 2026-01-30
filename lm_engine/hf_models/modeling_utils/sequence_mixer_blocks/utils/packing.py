@@ -54,7 +54,7 @@ def pack_sequence(
     if is_tensor:
         outputs = outputs[0]
 
-    return inputs
+    return outputs
 
 
 def unpack_sequence(
@@ -64,11 +64,32 @@ def unpack_sequence(
     if is_tensor:
         inputs = [inputs]
 
-    inputs = _unpack_sequence(
-        inputs=inputs, cu_seqlens=cu_seqlens, batch_size=output_shape[0], sequence_length=output_shape[1]
-    )
+    if is_kernel_allowed(Kernel.unpack_sequence):
+        outputs = _unpack_sequence(
+            inputs=inputs, cu_seqlens=cu_seqlens, batch_size=output_shape[0], sequence_length=output_shape[1]
+        )
+    else:
+        outputs = []
+
+        for x in inputs:
+            B = output_shape[0]
+            S = output_shape[1]
+
+            assert x.dim() >= 2
+            assert cu_seqlens.size(0) - 1 == B
+
+            seqlens = cu_seqlens[1:] - cu_seqlens[:-1]
+            batch_indices = torch.arange(B, device=x.device).repeat_interleave(seqlens)
+
+            pad_tokens = S - seqlens
+            seq_indices = torch.cat([torch.arange(sl, S, device=x.device) for sl in pad_tokens])
+
+            padded = torch.zeros(output_shape, dtype=x.dtype, device=x.device)
+            padded[batch_indices, seq_indices] = x
+
+            outputs.append(x)
 
     if is_tensor:
-        inputs = inputs[0]
+        outputs = outputs[0]
 
-    return inputs
+    return outputs
