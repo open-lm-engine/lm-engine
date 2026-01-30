@@ -5,7 +5,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers.activations import ACT2CLS, ClassInstantier
+from transformers.activations import ClassInstantier
 
 
 class ReLUSquared(nn.Module):
@@ -55,5 +55,13 @@ _BASE_ACTIVATIONS = ClassInstantier(_BASE_ACTIVATIONS)
 
 def get_base_activation(name: str) -> nn.Module:
     if name in _BASE_ACTIVATIONS:
-        return _BASE_ACTIVATIONS[name]
+        activation = _BASE_ACTIVATIONS[name]
+
+        if isinstance(activation, tuple):
+            activation = activation[0](**activation[1])
+        else:
+            activation = activation()
+
+        return activation
+
     raise ValueError("invalid activation function")
