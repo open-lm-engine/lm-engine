@@ -34,6 +34,7 @@ from .packages import (
 from .parallel import ProcessGroupManager, get_pipeline_stage_ids_on_current_rank, run_rank_n
 from .profiler import TorchProfiler
 from .pydantic import BaseArgs
+from .random import set_seed
 from .safetensors import SafeTensorsWeightsManager
 from .step_tracker import StepTracker
 from .tracking import ExperimentsTracker, ProgressBar
