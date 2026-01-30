@@ -11,6 +11,7 @@ import torch
 from huggingface_hub import split_torch_state_dict_into_shards
 from safetensors import safe_open
 from safetensors.torch import save_file
+from transformers.modeling_utils import SAFE_WEIGHTS_INDEX_NAME
 
 
 _DEBUG = False
@@ -116,5 +117,5 @@ class SafeTensorsWeightsManager:
                 "weight_map": state_dict_split.tensor_to_filename,
             }
 
-            with open(os.path.join(save_path, "model.safetensors.index.json"), "w") as f:
+            with open(os.path.join(save_path, SAFE_WEIGHTS_INDEX_NAME), "w") as f:
                 f.write(json.dumps(index, indent=2))
