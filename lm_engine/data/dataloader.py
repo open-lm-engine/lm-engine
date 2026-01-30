@@ -20,7 +20,7 @@ class ResumableDataLoader(DataLoader):
         self.sampler.load_state_dict(state_dict.get("sampler"))
 
 
-class TrainiumDataLoader(ResumableDataLoader):
+class TrainiumDataLoader:
     def __init__(self, dataset: Dataset, batch_sampler: BatchSampler) -> TrainiumDataLoader:
         self.dataset = dataset
         self.batch_sampler = batch_sampler
