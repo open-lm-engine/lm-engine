@@ -20,6 +20,3 @@ class TrainiumDataLoader(ResumableDataLoader):
     def __init__(self, dataset: Dataset, batch_sampler: BatchSampler) -> TrainiumDataLoader:
         self.dataset = dataset
         self.batch_sampler = batch_sampler
-
-    def __iter__(self):
-        return super().__iter__()
