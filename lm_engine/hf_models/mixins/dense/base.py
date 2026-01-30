@@ -333,6 +333,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                     base=self.config.rope_theta,
                 )
             else:
+                print(self.config)
                 self.rope = YaRNScaledRoPE(
                     self.rope_dim,
                     max_position_embeddings=max_position_embeddings,
