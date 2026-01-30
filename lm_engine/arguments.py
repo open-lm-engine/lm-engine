@@ -5,9 +5,6 @@
 from argparse import ArgumentParser
 from typing import Any
 
-import transformers
-from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
-
 from .defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from .enums import (
     ExperimentsTrackerName,
