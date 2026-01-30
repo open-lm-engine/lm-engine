@@ -9,7 +9,7 @@ from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
-from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..enums import Kernel
 from ..hf_models import get_model_parallel_class, is_custom_model
@@ -84,6 +84,8 @@ class ModelWrapper(nn.Module):
         if use_model_parallelism:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
             self.model_class = get_model_parallel_class(self.config.model_type)
+        else:
+            self.model_class = AutoModelForCausalLM
 
         if self.use_padding_free_transformer:
             assert self.is_custom_model, "padding free transformer is not supported with the specified model"

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import torch
 from torch.distributed._tensor.placement_types import Replicate
-from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
