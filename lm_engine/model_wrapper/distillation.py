@@ -10,14 +10,8 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoConfig, AutoModelForCausalLM
 
-from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel, KLDivergenceMethod
-from ..hf_models import (
-    CausalLMOutputWithPast,
-    PipelineParallelOutput,
-    get_autoregressive_language_modeling_loss,
-    is_aux_loss_zero,
-)
+from ..hf_models import CausalLMOutputWithPast, PipelineParallelOutput, get_autoregressive_language_modeling_loss
 from ..kernels import is_kernel_allowed
 from ..utils import ProcessGroupManager, log_rank_0, string_to_torch_dtype
 from .pretraining import ModelWrapperForPretraining
