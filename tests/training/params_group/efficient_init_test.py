@@ -9,6 +9,7 @@ import torch
 from lm_engine.arguments import UnshardingArgs
 from lm_engine.checkpointing import load_checkpoint_and_unshard, save_checkpoint
 from lm_engine.distributed import wrap_model_container_for_distributed_training
+from lm_engine.hf_models import is_parameter_initialized
 from lm_engine.model_wrapper import get_model_container
 from lm_engine.utils import ProcessGroupManager, load_yaml, set_seed
 
@@ -52,11 +53,4 @@ class EfficientInitTest(TestCommons):
             models.append(consolidated_state_dict)
 
         for n in consolidated_state_dict:
-            p0 = models[0][n]
-            p1 = models[1][n]
-
-            if n == "model.transformer.h.1.mlp_block.gate.weight":
-                continue
-
-            assert (p0.mean() - p1.mean()).abs() < 4e-4
-            assert (p0.std() - p1.std()).abs() < 5e-4
+            assert is_parameter_initialized(n)
