@@ -43,5 +43,5 @@ class EfficientInitTest(TestCommons):
             model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
 
             for model in model_container:
-                for n in model.named_parameters():
-                    assert is_parameter_initialized(n)
+                for p in model.parameters():
+                    assert is_parameter_initialized(p)
