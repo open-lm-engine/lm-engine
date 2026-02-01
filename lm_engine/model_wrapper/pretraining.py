@@ -15,6 +15,7 @@ from ..hf_models import (
     PipelineParallelOutput,
     get_autoregressive_language_modeling_loss,
     is_aux_loss_zero,
+    mark_parameter_as_initialized,
 )
 from ..kernels import is_kernel_allowed
 from ..utils import Accelerator, MetricsTrackingDict, ProcessGroupManager
@@ -275,6 +276,8 @@ class ModelWrapperForPretraining(ModelWrapper):
                     persistent=False,
                 )
 
+                mark_parameter_as_initialized(self.cu_seqlens)
+
             if self.reset_position_ids:
                 assert self.reset_attention_mask, "reset_attention_mask should be specified with reset_position_ids"
             else:
@@ -285,6 +288,8 @@ class ModelWrapperForPretraining(ModelWrapper):
                     ),
                     persistent=False,
                 )
+
+                mark_parameter_as_initialized(self.position_ids)
         else:
             assert (
                 not self.reset_attention_mask

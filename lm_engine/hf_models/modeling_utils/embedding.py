@@ -7,6 +7,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from ..parameter import mark_parameter_as_initialized
+
 
 class ParameterizedEmbedding(nn.Embedding):
     def __init__(self, num_embeddings: int, embedding_dim: int, std: float | None = None) -> ParameterizedEmbedding:
@@ -19,3 +21,5 @@ class ParameterizedEmbedding(nn.Embedding):
             super().reset_parameters()
         else:
             self.weight.data.normal_(mean=0, std=self.std)
+
+        mark_parameter_as_initialized(self.weight)

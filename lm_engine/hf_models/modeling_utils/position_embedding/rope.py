@@ -9,6 +9,8 @@ import math
 import torch
 import torch.nn as nn
 
+from ...parameter import mark_parameter_as_initialized
+
 
 class RoPE(nn.Module):
     def __init__(
@@ -37,6 +39,9 @@ class RoPE(nn.Module):
 
     def reset_parameters(self) -> None:
         self._set_cos_sin_cache(seq_len=self.max_position_embeddings, dtype=torch.float32)
+
+        mark_parameter_as_initialized(self.cos_cached)
+        mark_parameter_as_initialized(self.sin_cached)
 
     @torch.no_grad()
     def _set_cos_sin_cache(self, seq_len: int, dtype: torch.dtype) -> None:

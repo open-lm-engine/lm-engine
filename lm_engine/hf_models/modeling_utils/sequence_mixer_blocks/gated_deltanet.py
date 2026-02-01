@@ -15,7 +15,7 @@ import torch.nn.functional as F
 
 from ....utils import divide_if_divisible, is_fla_available
 from ...cache import GenerationCache
-from ...parameter import mark_parameter_as_no_weight_decay
+from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
@@ -237,3 +237,6 @@ class GatedDeltaNet(nn.Module):
         inv_dt = dt + torch.log(-torch.expm1(-dt))
 
         self.dt_bias.copy_(inv_dt)
+
+        mark_parameter_as_initialized(self.A_log)
+        mark_parameter_as_initialized(self.dt_bias)

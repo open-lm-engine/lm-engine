@@ -15,7 +15,11 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import ProcessGroupManager, is_sonicmoe_available, is_xma_available
 from ...loss import add_aux_loss
-from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ...parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_no_weight_decay,
+)
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..linear import ParameterizedLinear
@@ -137,6 +141,12 @@ class ParameterizedExperts(nn.Module):
 
         self.N_array.fill_(self.out_features)
         self.K_array.fill_(self.in_features)
+
+        mark_parameter_as_initialized(self.weight)
+        mark_parameter_as_initialized(self.bias)
+
+        mark_parameter_as_initialized(self.N_array)
+        mark_parameter_as_initialized(self.K_array)
 
 
 class MoE(nn.Module):
