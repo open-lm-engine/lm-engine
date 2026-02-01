@@ -20,6 +20,6 @@ class ParameterizedEmbedding(nn.Embedding):
         if self.std is None:
             super().reset_parameters()
         else:
-            self.weight.data.normal_(mean=0, std=self.std)
+            self.weight.normal_(mean=0, std=self.std)
 
         mark_parameter_as_initialized(self.weight)

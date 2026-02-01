@@ -72,7 +72,7 @@ if torch.distributed.get_rank() == 0:
 
     model = model.to_empty(device=torch.cuda.current_device())
     for _, param in model.named_parameters():
-        param.data.normal_(0, 0.0125)
+        param.normal_(0, 0.0125)
 
     model.eval()
 
