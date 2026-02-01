@@ -8,6 +8,7 @@ import torch
 
 from .accelerator import Accelerator
 from .communication import Communication
+from .environment import environment
 from .hf_hub import download_repo
 from .logger import log_environment, log_metrics, log_rank_0, print_rank_0, print_ranks_all, set_logger, warn_rank_0
 from .loss_dict import MetricsTrackingDict
