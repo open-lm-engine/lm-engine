@@ -31,9 +31,7 @@ class EfficientInitTest(TestCommons):
             ProcessGroupManager()
 
         for efficient_initialization in [False, True]:
-            set_seed(args.random_args.seed)
             args.model_args.efficient_initialization = efficient_initialization
-            args.save_args.save_path = f"tmp-{efficient_initialization}"
 
             model_container = get_model_container(
                 args, efficient_initialization=efficient_initialization, keep_in_fp32=True
