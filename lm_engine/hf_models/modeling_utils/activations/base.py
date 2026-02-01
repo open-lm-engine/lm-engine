@@ -2,8 +2,20 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import torch
 import torch.nn as nn
-from transformers.activations import ACT2CLS, ClassInstantier
+import torch.nn.functional as F
+
+
+class ReLUSquared(nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(x)
+
+        y = x.to(torch.float32)
+        y *= y
+        y = y.type_as(x)
+
+        return y
 
 
 _BASE_ACTIVATIONS = {
@@ -17,14 +29,13 @@ _BASE_ACTIVATIONS = {
     "hard_swish": nn.Hardswish,
     "hard_tanh": nn.Hardtanh,
     "identity": nn.Identity,
-    "laplace": ACT2CLS["laplace"],
     "leaky_reLU": nn.LeakyReLU,
     "log_sigmoid": nn.LogSigmoid,
     "mish": nn.Mish,
     "prelu": nn.PReLU,
     "relu": nn.ReLU,
-    "relu2": ACT2CLS["relu2"],
-    "relu_squared": ACT2CLS["relu2"],
+    "relu2": ReLUSquared,
+    "relu_squared": ReLUSquared,
     "relu6": nn.ReLU6,
     "rrelu": nn.RReLU,
     "sigmoid": nn.Sigmoid,
@@ -37,11 +48,17 @@ _BASE_ACTIVATIONS = {
     "tanh": nn.Tanh,
     "tanh_shrink": nn.Tanhshrink,
 }
-# instantiates the module when __getitem__ is called
-_BASE_ACTIVATIONS = ClassInstantier(_BASE_ACTIVATIONS)
 
 
 def get_base_activation(name: str) -> nn.Module:
     if name in _BASE_ACTIVATIONS:
-        return _BASE_ACTIVATIONS[name]
+        activation = _BASE_ACTIVATIONS[name]
+
+        if isinstance(activation, tuple):
+            activation = activation[0](**activation[1])
+        else:
+            activation = activation()
+
+        return activation
+
     raise ValueError("invalid activation function")

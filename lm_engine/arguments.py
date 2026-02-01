@@ -5,9 +5,6 @@
 from argparse import ArgumentParser
 from typing import Any
 
-import transformers
-from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
-
 from .defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from .enums import (
     ExperimentsTrackerName,
@@ -44,8 +41,6 @@ class ModelArgs(BaseArgs):
     model_name: str | None = None
     # config class to load the model from
     pretrained_config: dict | None = None
-    # model class on huggingface hub, for example: AutoModelForCausalLM, AutoModelForSeq2SeqLM
-    model_class: str = None
     # trust remote code for models that are not directly supported by HuggingFace yet
     trust_remote_code: bool = False
     # whether to use padding free transformer: https://huggingface.co/blog/mayank-mishra/padding-free-transformer
@@ -58,20 +53,11 @@ class ModelArgs(BaseArgs):
     reset_position_ids: bool = False
 
     def model_post_init(self, __context: Any) -> None:
-        _check_not_None([(self.model_class, "model_class")])
-
         # model_name
         if self.model_name is None:
             _check_not_None([(self.pretrained_config, "pretrained_config")])
         else:
             assert self.pretrained_config is None, "pretrained_config shouldn't be specified with model_name"
-
-        assert self.model_class in [
-            AutoModelForCausalLM.__name__,
-            AutoModelForSeq2SeqLM.__name__,
-        ], f"unexpected model_class ({self.model_class})"
-
-        self.model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM = getattr(transformers, self.model_class)
 
 
 class TuningArgs(BaseArgs):
@@ -354,8 +340,6 @@ class KernelArgs(BaseArgs):
 
 
 class TeacherArgs(BaseArgs):
-    # model class on huggingface hub, for example: AutoModelForCausalLM, AutoModelForSeq2SeqLM
-    model_class: str = None
     # model name on huggingface hub
     model_name: str | None = None
     # teacher dtype
@@ -368,13 +352,6 @@ class TeacherArgs(BaseArgs):
     def model_post_init(self, __context: Any) -> None:
         # dtype
         self.dtype = normalize_dtype_string(self.dtype)
-
-        assert self.model_class in [
-            AutoModelForCausalLM.__name__,
-            AutoModelForSeq2SeqLM.__name__,
-        ], f"unexpected model_class ({self.model_class})"
-
-        self.model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM = getattr(transformers, self.model_class)
 
         _check_not_None([(self.kl_divergence_method, "kl_divergence_method")])
 

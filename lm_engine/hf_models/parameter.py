@@ -5,7 +5,7 @@
 import torch.nn as nn
 
 
-_ALL_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate"]
+_ALL_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate", "_is_initialized"]
 
 
 def mark_parameter_as_no_weight_decay(parameter: nn.Parameter | None) -> nn.Parameter | None:
@@ -22,9 +22,20 @@ def mark_parameter_as_mup_learning_rate(parameter: nn.Parameter | None) -> nn.Pa
     return parameter
 
 
+def mark_parameter_as_initialized(parameter: nn.Parameter | None) -> nn.Parameter | None:
+    if parameter is not None:
+        parameter._is_initialized = True
+
+    return parameter
+
+
 def is_parameter_with_no_weight_decay(parameter: nn.Parameter | None) -> bool:
     return getattr(parameter, "_no_weight_decay", False)
 
 
 def is_parameter_with_mup_learning_rate(parameter: nn.Parameter | None) -> bool:
     return getattr(parameter, "_has_mup_learning_rate", False)
+
+
+def is_parameter_initialized(parameter: nn.Parameter | None) -> bool:
+    return getattr(parameter, "_is_initialized", False)

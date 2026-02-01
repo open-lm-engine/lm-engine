@@ -23,8 +23,10 @@ from .models import (
     PaLMModel,
 )
 from .parameter import (
+    is_parameter_initialized,
     is_parameter_with_mup_learning_rate,
     is_parameter_with_no_weight_decay,
+    mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )

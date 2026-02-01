@@ -11,7 +11,7 @@ docker-tpu:
 	docker build -f docker/Dockerfile --platform linux/amd64 --build-arg EXTRA=tpu -t ghcr.io/open-lm-engine/tpu:latest .
 
 test:
-	RUN_SLOW=True uv run --extra dev --extra flash-attn pytest tests
+	RUN_SLOW=True uv run --extra dev --extra torch pytest tests
 
 test-fast:
 	RUN_SLOW=False uv run --extra $(accelerator) --extra dev pytest tests
