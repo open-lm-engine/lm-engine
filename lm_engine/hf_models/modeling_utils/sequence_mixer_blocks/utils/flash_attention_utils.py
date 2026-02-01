@@ -166,10 +166,6 @@ def flash_attention(
                 softcap=softcap,
             )
 
-        attn_output = pack_sequence(
-            inputs=attn_output,
-            cu_seqlens=cu_seqlens_q,
-            output_shape=(batch_size, query_length, num_heads, head_dim),
-        )
+        attn_output = pack_sequence(inputs=attn_output, cu_seqlens=cu_seqlens_q)
 
     return attn_output
