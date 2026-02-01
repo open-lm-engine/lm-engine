@@ -15,6 +15,8 @@ class ParameterizedEmbedding(nn.Embedding):
         self.std = std
         super().__init__(num_embeddings, embedding_dim)
 
+        self.reset_parameters()
+
     @torch.no_grad()
     def reset_parameters(self) -> None:
         if self.std is None:
