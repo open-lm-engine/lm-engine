@@ -20,9 +20,12 @@ if is_flash_attention_3_available():
 
 
 def unpad_input(
-    query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, attention_mask: torch.Tensor
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    attention_mask: torch.Tensor,
+    query_length: int,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    query_length = query.size(1)
     cu_seqlens_k, max_seqlen_k = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
     batch_size, kv_seq_len = key.size()[:2]
 
@@ -127,8 +130,10 @@ def flash_attention(
                 softcap=softcap,
             )
     else:
+        batch_size, query_length, num_heads, head_dim = query.size()
+
         query, key, value, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k = unpad_input(
-            query, key, value, attention_mask
+            query, key, value, attention_mask, query_length
         )
 
         if use_flash_attention_3:
@@ -161,6 +166,10 @@ def flash_attention(
                 softcap=softcap,
             )
 
-        attn_output = pack_sequence(inputs=attn_output, cu_seqlens=cu_seqlens_q)
+        attn_output = pack_sequence(
+            inputs=attn_output,
+            cu_seqlens=cu_seqlens_q,
+            output_shape=(batch_size, query_length, num_heads, head_dim),
+        )
 
     return attn_output
