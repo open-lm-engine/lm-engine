@@ -81,19 +81,10 @@ class GatedDeltaNet(nn.Module):
             hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False, std=std
         )
 
-        A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
-        self.A_log = nn.Parameter(torch.log(A))
-        self.A_log._no_weight_decay = True
-        # hard coded for now
-        dt_min = 0.001
-        dt_max = 0.1
-        dt_init_floor = 1e-4
-        dt = torch.exp(torch.rand(self.num_v_heads) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min))
-        dt = torch.clamp(dt, min=dt_init_floor)
-        # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
-        inv_dt = dt + torch.log(-torch.expm1(-dt))
+        self.A_log = nn.Parameter(torch.empty(self.num_v_heads, dtype=torch.float32))
+        mark_parameter_as_no_weight_decay(self.A_log)
 
-        self.dt_bias = nn.Parameter(inv_dt)
+        self.dt_bias = nn.Parameter(torch.empty(self.num_v_heads))
         mark_parameter_as_no_weight_decay(self.dt_bias)
 
         self.conv_size = conv_size
@@ -114,6 +105,8 @@ class GatedDeltaNet(nn.Module):
         if init_method == "mup":
             std /= math.sqrt(m_width)
         self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False, std=std)
+
+        self.reset_parameters()
 
     def forward(
         self,
@@ -229,3 +222,18 @@ class GatedDeltaNet(nn.Module):
         o = self.o_proj(o)
 
         return o
+
+    def reset_parameters(self) -> None:
+        A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
+        self.A_log.copy_(torch.log(A))
+
+        # hard coded for now
+        dt_min = 0.001
+        dt_max = 0.1
+        dt_init_floor = 1e-4
+        dt = torch.exp(torch.rand(self.num_v_heads) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min))
+        dt = torch.clamp(dt, min=dt_init_floor)
+        # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
+        inv_dt = dt + torch.log(-torch.expm1(-dt))
+
+        self.dt_bias.copy_(inv_dt)
