@@ -85,7 +85,7 @@ def unpack_sequence(
             padded = torch.zeros(output_shape, dtype=x.dtype, device=x.device)
             padded[batch_indices, seq_indices] = x
 
-            outputs.append(x)
+            outputs.append(padded)
 
     if is_tensor:
         outputs = outputs[0]
