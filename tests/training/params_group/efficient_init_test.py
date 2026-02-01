@@ -20,7 +20,6 @@ class EfficientInitTest(TestCommons):
         self.skip_test_if_device_unavailable(torch.device("cuda"))
 
         args = TestCommons.load_training_args_for_unit_tests("params_group/training_config.yml")
-        UnshardingArgs(**load_yaml(os.path.join(os.path.dirname(__file__), "unshard.yml")))
 
         if not ProcessGroupManager.is_initialized():
             os.environ["MASTER_ADDR"] = "localhost"
