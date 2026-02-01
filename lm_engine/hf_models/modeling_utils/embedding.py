@@ -12,6 +12,8 @@ from ..parameter import mark_parameter_as_initialized
 
 class ParameterizedEmbedding(nn.Embedding):
     def __init__(self, num_embeddings: int, embedding_dim: int, std: float | None = None) -> ParameterizedEmbedding:
+        nn.Module.__init__(self)
+
         self.std = std
         self.weight = nn.Parameter(torch.empty(num_embeddings, embedding_dim))
 
