@@ -10,7 +10,7 @@ from contextlib import contextmanager
 def environment(env: dict):
     original_env = {}
     for key, value in env.items():
-        original_env[key] = os.environ[key]
+        original_env[key] = os.environ.get(key, "")
         os.environ[key] = value
 
     yield
