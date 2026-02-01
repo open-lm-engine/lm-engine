@@ -5,7 +5,7 @@
 import torch.nn as nn
 
 
-_ALL_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate"]
+_ALL_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate", "_is_initialized"]
 
 
 def mark_parameter_as_no_weight_decay(parameter: nn.Parameter | None) -> nn.Parameter | None:
