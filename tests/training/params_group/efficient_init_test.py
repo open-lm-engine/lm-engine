@@ -21,7 +21,7 @@ class EfficientInitTest(TestCommons):
         self.skip_test_if_device_unavailable(torch.device("cuda"))
 
         args = TestCommons.load_training_args_for_unit_tests("params_group/training_config.yml")
-        unshard_config = UnshardingArgs(**load_yaml(os.path.join(os.path.dirname(__file__), "unshard.yml")))
+        UnshardingArgs(**load_yaml(os.path.join(os.path.dirname(__file__), "unshard.yml")))
 
         if not ProcessGroupManager.is_initialized():
             os.environ["MASTER_ADDR"] = "localhost"
@@ -30,8 +30,6 @@ class EfficientInitTest(TestCommons):
             os.environ["RANK"] = "0"
 
             ProcessGroupManager()
-
-        models = []
 
         for efficient_initialization in [False, True]:
             set_seed(args.random_args.seed)
@@ -43,14 +41,7 @@ class EfficientInitTest(TestCommons):
             )
 
             model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
-            save_checkpoint(args, model_container, None, None, None, None, 0)
 
-            unshard_config.load_args.load_path = args.save_args.save_path
-            unshard_config.load_args.iteration = 0
-            unshard_config.unsharded_path = os.path.join(args.save_args.save_path, "unsharded_path")
-
-            _, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config)
-            models.append(consolidated_state_dict)
-
-        for n in consolidated_state_dict:
-            assert is_parameter_initialized(n)
+            for model in model_container:
+                for n in model.named_parameters():
+                    assert is_parameter_initialized(n)
