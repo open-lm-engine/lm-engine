@@ -2,23 +2,40 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import os
 from contextlib import contextmanager
+from copy import deepcopy
 
 import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor
 
 from .enums import Kernel
-from .utils import is_fma_available
 
 
-if is_fma_available():
-    from fma.utils import get_boolean_env_variable
-
-    _ENABLE_ALL_KERNELS = get_boolean_env_variable("ENABLE_ALL_KERNELS", False)
-else:
-    _ENABLE_ALL_KERNELS = False
-
+_ENABLE_ALL_KERNELS = os.getenv("ENABLE_ALL_KERNELS", "False").lower() in ["1", "true"]
+_ENABLE_KERNELS = os.getenv("ENABLE_KERNELS", "")
 _KERNELS = {kernel: False for kernel in Kernel}
+
+
+if _ENABLE_ALL_KERNELS:
+    assert not _ENABLE_KERNELS
+elif _ENABLE_KERNELS:
+    assert not _ENABLE_ALL_KERNELS
+
+
+def enable_kernels_from_env_variable() -> None:
+    global _KERNELS
+
+    kernels = os.getenv("ENABLE_KERNELS", "").split(",")
+    if kernels == [""]:
+        return
+
+    for kernel in kernels:
+        kernel = Kernel(kernel.strip())
+        _KERNELS[kernel] = True
+
+
+enable_kernels_from_env_variable()
 
 
 def is_kernel_allowed(kernel: Kernel) -> bool:
@@ -26,14 +43,17 @@ def is_kernel_allowed(kernel: Kernel) -> bool:
 
 
 @contextmanager
-def enable_kernels(kernels: list[Kernel]):
+def enable_kernels(kernels: list[Kernel], reset: bool = False):
     global _KERNELS
 
-    original_kernels = _KERNELS
+    original_kernels = deepcopy(_KERNELS)
 
-    _KERNELS = {}
+    if reset:
+        _KERNELS = {}
+
     for kernel in Kernel:
-        _KERNELS[kernel] = kernel in kernels
+        if not original_kernels[kernel]:
+            _KERNELS[kernel] = kernel in kernels
 
     yield
 
@@ -42,10 +62,7 @@ def enable_kernels(kernels: list[Kernel]):
 
 @contextmanager
 def enable_all_kernels():
-    all_kernels = filter(lambda k: k != Kernel.ladder_residual_overlapped_layer, Kernel)
-    all_kernels = list(all_kernels)
-
-    with enable_kernels(all_kernels):
+    with enable_kernels(list(Kernel)):
         yield
 
 

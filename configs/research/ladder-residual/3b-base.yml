@@ -20,7 +20,6 @@ tokenizer_args:
   tokenizer_name: bigcode/starcoder
 
 model_args:
-  model_class: AutoModelForCausalLM
   pretrained_config:
     initializer_range: 0.02
     layer_norm_epsilon: 1e-05
@@ -238,7 +237,6 @@ model_args:
       - mlp_type: MLP
         activation_function: swiglu
   efficient_initialization: false
-  use_padding_free_transformer: false
 
 tuning_args:
   tuning_method: pretraining

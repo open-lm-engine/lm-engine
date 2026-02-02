@@ -14,9 +14,8 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
-from ...modeling_utils import Attention, apply_rotary_pos_emb, flash_attention
+from ...modeling_utils import Attention, Dropout, apply_rotary_pos_emb, flash_attention
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
-from ..dropout import Dropout_TP
 from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
@@ -105,23 +104,16 @@ class Attention_TP(Attention):
 
         self.softmax_dropout_p = softmax_dropout
 
-        self.softmax_dropout = (
-            nn.Identity()
-            if softmax_dropout == 0
-            else Dropout_TP(
-                softmax_dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
+        self.softmax_dropout = Dropout(
+            softmax_dropout,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
-        self.dropout = (
-            nn.Identity()
-            if dropout == 0
-            else Dropout_TP(
-                dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
+
+        self.dropout = Dropout(
+            dropout,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
 
     def forward(

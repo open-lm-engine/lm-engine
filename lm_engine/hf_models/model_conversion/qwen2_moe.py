@@ -20,7 +20,6 @@ def _import_qwen2_moe_config(original_config: Qwen2MoeConfig) -> GPTBaseConfig:
 
     mlp_blocks = []
     for layer_idx in range(original_config.num_hidden_layers):
-        # logic copied from HF transformers
         if (layer_idx not in original_config.mlp_only_layers) and (
             original_config.num_experts > 0 and (layer_idx + 1) % original_config.decoder_sparse_step == 0
         ):

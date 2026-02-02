@@ -3,6 +3,7 @@
 # **************************************************
 
 import logging
+from importlib.metadata import distributions
 from warnings import warn
 
 from .parallel import ProcessGroupManager, is_tracking_rank, run_rank_n
@@ -72,3 +73,13 @@ def warn_rank_0(*args, **kwargs) -> None:
     """warn on a single process"""
 
     warn(*args, **kwargs, stacklevel=3)
+
+
+@run_rank_n
+def log_environment() -> None:
+    packages = sorted(["{}=={}".format(d.metadata["Name"], d.version) for d in distributions()])
+
+    log_rank_0(logging.INFO, "------------------------ packages ------------------------")
+    for package in packages:
+        log_rank_0(logging.INFO, package)
+    log_rank_0(logging.INFO, "-------------------- end of packages ---------------------")

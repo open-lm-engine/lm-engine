@@ -6,3 +6,6 @@ __pycache__
 /appwrapper.yaml
 *.egg-info/
 build/
+uv.lock
+.venv
+.DS_Store

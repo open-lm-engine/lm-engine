@@ -18,7 +18,6 @@ tokenizer_args:
   tokenizer_name: EleutherAI/gpt-neox-20b
 
 model_args:
-  model_class: AutoModelForCausalLM
   pretrained_config:
     initializer_range: 0.1
     layer_norm_epsilon: 1e-05
@@ -46,8 +45,18 @@ model_args:
       - sequence_mixer_type: mamba2
         add_bias: true
       - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 1
+        num_weight_heads: 1
         add_bias: true
       - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 1
+        num_forget_input_heads: 1
+        num_reset_input_heads: 1
+        num_weight_heads: 1
+        num_forget_weight_heads: 1
+        num_reset_weight_heads: 1
         add_bias: true
     mlp_blocks:
       - activation_function: swiglu
@@ -101,4 +110,4 @@ mixed_precision_args:
 distributed_args:
   fsdp_algorithm: 2
   stage: 3
-  tensor_parallel_world_size: 2
+  tensor_parallel_world_size: 1

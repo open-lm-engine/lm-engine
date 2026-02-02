@@ -2,12 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-import logging
 from argparse import ArgumentParser
 from typing import Any
-
-import transformers
-from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
 
 from .defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from .enums import (
@@ -20,7 +16,7 @@ from .enums import (
     ParamsGroupMethod,
     TuningMethod,
 )
-from .utils import BaseArgs, load_yaml, log_environment, log_rank_0, normalize_dtype_string, run_rank_n, set_logger
+from .utils import BaseArgs, load_yaml, normalize_dtype_string, set_logger
 
 
 def _check_not_None(object_name_list: list[tuple[Any, str]]) -> None:
@@ -45,8 +41,6 @@ class ModelArgs(BaseArgs):
     model_name: str | None = None
     # config class to load the model from
     pretrained_config: dict | None = None
-    # model class on huggingface hub, for example: AutoModelForCausalLM, AutoModelForSeq2SeqLM
-    model_class: str = None
     # trust remote code for models that are not directly supported by HuggingFace yet
     trust_remote_code: bool = False
     # whether to use padding free transformer: https://huggingface.co/blog/mayank-mishra/padding-free-transformer
@@ -59,20 +53,11 @@ class ModelArgs(BaseArgs):
     reset_position_ids: bool = False
 
     def model_post_init(self, __context: Any) -> None:
-        _check_not_None([(self.model_class, "model_class")])
-
         # model_name
         if self.model_name is None:
             _check_not_None([(self.pretrained_config, "pretrained_config")])
         else:
             assert self.pretrained_config is None, "pretrained_config shouldn't be specified with model_name"
-
-        assert self.model_class in [
-            AutoModelForCausalLM.__name__,
-            AutoModelForSeq2SeqLM.__name__,
-        ], f"unexpected model_class ({self.model_class})"
-
-        self.model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM = getattr(transformers, self.model_class)
 
 
 class TuningArgs(BaseArgs):
@@ -92,7 +77,7 @@ class TrainingParameters(BaseArgs):
     gradient_accumulation_steps: int = 1
     # interval for evaluation
     eval_interval: int | None = None
-    # batch size per GPU for ZeRO-DP
+    # batch size per accelerator for ZeRO-DP
     micro_batch_size: int = None
     # whether to use val dataset for validation during training
     eval_during_training: bool = True
@@ -231,9 +216,9 @@ class MixedPrecisionArgs(BaseArgs):
 
 
 class ZeroTopologyArgs(BaseArgs):
-    # GPUs to use for replication
+    # accelerators to use for replication
     data_parallel_replication_world_size: int | None = None
-    # GPUs to use for sharding
+    # accelerators to use for sharding
     data_parallel_sharding_world_size: int | None = None
 
     def model_post_init(self, __context: Any) -> None:
@@ -250,7 +235,7 @@ class ZeroTopologyArgs(BaseArgs):
 class DistributedArgs(BaseArgs):
     # ZeRO stage
     stage: int = 3
-    # train with CPU offloading to save GPU memory
+    # train with CPU offloading to save accelerator memory
     cpu_offload: bool = False
     # whether to use gradient checkpointing, enabling leads to lower memory usage with increased step time
     gradient_checkpointing_method: GradientCheckpointingMethod | None = None
@@ -355,8 +340,6 @@ class KernelArgs(BaseArgs):
 
 
 class TeacherArgs(BaseArgs):
-    # model class on huggingface hub, for example: AutoModelForCausalLM, AutoModelForSeq2SeqLM
-    model_class: str = None
     # model name on huggingface hub
     model_name: str | None = None
     # teacher dtype
@@ -369,13 +352,6 @@ class TeacherArgs(BaseArgs):
     def model_post_init(self, __context: Any) -> None:
         # dtype
         self.dtype = normalize_dtype_string(self.dtype)
-
-        assert self.model_class in [
-            AutoModelForCausalLM.__name__,
-            AutoModelForSeq2SeqLM.__name__,
-        ], f"unexpected model_class ({self.model_class})"
-
-        self.model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM = getattr(transformers, self.model_class)
 
         _check_not_None([(self.kl_divergence_method, "kl_divergence_method")])
 
@@ -481,55 +457,8 @@ def get_args(
     args: TrainingArgs | UnshardingArgs = args_dict_to_pydantic_args(args_class, **config)
 
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
-    log_args(args)
-    log_environment()
 
     return args
-
-
-@run_rank_n
-def log_args(args: TrainingArgs | UnshardingArgs) -> None:
-    """log args
-
-    Args:
-        args (Union[TrainingArgs, UnshardingArgs]): args for training / inference
-    """
-
-    def _iterate_args_recursively(args: TrainingArgs | UnshardingArgs | dict | BaseArgs, prefix: str = "") -> None:
-        result = []
-
-        if isinstance(args, BaseArgs):
-            args = vars(args)
-
-        p = len(prefix)
-
-        for k, v in args.items():
-            suffix = "." * (48 - len(k) - p)
-
-            if isinstance(v, (BaseArgs, dict)):
-                if isinstance(v, dict) and len(v) == 0:
-                    result.append(f"{prefix}{k} {suffix} " + r"{}")
-                else:
-                    kv_list_subargs = _iterate_args_recursively(v, prefix + " " * 4)
-                    result.append(f"{prefix}{k}:\n" + "\n".join(kv_list_subargs))
-            elif isinstance(v, list) and all([isinstance(v_, (BaseArgs, dict)) for v_ in v]):
-                kv_list_subargs = []
-                for v_ in v:
-                    v_ = _iterate_args_recursively(v_, prefix + " " * 4)
-                    kv_list_subargs.append(f"\n".join(v_))
-                result.append(f"{prefix}{k}:\n" + ("\n" + " " * (p + 4) + "*" * (44 - p) + "\n").join(kv_list_subargs))
-            else:
-                result.append(f"{prefix}{k} {suffix} " + str(v))
-
-        result.sort(key=lambda x: x.lower())
-        return result
-
-    log_rank_0(logging.INFO, "------------------------ arguments ------------------------")
-    for line in _iterate_args_recursively(args):
-        line = line.split("\n")
-        for l in line:
-            log_rank_0(logging.INFO, l)
-    log_rank_0(logging.INFO, "-------------------- end of arguments ---------------------")
 
 
 def _check_datasets(datasets: list[DatasetArgs]) -> None:

@@ -19,7 +19,7 @@ tokenizer = AutoTokenizer.from_pretrained("ibm-granite/granite-3b-code-base")
 
 # adjust these hyperparameters
 num_training_steps = 10000
-# batch size per GPU
+# batch size per accelerator
 micro_batch_size = 8
 sequence_length = 2048
 # whether or not to evaluate during training
@@ -93,7 +93,7 @@ with (
     # running this function outside of the above context might throw error or give incorrect behaviour
     # you can change consumed samples, 0 means dataloader is starting from beginning and adjusting to a different
     # number can be used to resume training at a different point
-    # for FSDP, consumed_samples = global_step * micro_batch_size * gradient_accumulation_steps * num_GPUs
+    # for FSDP, consumed_samples = global_step * micro_batch_size * gradient_accumulation_steps * num_accelerators
     train_dataloader, val_dataloaders, test_dataloaders = get_megatron_gpt_dataloaders(
         DummyArgs(), tokenizer, consumed_samples=0
     )

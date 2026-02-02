@@ -13,7 +13,13 @@ import torch.nn.functional as F
 from .....enums import Kernel
 from .....kernels import is_kernel_allowed
 from .....utils import divide_if_divisible
-from ....modeling_utils import ParameterizedLinear, apply_rotary_pos_emb, flash_attention, get_normalization_function
+from ....modeling_utils import (
+    Dropout,
+    ParameterizedLinear,
+    apply_rotary_pos_emb,
+    flash_attention,
+    get_normalization_function,
+)
 
 
 class CrossLayerAttention(nn.Module):
@@ -64,8 +70,8 @@ class CrossLayerAttention(nn.Module):
         )
 
         self.softmax_dropout_p = softmax_dropout
-        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else nn.Dropout(softmax_dropout)
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.softmax_dropout = Dropout(softmax_dropout)
+        self.dropout = Dropout(dropout)
 
         assert (
             self.num_key_value_heads is not None

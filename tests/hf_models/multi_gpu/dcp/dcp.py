@@ -5,14 +5,11 @@
 import argparse
 import os
 
-import torch
-import torch.distributed
-
 from lm_engine.arguments import TrainingArgs, UnshardingArgs
 from lm_engine.checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_and_unshard, save_checkpoint
 from lm_engine.distributed import wrap_model_container_for_distributed_training
 from lm_engine.model_wrapper import get_model_container
-from lm_engine.utils import ProcessGroupManager, load_yaml
+from lm_engine.utils import Communication, ProcessGroupManager, load_yaml
 
 
 parser = argparse.ArgumentParser()
@@ -64,7 +61,7 @@ if global_rank == 0:
 
         train_config.distributed_args.num_pipeline_stages = original_num_stages
 
-torch.distributed.barrier()
+Communication.barrier()
 
 # modify args to load the saved single_rank checkpoint
 train_config.model_args.pretrained_config = None
@@ -91,12 +88,11 @@ save_checkpoint(
     train_dataloader=None,
     experiments_tracker=None,
     iteration=iteration,
-    metadata=None,
 )
 
 ensure_last_checkpoint_is_saved()
 
-torch.distributed.barrier()
+Communication.barrier()
 
 _, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config)
 

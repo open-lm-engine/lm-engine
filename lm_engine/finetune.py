@@ -6,7 +6,6 @@ from contextlib import nullcontext
 
 import torch
 from torch.distributed.tensor.parallel import loss_parallel
-from transformers import set_seed
 
 from .arguments import TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
@@ -20,13 +19,16 @@ from .kernels import enable_kernels
 from .model_wrapper import get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
 from .pretrain import train_step_without_pipeline_parallel
-from .train_utils import all_reduce_metrics_tracker, get_torch_profiler, track_metrics
+from .train_utils import all_reduce_metrics_tracker, track_metrics
 from .utils import (
+    Accelerator,
     ExperimentsTracker,
     MetricsTrackingDict,
     ProcessGroupManager,
     StepTracker,
+    TorchProfiler,
     init_distributed,
+    set_seed,
     setup_tf32,
 )
 
@@ -74,10 +76,8 @@ def train(
     forward_context = nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
 
-    torch_profiler = get_torch_profiler(args.logging_args.torch_profiler_trace_path)
-
-    if torch_profiler is not None:
-        torch_profiler.__enter__()
+    torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
+    torch_profiler.__enter__()
 
     metrics_tracker = MetricsTrackingDict({})
 
@@ -99,9 +99,7 @@ def train(
         )
 
         metrics_tracker = metrics_tracker + loss_step_dict
-
-        if torch_profiler is not None:
-            torch_profiler.step()
+        torch_profiler.step()
 
         if global_step % log_interval == 0:
             metrics_tracker = metrics_tracker / log_interval
@@ -131,9 +129,7 @@ def train(
             )
 
     ensure_last_checkpoint_is_saved()
-
-    if torch_profiler is not None:
-        torch_profiler.__exit__(None, None, None)
+    torch_profiler.__exit__(None, None, None)
 
 
 @torch.no_grad()
@@ -161,7 +157,7 @@ def evaluate(
         else:
             num_steps = 0
 
-        num_steps = torch.tensor(num_steps, device=torch.cuda.current_device(), dtype=torch.long)
+        num_steps = torch.tensor(num_steps, device=Accelerator.get_current_device(), dtype=torch.long)
         torch.distributed.all_reduce(num_steps, group=ProcessGroupManager.get_tensor_parallel_group())
         num_steps = num_steps.item()
     else:

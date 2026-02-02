@@ -6,12 +6,18 @@ import logging
 
 import torch
 from torch.distributed import ReduceOp
-from transformers import AutoConfig
 
 from .enums import GradientCheckpointingMethod
 from .hf_models import CommonConfig, is_custom_model
 from .hf_models.modeling_utils import is_glu
-from .utils import ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager, divide_if_divisible, log_metrics
+from .utils import (
+    Accelerator,
+    ExperimentsTracker,
+    MetricsTrackingDict,
+    ProcessGroupManager,
+    divide_if_divisible,
+    log_metrics,
+)
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
@@ -21,8 +27,14 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
     # tensor = torch.stack(tensor) / ProcessGroupManager.get_data_parallel_world_size()
     # tensor = tensor.cpu()
     # gloo op doesn't support averaging so we do sum and divide by world size above
-    torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
-    tensor = tensor.tolist()
+
+    accelerator = Accelerator.get_accelerator()
+
+    if accelerator == Accelerator.tpu:
+        torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
+        tensor = tensor * (1 / ProcessGroupManager.get_data_parallel_world_size())
+    else:
+        torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
 
     for i, key in enumerate(metrics_tracker):
         metrics_tracker[key] = tensor[i]
@@ -55,22 +67,6 @@ def track_metrics(
     log_metrics(logging.INFO, message)
 
 
-def get_torch_profiler(torch_profiler_trace_path: str) -> torch.profiler.profile:
-    torch_profiler = None
-    if torch_profiler_trace_path is not None:
-        torch_profiler = torch.profiler.profile(
-            activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-            schedule=torch.profiler.schedule(
-                wait=5 if ProcessGroupManager.get_global_rank() == 0 else 150000, warmup=5, active=1, repeat=1
-            ),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler(torch_profiler_trace_path),
-            record_shapes=True,
-            profile_memory=True,
-        )
-
-    return torch_profiler
-
-
 def _get_linear_flops(m: int, k: int, n: int, gradient_checkpointing: bool = False) -> int:
     forward_flops = 2 * m * k * n
     backward_flops = 2 * forward_flops
@@ -89,7 +85,7 @@ def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int
 
 
 def get_model_tflops(
-    config: AutoConfig | CommonConfig,
+    config: CommonConfig,
     batch_size: int,
     sequence_length: int,
     gradient_checkpointing_method: GradientCheckpointingMethod | None,
@@ -169,25 +165,49 @@ def get_model_tflops(
             sequence_mixer_flops = projection_flops + ssm_flops
             sequence_mixer_flops *= 2
         elif sequence_mixer_type == "rnn":
+            num_heads = max(block.num_input_heads, block.num_weight_heads)
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, block.state_size)
+            sequence_mixer_flops = _get_linear_flops(
+                b * s, h, (block.num_input_heads + num_heads) * block.state_head_dim
+            )
             # output projection FLOPs
-            sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
-
-            head_dim = block.state_size / block.num_heads
+            sequence_mixer_flops += _get_linear_flops(b * s, block.state_head_dim * num_heads, h)
 
             # sigmoid(Wh + x)
-            sequence_mixer_flops += s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
+            sequence_mixer_flops += (
+                s
+                * num_heads
+                * (_get_linear_flops(b, block.state_head_dim, block.state_head_dim) + b * block.state_head_dim)
+            )
         elif sequence_mixer_type == "gru":
-            # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, 3 * block.state_size)
-            # output projection FLOPs
-            sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
+            num_heads = max(
+                block.num_input_heads,
+                block.num_forget_input_heads,
+                block.num_reset_input_heads,
+                block.num_weight_heads,
+                block.num_forget_weight_heads,
+                block.num_reset_weight_heads,
+            )
 
-            head_dim = block.state_size / block.num_heads
+            # input projection FLOPs
+            sequence_mixer_flops = _get_linear_flops(
+                b * s,
+                h,
+                (block.num_input_heads + block.num_forget_input_heads + block.num_reset_input_heads + num_heads)
+                * block.state_head_dim,
+            )
+            # output projection FLOPs
+            sequence_mixer_flops += _get_linear_flops(b * s, block.state_head_dim * num_heads, h)
 
             # sigmoid(Wh + x)
-            sequence_mixer_flops += 3 * s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
+            sequence_mixer_flops += (
+                3
+                * s
+                * num_heads
+                * (_get_linear_flops(b, block.state_head_dim, block.state_head_dim) + b * block.state_head_dim)
+            )
+        elif sequence_mixer_type == "gated_deltanet":
+            return 0
         else:
             raise NotImplementedError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
 

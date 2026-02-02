@@ -16,6 +16,13 @@ from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
 from .miscellaneous import divide_if_divisible
+from .packages import is_torch_xla_available
+
+
+if is_torch_xla_available():
+    from torch_xla.runtime import global_ordinal as xla_global_ordinal
+    from torch_xla.runtime import local_ordinal as xla_local_ordinal
+    from torch_xla.runtime import world_size as xla_world_size
 
 
 # general
@@ -23,6 +30,7 @@ _MESH: DeviceMesh | None = None
 _GLOBAL_RANK: int | None = None
 _LOCAL_RANK: int | None = None
 _WORLD_SIZE: int | None = None
+_CPU_GROUP: ProcessGroup | None = None
 
 # tensor parallel
 _TENSOR_PARALLEL_MESH: DeviceMesh | None = None
@@ -57,20 +65,49 @@ class ProcessGroupManager:
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
+        from .accelerator import Accelerator
+
+        global _MESH
+        global _TENSOR_PARALLEL_FIRST_RANK
+        global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
+        global _DATA_PARALLEL_SHARDING_WORLD_SIZE
+        global _CPU_GROUP
+        global _GLOBAL_RANK
+        global _LOCAL_RANK
+        global _WORLD_SIZE
+        global _DATA_PARALLEL_WORLD_SIZE
+
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
 
-        torch.distributed.init_process_group(
-            backend="cpu:gloo,cuda:nccl",
-            rank=ProcessGroupManager.get_global_rank(),
-            world_size=ProcessGroupManager.get_world_size(),
-            timeout=timeout_minutes,
-        )
+        accelerator = Accelerator.get_accelerator()
 
-        total_gpus = int(os.getenv("WORLD_SIZE", 1))
-        data_parallel_size = total_gpus // (tensor_parallel_world_size * pipeline_parallel_world_size)
+        if accelerator == Accelerator.tpu:
+            torch.distributed.init_process_group(backend="xla", init_method="xla://", timeout=timeout_minutes)
+            _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
 
-        assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == total_gpus
+            _GLOBAL_RANK = xla_global_ordinal()
+            _LOCAL_RANK = xla_local_ordinal()
+            _WORLD_SIZE = xla_world_size()
+        else:
+            _GLOBAL_RANK = int(os.getenv("RANK", 0))
+            _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
+            _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
+
+            backend = "cpu:gloo"
+            if accelerator == Accelerator.cuda:
+                backend += ",cuda:nccl"
+            elif accelerator == Accelerator.trainium:
+                backend += ",neuron:neuron"
+
+            torch.distributed.init_process_group(
+                backend=backend, rank=_GLOBAL_RANK, world_size=_WORLD_SIZE, timeout=timeout_minutes
+            )
+
+        Accelerator.set_device(_LOCAL_RANK)
+
+        data_parallel_size = _WORLD_SIZE // (tensor_parallel_world_size * pipeline_parallel_world_size)
+        assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == _WORLD_SIZE
 
         if zero_stage == 0:
             assert data_parallel_sharding_world_size is None or data_parallel_sharding_world_size == 1
@@ -88,13 +125,12 @@ class ProcessGroupManager:
 
         assert data_parallel_replication_world_size * data_parallel_sharding_world_size == data_parallel_size
 
-        global _MESH, _TENSOR_PARALLEL_FIRST_RANK, _DATA_PARALLEL_REPLICATION_WORLD_SIZE, _DATA_PARALLEL_SHARDING_WORLD_SIZE
-
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
+        # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
         _MESH = init_device_mesh(
-            "cuda",
+            "cpu" if accelerator == Accelerator.tpu else Accelerator.get_device_type(),
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
@@ -104,17 +140,18 @@ class ProcessGroupManager:
             mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
         )
 
-        local_rank = int(os.getenv("LOCAL_RANK", 0))
-        torch.cuda.set_device(local_rank)
-
         if use_async_tensor_parallel:
             enable_symm_mem_for_group(ProcessGroupManager.get_tensor_parallel_group().group_name)
             torch._inductor.config._micro_pipeline_tp = True
 
-        group = ProcessGroupManager.get_tensor_parallel_group()
-        ranks = torch.distributed.get_process_group_ranks(group)
+        if accelerator == Accelerator.tpu:
+            assert tensor_parallel_world_size == 1
+            assert pipeline_parallel_world_size == 1
+        else:
+            group = ProcessGroupManager.get_tensor_parallel_group()
+            ranks = torch.distributed.get_process_group_ranks(group)
 
-        _TENSOR_PARALLEL_FIRST_RANK = ranks[0]
+            _TENSOR_PARALLEL_FIRST_RANK = ranks[0]
 
     @staticmethod
     def is_initialized() -> bool:
@@ -128,25 +165,16 @@ class ProcessGroupManager:
     @staticmethod
     def get_global_rank() -> int:
         global _GLOBAL_RANK
-
-        if _GLOBAL_RANK is None:
-            _GLOBAL_RANK = int(os.getenv("RANK", 0))
         return _GLOBAL_RANK
 
     @staticmethod
     def get_local_rank() -> int:
         global _LOCAL_RANK
-
-        if _LOCAL_RANK is None:
-            _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
         return _LOCAL_RANK
 
     @staticmethod
     def get_world_size() -> int:
         global _WORLD_SIZE
-
-        if _WORLD_SIZE is None:
-            _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
         return _WORLD_SIZE
 
     # tensor parallel
@@ -225,7 +253,10 @@ class ProcessGroupManager:
 
     @staticmethod
     def is_tensor_parallel_enabled() -> bool:
-        return ProcessGroupManager.get_tensor_parallel_world_size() > 1
+        try:
+            return ProcessGroupManager.is_initialized() and ProcessGroupManager.get_tensor_parallel_world_size() > 1
+        except:
+            return False
 
     @staticmethod
     def is_tensor_parallel_first_rank() -> bool:
@@ -359,8 +390,15 @@ class ProcessGroupManager:
     @staticmethod
     def destroy_process_groups() -> None:
         if ProcessGroupManager.is_initialized():
-            torch.distributed.barrier()
+            from .communication import Communication
+
+            Communication.barrier()
             torch.distributed.destroy_process_group()
+
+    @staticmethod
+    def get_cpu_group() -> ProcessGroup | None:
+        global _CPU_GROUP
+        return _CPU_GROUP
 
 
 def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable:
@@ -377,27 +415,21 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
 
     # wrapper function for the rank to execute on
     def func_rank_n(*args, **kwargs):
-        output = func(*args, **kwargs)
+        global_rank = ProcessGroupManager.get_global_rank()
+
+        if global_rank is None:
+            return func(*args, **kwargs)
+
+        output = func(*args, **kwargs) if global_rank == rank else None
+
         if barrier:
-            torch.distributed.barrier()
+            from .communication import Communication
+
+            Communication.barrier()
+
         return output
 
-    # a dummy method that doesn't do anything
-    def func_rank_other(*args, **kwargs):
-        if barrier:
-            torch.distributed.barrier()
-
-    global_rank = ProcessGroupManager.get_global_rank()
-
-    if global_rank == rank:
-        wrapped_func = func_rank_n
-    elif global_rank is None:
-        # distributed is not initialized
-        wrapped_func = func
-    else:
-        wrapped_func = func_rank_other
-
-    return wrapped_func
+    return func_rank_n
 
 
 def is_tracking_rank() -> bool:

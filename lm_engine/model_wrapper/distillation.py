@@ -8,16 +8,10 @@ import logging
 
 import torch
 import torch.nn.functional as F
-from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM
+from transformers import AutoConfig, AutoModelForCausalLM
 
-from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel, KLDivergenceMethod
-from ..hf_models import (
-    CausalLMOutputWithPast,
-    PipelineParallelOutput,
-    get_autoregressive_language_modeling_loss,
-    is_aux_loss_zero,
-)
+from ..hf_models import CausalLMOutputWithPast, PipelineParallelOutput, get_autoregressive_language_modeling_loss
 from ..kernels import is_kernel_allowed
 from ..utils import ProcessGroupManager, log_rank_0, string_to_torch_dtype
 from .pretraining import ModelWrapperForPretraining
@@ -28,7 +22,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         self,
         model_name: str | None,
         pretrained_config: dict | None,
-        model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
         dtype: torch.dtype,
         efficient_initialization: bool,
         use_padding_free_transformer: bool,
@@ -38,7 +31,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         num_pipeline_stages: int,
         pipeline_stage_id: int,
         teacher_model_name: str | None,
-        teacher_model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
         teacher_model_dtype: torch.dtype,
         kl_divergence_method: KLDivergenceMethod,
         kl_divergence_weight: float = 1,
@@ -54,7 +46,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         Args:
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
-            model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
             dtype (torch.dtype): dtype for the model
             efficient_initialization (bool): whether to use efficient initialization for the model initialization, saves CPU memory
             use_padding_free_transformer (bool): whether to use padding free transformer
@@ -71,7 +62,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             keep_in_fp32 (bool, optional): whether to keep model in fp32 right now. Defaults to True.
         """
 
-        self.teacher_model_class = teacher_model_class
         self.teacher_model_name = teacher_model_name
         self.teacher_model_dtype = teacher_model_dtype
         self.kl_divergence_method = kl_divergence_method
@@ -80,7 +70,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         super().__init__(
             model_name=model_name,
             pretrained_config=pretrained_config,
-            model_class=model_class,
             dtype=dtype,
             efficient_initialization=efficient_initialization,
             use_padding_free_transformer=use_padding_free_transformer,
@@ -114,11 +103,6 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         Returns:
             torch.Tensor: loss tensor
         """
-
-        # for pretraining we compute loss externally here instead of relying on transformers.
-        # this is done because megatron's dataset returns batches of length (sequence_length + 1)
-        # instead of (sequence_length), so we need to trim the input_ids before forward pass.
-        # transformers does forward pass before however and then trims the tokens.
 
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
@@ -181,9 +165,10 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
     def _setup_model(self) -> None:
         super()._setup_model()
 
-        self.teacher_model = self.teacher_model_class.from_pretrained(
+        self.teacher_model = AutoModelForCausalLM.from_pretrained(
             self.teacher_model_name, dtype=string_to_torch_dtype(self.teacher_model_dtype)
         )
+
         self.teacher_model.eval()
 
     def has_teacher_model(self) -> bool:

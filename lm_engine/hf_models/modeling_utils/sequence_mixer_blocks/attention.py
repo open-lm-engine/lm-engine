@@ -12,12 +12,18 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import divide_if_divisible
+from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate
+from ..chunk import contiguous_split
+from ..dropout import Dropout
 from ..linear import ParameterizedLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
+
+
+if is_torch_xla_available():
+    from torch_xla.experimental.custom_kernel import flash_attention as flash_attention_tpu
 
 
 def interleave_query_key_value_tensor_for_attention(
@@ -126,8 +132,8 @@ class Attention(nn.Module):
 
         self.softmax_dropout_p = softmax_dropout
 
-        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else nn.Dropout(softmax_dropout)
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.softmax_dropout = Dropout(softmax_dropout)
+        self.dropout = Dropout(dropout)
 
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
@@ -143,6 +149,7 @@ class Attention(nn.Module):
     ) -> torch.Tensor:
         use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
         use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
+        accelerator = Accelerator.get_accelerator()
 
         if self.use_padding_free_transformer:
             assert use_flash_attention_2 or use_flash_attention_3
@@ -158,11 +165,14 @@ class Attention(nn.Module):
             output_shape = (batch_size, query_length, -1, self.head_dim)
 
         hidden_states = self.c_attn(hidden_states)
-
         hidden_states = hidden_states.view(*input_shape)
 
-        query, key, value = hidden_states.split(
-            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim), dim=-1
+        query, key, value = (
+            contiguous_split if Accelerator.get_accelerator() == Accelerator.trainium else torch.split
+        )(
+            hidden_states,
+            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim),
+            dim=-1,
         )
 
         query = query.reshape(*output_shape)
@@ -180,6 +190,8 @@ class Attention(nn.Module):
             key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
 
         if use_flash_attention_2 or use_flash_attention_3:
+            assert accelerator == Accelerator.cuda
+
             if self.use_padding_free_transformer:
                 output_shape = (-1, self.hidden_size)
             else:
@@ -214,16 +226,32 @@ class Attention(nn.Module):
         else:
             assert self.sliding_window is None
 
-            hidden_states = F.scaled_dot_product_attention(
-                query,
-                key,
-                value,
-                attn_mask=attention_mask,
-                dropout_p=self.softmax_dropout_p if self.training else 0,
-                is_causal=self.causal if attention_mask is None else False,
-                scale=self.attention_multiplier,
-                enable_gqa=True,
-            )
+            if accelerator == Accelerator.tpu:
+                assert attention_mask is None
+                assert self.softmax_dropout_p == 0
+
+                hidden_states = flash_attention_tpu(
+                    query,
+                    key,
+                    value,
+                    causal=self.causal if attention_mask is None else False,
+                    sm_scale=(
+                        1 / math.sqrt(self.head_dim)
+                        if self.attention_multiplier is None
+                        else self.attention_multiplier
+                    ),
+                )
+            else:
+                hidden_states = F.scaled_dot_product_attention(
+                    query,
+                    key,
+                    value,
+                    attn_mask=attention_mask,
+                    dropout_p=self.softmax_dropout_p if self.training else 0,
+                    is_causal=self.causal if attention_mask is None else False,
+                    scale=self.attention_multiplier,
+                    enable_gqa=True,
+                )
 
             del query, key, value
 

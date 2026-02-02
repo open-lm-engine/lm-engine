@@ -10,20 +10,16 @@ from transformers import GenerationConfig, PreTrainedModel
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
+from ....utils import Accelerator
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
+from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
 from ...utils import convert_padding_free_lists_to_tensors, is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
 
 
 class PreTrainedModelMixin(PreTrainedModel):
-    """
-    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
-    models.
-    """
-
     config_class = None
     layer_class = Block
     base_model_prefix = "transformer"
@@ -70,7 +66,10 @@ class PreTrainedModelMixin(PreTrainedModel):
                 assert attention_mask is None, error_message.format(variable="attention_mask")
 
                 input_ids, position_ids, labels, cu_seqlens, max_seqlen = convert_padding_free_lists_to_tensors(
-                    input_ids=input_ids, position_ids=position_ids, labels=labels, device=torch.cuda.current_device()
+                    input_ids=input_ids,
+                    position_ids=position_ids,
+                    labels=labels,
+                    device=Accelerator.get_current_device(),
                 )
             else:
                 assert (
@@ -103,9 +102,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         self.wte = ParameterizedEmbedding(config.vocab_size, self.embed_dim, std=self.initializer_range)
 
-        self.embedding_dropout = (
-            nn.Identity() if config.embedding_dropout == 0 else nn.Dropout(config.embedding_dropout)
-        )
+        self.embedding_dropout = Dropout(config.embedding_dropout)
         self.h = nn.ModuleList(
             [
                 self.layer_class(config, use_padding_free_transformer=self.use_padding_free_transformer, layer_idx=i)

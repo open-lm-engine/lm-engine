@@ -1,0 +1,174 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+datasets:
+  # class_name, data_name & data_sampling_ratio are not used but need to be passed to avoid errors
+  - class_name: MegatronDataset
+    data_name: Megatron
+    data_sampling_ratio: 1
+    class_args:
+      eval_steps: 2
+      data_cache_path: cache
+      num_workers: 16
+      # Option 1: data loading using --data-path with single file
+      data_path:
+        - 252
+        - msc://mayank-nemo-cc/Diverse-QA/0
+        - 252
+        - msc://mayank-nemo-cc/Diverse-QA/1
+        - 252
+        - msc://mayank-nemo-cc/Diverse-QA/2
+        - 251
+        - msc://mayank-nemo-cc/Diverse-QA/3
+        - 252
+        - msc://mayank-nemo-cc/Diverse-QA/4
+        - 252
+        - msc://mayank-nemo-cc/Diverse-QA/5
+        - 252
+        - msc://mayank-nemo-cc/Diverse-QA/6
+        - 252
+        - msc://mayank-nemo-cc/Diverse-QA/7
+        - 252
+        - msc://mayank-nemo-cc/Diverse-QA/8
+        - 250
+        - msc://mayank-nemo-cc/Diverse-QA/9
+      split: 100,0,0
+      sequence_length: 4096
+
+tokenizer_args:
+  tokenizer_name: ibm-granite/granite-3b-code-base
+
+model_args:
+  pretrained_config:
+    model_type: gpt_base
+    max_position_embeddings: 4096
+    hidden_size: 768
+    num_layers: 12
+    normalization_function: layernorm
+    layer_norm_epsilon: 1e-5
+    initializer_range: 0.02
+    bos_token_id: 0
+    eos_token_id: 0
+    pad_token_id: 0
+    vocab_size: 100352
+    sequence_mixer_blocks:
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 12
+    mlp_blocks:
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+    position_embedding_type: learned_absolute
+
+tuning_args:
+  tuning_method: pretraining
+
+save_args:
+  save_path: checkpoints
+  save_interval: 5000
+
+training_parameters:
+  num_training_steps: 5000
+  eval_interval: 50
+  micro_batch_size: 8
+  eval_during_training: false
+
+optimizer_args:
+  class_name: TorchAdamW
+  class_args:
+    lr: 1e-5
+    weight_decay: 0.1
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1e-10
+
+lr_scheduler_args:
+  lr_decay_style: cosine
+
+mixed_precision_args:
+  dtype: bf16
+
+distributed_args:
+  fsdp_algorithm: 1
+  # torch_compile: true

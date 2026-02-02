@@ -20,15 +20,15 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.11
+          python-version: 3.12
 
       - name: Installation
         run: |
           git submodule update --init --recursive
-          python -m pip install --upgrade pip
-          pip install isort black pre-commit
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv run pip install isort black pre-commit
 
       - name: Formatting Tests
         run: |
-          pre-commit install
+          uv run pre-commit install
           make style

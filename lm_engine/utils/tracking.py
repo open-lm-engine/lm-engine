@@ -6,9 +6,11 @@ from __future__ import annotations
 
 import os
 
+import torch
 from tqdm import tqdm
 
 from ..enums import ExperimentsTrackerName
+from .accelerator import Accelerator
 from .packages import is_aim_available, is_wandb_available
 from .parallel import is_tracking_rank
 from .pydantic import BaseArgs
@@ -70,11 +72,11 @@ class ExperimentsTracker:
         checkpoint_metadata: dict,
     ) -> None:
         self.is_tracking_rank = is_tracking_rank()
-        if not self.is_tracking_rank:
-            return
-
         self.experiments_tracker_name = experiments_tracker_name
         self.tracking_enabled = experiments_tracker_name is not None
+
+        if not self.is_tracking_rank:
+            return
 
         if experiments_tracker_name == ExperimentsTrackerName.aim:
             kwargs = aim_args.to_dict() if checkpoint_metadata is None else checkpoint_metadata
@@ -130,41 +132,46 @@ class ExperimentsTracker:
             context (str, optional): context for tracking. Defaults to None.
         """
 
-        if not self.is_tracking_rank:
+        if not self.tracking_enabled:
             return
 
-        if self.tracking_enabled:
-            if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-                if context is not None:
-                    context = {"subset": context}
+        if self.experiments_tracker_name == ExperimentsTrackerName.aim:
+            if context is not None:
+                context = {"subset": context}
 
-                for key, value in values.items():
-                    self.run.track(value=value, name=key, step=step, context=context)
-            elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-                if context is not None:
-                    values = {f"{context}/{k}": v for k, v in values.items()}
+            for key, value in values.items():
+                self.run.track(value=value, name=key, step=step, context=context)
+        elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
+            if context is not None:
+                values = {f"{context}/{k}": v for k, v in values.items()}
 
-                # this is for a custom step, we can't use the wandb step
-                # since it doesn't allow time travel to the past
-                values["iteration"] = step
-                # track the LSF/Slurm job in W&B per run - bobcalio
-                if _JOB_ID is not None:
-                    values["job"] = _JOB_ID
+            # this is for a custom step, we can't use the wandb step
+            # since it doesn't allow time travel to the past
+            values["iteration"] = step
+            # track the LSF/Slurm job in W&B per run - bobcalio
+            if _JOB_ID is not None:
+                values["job"] = _JOB_ID
+
+            # FIXME this is needed to prevent TPU from getting stuck
+            # on GPU, only 1 rank needs to call this but on TPUs, every rank needs to call this
+            if Accelerator.get_accelerator() == Accelerator.tpu:
+                values = {k: v.to("cpu") if isinstance(v, torch.Tensor) else v for k, v in values.items()}
+
+            if self.is_tracking_rank:
                 wandb.log(values)
-            else:
-                raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
+        else:
+            raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
 
     def finish(self) -> None:
-        if not self.is_tracking_rank:
+        if not self.tracking_enabled or not self.is_tracking_rank:
             return
 
-        if self.tracking_enabled:
-            if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-                self.run.close()
-            elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-                wandb.finish()
-            else:
-                raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
+        if self.experiments_tracker_name == ExperimentsTrackerName.aim:
+            self.run.close()
+        elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
+            wandb.finish()
+        else:
+            raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
 
     def state_dict(self) -> dict:
         if not self.is_tracking_rank:

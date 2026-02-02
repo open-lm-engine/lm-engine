@@ -2,13 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-import logging
-from importlib.metadata import distributions
-
 import torch
-
-from .logger import log_rank_0, warn_rank_0
-from .parallel import run_rank_n
 
 
 try:
@@ -17,8 +11,6 @@ try:
     _IS_FLASH_ATTENTION_2_AVAILABLE = True
 except ImportError:
     _IS_FLASH_ATTENTION_2_AVAILABLE = False
-
-    warn_rank_0("Flash Attention 2 is not installed")
 
 
 def is_flash_attention_2_available() -> bool:
@@ -32,8 +24,6 @@ try:
 except ImportError:
     _IS_FLASH_ATTENTION_3_AVAILABLE = False
 
-    warn_rank_0("Flash Attention 3 is not installed")
-
 
 def is_flash_attention_3_available() -> bool:
     return _IS_FLASH_ATTENTION_3_AVAILABLE
@@ -45,8 +35,6 @@ try:
     _IS_AIM_AVAILABLE = True
 except ImportError:
     _IS_AIM_AVAILABLE = False
-
-    warn_rank_0("aim is not installed")
 
 
 def is_aim_available() -> bool:
@@ -60,8 +48,6 @@ try:
 except ImportError:
     _IS_WANDB_AVAILABLE = False
 
-    warn_rank_0("wandb is not installed")
-
 
 def is_wandb_available() -> bool:
     return _IS_WANDB_AVAILABLE
@@ -73,8 +59,6 @@ try:
     _IS_COLORLOG_AVAILABLE = True
 except ImportError:
     _IS_COLORLOG_AVAILABLE = False
-
-    warn_rank_0("colorlog is not installed")
 
 
 def is_colorlog_available() -> bool:
@@ -88,44 +72,29 @@ try:
 except ImportError:
     _IS_TRITON_AVAILABLE = False
 
-    warn_rank_0("OpenAI triton is not installed")
-
 
 def is_triton_available() -> bool:
     return _IS_TRITON_AVAILABLE
 
 
 try:
-    if torch.cuda.is_available():
-        import fma
+    import xma
 
-        _IS_FMA_AVAILABLE = True
-    else:
-        _IS_FMA_AVAILABLE = False
-except ImportError:
-    _IS_FMA_AVAILABLE = False
-
-    warn_rank_0(
-        "flash-model-architectures is not installed, install from "
-        "https://github.com/open-lm-engine/flash-model-architectures"
-    )
+    _IS_XMA_AVAILABLE = True
+except:
+    _IS_XMA_AVAILABLE = False
 
 
-def is_fma_available() -> bool:
-    return _IS_FMA_AVAILABLE
+def is_xma_available() -> bool:
+    return _IS_XMA_AVAILABLE
 
 
 try:
-    if torch.cuda.is_available():
-        import causal_conv1d
+    import causal_conv1d
 
-        _IS_CAUSAL_CONV1D_AVAILABLE = True
-    else:
-        _IS_CAUSAL_CONV1D_AVAILABLE = False
+    _IS_CAUSAL_CONV1D_AVAILABLE = True
 except ImportError:
     _IS_CAUSAL_CONV1D_AVAILABLE = False
-
-    warn_rank_0("causal-conv1d is not installed")
 
 
 def is_causal_conv1d_available() -> bool:
@@ -133,16 +102,11 @@ def is_causal_conv1d_available() -> bool:
 
 
 try:
-    if torch.cuda.is_available():
-        import mamba_ssm
+    import mamba_ssm
 
-        _IS_MAMBA_2_SSM_AVAILABLE = True
-    else:
-        _IS_MAMBA_2_SSM_AVAILABLE = False
+    _IS_MAMBA_2_SSM_AVAILABLE = True
 except ImportError:
     _IS_MAMBA_2_SSM_AVAILABLE = False
-
-    warn_rank_0("mamba-ssm is not installed")
 
 
 def is_mamba_2_ssm_available() -> bool:
@@ -156,8 +120,6 @@ try:
 except ImportError:
     _IS_TORCHAO_AVAILABLE = False
 
-    warn_rank_0("torchao is not installed")
-
 
 def is_torchao_available() -> bool:
     return _IS_TORCHAO_AVAILABLE
@@ -170,18 +132,78 @@ try:
 except ImportError:
     _IS_ZSTANDARD_AVAILABLE = False
 
-    warn_rank_0("zstandard is not available")
 
-
-def is_zstandard_available():
+def is_zstandard_available() -> bool:
     return _IS_ZSTANDARD_AVAILABLE
 
 
-@run_rank_n
-def log_environment() -> None:
-    packages = sorted(["{}=={}".format(d.metadata["Name"], d.version) for d in distributions()])
+try:
+    import torch_xla
 
-    log_rank_0(logging.INFO, "------------------------ packages ------------------------")
-    for package in packages:
-        log_rank_0(logging.INFO, package)
-    log_rank_0(logging.INFO, "-------------------- end of packages ---------------------")
+    _IS_TORCH_XLA_AVAILABLE = True
+except ImportError:
+    _IS_TORCH_XLA_AVAILABLE = False
+
+
+def is_torch_xla_available() -> bool:
+    return _IS_TORCH_XLA_AVAILABLE
+
+
+try:
+    import torch_neuronx
+
+    _IS_TORCH_NEURONX_AVAILABLE = True
+except ImportError:
+    _IS_TORCH_NEURONX_AVAILABLE = False
+
+
+def is_torch_neuronx_available() -> bool:
+    return _IS_TORCH_NEURONX_AVAILABLE
+
+
+try:
+    import multistorageclient
+
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = True
+except ImportError:
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = False
+
+
+def is_multi_storage_client_available() -> bool:
+    return _IS_MULTI_STORAGE_CLIENT_AVAILABLE
+
+
+try:
+    import sonicmoe
+
+    _IS_SONIC_MOE_AVAILABLE = True
+except ImportError:
+    _IS_SONIC_MOE_AVAILABLE = False
+
+
+def is_sonicmoe_available() -> bool:
+    return _IS_SONIC_MOE_AVAILABLE
+
+
+try:
+    import ray
+
+    _IS_RAY_AVAILABLE = True
+except ImportError:
+    _IS_RAY_AVAILABLE = False
+
+
+def is_ray_available() -> bool:
+    return _IS_RAY_AVAILABLE
+
+
+try:
+    import fla
+
+    _IS_FLA_AVAILABLE = True
+except ImportError:
+    _IS_FLA_AVAILABLE = False
+
+
+def is_fla_available() -> bool:
+    return _IS_FLA_AVAILABLE

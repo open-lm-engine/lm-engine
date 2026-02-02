@@ -4,14 +4,16 @@
 
 import torch
 
-from ..utils import ProcessGroupManager
+from ..utils import Accelerator, ProcessGroupManager
 
 
 def broadcast_tensor_parallel_input(tokens: dict, shape: tuple[int]) -> torch.Tensor:
+    device = Accelerator.get_current_device()
+
     if ProcessGroupManager.is_tensor_parallel_first_rank():
-        tokens = tokens.to(torch.cuda.current_device())
+        tokens = tokens.to(device)
     else:
-        tokens = torch.empty(shape, dtype=torch.long, device=torch.cuda.current_device())
+        tokens = torch.empty(shape, dtype=torch.long, device=device)
 
     torch.distributed.broadcast(
         tokens,

@@ -9,12 +9,19 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributed._tensor.api import DTensor
+from torch.distributed._tensor.placement_types import Replicate
 
+from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available, is_mamba_2_ssm_available
 from ...cache import GenerationCache
-from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ...parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_no_weight_decay,
+)
 from ..activations import get_activation_function
 from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
@@ -160,14 +167,13 @@ class Mamba2(nn.Module):
         # time step projection (discretization)
         # instantiate once and copy inv_dt in init_weights of PretrainedModel
         # Initialize log dt bias
-        self.dt_bias = nn.Parameter(torch.ones(self.num_heads))
+        self.dt_bias = nn.Parameter(torch.empty(self.num_heads))
 
         # S4D real initialization. These are not discretized!
         # The core is to load them, compute the discrete states, then write the updated state. Keeps the memory bounded
-        A = torch.arange(1, self.num_heads + 1)
-        self.A_log = nn.Parameter(torch.log(A))
+        self.A_log = nn.Parameter(torch.empty(self.num_heads))
         self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
-        self.D = nn.Parameter(torch.ones(self.num_heads))
+        self.D = nn.Parameter(torch.empty(self.num_heads))
 
         self.out_proj = ParameterizedLinear(
             self.intermediate_size, self.hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
@@ -182,6 +188,8 @@ class Mamba2(nn.Module):
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.in_proj.weight)
         mark_parameter_as_mup_learning_rate(self.out_proj.weight)
+
+        self.reset_parameters()
 
     def forward(
         self,
@@ -263,7 +271,15 @@ class Mamba2(nn.Module):
         )
 
         # 3. SSM transformation
-        A = -torch.exp(self.A_log.float())  # [num_heads]
+        A = -torch.exp(self.A_log.float())
+
+        # hidden_states -> B, S, N, head_dim
+        # A -> num_heads
+        # B -> B, S, ssm_state_size
+        # C -> B, S, ssm_state_size
+        # dt -> (B, S, N)
+        # ssm_state -> (B, N, head_dim, ssm_state_size)
+
         if use_precomputed_states:
             # We need to guarantee that anything regarding the cache is on the same device
             cache_device = ssm_state.device
@@ -271,29 +287,40 @@ class Mamba2(nn.Module):
             # Note: there is no need to pad parameter matrices here, as there is just one new token
             # for batched generation
             dt = dt[:, 0, :][:, None, ...]
+            # dt -> (B, 1, N)
             dt = dt.transpose(1, 2).expand(batch_size, dt.shape[-1], self.head_dim)
-            # [num_heads] -> [num_heads, head_dim]
+            # dt -> (B, N, head_dim)
             dt_bias = self.dt_bias[..., None].expand(self.dt_bias.shape[0], self.head_dim)
 
             dt = F.softplus(dt + dt_bias.to(dt.dtype))
             dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
+            # dt -> (B, N, head_dim)
             A = A[..., None, None].expand(self.num_heads, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
-            # [bsz, num_heads, head_dim, state_size]
+            # A -> (N, head_dim, ssm_state_size)
             dA = (torch.exp(dt[..., None] * A)).to(device=cache_device)
+            # A -> (N, head_dim, ssm_state_size)
+            # dA -> (B, N, head_dim, ssm_state_size)
 
             # Discretize B
             # [bsz, n_groups * state_size] -> [bsz, n_groups, 1, state_size] ->
             # -> [bsz, n_groups, group to head repetition factor, state_size] -> [bsz, num_heads, state_size]
+            # NOTE: S = 1 actually here
             B = B.reshape(batch_size, self.n_groups, -1)[..., None, :]
+            # B -> (B, G, 1, ssm_state_size / num_groups)
             B = B.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, B.shape[-1]).contiguous()
+            # B -> (B, G, N / G, ssm_state_size / num_groups)
             B = B.reshape(batch_size, -1, B.shape[-1])
-            # [bsz, num_heads, head_dim, state_size]
+            # B -> (B, N, ssm_state_size / num_groups)
+
+            # (B, N, head_dim, 1) * (B, N, 1, ssm_state_size / num_groups)
             dB = dt[..., None] * B[..., None, :]
+            # dB -> (B, N, head_dim, ssm_state_size / num_groups)
 
             # Discretize x into dB
-            # [bsz, intermediate_size] -> [bsz, num_heads, head_dim]
             hidden_states = hidden_states.reshape(batch_size, -1, self.head_dim)
+            # hidden_states -> (B, N, head_dim)
             dBx = (dB * hidden_states[..., None]).to(device=cache_device)
+            # dBx -> (B, N, head_dim, ssm_state_size / num_groups)
 
             # State calculation
             ssm_state = ssm_state * dA + dBx
@@ -575,6 +602,21 @@ class Mamba2(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = torch.arange(1, self.num_heads + 1)
-        self.A_log.data = torch.log(A)
+        A = torch.log(torch.arange(1, self.num_heads + 1))
+
+        if isinstance(self.A_log, DTensor):
+            A = tensor_to_dtensor(
+                A,
+                device_mesh=self.A_log.device_mesh,
+                current_placement=[Replicate()] * len(self.A_log.placements),
+                desired_placement=self.A_log.placements,
+            )
+
+        self.A_log.copy_(A)
+
         nn.init.ones_(self.D)
+        nn.init.ones_(self.dt_bias)
+
+        mark_parameter_as_initialized(self.A_log)
+        mark_parameter_as_initialized(self.D)
+        mark_parameter_as_initialized(self.dt_bias)

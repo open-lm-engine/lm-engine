@@ -2,25 +2,23 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-install:
-	pip install -r requirements.txt
-	git submodule update --init --recursive
-	cd flash-model-architectures && make install
+accelerator=cuda
 
-install-dev:
-	pip install -r requirements-dev.txt
-	git submodule update --init --recursive
-	cd flash-model-architectures && make install
+docker-data:
+	docker build -f docker/Dockerfile --platform linux/amd64 --build-arg EXTRA=data -t ghcr.io/open-lm-engine/data:latest .
+
+docker-tpu:
+	docker build -f docker/Dockerfile --platform linux/amd64 --build-arg EXTRA=tpu -t ghcr.io/open-lm-engine/tpu:latest .
 
 test:
-	RUN_SLOW=True pytest tests
+	RUN_SLOW=True uv run --extra dev --extra torch pytest tests
 
 test-fast:
-	RUN_SLOW=False pytest tests
+	RUN_SLOW=False uv run --extra $(accelerator) --extra dev pytest tests
 
 update-precommit:
-	pre-commit autoupdate
+	uv run --extra dev --no-default-groups pre-commit autoupdate
 
 style:
-	python copyright/copyright.py --repo ./ --exclude copyright-exclude.txt --header "Copyright (c) 2025, Mayank Mishra"
-	pre-commit run --all-files
+	uv run --extra dev --no-default-groups python copyright/copyright.py --repo ./ --exclude copyright-exclude.txt --header "Copyright (c) 2025, Mayank Mishra"
+	uv run --extra dev --no-default-groups pre-commit run --all-files

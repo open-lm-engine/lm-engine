@@ -13,11 +13,11 @@ from torch.distributed.tensor.parallel import loss_parallel
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
-from ..utils import ProcessGroupManager, is_fma_available
+from ..utils import ProcessGroupManager, is_xma_available
 
 
-if is_fma_available():
-    from fma import cross_entropy, fused_linear_cross_entropy
+if is_xma_available():
+    from xma import cross_entropy, fused_linear_cross_entropy
 
 
 def get_autoregressive_language_modeling_loss(

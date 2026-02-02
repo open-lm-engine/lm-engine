@@ -59,12 +59,11 @@ class ExperimentsTrackerName(Enum):
 
 
 class Kernel(Enum):
-    # FMA
+    # XMA
     causal_conv1d = "causal_conv1d"
     continuous_count = "continuous_count"
     cross_entropy = "cross_entropy"
     fused_linear_cross_entropy = "fused_linear_cross_entropy"
-    grouped_gemm = "grouped_gemm"
     gru = "gru"
     pack_sequence = "pack_sequence"
     rmsnorm = "rmsnorm"
@@ -77,6 +76,5 @@ class Kernel(Enum):
     flash_attention_3 = "flash_attention_3"
     mamba2_ssm = "mamba2_ssm"
     scattermoe = "scattermoe"
-    # custom functions
-    checkpointed_mlp = "checkpointed_mlp"
-    ladder_residual_overlapped_layer = "ladder_residual_overlapped_layer"
+    # sonicmoe
+    sonicmoe = "sonicmoe"

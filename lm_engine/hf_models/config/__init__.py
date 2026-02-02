@@ -13,6 +13,7 @@ from ...utils import BaseArgs, divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import (
     _CausalConvolution,
+    _GatedDeltaNetArgs,
     _GRUArgs,
     _Mamba2Args,
     _MultiHeadLatentAttentionArgs,
@@ -35,35 +36,6 @@ def _hold_base_args(key: str) -> Callable:
     return _holded_function
 
 
-def _update_with_key_value(block: dict, kwargs: dict, key: str) -> None:
-    if key in block:
-        kwargs[key] = block.pop(key)
-
-
-# for erroring out on legacy configs
-_NAKED_DISALLOWED_ARGS = [
-    "activation_function",
-    "attn_pdrop",
-    "embd_pdrop",
-    "resid_pdrop",
-    "intermediate_size",
-    "shared_intermediate_size",
-    "num_experts",
-    "num_experts_per_tok",
-    "add_bias",
-    "attention_blocks",
-    "num_key_value_heads",
-    "attention_head_type",
-    "attention_multiplier",
-    "n_embd",
-    "n_head",
-    "n_inner",
-    "n_layer",
-    "n_positions",
-    "scale_attn_weights",
-    "num_attention_heads",
-]
-
 _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "causal_convolution": _CausalConvolution,
     "gru": _GRUArgs,
@@ -71,14 +43,13 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
+    "gated_deltanet": _GatedDeltaNetArgs,
 }
 
 _MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
 
 
 class CommonConfig(PretrainedConfig):
-    keys_to_ignore_at_inference = ["past_key_values"]
-
     def __init__(
         self,
         vocab_size: int = 50304,
@@ -151,9 +122,6 @@ class CommonConfig(PretrainedConfig):
 
         self.router_aux_loss_coef = router_aux_loss_coef
 
-        for i in _NAKED_DISALLOWED_ARGS:
-            assert i not in kwargs, f"found naked argument ({i})"
-
         super().__init__(
             bos_token_id=bos_token_id,
             eos_token_id=eos_token_id,
@@ -212,6 +180,7 @@ class CommonConfig(PretrainedConfig):
             | _MultiHeadLatentAttentionArgs
             | _RNNArgs
             | _SoftmaxAttentionArgs
+            | _GatedDeltaNetArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])

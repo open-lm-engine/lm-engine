@@ -10,30 +10,37 @@ import torch.nn.functional as F
 
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
-from ...utils import is_fma_available
-from ..parameter import mark_parameter_as_no_weight_decay
+from ...utils import is_xma_available
+from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 
 
-if is_fma_available():
-    from fma import rmsnorm
+if is_xma_available():
+    from xma import rmsnorm
+
+
+class LayerNorm(nn.LayerNorm):
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+        mark_parameter_as_initialized(self.weight)
 
 
 class RMSNorm(nn.RMSNorm):
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        rmsnorm_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm)
-        rmsnorm_memory_efficient_kernel_allowed = is_kernel_allowed(Kernel.rmsnorm_memory_efficient)
-
-        if rmsnorm_kernel_allowed or rmsnorm_memory_efficient_kernel_allowed:
+        if is_kernel_allowed(Kernel.rmsnorm) or is_kernel_allowed(Kernel.rmsnorm_memory_efficient):
             hidden_states = rmsnorm(
                 x=hidden_states,
                 weight=self.weight,
                 eps=self.eps,
-                memory_efficient=rmsnorm_memory_efficient_kernel_allowed,
+                memory_efficient=is_kernel_allowed(Kernel.rmsnorm_memory_efficient),
             )
         else:
             hidden_states = super().forward(hidden_states)
 
         return hidden_states
+
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+        mark_parameter_as_initialized(self.weight)
 
 
 class PNorm(RMSNorm):
@@ -62,12 +69,12 @@ class PNorm(RMSNorm):
         return hidden_states
 
 
-_NORMALIZATION_FUNCTIONS = {"layernorm": nn.LayerNorm, "p_norm": PNorm, "rmsnorm": RMSNorm}
+_NORMALIZATION_FUNCTIONS = {"layernorm": LayerNorm, "p_norm": PNorm, "rmsnorm": RMSNorm}
 
 
 def get_normalization_function(
     normalization_function: str, normalized_shape: int, eps: float = 1e-5, p: int | None = None
-) -> nn.LayerNorm | RMSNorm | PNorm:
+) -> LayerNorm | RMSNorm | PNorm:
     if normalization_function is None:
         return nn.Identity()
 

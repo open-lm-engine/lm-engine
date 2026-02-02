@@ -6,7 +6,6 @@ import argparse
 import os
 
 import torch
-import torch.distributed
 from torch.distributed._tensor.api import DTensor
 
 from lm_engine.dtensors import dtensor_to_tensor
@@ -18,7 +17,7 @@ from lm_engine.hf_models import (
     unshard_tensor_parallel_state_dicts,
 )
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import ProcessGroupManager
+from lm_engine.utils import Communication, ProcessGroupManager
 
 from ...test_common import TestCommons
 
@@ -64,7 +63,7 @@ if is_tp_first_rank:
     model = TestCommons.from_config(None, config)
     model.save_pretrained(args.tmp_path, safe_serialization=True)
 
-torch.distributed.barrier()
+Communication.barrier()
 
 model_tp = get_model_parallel_class(config.model_type).from_pretrained(args.tmp_path)
 tp_state_dict = model_tp.state_dict()
@@ -87,7 +86,7 @@ def run_check(fix: bool):
         )
         del cpu_state_dict
 
-        torch.distributed.barrier()
+        Communication.barrier()
 
         tensor_parallel_state_dicts = [
             torch.load(os.path.join(args.tmp_path, f"tp-{i}.pt"), weights_only=False)
@@ -98,7 +97,7 @@ def run_check(fix: bool):
             config, tensor_parallel_state_dicts=tensor_parallel_state_dicts
         )
 
-    torch.distributed.barrier()
+    Communication.barrier()
 
     if is_tp_first_rank:
         original_state_dict = model.state_dict()

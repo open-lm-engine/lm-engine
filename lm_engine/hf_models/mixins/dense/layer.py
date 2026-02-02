@@ -101,6 +101,15 @@ class Block(nn.Module):
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
+        elif self.sequence_mixer_type == "gated_deltanet":
+            # GatedDeltaNet returns (output, attentions, past_key_values)
+            hidden_states = self.sequence_mixer(
+                hidden_states,
+                cache_params=past_key_values,
+                attention_mask=attention_mask,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")
 

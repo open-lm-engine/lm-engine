@@ -1,0 +1,68 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lm-engine"
+version = "0.1.0"
+description = "A library for efficient LLM training."
+requires-python = ">=3.12"
+authors = [
+    { name = "Mayank Mishra", email = "mayank31398@gmail.com" },
+]
+dependencies = [
+    "datasets>=4.4.1",
+    "gitpython>=3.1.45",
+    "multi-storage-client[google-cloud-storage]>=0.36.0",
+    "ninja>=1.13.0",
+    "numpy>=2.3.5",
+    "pydantic>=2.12.4",
+    "transformers==4.57.3",
+    "wandb>=0.23.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/open-lm-engine/lm-engine"
+Repository = "https://github.com/open-lm-engine/lm-engine"
+
+[project.optional-dependencies]
+cuda = [
+    "torch>=2.8.0",
+]
+dev = [
+    "parameterized>=0.9.0",
+    "pre-commit>=4.4.0",
+    "pytest>=9.0.1",
+]
+mamba2 = [
+    "mamba-ssm>=2.2.6.post3",
+]
+tpu = [
+    "torch==2.8.0",
+    "torch-xla[pallas,tpu]==2.8.0",
+]
+data = [
+    "ray[default]>=2.52.1",
+    "torch>=2.8.0",
+    "zstandard>=0.25.0",
+    "aiobotocore>=3.0.0",
+]
+torch = [
+    "torch>=2.8.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["lm_engine"]
+
+[tool.isort]
+ensure_newline_before_comments = true
+force_grid_wrap = 0
+include_trailing_comma = true
+line_length = 119
+lines_after_imports = 2
+multi_line_output = 3
+use_parentheses = true

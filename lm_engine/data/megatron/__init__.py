@@ -3,13 +3,13 @@ import logging
 from ...arguments import TrainingArgs
 from ...defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import ProcessGroupManager, log_rank_0
+from ...utils import Accelerator, ProcessGroupManager, log_rank_0
 from ..dataloader import ResumableDataLoader
-from .blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
+from .blended_megatron_dataset_builder import build
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .gpt_dataset import GPTDataset
 from .sampler import MegatronBatchSampler
-from .utils import Split, compile_helpers
+from .utils import compile_helpers
 
 
 def get_megatron_gpt_dataloaders(
@@ -27,17 +27,15 @@ def get_megatron_gpt_dataloaders(
     micro_batch_size = args.training_parameters.micro_batch_size
     gradient_accumulation_steps = args.training_parameters.gradient_accumulation_steps
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
-    sequence_length = class_args.get("sequence_length")
 
     compile_helpers()
 
     log_rank_0(logging.INFO, "> building train, validation, and test datasets for GPT ...")
 
-    # only build dataloader on first rank of each TP group
-    is_built_on_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
-
-    gpt_dataset_builder = BlendedMegatronDatasetBuilder(
-        GPTDataset,
+    # Option 1: data loading using --data-path with single file
+    # Option 2: data loading using --data-path with multiple weighted files
+    # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
+    train_ds, val_ds, test_ds = build(
         sizes=_get_train_val_test_samples(
             args.training_parameters.num_training_steps,
             micro_batch_size,
@@ -46,10 +44,7 @@ def get_megatron_gpt_dataloaders(
             class_args.get("eval_steps"),
         ),
         config=GPTDatasetConfig(
-            # the dataset is None if is_built_on_rank is False
-            is_built_on_rank=is_built_on_rank,
-            random_seed=class_args.get("seed", args.random_args.seed),
-            sequence_length=sequence_length,
+            sequence_length=class_args.get("sequence_length"),
             blend=class_args.get("data_path"),
             blend_per_split=[
                 class_args.get("train_data_path"),
@@ -58,88 +53,41 @@ def get_megatron_gpt_dataloaders(
             ],
             split=class_args.get("split"),
             path_to_cache=class_args.get("data_cache_path"),
-            return_document_ids=False,
             fim_rate=class_args.get("fim_rate", 0),
             fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
-            node_uses_local_storage=class_args.get("node_uses_local_storage", False),
         ),
         tokenizer=tokenizer,
+        node_uses_local_storage=class_args.get("node_uses_local_storage", False),
+        random_seed=class_args.get("seed", args.random_args.seed),
     )
 
-    data_path = class_args.get("data_path")
-    train_data_path = class_args.get("train_data_path")
-    train_weighted_split_paths = class_args.get("train_weighted_split_paths")
-
-    # Option 1: data loading using --data-path with single file
-    # Option 2: data loading using --data-path with multiple weighted files
-    # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
-    if data_path is not None or train_data_path is not None:
-        train_ds, val_ds, test_ds = gpt_dataset_builder.build()
-
-        if not isinstance(val_ds, list):
-            val_ds = [val_ds]
-        if not isinstance(test_ds, list):
-            test_ds = [test_ds]
-
-    # Option 4: data loading using --(train|val|test)-weighted-split-paths
-    elif train_weighted_split_paths:
-
-        def _parse_and_get_dataset(weighted_split_paths: list[dict], dataset_split: Split) -> list[GPTDataset]:
-            if weighted_split_paths is None:
-                return []
-
-            names = []
-            paths = []
-            splits = []
-            weights = []
-            for group in weighted_split_paths:
-                assert len(group) == 1
-                group_name = list(group.keys())[0]
-                datasets_splits_list = group[group_name]
-
-                names_ = []
-                paths_ = []
-                splits_ = []
-                weights_ = []
-                for d in datasets_splits_list:
-                    names_.append(group_name)
-                    paths_.append(d["path"])
-                    splits_.append(d["split"])
-                    weights_.append(d["weight"])
-
-                names.append(names_)
-                paths.append(paths_)
-                splits.append(splits_)
-                weights.append(weights_)
-
-            return gpt_dataset_builder.build_dataset_single_split(names, paths, splits, weights, dataset_split)
-
-        assert len(train_weighted_split_paths) == 1, "only 1 dataset group can be passed for training"
-        train_ds = _parse_and_get_dataset(train_weighted_split_paths, Split.train)[0]
-
-        val_ds = _parse_and_get_dataset(class_args.get("val_weighted_split_paths"), Split.valid)
-        test_ds = _parse_and_get_dataset(class_args.get("test_weighted_split_paths"), Split.test)
-    else:
-        raise NotImplementedError("No dataloading argument passed")
+    if not isinstance(val_ds, list):
+        val_ds = [val_ds]
+    if not isinstance(test_ds, list):
+        test_ds = [test_ds]
 
     log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
+
+    accelerator = Accelerator.get_accelerator()
 
     def _get_dataloader(dataset: GPTDataset | None, consumed_samples: int):
         if dataset is None:
             return None
 
-        batch_sampler = MegatronBatchSampler(
-            total_samples=len(dataset),
-            consumed_samples=consumed_samples,
-            micro_batch_size=(
-                micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
-            ),
-            num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
-            rank=ProcessGroupManager.get_data_parallel_rank(),
-        )
-
         dataloader = ResumableDataLoader(
-            dataset, batch_sampler=batch_sampler, num_workers=class_args.get("num_workers", 2), pin_memory=True
+            dataset,
+            batch_sampler=MegatronBatchSampler(
+                total_samples=len(dataset),
+                consumed_samples=consumed_samples,
+                micro_batch_size=(
+                    micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
+                ),
+                num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
+                rank=ProcessGroupManager.get_data_parallel_rank(),
+            ),
+            multiprocessing_context="fork" if accelerator == Accelerator.tpu else None,
+            num_workers=0 if accelerator == Accelerator.trainium else class_args.get("num_workers", 2),
+            pin_memory=accelerator != Accelerator.trainium,
         )
 
         return iter(dataloader)

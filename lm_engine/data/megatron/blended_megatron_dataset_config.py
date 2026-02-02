@@ -4,7 +4,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from ...utils import ProcessGroupManager, log_rank_0
+from ...utils import log_rank_0
 from .utils import Split, normalize
 
 
@@ -13,10 +13,6 @@ class BlendedMegatronDatasetConfig:
     """Configuration object for megatron-core blended and megatron datasets
 
     Attributes:
-        is_built_on_rank (bool): True if the dataset should be built
-        on the current rank. It should be Megatron Core parallelism aware i.e. global rank, group
-        rank, and virtual rank may inform its return value.
-
         random_seed (int): The seed for all RNG during dataset creation.
 
         sequence_length (int): The sequence length.
@@ -40,33 +36,18 @@ class BlendedMegatronDatasetConfig:
         path_to_cache (str): Where all re-useable dataset indices are to be cached.
     """
 
-    is_built_on_rank: bool
-
-    random_seed: int
-
     sequence_length: int
-
     name: str | None = None
-
     blend: list[str] | None = None
-
     blend_per_split: list[list[str] | None] | None = None
-
     split: str | None = None
-
     split_vector: list[float] | None = field(init=False, default=None)
-
     path_to_cache: str = None
-
-    node_uses_local_storage: bool = False
 
     def __post_init__(self):
         """Python dataclass method that is used to modify attributes after initialization. See
         https://docs.python.org/3/library/dataclasses.html#post-init-processing for more details.
         """
-
-        if ProcessGroupManager.get_global_rank() == 0:
-            assert self.is_built_on_rank, "is_built_on_rank must be True when global rank = 0"
 
         if self.blend_per_split is not None and any(self.blend_per_split):
             assert self.blend is None, "blend and blend_per_split are incompatible"
@@ -85,12 +66,10 @@ class GPTDatasetConfig(BlendedMegatronDatasetConfig):
     """Configuration object for megatron-core blended and megatron GPT datasets
 
     Attributes:
-        return_document_ids (bool): Whether to return the document ids when querying the dataset.
         fim_rate (float): Fill-in-the-middle objective percentage
         fim_spm_rate (float): Probability that the a FIM sample uses the SPM format over the PSM format.
     """
 
-    return_document_ids: bool = False
     fim_rate: float = 0
     fim_spm_rate: float = 0
 

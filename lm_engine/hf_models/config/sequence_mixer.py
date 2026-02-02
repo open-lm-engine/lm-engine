@@ -69,19 +69,33 @@ class _Mamba2Args(BaseArgs):
 
 class _GRUArgs(BaseArgs):
     sequence_mixer_type: str = "gru"
-    state_size: int = 2048
-    num_heads: int = 128
+    state_head_dim: int
+    num_input_heads: int
+    num_forget_input_heads: int
+    num_reset_input_heads: int
+    num_weight_heads: int
+    num_forget_weight_heads: int
+    num_reset_weight_heads: int
     add_bias: bool = False
     normalization_function: str | None = None
     gradient_clipping: float | None = None
-    scaling_factor: float = 1
+    kernel_size: int | None = None
+    activation_function: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gru"
 
 
-class _RNNArgs(_GRUArgs):
+class _RNNArgs(BaseArgs):
     sequence_mixer_type: str = "rnn"
+    state_head_dim: int
+    num_input_heads: int
+    num_weight_heads: int
+    add_bias: bool = False
+    normalization_function: str | None = None
+    gradient_clipping: float | None = None
+    kernel_size: int | None = None
+    activation_function: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rnn"
@@ -98,3 +112,18 @@ class _CausalConvolution(BaseArgs):
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "causal_convolution"
+
+
+class _GatedDeltaNetArgs(BaseArgs):
+    sequence_mixer_type: str = "gated_deltanet"
+    k_head_dim: int
+    v_head_dim: int
+    num_k_heads: int
+    num_v_heads: int
+    use_gate: bool
+    attention_multiplier: float | None = None
+    allow_neg_eigval: bool
+    kernel_size: int
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "gated_deltanet"
