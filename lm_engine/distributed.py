@@ -30,7 +30,7 @@ from .arguments import TrainingArgs
 from .containers import ModelContainer
 from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
-from .hf_models import CausalLMOutputWithPast
+from .hf_models import CausalLMOutputWithPast, is_parameter_initialized
 from .hf_models.parameter import _ALL_MARKERS
 from .kernels import is_kernel_allowed
 from .utils import (
@@ -222,6 +222,14 @@ def wrap_model_container_for_distributed_training(
                 **args.distributed_args.gradient_checkpointing_args,
             )
 
+    if efficient_initialization:
+        for model in model_container:
+            for param_name, parameter in model.named_parameters():
+                parameter._is_initialized = False
+
+            for param_name, parameter in model.named_buffers():
+                parameter._is_initialized = False
+
     marker_maps = _get_parameter_marker_maps(model_container)
     accelerator = Accelerator.get_accelerator()
 
@@ -381,6 +389,13 @@ def wrap_model_container_for_distributed_training(
 
     pipeline_stages = []
     pipeline_schedule = None
+
+    for model in model_container:
+        for param_name, parameter in model.named_parameters():
+            assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
+
+        for param_name, parameter in model.named_buffers():
+            assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
 
     if num_pipeline_stages > 1:
         micro_batch_size = args.training_parameters.micro_batch_size
