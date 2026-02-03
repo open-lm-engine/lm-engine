@@ -28,6 +28,7 @@ kernel_args:
     - rnn
     - gru
     - causal_conv1d
+    - mamba2_ssm
     - flash_attention_2
 
 model_args:
