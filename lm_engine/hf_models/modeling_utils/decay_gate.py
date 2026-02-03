@@ -10,7 +10,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ..parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_no_weight_decay,
+)
 from .linear import ParameterizedLinear
 
 
@@ -64,3 +68,6 @@ class SoftplusDecayGate(nn.Module):
 
         inv_dt = dt + torch.log(-torch.expm1(-dt))
         self.dt_bias.copy_(inv_dt)
+
+        mark_parameter_as_initialized(self.A_log)
+        mark_parameter_as_initialized(self.dt_bias)
