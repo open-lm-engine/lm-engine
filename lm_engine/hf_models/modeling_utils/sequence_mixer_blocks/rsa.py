@@ -12,7 +12,11 @@ import torch.nn.functional as F
 
 from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
-from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ...parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_no_weight_decay,
+)
 from ..activations import is_glu
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
@@ -238,6 +242,9 @@ class RSA(nn.Module):
 
         if self.use_residual:
             nn.init.ones_(self.D)
+
+        mark_parameter_as_initialized(self.state_weight)
+        mark_parameter_as_initialized(self.D)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"
