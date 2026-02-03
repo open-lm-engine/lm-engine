@@ -31,7 +31,6 @@ kernel_args:
     - sonicmoe
 
 model_args:
-  model_class: AutoModelForCausalLM
   pretrained_config:
     initializer_range: 0.02
     layer_norm_epsilon: 1e-05

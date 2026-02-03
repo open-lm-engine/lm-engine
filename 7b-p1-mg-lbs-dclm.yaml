@@ -70,7 +70,6 @@ kernel_args:
     - continuous_count_cute
 
 model_args:
-  model_class: AutoModelForCausalLM
   pretrained_config:
     initializer_range: 0.1
     layer_norm_epsilon: 1e-05
