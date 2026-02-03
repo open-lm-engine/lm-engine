@@ -53,8 +53,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -63,8 +63,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -73,8 +73,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -83,8 +83,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -93,8 +93,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -103,8 +103,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -113,8 +113,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -123,8 +123,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -133,8 +133,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -143,8 +143,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -153,8 +153,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -163,8 +163,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -173,8 +173,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -183,8 +183,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -193,8 +193,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -203,8 +203,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -213,8 +213,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -223,8 +223,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -233,8 +233,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -243,8 +243,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -253,8 +253,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -263,8 +263,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -273,8 +273,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
@@ -283,8 +283,8 @@ model_args:
         add_bias: false
         use_conv_bias: true
         num_heads: 64
-        state_size: 204
-        intermediate_size: 1280
+        state_size: 216
+        intermediate_size: 1216
         conv_kernel_size: 4
         num_groups: 1
         chunk_size: 256
