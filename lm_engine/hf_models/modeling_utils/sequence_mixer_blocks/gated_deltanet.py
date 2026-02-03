@@ -15,7 +15,7 @@ import torch.nn.functional as F
 
 from ....utils import divide_if_divisible, is_fla_available
 from ...cache import GenerationCache
-from ...parameter import mark_parameter_as_no_weight_decay
+from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
@@ -169,7 +169,7 @@ class GatedDeltaNet(nn.Module):
 
             if attention_mask is not None:
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                hidden_states = pack_sequence(inputs=(q, k, v, g, beta), cu_seqlens=cu_seqlens)
+                q, k, v, g, beta = pack_sequence(inputs=(q, k, v, g, beta), cu_seqlens=cu_seqlens)
 
         # change to inference mode.
         mode = "fused_recurrent" if S <= 64 else "chunk"
@@ -238,3 +238,6 @@ class GatedDeltaNet(nn.Module):
         inv_dt = dt + torch.log(-torch.expm1(-dt))
 
         self.dt_bias.copy_(inv_dt)
+
+        mark_parameter_as_initialized(self.A_log)
+        mark_parameter_as_initialized(self.dt_bias)

@@ -8,7 +8,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from ..parameter import mark_parameter_as_no_weight_decay
+from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 
 
 class ParameterizedConv1d(nn.Conv1d):
@@ -52,3 +52,6 @@ class ParameterizedConv1d(nn.Conv1d):
             nn.init.normal_(self.weight, mean=0, std=self.std)
             if hasattr(self, "bias") and self.bias is not None:
                 self.bias.zero_()
+
+        mark_parameter_as_initialized(self.weight)
+        mark_parameter_as_initialized(self.bias)

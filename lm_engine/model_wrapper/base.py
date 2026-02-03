@@ -9,7 +9,7 @@ from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
-from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..enums import Kernel
 from ..hf_models import get_model_parallel_class, is_custom_model
@@ -25,7 +25,6 @@ class ModelWrapper(nn.Module):
         self,
         model_name: str | None,
         pretrained_config: dict | None,
-        model_class: AutoModelForCausalLM | AutoModelForSeq2SeqLM,
         dtype: torch.dtype,
         efficient_initialization: bool,
         use_padding_free_transformer: bool,
@@ -42,7 +41,6 @@ class ModelWrapper(nn.Module):
         Args:
             model_name (str | None): path of the model on disk or HF hub
             pretrained_config (dict | None): config of the model to load model from, only used if `model_name` is None
-            model_class (AutoModelForCausalLM | AutoModelForSeq2SeqLM): HF model class to use for model loading
             dtype (torch.dtype): dtype for the model
             efficient_initialization (bool): whether to use efficient initialization for the model initialization, saves CPU memory
             use_padding_free_transformer (bool): whether to use padding free transformer
@@ -59,7 +57,6 @@ class ModelWrapper(nn.Module):
 
         self.model_name = model_name
         self.pretrained_config = pretrained_config
-        self.model_class = model_class
         self.efficient_initialization = efficient_initialization
         self.dtype = dtype
         self.use_padding_free_transformer = use_padding_free_transformer
@@ -87,6 +84,8 @@ class ModelWrapper(nn.Module):
         if use_model_parallelism:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
             self.model_class = get_model_parallel_class(self.config.model_type)
+        else:
+            self.model_class = AutoModelForCausalLM
 
         if self.use_padding_free_transformer:
             assert self.is_custom_model, "padding free transformer is not supported with the specified model"
@@ -210,7 +209,7 @@ class ModelWrapper(nn.Module):
             if self.model_name is not None:
                 model_kwargs["config"] = AutoConfig.from_pretrained(model_kwargs.pop("pretrained_model_name_or_path"))
 
-            model: nn.Module = self.model_class.from_config(**model_kwargs)
+            model: nn.Module = AutoModelForCausalLM.from_config(**model_kwargs)
 
             num_parameters = 0
             for param in model.parameters():

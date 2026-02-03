@@ -20,11 +20,6 @@ from .layer import Block
 
 
 class PreTrainedModelMixin(PreTrainedModel):
-    """
-    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
-    models.
-    """
-
     config_class = None
     layer_class = Block
     base_model_prefix = "transformer"

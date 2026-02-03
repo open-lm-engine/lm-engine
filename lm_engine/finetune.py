@@ -6,7 +6,6 @@ from contextlib import nullcontext
 
 import torch
 from torch.distributed.tensor.parallel import loss_parallel
-from transformers import set_seed
 
 from .arguments import TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
@@ -29,6 +28,7 @@ from .utils import (
     StepTracker,
     TorchProfiler,
     init_distributed,
+    set_seed,
     setup_tf32,
 )
 

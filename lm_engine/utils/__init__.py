@@ -8,6 +8,7 @@ import torch
 
 from .accelerator import Accelerator
 from .communication import Communication
+from .environment import environment
 from .hf_hub import download_repo
 from .logger import log_environment, log_metrics, log_rank_0, print_rank_0, print_ranks_all, set_logger, warn_rank_0
 from .loss_dict import MetricsTrackingDict
@@ -34,6 +35,7 @@ from .packages import (
 from .parallel import ProcessGroupManager, get_pipeline_stage_ids_on_current_rank, run_rank_n
 from .profiler import TorchProfiler
 from .pydantic import BaseArgs
+from .random import set_seed
 from .safetensors import SafeTensorsWeightsManager
 from .step_tracker import StepTracker
 from .tracking import ExperimentsTracker, ProgressBar

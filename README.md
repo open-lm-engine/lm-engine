@@ -34,9 +34,6 @@ _Shawn Tan, Yikang Shen, Rameswar Panda, Aaron Courville_
 # Discord Server
 Join the [discord server](https://discord.gg/AFDxmjH5RV) if you are interested in LLM architecture or distributed training/inference research.
 
-# Getting Started
-Run `make install` to install the requirements for this repository. You might need to install `flash-attn`.
-
 # Distributed finetuning
 This repository is meant for pretraining and finetuning large language models.
 

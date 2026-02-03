@@ -38,7 +38,6 @@ tokenizer_args:
   tokenizer_name: bigcode/starcoder
 
 model_args:
-  model_class: AutoModelForCausalLM
   pretrained_config:
     model_type: gpt_base
     vocab_size: 50257

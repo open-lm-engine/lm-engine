@@ -6,7 +6,6 @@ import logging
 
 import torch
 from torch.distributed import ReduceOp
-from transformers import AutoConfig
 
 from .enums import GradientCheckpointingMethod
 from .hf_models import CommonConfig, is_custom_model
@@ -86,7 +85,7 @@ def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int
 
 
 def get_model_tflops(
-    config: AutoConfig | CommonConfig,
+    config: CommonConfig,
     batch_size: int,
     sequence_length: int,
     gradient_checkpointing_method: GradientCheckpointingMethod | None,

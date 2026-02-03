@@ -17,7 +17,11 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available, is_mamba_2_ssm_available
 from ...cache import GenerationCache
-from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ...parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_no_weight_decay,
+)
 from ..activations import get_activation_function
 from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
@@ -611,3 +615,7 @@ class Mamba2(nn.Module):
         self.dt_bias.copy_(inv_dt)
 
         nn.init.ones_(self.D)
+
+        mark_parameter_as_initialized(self.A_log)
+        mark_parameter_as_initialized(self.D)
+        mark_parameter_as_initialized(self.dt_bias)

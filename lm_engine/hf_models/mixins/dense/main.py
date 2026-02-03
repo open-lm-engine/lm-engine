@@ -19,7 +19,6 @@ from .base import PreTrainedModelMixin
 
 
 class CausalLMModelMixin(PreTrainedModelMixin):
-    _tied_weights_keys = ["lm_head.weight"]
     base_model_class = None
 
     def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:

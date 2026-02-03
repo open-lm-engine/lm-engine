@@ -12,7 +12,6 @@ from git import Repo
 from torch.distributed.pipelining.schedules import _PipelineSchedule
 from torch.distributed.tensor.parallel import loss_parallel
 from torch.utils.data import DataLoader
-from transformers import set_seed
 
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
@@ -39,6 +38,7 @@ from .utils import (
     is_torchao_available,
     log_environment,
     log_rank_0,
+    set_seed,
     setup_tf32,
 )
 

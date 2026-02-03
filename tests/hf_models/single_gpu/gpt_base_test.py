@@ -6,10 +6,10 @@ import itertools
 
 import torch
 from parameterized import parameterized
-from transformers import set_seed
 
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
+from lm_engine.utils import set_seed
 
 from ..test_common import TestCommons
 

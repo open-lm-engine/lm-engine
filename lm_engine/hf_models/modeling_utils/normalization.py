@@ -11,11 +11,17 @@ import torch.nn.functional as F
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
 from ...utils import is_xma_available
-from ..parameter import mark_parameter_as_no_weight_decay
+from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 
 
 if is_xma_available():
     from xma import rmsnorm
+
+
+class LayerNorm(nn.LayerNorm):
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+        mark_parameter_as_initialized(self.weight)
 
 
 class RMSNorm(nn.RMSNorm):
@@ -31,6 +37,10 @@ class RMSNorm(nn.RMSNorm):
             hidden_states = super().forward(hidden_states)
 
         return hidden_states
+
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+        mark_parameter_as_initialized(self.weight)
 
 
 class PNorm(RMSNorm):
@@ -55,7 +65,7 @@ class PNorm(RMSNorm):
         return f"p={self.p}"
 
 
-_NORMALIZATION_FUNCTIONS = {"layernorm": nn.LayerNorm, "p_norm": PNorm, "rmsnorm": RMSNorm}
+_NORMALIZATION_FUNCTIONS = {"layernorm": LayerNorm, "p_norm": PNorm, "rmsnorm": RMSNorm}
 
 
 def get_normalization_function(
