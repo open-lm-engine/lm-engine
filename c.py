@@ -238,6 +238,8 @@ data = {
        0.997, 0.997, 0.997, 0.997, 0.997, 0.997, 0.997, 0.997, 0.997""",
 }
 
+FONTSIZE = 20
+
 
 def parse(x):
     x = x.split(",")
@@ -252,12 +254,13 @@ plt.figure(figsize=(9, 6))
 for model, values in data.items():
     plt.plot(lengths, values, label=model)
 
-plt.xlabel("Context Length")
-plt.ylabel("Validation Accuracy")
-plt.title("$S_3$ Validation Accuracy vs Context Length")
+plt.xlabel("Context Length", fontsize=FONTSIZE)
+plt.ylabel("Validation Accuracy", fontsize=FONTSIZE)
+plt.title("$S_3$ Validation Accuracy vs Context Length", fontsize=FONTSIZE)
 plt.legend()
 plt.grid(True)
-plt.xticks([1, 128, 256, 384, 512])
+plt.xticks([1, 128, 256, 384, 512], fontsize=FONTSIZE)
+plt.yticks([0, 20, 40, 60, 80, 100], fontsize=FONTSIZE)
 plt.axvline(x=128, color="black", linestyle="--", linewidth=2)
 # plt.xscale("log", base=2)  # optional, nice for powers of 2
 plt.tight_layout()
