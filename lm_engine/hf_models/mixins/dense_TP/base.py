@@ -92,9 +92,6 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
         self.position_embedding_type = config.position_embedding_type
         self._setup_positional_encoding()
 
-        # Initialize weights and apply final processing
-        self.post_init()
-
     def forward(
         self,
         input_ids: torch.Tensor | None = None,

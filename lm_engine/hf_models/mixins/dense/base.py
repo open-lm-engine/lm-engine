@@ -38,10 +38,6 @@ class PreTrainedModelMixin(PreTrainedModel):
 
         self._has_mamba2 = any([block.sequence_mixer_type == "mamba2" for block in self.config.sequence_mixer_blocks])
 
-    def _init_weights(self, module: nn.Module) -> None:
-        if hasattr(module, "reset_parameters"):
-            module.reset_parameters()
-
     # FIXME typing
     def prepare_inputs_for_model(
         self,
@@ -117,9 +113,6 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         self.position_embedding_type = config.position_embedding_type
         self._setup_positional_encoding()
-
-        # Initialize weights and apply final processing
-        self.post_init()
 
     def forward(
         self,

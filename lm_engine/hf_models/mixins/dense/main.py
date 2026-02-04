@@ -37,9 +37,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         self.m_width = config.m_width
 
-        # Initialize weights and apply final processing
-        self.post_init()
-
     def get_input_embeddings(self) -> ParameterizedEmbedding:
         return self.transformer.wte
 
