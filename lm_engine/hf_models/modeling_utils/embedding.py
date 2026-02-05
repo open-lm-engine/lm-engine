@@ -8,6 +8,7 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.distributed._tensor.placement_types import Replicate, Shard
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
@@ -17,7 +18,7 @@ from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 
 
-class ParameterizedEmbedding(nn.Embedding, DTensorModule):
+class ParameterizedEmbedding(nn.Module, DTensorModule):
     def __init__(
         self,
         num_embeddings: int,
@@ -59,7 +60,7 @@ class ParameterizedEmbedding(nn.Embedding, DTensorModule):
         if self.is_tp_enabled:
             x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Replicate())
 
-        x = super().forward(x)
+        x = F.embedding(x, weight=self.weight)
 
         if self.is_tp_enabled:
             x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
