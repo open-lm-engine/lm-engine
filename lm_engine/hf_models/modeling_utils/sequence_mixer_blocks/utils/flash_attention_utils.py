@@ -76,20 +76,19 @@ def flash_attention(
     if sliding_window is not None and key.size(1) > sliding_window:
         window_size = (sliding_window, sliding_window)
 
+    kwargs = {"q": query, "k": key, "v": value, "softmax_scale": softmax_scale, "causal": causal}
+
     if use_padding_free_transformer:
         assert sliding_window is None
 
-        kwargs = {
-            "q": query,
-            "k": key,
-            "v": value,
-            "cu_seqlens_q": cu_seqlens,
-            "cu_seqlens_k": cu_seqlens,
-            "max_seqlen_q": max_seqlen,
-            "max_seqlen_k": max_seqlen,
-            "softmax_scale": softmax_scale,
-            "causal": causal,
-        }
+        kwargs.update(
+            {
+                "cu_seqlens_q": cu_seqlens,
+                "cu_seqlens_k": cu_seqlens,
+                "max_seqlen_q": max_seqlen,
+                "max_seqlen_k": max_seqlen,
+            }
+        )
 
         if use_flash_attention_3:
             assert dropout == 0
@@ -97,15 +96,7 @@ def flash_attention(
         else:
             attn_output = flash_attention_2_varlen(**kwargs, dropout_p=dropout)
     elif attention_mask is None:
-        kwargs = {
-            "q": query,
-            "k": key,
-            "v": value,
-            "softmax_scale": softmax_scale,
-            "causal": causal,
-            "window_size": window_size,
-            "softcap": softcap,
-        }
+        kwargs.update({"window_size": window_size, "softcap": softcap})
 
         if use_flash_attention_3:
             assert dropout == 0
@@ -119,19 +110,16 @@ def flash_attention(
             query, key, value, attention_mask, query_length
         )
 
-        kwargs = {
-            "q": query,
-            "k": key,
-            "v": value,
-            "cu_seqlens_q": cu_seqlens_q,
-            "cu_seqlens_k": cu_seqlens_k,
-            "max_seqlen_q": max_seqlen_q,
-            "max_seqlen_k": max_seqlen_k,
-            "softmax_scale": softmax_scale,
-            "causal": causal,
-            "window_size": window_size,
-            "softcap": softcap,
-        }
+        kwargs.update(
+            {
+                "cu_seqlens_q": cu_seqlens_q,
+                "cu_seqlens_k": cu_seqlens_k,
+                "max_seqlen_q": max_seqlen_q,
+                "max_seqlen_k": max_seqlen_k,
+                "window_size": window_size,
+                "softcap": softcap,
+            }
+        )
 
         if use_flash_attention_3:
             assert dropout == 0
