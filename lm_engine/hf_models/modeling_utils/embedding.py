@@ -46,11 +46,12 @@ class ParameterizedEmbedding(nn.Embedding, DTensorModule):
                     current_placement=Shard(0),
                 )
             )
+
+            self.output_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
         else:
             self.weight = nn.Parameter(torch.empty(num_embeddings, embedding_dim))
 
         self.std = std
-        self.output_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
         self.reset_parameters()
 
