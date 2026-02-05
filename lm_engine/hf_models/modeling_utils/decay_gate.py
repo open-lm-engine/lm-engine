@@ -35,6 +35,8 @@ class SoftplusDecayGate(nn.Module):
         self.dt_bias = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
 
         self.reset_parameters()
+
+        mark_parameter_as_no_weight_decay(self.A_log)
         mark_parameter_as_no_weight_decay(self.dt_bias)
 
     def forward(self, x: torch.Tensor, final_exponential: bool) -> torch.Tensor:
@@ -57,7 +59,7 @@ class SoftplusDecayGate(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = torch.arange(1, self.output_size + 1, dtype=torch.float32)
+        A = 16 * torch.rand(self.output_size, dtype=torch.float32)
         self.A_log.copy_(torch.log(A))
 
         dt_min = 0.001
