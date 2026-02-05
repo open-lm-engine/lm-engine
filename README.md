@@ -1,6 +1,6 @@
-<!-- <p align="center">
-  <img src="assets/lm-engine.jpeg" alt="LM Engine" width="400"/>
-</p> -->
+<!-- **************************************************
+Copyright (c) 2025, Mayank Mishra
+************************************************** -->
 
 <h1 align="center">LM Engine</h1>
 
