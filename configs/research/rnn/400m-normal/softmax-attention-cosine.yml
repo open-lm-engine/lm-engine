@@ -248,18 +248,18 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/softmax-attention-400m-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-400m/softmax-attention-400m-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /u/shawntan/proj/mayank/checkpoints/softmax-attention-400m-cosine
+#   load_path: /u/shawntan/proj/mayank/checkpoints-400m/softmax-attention-400m-cosine
 
 logging_args:
   log_interval: 10
   # torch_profiler_trace_path: tmp
   experiments_tracker_name: wandb
   wandb_args:
-    project: rsa
+    project: m2rnn
     name: softmax-attention-400m-cosine
 
 training_parameters:

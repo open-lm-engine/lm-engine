@@ -682,7 +682,7 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/hybrid-gated-deltanet-rsa-1l-7b-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-7b/hybrid-gated-deltanet-rsa-1l-7b-cosine
   save_interval: 5000
 
 # load_args:

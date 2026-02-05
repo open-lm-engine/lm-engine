@@ -533,11 +533,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/softmax-attention-7b-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-7b/softmax-attention-7b-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /u/shawntan/proj/mayank/checkpoints/softmax-attention-7b-cosine
+#   load_path: /u/shawntan/proj/mayank/checkpoints-7b/softmax-attention-7b-cosine
 
 logging_args:
   log_interval: 10

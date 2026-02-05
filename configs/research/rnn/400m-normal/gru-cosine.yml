@@ -461,7 +461,7 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/gru-400m-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-400m/gru-400m-cosine
   save_interval: 5000
 
 # load_args:
@@ -472,7 +472,7 @@ logging_args:
   # torch_profiler_trace_path: tmp
   experiments_tracker_name: wandb
   wandb_args:
-    project: rsa
+    project: m2rnn
     name: gru-400m-cosine
 
 training_parameters:

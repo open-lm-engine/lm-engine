@@ -694,7 +694,7 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints/gated-deltanet-neg-7b-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-neg-7b-cosine
   save_interval: 5000
 
 # load_args:
