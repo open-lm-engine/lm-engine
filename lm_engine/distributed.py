@@ -224,10 +224,10 @@ def wrap_model_container_for_distributed_training(
     if efficient_initialization:
         for model in model_container:
             for param_name, parameter in model.named_parameters():
-                del parameter._is_initialized
+                parameter._is_initialized = False
 
             for param_name, parameter in model.named_buffers():
-                del parameter._is_initialized
+                parameter._is_initialized = False
 
     marker_maps = _get_parameter_marker_maps(model_container)
     accelerator = Accelerator.get_accelerator()
