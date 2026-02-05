@@ -8,11 +8,11 @@ from torch.distributed._tensor.placement_types import Replicate, Shard
 from torch.distributed.device_mesh import DeviceMesh
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
-from .embedding import Embedding_TP
+from ..modeling_utils import ParameterizedEmbedding
 from .TP import get_module_placements
 
 
-class LMHead_TP(Embedding_TP):
+class LMHead_TP(ParameterizedEmbedding):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return self.compute_with_weight(
             input,

@@ -10,8 +10,8 @@ import torch.nn as nn
 from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...modeling_utils import Dropout, RoPE, YaRNScaledRoPE
-from ...modeling_utils_TP import Embedding_TP, get_normalization_function_TP
+from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE
+from ...modeling_utils_TP import get_normalization_function_TP
 from ...utils import is_generation_cache_enabled
 from ..dense import BaseModelMixin, PreTrainedModelMixin
 from ..modeling_outputs import BaseModelOutputWithPast
@@ -54,7 +54,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
         self.layer_end_id = self.layers_per_stage * (self.pipeline_stage_id + 1)
 
         if self.is_first_stage:
-            self.wte = Embedding_TP(
+            self.wte = ParameterizedEmbedding(
                 config.vocab_size,
                 self.embed_dim,
                 std=self.initializer_range,
@@ -168,7 +168,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
 
         if self.position_embedding_type == "learned_absolute":
             if self.is_first_stage:
-                self.wpe = Embedding_TP(
+                self.wpe = ParameterizedEmbedding(
                     max_position_embeddings,
                     self.embed_dim,
                     std=self.initializer_range,
