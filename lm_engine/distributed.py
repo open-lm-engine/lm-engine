@@ -119,15 +119,13 @@ def _get_fsdp_mixed_precision(
     return mixed_precision
 
 
-def _get_parameter_marker_maps(
-    model_container: ModelContainer, markers: list[str] = ["_no_weight_decay", "_has_mup_learning_rate"]
-) -> list[dict]:
+def _get_parameter_marker_maps(model_container: ModelContainer, extra_markers: list[str] = []) -> list[dict]:
     marker_maps = []
     for model in model_container:
         marker_maps.append({})
         for param_name, param in model.named_parameters():
             marker_maps[-1][param_name] = {}
-            for marker in markers:
+            for marker in ["_no_weight_decay", "_has_mup_learning_rate"] + extra_markers:
                 marker_maps[-1][param_name][marker] = getattr(param, marker, False)
 
     return marker_maps
@@ -231,7 +229,10 @@ def wrap_model_container_for_distributed_training(
             for param_name, parameter in model.named_buffers():
                 parameter._is_initialized = False
 
-    marker_maps = _get_parameter_marker_maps(model_container)
+        marker_maps = _get_parameter_marker_maps(model_container)
+    else:
+        marker_maps = _get_parameter_marker_maps(model_container, extra_markers=["_is_initialized"])
+
     accelerator = Accelerator.get_accelerator()
 
     if accelerator == Accelerator.tpu:
