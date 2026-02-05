@@ -13,6 +13,7 @@ from torch.distributed._tensor.placement_types import Replicate, Shard
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...utils import ProcessGroupManager, divide_if_divisible
 from ..modeling_utils import ParameterizedEmbedding
+from ..parameter import mark_parameter_as_initialized
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 
@@ -35,6 +36,7 @@ class Embedding_TP(ParameterizedEmbedding, DTensorModule):
             num_embeddings
         )
 
+        self.std = std
         super().__init__(num_embeddings_per_tp_rank, embedding_dim, std=std)
 
         self.weight = nn.Parameter(
@@ -50,6 +52,15 @@ class Embedding_TP(ParameterizedEmbedding, DTensorModule):
         input = super().forward(input)
         input = dtensor_to_tensor(input, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
         return input
+
+    @torch.no_grad()
+    def reset_parameters(self) -> None:
+        if self.std is None:
+            super().reset_parameters()
+        else:
+            self.weight.normal_(mean=0, std=self.std)
+
+        mark_parameter_as_initialized(self.weight)
 
 
 def get_tensor_parallel_vocab_info(vocab_size: int, make_vocab_size_divisible_by: int = 64) -> tuple[int, int, int]:
