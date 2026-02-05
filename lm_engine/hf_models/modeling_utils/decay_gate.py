@@ -20,7 +20,16 @@ from .linear import ParameterizedLinear
 
 class SoftplusDecayGate(nn.Module):
     def __init__(
-        self, hidden_size: int, output_size: int, std: float | None, has_projection: bool = False
+        self,
+        hidden_size: int,
+        output_size: int,
+        std: float | None,
+        has_projection: bool = False,
+        A_init_min: float = 0,
+        A_init_max: float = 16,
+        dt_init_min: float = 1e-3,
+        dt_init_max: float = 0.1,
+        dt_init_floor: float = 1e-4,
     ) -> SoftplusDecayGate:
         super().__init__()
 
@@ -33,6 +42,19 @@ class SoftplusDecayGate(nn.Module):
 
         self.A_log = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
         self.dt_bias = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
+
+        assert A_init_min >= 0
+        assert A_init_max >= A_init_min
+
+        self.A_init_min = A_init_min
+        self.A_init_max = A_init_max
+
+        assert dt_init_min > 0
+        assert dt_init_max >= dt_init_min
+
+        self.dt_init_min = dt_init_min
+        self.dt_init_max = dt_init_max
+        self.dt_init_floor = dt_init_floor
 
         self.reset_parameters()
 
@@ -59,14 +81,14 @@ class SoftplusDecayGate(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = 16 * torch.rand(self.output_size, dtype=torch.float32)
+        A = torch.empty(self.output_size, dtype=torch.float32).uniform_(self.A_init_min, self.A_init_max)
         self.A_log.copy_(torch.log(A))
 
-        dt_min = 0.001
-        dt_max = 0.1
-        dt_init_floor = 1e-4
-        dt = torch.exp(torch.rand(self.output_size) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min))
-        dt = torch.clamp(dt, min=dt_init_floor)
+        dt = torch.exp(
+            torch.rand(self.output_size) * (math.log(self.dt_init_max) - math.log(self.dt_init_min))
+            + math.log(self.dt_init_min)
+        )
+        dt = torch.clamp(dt, min=self.dt_init_floor)
 
         inv_dt = dt + torch.log(-torch.expm1(-dt))
         self.dt_bias.copy_(inv_dt)

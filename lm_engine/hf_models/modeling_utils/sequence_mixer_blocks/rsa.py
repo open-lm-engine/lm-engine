@@ -54,6 +54,11 @@ class RSA(nn.Module):
         normalization_function: str | None,
         use_softplus_decay: bool,
         norm_after_flatten: bool,
+        A_init_min: float,
+        A_init_max: float,
+        dt_init_min: float,
+        dt_init_max: float,
+        dt_init_floor: float,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
@@ -105,7 +110,17 @@ class RSA(nn.Module):
         )
 
         if self.use_softplus_decay:
-            self.decay_gate = SoftplusDecayGate(0, self.num_heads, std=None, has_projection=False)
+            self.decay_gate = SoftplusDecayGate(
+                hidden_size=0,
+                output_size=self.num_heads,
+                std=None,
+                has_projection=False,
+                A_init_min=A_init_min,
+                A_init_max=A_init_max,
+                dt_init_min=dt_init_min,
+                dt_init_max=dt_init_max,
+                dt_init_floor=dt_init_floor,
+            )
 
         if kernel_size is None:
             assert activation_function is None

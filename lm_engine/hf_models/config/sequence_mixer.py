@@ -119,6 +119,11 @@ class _RSAArgs(BaseArgs):
     normalization_function: str | None = None
     use_softplus_decay: bool = False
     norm_after_flatten: bool = True
+    A_init_min: float = 0
+    A_init_max: float = 16
+    dt_init_min: float = 1e-3
+    dt_init_max: float = 0.1
+    dt_init_floor: float = 1e-4
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rsa"
