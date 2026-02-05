@@ -18,7 +18,7 @@ from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 
 
-class ParameterizedEmbedding(nn.Module, DTensorModule):
+class ParameterizedEmbedding(DTensorModule):
     def __init__(
         self,
         num_embeddings: int,
