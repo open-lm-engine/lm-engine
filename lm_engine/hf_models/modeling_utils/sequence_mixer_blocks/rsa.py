@@ -9,7 +9,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributed._tensor.api import DTensor
+from torch.distributed._tensor.placement_types import Replicate
 
+from ....dtensors import tensor_to_dtensor
 from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
 from ...parameter import (
@@ -252,6 +255,15 @@ class RSA(nn.Module):
     def reset_parameters(self) -> None:
         W = torch.eye(self.v_head_dim)
         W = W[None, ...].expand(self.num_heads, -1, -1)
+
+        if isinstance(self.state_weight, DTensor):
+            W = tensor_to_dtensor(
+                tensor=W,
+                device_mesh=self.state_weight.device_mesh,
+                current_placement=[Replicate()] * len(self.state_weight.placements),
+                desired_placement=self.state_weight.placements,
+            )
+
         self.state_weight.copy_(W)
 
         if self.use_residual:

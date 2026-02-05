@@ -9,7 +9,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributed._tensor.api import DTensor
+from torch.distributed._tensor.placement_types import Replicate
 
+from ...dtensors import tensor_to_dtensor
 from ..parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
@@ -82,6 +85,15 @@ class SoftplusDecayGate(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         A = torch.empty(self.output_size, dtype=torch.float32).uniform_(self.A_init_min, self.A_init_max)
+
+        if isinstance(self.A_log, DTensor):
+            A = tensor_to_dtensor(
+                tensor=A,
+                device_mesh=self.A_log.device_mesh,
+                current_placement=[Replicate()] * len(self.A_log.placements),
+                desired_placement=self.A_log.placements,
+            )
+
         self.A_log.copy_(torch.log(A))
 
         dt = torch.exp(
@@ -91,6 +103,15 @@ class SoftplusDecayGate(nn.Module):
         dt = torch.clamp(dt, min=self.dt_init_floor)
 
         inv_dt = dt + torch.log(-torch.expm1(-dt))
+
+        if isinstance(self.dt_bias, DTensor):
+            inv_dt = tensor_to_dtensor(
+                tensor=inv_dt,
+                device_mesh=self.dt_bias.device_mesh,
+                current_placement=[Replicate()] * len(self.dt_bias.placements),
+                desired_placement=self.dt_bias.placements,
+            )
+
         self.dt_bias.copy_(inv_dt)
 
         mark_parameter_as_initialized(self.A_log)
