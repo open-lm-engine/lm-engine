@@ -41,7 +41,9 @@ class ParameterizedEmbedding(nn.Embedding, DTensorModule):
 
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
-                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(0)
+                    torch.empty(num_embeddings_per_tp_rank, embedding_dim),
+                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
+                    current_placement=Shard(0),
                 )
             )
         else:
