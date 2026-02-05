@@ -77,63 +77,7 @@ docker build --build-arg EXTRA=cuda -t lm-engine:cuda -f docker/Dockerfile .
 
 ### Pretraining
 
-Create a configuration file `config.yml`:
-
-```yaml
-datasets:
-  - class_name: MegatronDataset
-    data_name: pretraining-data
-    data_sampling_ratio: 1
-    class_args:
-      data_path:
-        - /path/to/tokenized/data
-      sequence_length: 2048
-      split: 98,1,1
-
-model_args:
-  pretrained_config:
-    model_type: gpt_base
-    vocab_size: 50257
-    hidden_size: 768
-    num_layers: 12
-    sequence_mixer_blocks:
-      - sequence_mixer_type: softmax_attention
-        num_attention_heads: 12
-        num_key_value_heads: 4
-    mlp_blocks:
-      - mlp_type: MLP
-        activation_function: swiglu
-        intermediate_size: 3072
-
-tuning_args:
-  tuning_method: pretraining
-
-training_parameters:
-  num_training_steps: 100000
-  micro_batch_size: 8
-  gradient_accumulation_steps: 4
-
-optimizer_args:
-  class_name: TorchAdamW
-  class_args:
-    lr: 3e-4
-    weight_decay: 0.1
-    betas: [0.9, 0.95]
-
-mixed_precision_args:
-  dtype: bf16
-
-distributed_args:
-  stage: 3  # ZeRO-3
-  tensor_parallel_world_size: 1
-  gradient_checkpointing_method: block
-
-save_args:
-  save_path: ./checkpoints
-  save_interval: 1000
-```
-
-Launch training:
+Launch training using a sample pretraining config in [configs folder](configs/).
 
 ```bash
 # Single GPU
@@ -148,7 +92,7 @@ torchrun --nnodes=2 --nproc_per_node=8 --rdzv_backend=c10d \
     -m lm_engine.pretrain --config config.yml
 ```
 
-### Finetuning
+<!-- ### Finetuning
 
 ```yaml
 datasets:
@@ -231,7 +175,7 @@ LM Engine supports a variety of model architectures through its flexible configu
 ### MLP Variants
 
 - **Dense MLP** — Standard feed-forward with configurable activations (SwiGLU, GELU, etc.)
-- **Mixture of Experts (MoE)** — Sparse expert routing with load balancing
+- **Mixture of Experts (MoE)** — Sparse expert routing with load balancing -->
 
 ---
 
@@ -275,30 +219,6 @@ distributed_args:
   gradient_checkpointing_method: block  # or "full"
   gradient_checkpointing_args:
     checkpoint_every_n_layers: 2
-```
-
----
-
-## Accelerated Model Architectures (XMA)
-
-LM Engine includes [XMA](./accelerated-model-architectures/), a collection of optimized kernels for maximum training throughput:
-
-| Kernel | CUDA | Triton | Pallas (TPU) | NKI (Trainium) |
-|--------|------|--------|--------------|----------------|
-| SwiGLU | ✅ | ✅ | ✅ | ✅ |
-| Fused Linear Cross-Entropy | — | ✅ | — | — |
-| RMSNorm | — | ✅ | — | — |
-| MoE | ✅ | ✅ | — | — |
-| Pack/Unpack Sequence | ✅ | ✅ | — | — |
-
-Enable kernels in your config:
-
-```yaml
-kernel_args:
-  kernels:
-    - fused_linear_cross_entropy
-    - rmsnorm
-    - swiglu
 ```
 
 ---
