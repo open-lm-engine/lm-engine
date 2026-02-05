@@ -57,7 +57,7 @@ class SoftplusDecayGate(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = 16 * torch.rand(self.output_size, dtype=torch.float32)
+        A = torch.arange(1, self.output_size + 1, dtype=torch.float32)
         self.A_log.copy_(torch.log(A))
 
         dt_min = 0.001
