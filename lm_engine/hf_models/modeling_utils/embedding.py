@@ -54,16 +54,16 @@ class ParameterizedEmbedding(nn.Embedding, DTensorModule):
 
         self.reset_parameters()
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.is_tp_enabled:
-            input = tensor_to_dtensor(input, device_mesh=self.tp_mesh, current_placement=Replicate())
+            x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Replicate())
 
-        input = super().forward(input)
+        x = super().forward(x)
 
         if self.is_tp_enabled:
-            input = dtensor_to_tensor(input, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
+            x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
 
-        return input
+        return x
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
