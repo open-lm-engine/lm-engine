@@ -119,13 +119,15 @@ def _get_fsdp_mixed_precision(
     return mixed_precision
 
 
-def _get_parameter_marker_maps(model_container: ModelContainer) -> list[dict]:
+def _get_parameter_marker_maps(
+    model_container: ModelContainer, markers: list[str] = ["_no_weight_decay", "_has_mup_learning_rate"]
+) -> list[dict]:
     marker_maps = []
     for model in model_container:
         marker_maps.append({})
         for param_name, param in model.named_parameters():
             marker_maps[-1][param_name] = {}
-            for marker in ["_no_weight_decay", "_has_mup_learning_rate"]:
+            for marker in markers:
                 marker_maps[-1][param_name][marker] = getattr(param, marker, False)
 
     return marker_maps
