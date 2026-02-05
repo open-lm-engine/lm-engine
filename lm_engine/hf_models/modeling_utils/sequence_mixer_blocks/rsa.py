@@ -204,7 +204,6 @@ class RSA(nn.Module):
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            do_gate_sigmoid=not self.use_softplus_decay,
         )
 
         if self.use_residual:
