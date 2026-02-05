@@ -364,7 +364,7 @@ logging_args:
   # torch_profiler_trace_path: tmp
   experiments_tracker_name: wandb
   wandb_args:
-    project: m2rnn
+    project: rsa
     name: hybrid-gated-deltanet-rsa-3l-400m-cosine
 
 training_parameters:
