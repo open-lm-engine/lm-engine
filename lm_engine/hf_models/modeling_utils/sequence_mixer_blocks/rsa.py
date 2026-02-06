@@ -191,6 +191,8 @@ class RSA(nn.Module):
 
         if self.use_softplus_decay:
             f = self.decay_gate(f, final_exponential=True)
+        else:
+            f = F.sigmoid(f.float()).type_as(f)
 
         if self.kernel_size is not None:
             x, conv_state = causal_convolution(
