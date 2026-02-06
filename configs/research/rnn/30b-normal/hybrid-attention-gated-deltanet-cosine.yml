@@ -718,5 +718,5 @@ distributed_args:
   stage: 3
   torch_compile: true
   zero_topology:
-    data_parallel_replication_world_size: 8
-    data_parallel_sharding_world_size: 8
+    data_parallel_replication_world_size: 2
+    data_parallel_sharding_world_size: 32
