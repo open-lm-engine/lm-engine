@@ -28,7 +28,7 @@ kernel_args:
     - rnn
     - gru
     - causal_conv1d
-    - flash_attention_2
+    - flash_attention_3
     - sonicmoe
 
 model_args:

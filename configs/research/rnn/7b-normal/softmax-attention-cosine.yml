@@ -27,7 +27,7 @@ kernel_args:
   kernels:
     - rnn
     - gru
-    - flash_attention_2
+    - flash_attention_3
     - sonicmoe
 
 model_args:
