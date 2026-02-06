@@ -759,4 +759,7 @@ distributed_args:
   torch_compile: true
   zero_topology:
     data_parallel_replication_world_size: 2
-    data_parallel_sharding_world_size: 32
+    data_parallel_sharding_world_size: 64
+  gradient_checkpointing_method: block
+  gradient_checkpointing_args:
+    num_blocks: 25
