@@ -28,7 +28,6 @@ kernel_args:
     - rnn
     - gru
     - causal_conv1d
-    - mamba2_ssm
     - flash_attention_2
     - sonicmoe
 
@@ -48,406 +47,366 @@ model_args:
     vocab_size: 100352
     max_position_embeddings: 4096
     sequence_mixer_blocks:
-      - sequence_mixer_type: mamba2
-        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: rsa
-        k_head_dim: 64
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 248
-        num_f_heads: 248
-        num_g_heads: 248
-        num_weight_heads: 248
-        use_residual: true
-        activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: softmax_attention
-        num_attention_heads: 24
-        num_key_value_heads: 24
-        add_bias: false
-      - sequence_mixer_type: mamba2
+        kernel_size: 4
         activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: rsa
-        k_head_dim: 64
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 248
-        num_f_heads: 248
-        num_g_heads: 248
-        num_weight_heads: 248
-        use_residual: true
-        activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: softmax_attention
-        num_attention_heads: 24
-        num_key_value_heads: 24
-        add_bias: false
-      - sequence_mixer_type: mamba2
+        kernel_size: 4
         activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: rsa
-        k_head_dim: 64
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 248
-        num_f_heads: 248
-        num_g_heads: 248
-        num_weight_heads: 248
-        use_residual: true
-        activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: softmax_attention
-        num_attention_heads: 24
-        num_key_value_heads: 24
-        add_bias: false
-      - sequence_mixer_type: mamba2
+        kernel_size: 4
         activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: rsa
-        k_head_dim: 64
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 248
-        num_f_heads: 248
-        num_g_heads: 248
-        num_weight_heads: 248
-        use_residual: true
-        activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: softmax_attention
-        num_attention_heads: 24
-        num_key_value_heads: 24
-        add_bias: false
-      - sequence_mixer_type: mamba2
+        kernel_size: 4
         activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
-        activation_function: silu
-        add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: rsa
-        k_head_dim: 64
-        v_head_dim: 16
-        num_q_heads: 1
-        num_k_heads: 1
-        num_v_heads: 248
-        num_f_heads: 248
-        num_g_heads: 248
-        num_weight_heads: 248
-        use_residual: true
-        activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
-        kernel_size: 4
-        add_bias: false
         gradient_clipping: 1
-      - sequence_mixer_type: softmax_attention
-        num_attention_heads: 24
-        num_key_value_heads: 24
-        add_bias: false
-      - sequence_mixer_type: mamba2
+        kernel_size: 4
         activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
         activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
-      - sequence_mixer_type: mamba2
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
         activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
-        use_conv_bias: true
-        num_heads: 32
-        state_size: 256
-        intermediate_size: 3936
-        conv_kernel_size: 4
-        num_groups: 1
-        chunk_size: 256
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: rnn
+        state_head_dim: 16
+        num_input_heads: 256
+        num_weight_heads: 256
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
     mlp_blocks:
       - mlp_type: MoE
         shared_intermediate_size: 1024
@@ -775,11 +734,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints-30b/hybrid-mamba2-rsa-4l-30b-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-27b/rnn-27b-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/hybrid-mamba2-rsa-4l-30b-cosine
+#   load_path: /mnt/vast/proj/checkpoints/mayank/rnn-27b-cosine
 
 logging_args:
   log_interval: 10
@@ -787,7 +746,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: rsa
-    name: hybrid-mamba2-rsa-4l-30b-cosine
+    name: rnn-27b-cosine
 
 training_parameters:
   num_training_steps: 25000

@@ -894,11 +894,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints-30b/gru-30b-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-27b/gru-27b-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/gru-30b-cosine
+#   load_path: /mnt/vast/proj/checkpoints/mayank/gru-27b-cosine
 
 logging_args:
   log_interval: 10
@@ -906,7 +906,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: rsa
-    name: gru-30b-cosine
+    name: gru-27b-cosine
 
 training_parameters:
   num_training_steps: 25000

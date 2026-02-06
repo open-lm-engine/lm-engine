@@ -53,7 +53,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -61,7 +61,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -69,7 +69,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -77,7 +77,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -85,7 +85,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -93,7 +93,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -101,7 +101,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -109,7 +109,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -117,7 +117,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -125,7 +125,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -133,7 +133,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -141,7 +141,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -149,7 +149,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -157,7 +157,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -165,7 +165,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -173,7 +173,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -181,7 +181,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -189,7 +189,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -197,7 +197,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -205,7 +205,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -213,7 +213,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -221,7 +221,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -229,7 +229,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -237,7 +237,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -245,7 +245,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -253,7 +253,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -261,7 +261,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -269,7 +269,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -277,7 +277,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -285,7 +285,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -293,7 +293,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -301,7 +301,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -309,7 +309,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -317,7 +317,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -325,7 +325,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -333,7 +333,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -341,7 +341,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -349,7 +349,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -357,7 +357,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
       - sequence_mixer_type: gated_deltanet
         k_head_dim: 256
@@ -365,7 +365,7 @@ model_args:
         num_k_heads: 6
         num_v_heads: 6
         use_gate: true
-        allow_neg_eigval: false
+        allow_neg_eigval: true
         kernel_size: 4
     mlp_blocks:
       - mlp_type: MoE
@@ -694,11 +694,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints-30b/gated-deltanet-30b-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-27b/gated-deltanet-neg-27b-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/gated-deltanet-30b-cosine
+#   load_path: /mnt/vast/proj/checkpoints/mayank/gated-deltanet-neg-27b-cosine
 
 logging_args:
   log_interval: 10
@@ -706,7 +706,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: rsa
-    name: gated-deltanet-30b-cosine
+    name: gated-deltanet-neg-27b-cosine
 
 training_parameters:
   num_training_steps: 25000
