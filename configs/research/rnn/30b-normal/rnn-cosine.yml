@@ -49,8 +49,8 @@ model_args:
     sequence_mixer_blocks:
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -58,8 +58,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -67,8 +67,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -76,8 +76,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -85,8 +85,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -94,8 +94,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -103,8 +103,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -112,8 +112,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -121,8 +121,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -130,8 +130,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -139,8 +139,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -148,8 +148,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -157,8 +157,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -166,8 +166,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -175,8 +175,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -184,8 +184,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -193,8 +193,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -202,8 +202,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -211,8 +211,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -220,8 +220,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -229,8 +229,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -238,8 +238,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -247,8 +247,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -256,8 +256,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -265,8 +265,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -274,8 +274,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -283,8 +283,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -292,8 +292,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -301,8 +301,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -310,8 +310,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -319,8 +319,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -328,8 +328,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -337,8 +337,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -346,8 +346,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -355,8 +355,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -364,8 +364,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -373,8 +373,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -382,8 +382,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -391,8 +391,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
@@ -400,8 +400,8 @@ model_args:
         activation_function: silu
       - sequence_mixer_type: rnn
         state_head_dim: 16
-        num_input_heads: 128
-        num_weight_heads: 128
+        num_input_heads: 256
+        num_weight_heads: 256
         add_bias: false
         normalization_function: rmsnorm
         gradient_clipping: 1
