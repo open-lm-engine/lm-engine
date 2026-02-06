@@ -688,7 +688,7 @@ model_args:
         intermediate_size: 256
         activation_function: swiglu
         add_bias: false
-  efficient_initialization: false
+  efficient_initialization: true
 
 tuning_args:
   tuning_method: pretraining
