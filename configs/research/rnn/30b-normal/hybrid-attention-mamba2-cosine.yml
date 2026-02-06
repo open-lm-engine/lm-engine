@@ -39,7 +39,7 @@ model_args:
     model_type: gpt_base
     normalization_function: rmsnorm
     position_embedding_type: nope
-    hidden_size: 1536
+    hidden_size: 2048
     num_layers: 40
     init_method: normal
     bos_token_id: 100257
