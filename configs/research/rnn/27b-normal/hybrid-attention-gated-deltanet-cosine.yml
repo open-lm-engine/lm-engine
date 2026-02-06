@@ -689,7 +689,7 @@ logging_args:
     name: hybrid-gated-deltanet-27b-cosine
 
 training_parameters:
-  num_training_steps: 25000
+  num_training_steps: 50000
   eval_interval: 2500
   micro_batch_size: 8
   gradient_accumulation_steps: 1
@@ -709,7 +709,7 @@ lr_scheduler_args:
   lr_decay_style: cosine
   num_warmup_steps: 2500
   num_constant_steps: 0
-  num_decay_steps: 22500
+  num_decay_steps: 47500
 
 mixed_precision_args:
   dtype: bf16
