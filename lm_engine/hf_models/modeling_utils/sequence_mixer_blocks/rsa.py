@@ -267,12 +267,11 @@ class RSA(nn.Module):
             )
 
         self.state_weight.copy_(W)
+        mark_parameter_as_initialized(self.state_weight)
 
         if self.use_residual:
             nn.init.ones_(self.D)
-
-        mark_parameter_as_initialized(self.state_weight)
-        mark_parameter_as_initialized(self.D)
+            mark_parameter_as_initialized(self.D)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"

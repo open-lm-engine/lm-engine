@@ -55,7 +55,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -71,7 +71,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -87,7 +87,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -103,7 +103,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -119,7 +119,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -135,7 +135,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -151,7 +151,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -167,7 +167,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -183,7 +183,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -199,7 +199,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -215,7 +215,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -231,7 +231,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -247,7 +247,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -263,7 +263,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -279,7 +279,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -295,7 +295,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -311,7 +311,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -327,7 +327,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -343,7 +343,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -359,7 +359,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -375,7 +375,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -391,7 +391,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -407,7 +407,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
@@ -423,7 +423,7 @@ model_args:
         num_f_heads: 84
         num_g_heads: 84
         num_weight_heads: 84
-        use_residual: true
+        use_residual: false
         activation_function: silu
         use_softplus_decay: true
         normalization_function: rmsnorm
