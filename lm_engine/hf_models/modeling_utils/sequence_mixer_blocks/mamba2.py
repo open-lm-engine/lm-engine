@@ -305,33 +305,30 @@ class Mamba2(nn.Module):
             # [bsz, n_groups * state_size] -> [bsz, n_groups, 1, state_size] ->
             # -> [bsz, n_groups, group to head repetition factor, state_size] -> [bsz, num_heads, state_size]
             # NOTE: S = 1 actually here
-            B = B.reshape(batch_size, self.n_groups, -1)[..., None, :]
-            # B -> (B, G, 1, ssm_state_size / num_groups)
-            B = B.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, B.shape[-1]).contiguous()
-            # B -> (B, G, N / G, ssm_state_size / num_groups)
-            B = B.reshape(batch_size, -1, B.shape[-1])
-            # B -> (B, N, ssm_state_size / num_groups)
+            B, C = [i.reshape(batch_size, self.n_groups, -1)[..., None, :] for i in (B, C)]
+            # B, C -> (B, G, 1, ssm_state_size)
+            B, C = [
+                i.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, i.shape[-1]).contiguous()
+                for i in (B, C)
+            ]
+            # B, C -> (B, G, N / G, ssm_state_size)
+            B, C = [i.reshape(batch_size, -1, i.shape[-1]) for i in (B, C)]
+            # B, C -> (B, N, ssm_state_size)
 
-            # (B, N, head_dim, 1) * (B, N, 1, ssm_state_size / num_groups)
+            # (B, N, head_dim, 1) * (B, N, 1, ssm_state_size)
+            # B is same as k and is shared across heads and dt is used to expand it
             dB = dt[..., None] * B[..., None, :]
-            # dB -> (B, N, head_dim, ssm_state_size / num_groups)
+            # dB -> (B, N, head_dim, ssm_state_size)
 
             # Discretize x into dB
             hidden_states = hidden_states.reshape(batch_size, -1, self.head_dim)
             # hidden_states -> (B, N, head_dim)
             dBx = (dB * hidden_states[..., None]).to(device=cache_device)
-            # dBx -> (B, N, head_dim, ssm_state_size / num_groups)
+            # dBx -> (B, N, head_dim, ssm_state_size)
 
             # State calculation
             ssm_state = ssm_state * dA + dBx
             cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
-
-            # Subsequent output
-            # [bsz, n_groups * state_size] -> [bsz, num_heads, state_size]
-            C = C.reshape(batch_size, self.n_groups, -1)[..., None, :]
-            C = C.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, C.shape[-1]).contiguous()
-            C = C.reshape(batch_size, -1, C.shape[-1])
-            # [bsz, num_heads, head_dim]
 
             ssm_state = ssm_state.to(device=C.device, dtype=C.dtype)  # Shape: [b, h, d, n]
             # Reshape ssm_states to merge the first two dimensions
@@ -351,7 +348,7 @@ class Mamba2(nn.Module):
             y = y.reshape(batch_size, -1)[:, None, ...]
         else:
             # begin ssd naive implementation without einsums
-            dt = nn.functional.softplus(dt + self.dt_bias)
+            dt = F.softplus(dt + self.dt_bias)
             dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
             hidden_states = hidden_states.reshape(batch_size, seq_len, -1, self.head_dim).float()
             B = B.reshape(batch_size, seq_len, -1, self.ssm_state_size).float()
@@ -502,7 +499,8 @@ class Mamba2(nn.Module):
                 dt_softplus=True,
             )
             hidden_states = hidden_states.view(batch_size, self.num_heads * self.head_dim)
-            hidden_states = self.norm(hidden_states, gate)
+            hidden_states = hidden_states * F.silu(gate)
+            hidden_states = self.norm(hidden_states)
 
             # 4. Final linear projection
             out = self.out_proj(hidden_states)[:, None, ...]
@@ -602,20 +600,21 @@ class Mamba2(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = torch.log(torch.arange(1, self.num_heads + 1))
+        A = torch.empty(self.num_heads, dtype=torch.float32).uniform_(0, 16)
+        self.A_log.copy_(torch.log(A))
 
-        if isinstance(self.A_log, DTensor):
-            A = tensor_to_dtensor(
-                A,
-                device_mesh=self.A_log.device_mesh,
-                current_placement=[Replicate()] * len(self.A_log.placements),
-                desired_placement=self.A_log.placements,
-            )
+        # hard coded for now
+        dt_min = 0.001
+        dt_max = 0.1
+        dt_init_floor = 1e-4
+        dt = torch.exp(torch.rand(self.num_heads) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min))
+        dt = torch.clamp(dt, min=dt_init_floor)
+        # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
+        inv_dt = dt + torch.log(-torch.expm1(-dt))
 
-        self.A_log.copy_(A)
+        self.dt_bias.copy_(inv_dt)
 
         nn.init.ones_(self.D)
-        nn.init.ones_(self.dt_bias)
 
         mark_parameter_as_initialized(self.A_log)
         mark_parameter_as_initialized(self.D)
