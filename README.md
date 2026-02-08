@@ -12,7 +12,7 @@ Copyright (c) 2025, Mayank Mishra
   <a href="https://github.com/open-lm-engine/lm-engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+"></a>
   <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-2.8+-orange.svg" alt="PyTorch 2.8+"></a>
-  <a href="https://discord.gg/AFDxmjH5RV"><img src="https://img.shields.io/discord/1234567890?color=7289da&label=Discord&logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://discord.gg/AFDxmjH5RV"><img src="https://img.shields.io/badge/Discord%20-blue.svg"></a>
 </p>
 
 ---
