@@ -29,10 +29,10 @@ class GPTBaseAttentionTest(TestCommons):
         self.skip_test_if_device_unavailable(device)
 
         kernel = None
-        if is_flash_attention_2_available():
-            kernel = Kernel.flash_attention_2
         if is_flash_attention_3_available():
             kernel = Kernel.flash_attention_3
+        if is_flash_attention_2_available():
+            kernel = Kernel.flash_attention_2
 
         if kernel is None:
             self.skipTest("skipping test because flash attention 2 or 3 is unavailable")
