@@ -9,7 +9,7 @@ from parameterized import parameterized
 
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import set_seed
+from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, set_seed
 
 from ..test_common import TestCommons
 
@@ -27,6 +27,15 @@ class GPTBaseAttentionTest(TestCommons):
         self, device: torch.device, position_embedding_type: str, dtype: torch.dtype
     ) -> None:
         self.skip_test_if_device_unavailable(device)
+
+        kernel = None
+        if is_flash_attention_2_available():
+            kernel = Kernel.flash_attention_2
+        if is_flash_attention_3_available():
+            kernel = Kernel.flash_attention_3
+
+        if kernel is None:
+            self.skipTest("skipping test because flash attention 2 or 3 is unavailable")
 
         set_seed(SEED)
 
