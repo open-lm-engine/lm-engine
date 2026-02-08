@@ -12,7 +12,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributed._tensor.api import DTensor
+from torch.distributed._tensor.placement_types import Replicate
 
+from ....dtensors import tensor_to_dtensor
 from ....utils import divide_if_divisible, is_fla_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
@@ -223,8 +226,18 @@ class GatedDeltaNet(nn.Module):
 
         return o
 
+    @torch.no_grad()
     def reset_parameters(self) -> None:
         A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
+
+        if isinstance(self.A_log, DTensor):
+            A = tensor_to_dtensor(
+                tensor=A,
+                device_mesh=self.A_log.device_mesh,
+                current_placement=[Replicate()] * len(self.A_log.placements),
+                desired_placement=self.A_log.placements,
+            )
+
         self.A_log.copy_(torch.log(A))
 
         # hard coded for now
@@ -235,6 +248,14 @@ class GatedDeltaNet(nn.Module):
         dt = torch.clamp(dt, min=dt_init_floor)
         # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
         inv_dt = dt + torch.log(-torch.expm1(-dt))
+
+        if isinstance(self.dt_bias, DTensor):
+            inv_dt = tensor_to_dtensor(
+                tensor=inv_dt,
+                device_mesh=self.dt_bias.device_mesh,
+                current_placement=[Replicate()] * len(self.dt_bias.placements),
+                desired_placement=self.dt_bias.placements,
+            )
 
         self.dt_bias.copy_(inv_dt)
 
