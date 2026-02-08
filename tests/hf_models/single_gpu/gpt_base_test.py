@@ -213,6 +213,7 @@ class GPTBaseAttentionTest(TestCommons):
             rtol_bfloat16=5e-3,
             atol_bfloat16=5e-3,
         )
+
         self.assert_equal_tensors(sdpa_loss, flash_loss, False, atol_float32=3.8e-4, rtol_float32=0)
 
     @parameterized.expand(
@@ -225,6 +226,15 @@ class GPTBaseAttentionTest(TestCommons):
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
+        kernel = None
+        if is_flash_attention_3_available():
+            kernel = Kernel.flash_attention_3
+        if is_flash_attention_2_available():
+            kernel = Kernel.flash_attention_2
+
+        if kernel is None:
+            self.skipTest("skipping test because flash attention 2 or 3 is unavailable")
+
         set_seed(SEED)
 
         input_ids, _, labels = self.get_dummy_inputs(device)
@@ -235,7 +245,7 @@ class GPTBaseAttentionTest(TestCommons):
         model = self.from_config(config, dtype=dtype).to(device)
         model.eval()
 
-        with enable_kernels([Kernel.flash_attention_2]):
+        with enable_kernels([kernel]):
             output_with_mask = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
             logits_with_mask = output_with_mask.logits
             loss_with_mask = output_with_mask.loss
