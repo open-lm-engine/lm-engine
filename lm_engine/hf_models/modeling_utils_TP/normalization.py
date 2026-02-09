@@ -12,7 +12,7 @@ from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed, wait_for_ACT
 from ...utils import ProcessGroupManager, is_xma_available
-from .dtensor_module import DTensorModule
+from ..modeling_utils import DTensorModule
 from .TP import get_module_placements
 
 

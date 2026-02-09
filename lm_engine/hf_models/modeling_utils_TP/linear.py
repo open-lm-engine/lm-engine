@@ -10,8 +10,7 @@ from torch.distributed._tensor.placement_types import Replicate, Shard
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
 from ...utils import ProcessGroupManager, divide_if_divisible
-from ..modeling_utils import ParameterizedLinear
-from .dtensor_module import DTensorModule
+from ..modeling_utils import DTensorModule, ParameterizedLinear
 from .TP import get_module_placements
 
 

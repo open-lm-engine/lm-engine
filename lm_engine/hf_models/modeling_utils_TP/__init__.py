@@ -2,7 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from .dtensor_module import DTensorModule
 from .linear import ColumnParallelLinear, RowParallelLinear
 from .lm_head import LMHead_TP
 from .mlp_blocks import MLP_TP, MoE_TP, get_mlp_block_TP
