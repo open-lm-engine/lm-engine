@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import torch
 import torch.nn as nn
 from torch.distributed._tensor.placement_types import Replicate
 
@@ -39,5 +38,3 @@ class ReplicatedLinear(ParameterizedLinear, DTensorModule):
                         current_placement=Replicate(),
                     )
                 )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor: ...

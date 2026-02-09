@@ -21,7 +21,7 @@ from ...parameter import mark_parameter_as_initialized, mark_parameter_as_mup_le
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
-from ..linear import ColumnParallelLinear, ParameterizedLinear, RowParallelLinear
+from ..linear import ColumnParallelLinear, ParameterizedLinear, ReplicatedLinear, RowParallelLinear
 from .mlp import _get_std_for_linear
 
 
@@ -62,19 +62,6 @@ class SharedExpertsColumnParallelLinear(ColumnParallelLinear):
 class SharedExpertsRowParallelLinear(RowParallelLinear):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return F.linear(x, dtensor_to_tensor(self.weight), dtensor_to_tensor(self.bias))
-
-
-class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
-    def __init__(
-        self, in_features: int, out_features: int, bias: bool = True, std: float | None = None
-    ) -> ReplicatedLinear_TP:
-        super().__init__(in_features=in_features, out_features=out_features, bias=bias, std=std)
-
-        self.weight = nn.Parameter(
-            tensor_to_dtensor(
-                self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Replicate()
-            )
-        )
 
 
 class ParameterizedExperts(nn.Module):
@@ -269,12 +256,7 @@ class MoE(nn.Module):
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
-        self.gate = ParameterizedLinear(
-            in_features=self.hidden_size,
-            out_features=num_experts,
-            bias=False,
-            std=std,
-        )
+        self.gate = ReplicatedLinear(in_features=self.hidden_size, out_features=num_experts, bias=False, std=std)
 
         if self.shared_expert_gating:
             assert shared_intermediate_size is not None
