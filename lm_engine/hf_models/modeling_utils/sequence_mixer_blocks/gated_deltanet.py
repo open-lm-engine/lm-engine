@@ -163,7 +163,7 @@ class GatedDeltaNet(nn.Module):
 
         beta = b.sigmoid()
         if self.allow_neg_eigval:
-            beta = beta * 2.0
+            beta = beta * 2
 
         g = self.decay_gate(x=a, final_exponential=False)
 
