@@ -28,6 +28,7 @@ from ...modeling_utils import (
     is_glu,
 )
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
+from ...modeling_utils.mlp_blocks.moe import SharedExpertsColumnParallelLinear, SharedExpertsRowParallelLinear
 
 
 if is_xma_available():
@@ -156,16 +157,6 @@ class RowParallelExperts(ColumnParallelExperts):
                 self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(-1)
             )
         )
-
-
-class SharedExpertsColumnParallelLinear(ColumnParallelLinear):
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, dtensor_to_tensor(self.weight), dtensor_to_tensor(self.bias))
-
-
-class SharedExpertsRowParallelLinear(RowParallelLinear):
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, dtensor_to_tensor(self.weight), dtensor_to_tensor(self.bias))
 
 
 class MoE_TP(MoE, DTensorModule):
