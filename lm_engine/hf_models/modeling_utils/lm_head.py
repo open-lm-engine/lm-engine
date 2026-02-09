@@ -12,10 +12,10 @@ from ..modeling_utils import ParameterizedEmbedding
 from ..modeling_utils.TP import get_module_placements
 
 
-class LMHead_TP(ParameterizedEmbedding):
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+class LMHead(ParameterizedEmbedding):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.compute_with_weight(
-            input,
+            x,
             self.weight,
             use_padding_free_transformer=self.use_padding_free_transformer,
             sequence_parallel=self.sequence_parallel,
@@ -24,18 +24,16 @@ class LMHead_TP(ParameterizedEmbedding):
 
     @staticmethod
     def compute_with_weight(
-        input: torch.Tensor,
+        x: torch.Tensor,
         weight: torch.Tensor,
         use_padding_free_transformer: bool,
         sequence_parallel: bool,
         tp_mesh: DeviceMesh,
     ) -> torch.Tensor:
-        function = (
-            LMHead_TP._compute_with_weight_compiled if use_async_tensor_parallel() else LMHead_TP._compute_with_weight
-        )
+        function = LMHead._compute_with_weight_compiled if use_async_tensor_parallel() else LMHead._compute_with_weight
 
         return function(
-            input=input,
+            input=x,
             weight=weight,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
@@ -44,33 +42,33 @@ class LMHead_TP(ParameterizedEmbedding):
 
     @staticmethod
     def _compute_with_weight(
-        input: torch.Tensor,
+        x: torch.Tensor,
         weight: torch.Tensor,
         use_padding_free_transformer: bool,
         sequence_parallel: bool,
         tp_mesh: DeviceMesh,
     ) -> torch.Tensor:
-        input = tensor_to_dtensor(
-            input,
+        x = tensor_to_dtensor(
+            x,
             device_mesh=tp_mesh,
             current_placement=get_module_placements(use_padding_free_transformer, sequence_parallel),
             desired_placement=Replicate(),
         )
-        input = F.linear(input, weight)
-        input = dtensor_to_tensor(input, device_mesh=tp_mesh, desired_placement=Shard(-1))
-        return input
+        x = F.linear(x, weight)
+        x = dtensor_to_tensor(x, device_mesh=tp_mesh, desired_placement=Shard(-1))
+        return x
 
     @torch.compile
     @staticmethod
     def _compute_with_weight_compiled(
-        input: torch.Tensor,
+        x: torch.Tensor,
         weight: torch.Tensor,
         use_padding_free_transformer: bool,
         sequence_parallel: bool,
         tp_mesh: DeviceMesh,
     ) -> torch.Tensor:
-        return LMHead_TP._compute_with_weight(
-            input=input,
+        return LMHead._compute_with_weight(
+            input=x,
             weight=weight,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,

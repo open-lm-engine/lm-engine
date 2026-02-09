@@ -20,7 +20,7 @@ from ...loss import (
     get_aux_loss,
     is_aux_loss_zero,
 )
-from ...modeling_utils_TP import LMHead_TP
+from ...modeling_utils import LMHead
 from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
 from ..dense import CausalLMModelMixin
 from ..modeling_outputs import (
@@ -40,7 +40,7 @@ class CausalLMModelMixin_TP(CausalLMModelMixin):
 
         if self.is_last_stage:
             if not self._tied_word_embeddings:
-                self.lm_head = LMHead_TP(
+                self.lm_head = LMHead(
                     self.vocab_size,
                     config.hidden_size,
                     std=config.initializer_range,
@@ -165,7 +165,7 @@ class CausalLMModelMixin_TP(CausalLMModelMixin):
 
     def get_lm_logits(self, hidden_states: torch.Tensor) -> torch.Tensor:
         return (
-            LMHead_TP.compute_with_weight(
+            LMHead.compute_with_weight(
                 hidden_states,
                 weight=self.transformer.wte.weight,
                 use_padding_free_transformer=self.use_padding_free_transformer,
