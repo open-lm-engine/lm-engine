@@ -190,10 +190,11 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
             marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
 
             model = model.to(dtype=dtype)
-            set_parameter_marker_maps([model], marker_maps)
 
         # copy to device without copying storage
         model = model.to_empty(device=torch.cuda.current_device())
+        set_parameter_marker_maps([model], marker_maps)
+
         model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
 
         return model
