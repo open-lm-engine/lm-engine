@@ -10,17 +10,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
+from torch.distributed._tensor.placement_types import Replicate, Shard
 
-from ....dtensors import dtensor_to_tensor
+from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
-from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, is_sonicmoe_available, is_xma_available
+from ....kernels import is_kernel_allowed, wait_for_ACT
+from ....utils import ProcessGroupManager, divide_if_divisible, is_sonicmoe_available, is_xma_available
 from ...loss import add_aux_loss
-from ...parameter import (
-    mark_parameter_as_initialized,
-    mark_parameter_as_mup_learning_rate,
-    mark_parameter_as_no_weight_decay,
-)
+from ...parameter import mark_parameter_as_initialized, mark_parameter_as_mup_learning_rate
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
@@ -69,17 +66,9 @@ class SharedExpertsRowParallelLinear(RowParallelLinear):
 
 class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
     def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
+        self, in_features: int, out_features: int, bias: bool = True, std: float | None = None
     ) -> ReplicatedLinear_TP:
-        super().__init__(
-            in_features=in_features, out_features=out_features, bias=bias, device=device, dtype=dtype, std=std
-        )
+        super().__init__(in_features=in_features, out_features=out_features, bias=bias, std=std)
 
         self.weight = nn.Parameter(
             tensor_to_dtensor(
@@ -90,16 +79,11 @@ class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
 
 class ParameterizedExperts(nn.Module):
     def __init__(
-        self, num_experts: int, in_features: int, out_features: int, add_bias: bool = False, std: float | None = None
+        self, num_experts: int, in_features: int, out_features: int, std: float | None = None
     ) -> ParameterizedExperts:
         super().__init__()
 
         self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features))
-
-        self.bias = None
-        if add_bias:
-            self.bias = nn.Parameter(torch.empty(num_experts, out_features))
-
         self.std = std
 
         self.num_experts = num_experts
@@ -108,11 +92,9 @@ class ParameterizedExperts(nn.Module):
 
         self.reset_parameters()
 
-        mark_parameter_as_no_weight_decay(self.bias)
-
     def forward(
         self,
-        input: torch.Tensor,
+        x: torch.Tensor,
         num_experts_per_token: int | None = None,
         expert_frequency: torch.Tensor | None = None,
         sorted_expert_idxs: torch.Tensor | None = None,
@@ -125,8 +107,8 @@ class ParameterizedExperts(nn.Module):
         if is_kernel_allowed(Kernel.scattermoe):
             assert self.bias is None
 
-            input = scattered_experts(
-                inputs=input,
+            x = scattered_experts(
+                inputs=x,
                 expert_weights=self.weight.permute(0, 2, 1),
                 k=num_experts_per_token,
                 sorted_expert_idxs=sorted_expert_idxs,
@@ -137,14 +119,11 @@ class ParameterizedExperts(nn.Module):
                 grouped_out=grouped_out,
             )
         else:
-            input = input.split(expert_frequency.tolist(), dim=0)
-            input = [
-                F.linear(input[i], self.weight[i], None if self.bias is None else self.bias[i])
-                for i in range(self.num_experts)
-            ]
-            input = torch.cat(input, dim=0)
+            x = x.split(expert_frequency.tolist(), dim=0)
+            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
+            x = torch.cat(x, dim=0)
 
-        return input
+        return x
 
     def extra_repr(self) -> str:
         return "num_experts={}, in_features={}, out_features={}".format(
@@ -154,11 +133,110 @@ class ParameterizedExperts(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.weight, mean=0, std=self.std)
-        if hasattr(self, "bias") and self.bias is not None:
-            self.bias.zero_()
-
         mark_parameter_as_initialized(self.weight)
-        mark_parameter_as_initialized(self.bias)
+
+
+class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
+    def __init__(
+        self, num_experts: int, in_features: int, out_features: int, std: float | None = None
+    ) -> ColumnParallelExperts:
+        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+
+        self.out_features_per_tp_rank = divide_if_divisible(
+            out_features,
+            tp_world_size,
+            f"`out_features` ({out_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
+        )
+
+        super().__init__(
+            num_experts=num_experts, in_features=in_features, out_features=self.out_features_per_tp_rank, std=std
+        )
+
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
+        if self.is_tp_enabled:
+            self.weight = nn.Parameter(
+                tensor_to_dtensor(
+                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(1)
+                )
+            )
+
+            self.reset_parameters()
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        num_experts_per_token: int | None = None,
+        expert_frequency: torch.Tensor | None = None,
+        sorted_expert_idxs: torch.Tensor | None = None,
+        sorted_scattered_idxs: torch.Tensor | None = None,
+        expert_offsets: torch.Tensor | None = None,
+        gates: torch.Tensor | None = None,
+        grouped_in: bool = False,
+        grouped_out: bool = False,
+    ) -> torch.Tensor:
+        if self.is_tp_enabled:
+            assert is_kernel_allowed(Kernel.scattermoe)
+
+        x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+
+        if is_kernel_allowed(Kernel.scattermoe):
+            assert self.bias is None
+
+            x = scattered_experts(
+                inputs=x,
+                expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
+                k=num_experts_per_token,
+                sorted_expert_idxs=sorted_expert_idxs,
+                sorted_scattered_idxs=sorted_scattered_idxs,
+                expert_offsets=expert_offsets,
+                gates=gates,
+                grouped_in=grouped_in,
+                grouped_out=grouped_out,
+            )
+
+            x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
+        else:
+            x = x.split(expert_frequency.tolist(), dim=0)
+            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
+            x = torch.cat(x, dim=0)
+
+        return x
+
+    def extra_repr(self) -> str:
+        return "num_experts={}, in_features={}, out_features_per_tp_rank={}".format(
+            self.num_experts, self.in_features, self.out_features_per_tp_rank
+        )
+
+
+class RowParallelExperts(ColumnParallelExperts):
+    def __init__(
+        self, num_experts: int, in_features: int, out_features: int, std: float | None = None
+    ) -> RowParallelExperts:
+        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+
+        self.in_features_per_device = divide_if_divisible(
+            in_features,
+            tp_world_size,
+            f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
+        )
+
+        ParameterizedExperts.__init__(
+            self, num_experts=num_experts, in_features=self.in_features_per_device, out_features=out_features, std=std
+        )
+
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
+        if self.is_tp_enabled:
+            self.weight = nn.Parameter(
+                tensor_to_dtensor(
+                    self.weight,
+                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
+                    current_placement=Shard(-1),
+                )
+            )
+
+            self.reset_parameters()
 
 
 class MoE(nn.Module):
@@ -173,7 +251,6 @@ class MoE(nn.Module):
         num_experts: int,
         num_experts_per_tok: int,
         activation_function: str,
-        add_bias: bool,
         dropout: float,
         init_method: str,
         initializer_range: float,
@@ -214,16 +291,16 @@ class MoE(nn.Module):
             num_experts=num_experts,
             in_features=self.hidden_size,
             out_features=2 * self.intermediate_size if is_glu(activation_function) else self.intermediate_size,
-            add_bias=add_bias,
             std=std,
         )
+
         if self.shared_intermediate_size is not None:
             self.c_fc_shared = SharedExpertsColumnParallelLinear(
                 in_features=self.hidden_size,
                 out_features=(
                     2 * self.shared_intermediate_size if is_glu(activation_function) else self.shared_intermediate_size
                 ),
-                bias=add_bias,
+                bias=False,
                 std=std,
             )
 
@@ -233,17 +310,14 @@ class MoE(nn.Module):
         std /= math.sqrt(2 * num_layers)
 
         self.c_proj = RowParallelExperts(
-            num_experts=num_experts,
-            in_features=self.intermediate_size,
-            out_features=self.hidden_size,
-            add_bias=add_bias,
-            std=std,
+            num_experts=num_experts, in_features=self.intermediate_size, out_features=self.hidden_size, std=std
         )
+
         if self.shared_intermediate_size is not None:
             self.c_proj_shared = SharedExpertsRowParallelLinear(
                 in_features=self.shared_intermediate_size,
                 out_features=self.hidden_size,
-                bias=add_bias,
+                bias=False,
                 std=std,
             )
 

@@ -26,7 +26,12 @@ from ...modeling_utils import (
     is_glu,
 )
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
-from ...modeling_utils.mlp_blocks.moe import SharedExpertsColumnParallelLinear, SharedExpertsRowParallelLinear
+from ...modeling_utils.mlp_blocks.moe import (
+    ColumnParallelExperts,
+    RowParallelExperts,
+    SharedExpertsColumnParallelLinear,
+    SharedExpertsRowParallelLinear,
+)
 
 
 if is_xma_available():
@@ -46,96 +51,6 @@ class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
         )
 
 
-class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
-    def __init__(
-        self, num_experts: int, in_features: int, out_features: int, add_bias: bool = False, std: float | None = None
-    ) -> ColumnParallelExperts:
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
-
-        self.out_features_per_device = divide_if_divisible(
-            out_features,
-            tp_world_size,
-            f"`out_features` ({out_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
-        )
-
-        super().__init__(
-            num_experts=num_experts,
-            in_features=in_features,
-            out_features=self.out_features_per_device,
-            add_bias=add_bias,
-            std=std,
-        )
-
-        self.weight = nn.Parameter(
-            tensor_to_dtensor(
-                self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(1)
-            )
-        )
-
-    def forward(
-        self,
-        input: torch.Tensor,
-        num_experts_per_token: int | None = None,
-        num_tokens_per_expert: torch.Tensor | None = None,
-        sorted_expert_idxs: torch.Tensor | None = None,
-        sorted_scattered_idxs: torch.Tensor | None = None,
-        expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
-    ) -> torch.Tensor:
-        assert is_kernel_allowed(Kernel.scattermoe)
-
-        input = scattered_experts(
-            inputs=wait_for_ACT(input, wait_in_forward=True, wait_in_backward=False),
-            expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
-            k=num_experts_per_token,
-            sorted_expert_idxs=sorted_expert_idxs,
-            sorted_scattered_idxs=sorted_scattered_idxs,
-            expert_offsets=expert_offsets,
-            gates=gates,
-            grouped_in=grouped_in,
-            grouped_out=grouped_out,
-        )
-
-        input = wait_for_ACT(input, wait_in_forward=False, wait_in_backward=True)
-
-        return input
-
-
-class RowParallelExperts(ColumnParallelExperts):
-    def __init__(
-        self,
-        num_experts: int,
-        in_features: int,
-        out_features: int,
-        add_bias: bool = False,
-        std: float | None = None,
-    ) -> RowParallelExperts:
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
-
-        self.in_features_per_device = divide_if_divisible(
-            in_features,
-            tp_world_size,
-            f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
-        )
-
-        ParameterizedExperts.__init__(
-            self,
-            num_experts=num_experts,
-            in_features=self.in_features_per_device,
-            out_features=out_features,
-            add_bias=add_bias,
-            std=std,
-        )
-
-        self.weight = nn.Parameter(
-            tensor_to_dtensor(
-                self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(-1)
-            )
-        )
-
-
 class MoE_TP(MoE, DTensorModule):
     def __init__(
         self,
@@ -148,7 +63,6 @@ class MoE_TP(MoE, DTensorModule):
         num_experts: int,
         num_experts_per_tok: int,
         activation_function: str,
-        add_bias: bool,
         dropout: float,
         init_method: str,
         initializer_range: float,
@@ -184,16 +98,16 @@ class MoE_TP(MoE, DTensorModule):
             num_experts=num_experts,
             in_features=self.hidden_size,
             out_features=2 * self.intermediate_size if is_glu(activation_function) else self.intermediate_size,
-            add_bias=add_bias,
             std=std,
         )
+
         if self.shared_intermediate_size is not None:
             self.c_fc_shared = SharedExpertsColumnParallelLinear(
                 in_features=self.hidden_size,
                 out_features=(
                     2 * self.shared_intermediate_size if is_glu(activation_function) else self.shared_intermediate_size
                 ),
-                bias=add_bias,
+                bias=False,
                 std=std,
             )
 
@@ -202,17 +116,13 @@ class MoE_TP(MoE, DTensorModule):
         std /= math.sqrt(2 * num_layers)
 
         self.c_proj = RowParallelExperts(
-            num_experts=num_experts,
-            in_features=self.intermediate_size,
-            out_features=self.hidden_size,
-            add_bias=add_bias,
-            std=std,
+            num_experts=num_experts, in_features=self.intermediate_size, out_features=self.hidden_size, std=std
         )
         if self.shared_intermediate_size is not None:
             self.c_proj_shared = SharedExpertsRowParallelLinear(
                 in_features=self.shared_intermediate_size,
                 out_features=self.hidden_size,
-                bias=add_bias,
+                bias=False,
                 std=std,
             )
 
@@ -268,7 +178,7 @@ class MoE_TP(MoE, DTensorModule):
 
         return x
 
-    def _compute_routing_weights(self, x: torch.Tensor) -> tuple[torch.Tensor]:
+    def _compute_routing_weights(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # x -> (total_q, hidden_size)
         router_logits = self.gate(x)
         router_logits = dtensor_to_tensor(

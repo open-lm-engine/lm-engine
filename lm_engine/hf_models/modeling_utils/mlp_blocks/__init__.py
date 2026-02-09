@@ -15,7 +15,6 @@ def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, laye
         hidden_size=config.hidden_size,
         intermediate_size=block.intermediate_size,
         activation_function=block.activation_function,
-        add_bias=block.add_bias,
         dropout=block.dropout,
         init_method=config.init_method,
         initializer_range=config.initializer_range,
@@ -25,7 +24,7 @@ def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, laye
     )
 
     if mlp_type == "MLP":
-        mlp = MLP(**kwargs)
+        mlp = MLP(**kwargs, add_bias=block.add_bias)
     elif mlp_type == "MoE":
         mlp = MoE(
             **kwargs,

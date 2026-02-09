@@ -18,8 +18,11 @@ class _MLPArgs(BaseArgs):
         assert self.mlp_type == "MLP"
 
 
-class _MoEArgs(_MLPArgs):
+class _MoEArgs(BaseArgs):
     mlp_type: str = "MoE"
+    intermediate_size: int
+    activation_function: str = "gelu_pytorch_tanh"
+    dropout: float = 0
     shared_intermediate_size: int | None = None
     num_experts: int = 8
     use_interleaved_weights: bool = False
