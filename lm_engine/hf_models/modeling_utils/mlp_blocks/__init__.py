@@ -21,6 +21,7 @@ def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, laye
         initializer_range=config.initializer_range,
         m_width=config.m_width,
         num_layers=config.num_layers,
+        use_padding_free_transformer=use_padding_free_transformer,
     )
 
     if mlp_type == "MLP":
@@ -34,7 +35,6 @@ def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, laye
             normalized_topk=block.normalized_topk,
             num_experts=block.num_experts,
             num_experts_per_tok=block.num_experts_per_tok,
-            use_padding_free_transformer=use_padding_free_transformer,
         )
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")

@@ -33,6 +33,9 @@ def get_mlp_block_TP(
         mlp = MoE_TP(
             **kwargs,
             shared_intermediate_size=block.shared_intermediate_size,
+            use_interleaved_weights=block.use_interleaved_weights,
+            shared_expert_gating=block.shared_expert_gating,
+            normalized_topk=block.normalized_topk,
             num_experts=block.num_experts,
             num_experts_per_tok=block.num_experts_per_tok,
         )

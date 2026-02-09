@@ -142,6 +142,9 @@ class MoE_TP(MoE, DTensorModule):
         hidden_size: int,
         intermediate_size: int,
         shared_intermediate_size: int,
+        use_interleaved_weights: bool,
+        shared_expert_gating: bool,
+        normalized_topk: bool,
         num_experts: int,
         num_experts_per_tok: int,
         activation_function: str,
@@ -159,10 +162,12 @@ class MoE_TP(MoE, DTensorModule):
         self.num_experts = num_experts
         self.top_k = num_experts_per_tok
         self.use_padding_free_transformer = use_padding_free_transformer
-
         self.hidden_size = hidden_size
         self.intermediate_size = intermediate_size
         self.shared_intermediate_size = shared_intermediate_size
+        self.shared_expert_gating = shared_expert_gating
+        self.normalized_topk = normalized_topk
+        self.use_interleaved_weights = use_interleaved_weights
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 

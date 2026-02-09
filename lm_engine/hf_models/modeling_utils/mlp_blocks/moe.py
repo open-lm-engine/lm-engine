@@ -162,8 +162,6 @@ class ParameterizedExperts(nn.Module):
 
 
 class MoE(nn.Module):
-    linear_class = ParameterizedExperts
-
     def __init__(
         self,
         hidden_size: int,
@@ -182,6 +180,7 @@ class MoE(nn.Module):
         m_width: float,
         num_layers: int,
         use_padding_free_transformer: bool,
+        sequence_parallel: bool = False,
     ) -> MoE:
         super().__init__()
 
@@ -211,7 +210,7 @@ class MoE(nn.Module):
                 in_features=self.hidden_size, out_features=1, bias=False, std=std
             )
 
-        self.c_fc = self.linear_class(
+        self.c_fc = ColumnParallelExperts(
             num_experts=num_experts,
             in_features=self.hidden_size,
             out_features=2 * self.intermediate_size if is_glu(activation_function) else self.intermediate_size,
@@ -233,7 +232,7 @@ class MoE(nn.Module):
 
         std /= math.sqrt(2 * num_layers)
 
-        self.c_proj = self.linear_class(
+        self.c_proj = RowParallelExperts(
             num_experts=num_experts,
             in_features=self.intermediate_size,
             out_features=self.hidden_size,
