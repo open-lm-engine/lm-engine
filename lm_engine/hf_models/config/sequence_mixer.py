@@ -26,7 +26,43 @@ class _SoftmaxAttentionArgs(BaseArgs):
         assert self.sequence_mixer_type == "softmax_attention"
 
 
-class _Mamba2Args(BaseArgs):
+class _MultiHeadLatentAttentionArgs(BaseArgs):
+    sequence_mixer_type: str = "multihead_latent_attention"
+    num_attention_heads: int | None = None
+    softmax_dropout: float = 0
+    dropout: float = 0
+    add_bias: bool = False
+    attention_multiplier: float | None = None
+    sliding_window: int | None = None
+    query_compression_size: int | None = None
+    key_value_compression_size: int | None = None
+    num_attention_heads: int | None = None
+    head_dim: int | None = None
+    normalization_function: str = "layernorm"
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "multihead_latent_attention"
+        assert self.num_attention_heads is not None
+        assert self.query_compression_size is not None
+        assert self.key_value_compression_size is not None
+        assert self.num_attention_heads is not None
+        assert self.head_dim is not None
+
+
+class _SoftPlusDecayArgs(BaseArgs):
+    A_init_min: float = 0
+    A_init_max: float = 16
+    dt_init_min: float = 0.001
+    dt_init_max: float = 0.1
+    dt_init_floor: float = 1e-4
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.A_init_min >= 0
+        assert self.A_init_min <= self.A_init_max
+        assert self.dt_init_min <= self.dt_init_max
+
+
+class _Mamba2Args(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "mamba2"
     state_size: int = 128
     intermediate_size: int
@@ -91,7 +127,7 @@ class _CausalConvolution(BaseArgs):
         assert self.sequence_mixer_type == "causal_convolution"
 
 
-class _GatedDeltaNetArgs(BaseArgs):
+class _GatedDeltaNetArgs(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "gated_deltanet"
     k_head_dim: int
     v_head_dim: int
