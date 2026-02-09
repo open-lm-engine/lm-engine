@@ -78,7 +78,6 @@ def get_gpt_base_model_parallel_state_dict(
             state_dict.update(
                 _get_moe(
                     activation_function=block.activation_function,
-                    add_bias=block.add_bias,
                     safetensors_weights_manager=safetensors_weights_manager,
                     prefix=prefix + "mlp_block.",
                     column_parallel_shard_dim=1,
@@ -163,7 +162,6 @@ def _get_attention(
 
 def _get_moe(
     activation_function: str,
-    add_bias: bool,
     safetensors_weights_manager: SafeTensorsWeightsManager,
     prefix: str,
     column_parallel_shard_dim: int,
@@ -171,12 +169,10 @@ def _get_moe(
 ) -> None:
     state_dict = {prefix + "gate.weight": safetensors_weights_manager.get_tensor(prefix + "gate.weight")}
 
-    assert not add_bias
-
     state_dict.update(
         _get_mlp(
             activation_function=activation_function,
-            add_bias=add_bias,
+            add_bias=False,
             safetensors_weights_manager=safetensors_weights_manager,
             prefix=prefix,
             column_parallel_shard_dim=column_parallel_shard_dim,
