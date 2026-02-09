@@ -39,3 +39,33 @@ def is_parameter_with_mup_learning_rate(parameter: nn.Parameter | None) -> bool:
 
 def is_parameter_initialized(parameter: nn.Parameter | None) -> bool:
     return getattr(parameter, "_is_initialized", False)
+
+
+def get_parameter_marker_maps(model_container: list[nn.Module], extra_markers: list[str] = []) -> list[dict]:
+    if isinstance(model_container, nn.Module):
+        model_container = [model_container]
+
+    marker_maps = []
+    for model in model_container:
+        marker_maps.append({})
+        for param_name, param in model.named_parameters():
+            marker_maps[-1][param_name] = {}
+            for marker in ["_no_weight_decay", "_has_mup_learning_rate"] + extra_markers:
+                marker_maps[-1][param_name][marker] = getattr(param, marker, False)
+
+    return marker_maps
+
+
+def set_parameter_marker_maps(
+    model_container: list[nn.Module], marker_maps: list[dict], replacement_patterns: list[tuple[str]] = []
+) -> None:
+    if isinstance(model_container, nn.Module):
+        model_container = [model_container]
+
+    for model, _marker_map in zip(model_container, marker_maps):
+        for param_name, parameter in model.named_parameters():
+            for pattern, replacement in replacement_patterns:
+                param_name = param_name.replace(pattern, replacement)
+
+            for marker, value in _marker_map[param_name].items():
+                setattr(parameter, marker, value)
