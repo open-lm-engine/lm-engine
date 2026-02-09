@@ -124,6 +124,16 @@ class _GatedDeltaNetArgs(BaseArgs):
     attention_multiplier: float | None = None
     allow_neg_eigval: bool
     kernel_size: int
+    A_init_min: float = 0
+    A_init_max: float = 16
+    dt_min: float = 0.001
+    dt_max: float = 0.1
+    dt_init_floor: float = 1e-4
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gated_deltanet"
+
+        assert self.A_init_min >= 0
+        assert self.A_init_min <= self.A_init_max
+
+        assert self.dt_min <= self.dt_max

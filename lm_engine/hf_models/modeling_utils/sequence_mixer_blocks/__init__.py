@@ -147,6 +147,11 @@ def get_sequence_mixer(
             init_method=config.init_method,
             initializer_range=config.initializer_range,
             m_width=config.m_width,
+            A_init_min=block.A_init_min,
+            A_init_max=block.A_init_max,
+            dt_min=block.dt_min,
+            dt_max=block.dt_max,
+            dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             use_padding_free_transformer=use_padding_free_transformer,
         )

@@ -47,6 +47,11 @@ class GatedDeltaNet(nn.Module):
         init_method: str,
         initializer_range: float,
         m_width: float | None,
+        A_init_min: float,
+        A_init_max: float,
+        dt_min: float,
+        dt_max: float,
+        dt_init_floor: float,
         num_layers: int,
         use_padding_free_transformer: bool,
     ) -> GatedDeltaNet:
@@ -66,6 +71,13 @@ class GatedDeltaNet(nn.Module):
 
         self.k_head_dim = k_head_dim
         self.v_head_dim = v_head_dim
+
+        self.A_init_min = A_init_min
+        self.A_init_max = A_init_max
+
+        self.dt_min = dt_min
+        self.dt_max = dt_max
+        self.dt_init_floor = dt_init_floor
 
         self.key_dim = self.num_k_heads * self.k_head_dim
         self.value_dim = self.num_v_heads * self.v_head_dim
@@ -228,7 +240,7 @@ class GatedDeltaNet(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
+        A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(self.A_init_min, self.A_init_max)
 
         if isinstance(self.A_log, DTensor):
             A = tensor_to_dtensor(
@@ -241,11 +253,10 @@ class GatedDeltaNet(nn.Module):
         self.A_log.copy_(torch.log(A))
 
         # hard coded for now
-        dt_min = 0.001
-        dt_max = 0.1
-        dt_init_floor = 1e-4
-        dt = torch.exp(torch.rand(self.num_v_heads) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min))
-        dt = torch.clamp(dt, min=dt_init_floor)
+        dt = torch.exp(
+            torch.rand(self.num_v_heads) * (math.log(self.dt_max) - math.log(self.dt_min)) + math.log(self.dt_min)
+        )
+        dt = torch.clamp(dt, min=self.dt_init_floor)
         # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
         inv_dt = dt + torch.log(-torch.expm1(-dt))
 
