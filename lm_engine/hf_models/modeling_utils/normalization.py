@@ -25,18 +25,18 @@ class LayerNorm(nn.LayerNorm):
 
 
 class RMSNorm(nn.RMSNorm):
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if is_kernel_allowed(Kernel.rmsnorm) or is_kernel_allowed(Kernel.rmsnorm_memory_efficient):
-            hidden_states = rmsnorm(
-                x=hidden_states,
+            x = rmsnorm(
+                x=x,
                 weight=self.weight,
                 eps=self.eps,
                 memory_efficient=is_kernel_allowed(Kernel.rmsnorm_memory_efficient),
             )
         else:
-            hidden_states = super().forward(hidden_states)
+            x = super().forward(x)
 
-        return hidden_states
+        return x
 
     def reset_parameters(self) -> None:
         super().reset_parameters()
@@ -56,17 +56,17 @@ class PNorm(RMSNorm):
         self.p = p
         super().__init__(normalized_shape, eps, elementwise_affine, device, dtype)
 
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        dtype = hidden_states.dtype
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        dtype = x.dtype
 
-        hidden_states = hidden_states.float()
-        hidden_states = F.normalize(hidden_states, p=self.p, eps=self.eps, dim=-1)
-        hidden_states = hidden_states.to(dtype)
+        x = x.float()
+        x = F.normalize(x, p=self.p, eps=self.eps, dim=-1)
+        x = x.to(dtype)
 
         if self.weight is not None:
-            hidden_states = self.weight * hidden_states
+            x = self.weight * x
 
-        return hidden_states
+        return x
 
 
 _NORMALIZATION_FUNCTIONS = {"layernorm": LayerNorm, "p_norm": PNorm, "rmsnorm": RMSNorm}
