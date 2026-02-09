@@ -70,7 +70,7 @@ elif args.attention_implementation == "flash_attention_3":
 
 with enable_kernels(kernels):
     if torch.distributed.get_rank() == 0:
-        with torch.device("meta"):
+        with torch.device("meta"), ProcessGroupManager.set_dummy_tensor_parallel_world_size(1):
             model = TestCommons.from_config(None, config)
 
         model = model.to_empty(device=torch.cuda.current_device())
