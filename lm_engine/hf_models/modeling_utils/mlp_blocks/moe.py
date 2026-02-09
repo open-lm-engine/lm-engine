@@ -423,7 +423,7 @@ class MoE(nn.Module):
                 expert_offsets = expert_frequency.cumsum(-1)
 
             x = self.c_fc(
-                input=x,
+                x=x,
                 num_experts_per_token=self.top_k,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
@@ -434,7 +434,7 @@ class MoE(nn.Module):
             x = self.act(x)
 
             x = self.c_proj(
-                input=x,
+                x=x,
                 num_experts_per_token=1,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
@@ -453,9 +453,9 @@ class MoE(nn.Module):
 
             x = x[batch_index]
 
-            x = self.c_fc(input=x, expert_frequency=expert_frequency)
+            x = self.c_fc(x=x, expert_frequency=expert_frequency)
             x = self.act(x)
-            x = self.c_proj(input=x, expert_frequency=expert_frequency)
+            x = self.c_proj(x=x, expert_frequency=expert_frequency)
 
             x = x * batch_gates.unsqueeze(-1)  # [:, None]
             zeros = torch.zeros((T, self.hidden_size), dtype=x.dtype, device=x.device)
