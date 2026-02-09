@@ -80,14 +80,6 @@ class ParameterizedExperts(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        self.register_buffer(
-            "N_array", torch.empty((num_experts,), device=device, dtype=torch.uint32), persistent=False
-        )
-
-        self.register_buffer(
-            "K_array", torch.empty((num_experts,), device=device, dtype=torch.uint32), persistent=False
-        )
-
         self.reset_parameters()
 
         mark_parameter_as_no_weight_decay(self.bias)
@@ -139,14 +131,8 @@ class ParameterizedExperts(nn.Module):
         if hasattr(self, "bias") and self.bias is not None:
             self.bias.zero_()
 
-        self.N_array.fill_(self.out_features)
-        self.K_array.fill_(self.in_features)
-
         mark_parameter_as_initialized(self.weight)
         mark_parameter_as_initialized(self.bias)
-
-        mark_parameter_as_initialized(self.N_array)
-        mark_parameter_as_initialized(self.K_array)
 
 
 class MoE(nn.Module):
