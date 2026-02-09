@@ -8,8 +8,6 @@ from torch.distributed._tensor.api import DTensor
 from torch.distributed._tensor.placement_types import Placement
 from torch.distributed.device_mesh import DeviceMesh
 
-from .hf_models.parameter import _ALL_MARKERS
-
 
 def tensor_to_dtensor(
     tensor: torch.Tensor,
