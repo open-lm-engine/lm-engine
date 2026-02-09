@@ -58,6 +58,8 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
 
         self.input_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
+        self.reset_parameters()
+
         if use_async_tensor_parallel():
             self.compile()
 
@@ -120,6 +122,8 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
             )
 
         self.output_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+
+        self.reset_parameters()
 
         if use_async_tensor_parallel():
             self.compile()
