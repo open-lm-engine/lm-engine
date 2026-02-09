@@ -10,7 +10,7 @@ from transformers import StoppingCriteriaList
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager
+from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
@@ -327,3 +327,19 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             )
 
         return tensor
+
+    def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
+        with torch.device(torch.cuda.current_device()):
+            position_embedding_type = self.config.position_embedding_type
+
+            if position_embedding_type == "rope":
+                self.transformer.rope.reset_parameters()
+
+        state_dict = self.__class__.model_parallel_state_dict_function(
+            config=self.config,
+            safetensors_weights_manager=safetensors_weights_manager,
+            num_pipeline_stages=self.num_pipeline_stages,
+            pipeline_stage_id=self.pipeline_stage_id,
+        )
+
+        self.load_state_dict(state_dict)

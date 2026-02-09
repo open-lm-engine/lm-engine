@@ -197,19 +197,3 @@ class CausalLMModelMixin_TP(CausalLMModelMixin):
         model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
 
         return model
-
-    def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
-        with torch.device(torch.cuda.current_device()):
-            position_embedding_type = self.config.position_embedding_type
-
-            if position_embedding_type == "rope":
-                self.transformer.rope.reset_parameters()
-
-        state_dict = self.__class__.model_parallel_state_dict_function(
-            config=self.config,
-            safetensors_weights_manager=safetensors_weights_manager,
-            num_pipeline_stages=self.num_pipeline_stages,
-            pipeline_stage_id=self.pipeline_stage_id,
-        )
-
-        self.load_state_dict(state_dict)
