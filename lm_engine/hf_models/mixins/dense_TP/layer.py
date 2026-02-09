@@ -7,8 +7,7 @@ from __future__ import annotations
 import torch.nn as nn
 
 from ...config import CommonConfig
-from ...modeling_utils import get_mlp_block, get_normalization_function
-from ...modeling_utils_TP import get_sequence_mixer_TP
+from ...modeling_utils import get_mlp_block, get_normalization_function, get_sequence_mixer
 from ..dense import Block
 
 
@@ -33,7 +32,7 @@ class Block_TP(Block):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
-        self.sequence_mixer = get_sequence_mixer_TP(
+        self.sequence_mixer = get_sequence_mixer(
             config,
             True,
             use_padding_free_transformer=use_padding_free_transformer,
