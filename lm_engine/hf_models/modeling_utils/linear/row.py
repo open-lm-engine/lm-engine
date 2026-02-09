@@ -21,8 +21,6 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
         in_features: int,
         out_features: int,
         bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
@@ -35,14 +33,7 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
             f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
         )
 
-        super().__init__(
-            in_features=self.in_features_per_tp_rank,
-            out_features=out_features,
-            bias=bias,
-            device=device,
-            dtype=dtype,
-            std=std,
-        )
+        super().__init__(in_features=self.in_features_per_tp_rank, out_features=out_features, bias=bias, std=std)
 
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
@@ -73,11 +64,10 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.is_tp_enabled:
             x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Shard(-1))
-
-        x = super().forward(x)
-
-        if self.is_tp_enabled:
+            x = super().forward(x)
             x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
+        else:
+            x = super().forward(x)
 
         return x
 

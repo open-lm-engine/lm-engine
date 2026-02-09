@@ -59,11 +59,10 @@ class ParameterizedEmbedding(DTensorModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.is_tp_enabled:
             x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Replicate())
-
-        x = F.embedding(x, weight=self.weight)
-
-        if self.is_tp_enabled:
+            x = F.embedding(x, weight=self.weight)
             x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
+        else:
+            x = F.embedding(x, weight=self.weight)
 
         return x
 

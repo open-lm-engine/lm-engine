@@ -51,11 +51,10 @@ class LayerNorm(nn.LayerNorm, DTensorModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.is_tp_enabled:
             x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=self.placement)
-
-        x = super().forward(x)
-
-        if self.is_tp_enabled:
+            x = super().forward(x)
             x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.placement)
+        else:
+            x = super().forward(x)
 
         return x
 

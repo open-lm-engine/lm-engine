@@ -55,6 +55,27 @@ def compute_bincount(x: torch.Tensor, size: int, use_continuous_count: bool) -> 
     return count
 
 
+class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
+        std: float | None = None,
+    ) -> ReplicatedLinear_TP:
+        super().__init__(
+            in_features=in_features, out_features=out_features, bias=bias, device=device, dtype=dtype, std=std
+        )
+
+        self.weight = nn.Parameter(
+            tensor_to_dtensor(
+                self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Replicate()
+            )
+        )
+
+
 class ParameterizedExperts(nn.Module):
     def __init__(
         self,

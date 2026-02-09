@@ -250,40 +250,38 @@ class MoE_TP(MoE, DTensorModule):
             torch.cuda.current_device()
         ) >= (9, 0)
 
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         assert is_kernel_allowed(Kernel.scattermoe)
 
         if not self.use_padding_free_transformer:
-            batch_size, sequence_length, _ = hidden_states.shape
+            batch_size, sequence_length, _ = x.shape
 
-        hidden_states = hidden_states.view(-1, self.hidden_size)
+        x = x.view(-1, self.hidden_size)
 
-        hidden_states = tensor_to_dtensor(hidden_states, device_mesh=self.tp_mesh, current_placement=self.placement)
+        x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=self.placement)
 
-        router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
+        router_logits, router_weights, selected_experts = self._compute_routing_weights(x)
 
-        hidden_states = dtensor_to_tensor(
-            hidden_states, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
-        )
+        x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial())
 
-        moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
+        moe_output, expert_frequency = self._compute_experts(x, router_weights, selected_experts)
 
         if self.shared_intermediate_size is None:
-            hidden_states = moe_output
+            x = moe_output
         else:
-            hidden_states = moe_output + self._compute_shared_experts(hidden_states)
+            x = moe_output + self._compute_shared_experts(x)
 
         del moe_output
 
-        hidden_states = tensor_to_dtensor(hidden_states, device_mesh=self.tp_mesh, current_placement=Partial())
-        hidden_states = dtensor_to_tensor(
-            hidden_states, device_mesh=self.tp_mesh, desired_placement=self.placement, grad_placement=self.placement
+        x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Partial())
+        x = dtensor_to_tensor(
+            x, device_mesh=self.tp_mesh, desired_placement=self.placement, grad_placement=self.placement
         )
 
         if not self.use_padding_free_transformer:
-            hidden_states = hidden_states.reshape(batch_size, sequence_length, self.hidden_size)
+            x = x.reshape(batch_size, sequence_length, self.hidden_size)
 
-        hidden_states = self.dropout(hidden_states)
+        x = self.dropout(x)
 
         aux_loss = (
             self._compute_switch_loss(
@@ -295,20 +293,23 @@ class MoE_TP(MoE, DTensorModule):
 
         add_aux_loss(aux_loss)
 
-        return hidden_states
+        return x
 
-    def _compute_routing_weights(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor]:
-        # hidden_states -> (total_q, hidden_size)
-        router_logits = self.gate(hidden_states)
+    def _compute_routing_weights(self, x: torch.Tensor) -> tuple[torch.Tensor]:
+        # x -> (total_q, hidden_size)
+        router_logits = self.gate(x)
         router_logits = dtensor_to_tensor(
             router_logits, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
         )
         # router_logits -> (total_q, num_experts)
 
-        router_weights, selected_experts = self._get_topk(router_logits)
-        router_weights = F.softmax(router_weights.float(), dim=-1)
-
-        # we cast back to the input dtype
-        router_weights = router_weights.type_as(hidden_states)
+        if self.normalized_topk:
+            router_weights, selected_experts = self._get_topk(router_logits)
+            router_weights = F.softmax(router_weights.float(), dim=-1)
+            router_weights = router_weights.type_as(x)
+        else:
+            router_weights = F.softmax(router_logits.float(), dim=-1)
+            router_weights = router_weights.type_as(x)
+            router_weights, selected_experts = self._get_topk(router_weights)
 
         return router_logits, router_weights, selected_experts
