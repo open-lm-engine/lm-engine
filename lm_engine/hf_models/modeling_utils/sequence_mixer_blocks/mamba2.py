@@ -601,6 +601,15 @@ class Mamba2(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         A = torch.empty(self.num_heads, dtype=torch.float32).uniform_(0, 16)
+
+        if isinstance(self.A_log, DTensor):
+            A = tensor_to_dtensor(
+                tensor=A,
+                device_mesh=self.A_log.device_mesh,
+                current_placement=[Replicate()] * len(self.A_log.placements),
+                desired_placement=self.A_log.placements,
+            )
+
         self.A_log.copy_(torch.log(A))
 
         # hard coded for now
@@ -611,6 +620,14 @@ class Mamba2(nn.Module):
         dt = torch.clamp(dt, min=dt_init_floor)
         # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
         inv_dt = dt + torch.log(-torch.expm1(-dt))
+
+        if isinstance(self.dt_bias, DTensor):
+            inv_dt = tensor_to_dtensor(
+                tensor=inv_dt,
+                device_mesh=self.dt_bias.device_mesh,
+                current_placement=[Replicate()] * len(self.dt_bias.placements),
+                desired_placement=self.dt_bias.placements,
+            )
 
         self.dt_bias.copy_(inv_dt)
 
