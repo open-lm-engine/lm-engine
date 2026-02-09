@@ -31,6 +31,7 @@ from .containers import ModelContainer
 from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
 from .hf_models import (
+    _INIT_MARKER,
     CausalLMOutputWithPast,
     get_parameter_marker_maps,
     is_parameter_initialized,
@@ -206,7 +207,7 @@ def wrap_model_container_for_distributed_training(
 
         marker_maps = get_parameter_marker_maps(model_container)
     else:
-        marker_maps = get_parameter_marker_maps(model_container, extra_markers=["_is_initialized"])
+        marker_maps = get_parameter_marker_maps(model_container, extra_markers=[_INIT_MARKER])
 
     accelerator = Accelerator.get_accelerator()
 

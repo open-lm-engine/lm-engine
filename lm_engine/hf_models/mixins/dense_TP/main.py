@@ -21,6 +21,7 @@ from ...loss import (
     is_aux_loss_zero,
 )
 from ...modeling_utils_TP import LMHead_TP
+from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
 from ..dense import CausalLMModelMixin
 from ..modeling_outputs import (
     BaseModelOutputWithPast,
@@ -186,7 +187,10 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
         with torch.device("meta"):
             # try sharding vocab matrices if really struggling for memory
             model = cls._from_config(config, **kwargs)
+            marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+
             model = model.to(dtype=dtype)
+            set_parameter_marker_maps([model], marker_maps)
 
         # copy to device without copying storage
         model = model.to_empty(device=torch.cuda.current_device())
