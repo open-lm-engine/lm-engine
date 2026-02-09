@@ -87,7 +87,7 @@ def flash_attention(
     if use_padding_free_transformer:
         assert sliding_window is None
 
-        attn_output = _flash_attention_varlen_function(
+        x = _flash_attention_varlen_function(
             q=q,
             k=k,
             v=v,
