@@ -9,10 +9,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributed._tensor.api import DTensor
-from torch.distributed._tensor.placement_types import Replicate
 
-from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available, is_mamba_2_ssm_available
