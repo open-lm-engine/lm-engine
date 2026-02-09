@@ -9,7 +9,7 @@ from torch.distributed.device_mesh import DeviceMesh
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
 from ..modeling_utils import ParameterizedEmbedding
-from .TP import get_module_placements
+from ..modeling_utils.TP import get_module_placements
 
 
 class LMHead_TP(ParameterizedEmbedding):
