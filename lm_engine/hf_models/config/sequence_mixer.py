@@ -99,8 +99,8 @@ class _CausalConvolution(BaseArgs):
 class _SoftPlusDecayArgs(BaseArgs):
     A_init_min: float = 0
     A_init_max: float = 16
-    dt_min: float = 0.001
-    dt_max: float = 0.1
+    dt_init_min: float = 0.001
+    dt_init_max: float = 0.1
     dt_init_floor: float = 1e-4
 
     def model_post_init(self, __context: Any) -> None:

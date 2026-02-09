@@ -24,6 +24,7 @@ from ...parameter import (
 )
 from ..activations import get_activation_function
 from ..convolution import ParameterizedConv1d
+from ..decay_gate import SoftplusDecayGate
 from ..linear import ParameterizedLinear
 from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
@@ -115,6 +116,11 @@ class Mamba2(nn.Module):
         layer_norm_epsilon: float,
         initializer_range: float,
         m_width: float,
+        A_init_min: float,
+        A_init_max: float,
+        dt_init_min: float,
+        dt_init_max: float,
+        dt_init_floor: float,
         init_method: str,
         normalization_function: str | None,
         num_layers: int,
@@ -162,19 +168,19 @@ class Mamba2(nn.Module):
             std=std,
         )
 
-        # selective projection used to make dt, B and C input dependant
+        self.decay_gate = SoftplusDecayGate(
+            hidden_size=None,
+            output_size=self.num_heads,
+            std=None,
+            has_projection=False,
+            A_init_min=A_init_min,
+            A_init_max=A_init_max,
+            dt_init_min=dt_init_min,
+            dt_init_max=dt_init_max,
+            dt_init_floor=dt_init_floor,
+        )
 
-        # time step projection (discretization)
-        # instantiate once and copy inv_dt in init_weights of PretrainedModel
-        # Initialize log dt bias
-        self.dt_bias = nn.Parameter(torch.empty(self.num_heads))
-        mark_parameter_as_no_weight_decay(self.dt_bias)
-
-        # S4D real initialization. These are not discretized!
-        # The core is to load them, compute the discrete states, then write the updated state. Keeps the memory bounded
-        self.A_log = nn.Parameter(torch.empty(self.num_heads))
-        mark_parameter_as_no_weight_decay(self.A_log)
-        mark_parameter_as_mup_learning_rate(self.A_log)
+        mark_parameter_as_mup_learning_rate(self.decay_gate.A_log)
 
         self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
 
@@ -272,7 +278,7 @@ class Mamba2(nn.Module):
         )
 
         # 3. SSM transformation
-        A = -torch.exp(self.A_log.float())
+        A = -torch.exp(self.decay_gate.A_log.float())
 
         # hidden_states -> B, S, N, head_dim
         # A -> num_heads
@@ -291,7 +297,7 @@ class Mamba2(nn.Module):
             # dt -> (B, 1, N)
             dt = dt.transpose(1, 2).expand(batch_size, dt.shape[-1], self.head_dim)
             # dt -> (B, N, head_dim)
-            dt_bias = self.dt_bias[..., None].expand(self.dt_bias.shape[0], self.head_dim)
+            dt_bias = self.decay_gate.dt_bias[..., None].expand(self.decay_gate.dt_bias.shape[0], self.head_dim)
 
             dt = F.softplus(dt + dt_bias.to(dt.dtype))
             dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
@@ -349,7 +355,7 @@ class Mamba2(nn.Module):
             y = y.reshape(batch_size, -1)[:, None, ...]
         else:
             # begin ssd naive implementation without einsums
-            dt = F.softplus(dt + self.dt_bias)
+            dt = F.softplus(dt + self.decay_gate.dt_bias)
             dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
             hidden_states = hidden_states.reshape(batch_size, seq_len, -1, self.head_dim).float()
             B = B.reshape(batch_size, seq_len, -1, self.ssm_state_size).float()
@@ -479,10 +485,10 @@ class Mamba2(nn.Module):
             )
 
             # 3. SSM transformation
-            A = -torch.exp(self.A_log.float())  # (nheads,)
+            A = -torch.exp(self.decay_gate.A_log.float())  # (nheads,)
             A = A[:, None, ...][:, :, None].expand(-1, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
             dt = dt[:, :, None].expand(-1, -1, self.head_dim)
-            dt_bias = self.dt_bias[:, None, ...].expand(-1, self.head_dim)
+            dt_bias = self.decay_gate.dt_bias[:, None, ...].expand(-1, self.head_dim)
             D = self.D[:, None, ...].expand(-1, self.head_dim)
             B = B.view(batch_size, self.n_groups, B.shape[1] // self.n_groups)
             C = C.view(batch_size, self.n_groups, C.shape[1] // self.n_groups)
@@ -507,7 +513,7 @@ class Mamba2(nn.Module):
             out = self.out_proj(hidden_states)[:, None, ...]
         # Fused calculations or step by step if no initialized cache is found
         else:
-            A = -torch.exp(self.A_log.float())  # (num_heads) or (intermediate_size, state_size)
+            A = -torch.exp(self.decay_gate.A_log.float())  # (num_heads) or (intermediate_size, state_size)
             dt_limit_kwargs = {} if self.time_step_limit == (0.0, float("inf")) else {"dt_limit": self.time_step_limit}
 
             # 2-4. Fused kernel for conv1d, SSM, and the final projection
@@ -516,7 +522,7 @@ class Mamba2(nn.Module):
                     projected_states,
                     self.conv1d.weight.squeeze(1),
                     self.conv1d.bias,
-                    self.dt_bias,
+                    self.decay_gate.dt_bias,
                     A,
                     D=self.D,
                     chunk_size=self.chunk_size,
@@ -580,7 +586,7 @@ class Mamba2(nn.Module):
                     z=None,
                     seq_idx=None,
                     return_final_states=True,
-                    dt_bias=self.dt_bias,
+                    dt_bias=self.decay_gate.dt_bias,
                     dt_softplus=True,
                     **dt_limit_kwargs,
                 )
