@@ -29,10 +29,9 @@ from ..modeling_outputs import (
     PipelineParallelInput,
     PipelineParallelOutput,
 )
-from .base import PreTrainedModelMixin_TP
 
 
-class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
+class CausalLMModelMixin_TP(CausalLMModelMixin):
     model_parallel_state_dict_function = None
 
     def _init_model(self, config: CommonConfig, **kwargs) -> None:

@@ -2,11 +2,11 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-from ...mixins import BaseModelMixin_TP, PreTrainedModelMixin_TP
+from ...mixins import BaseModelMixin_TP, PreTrainedModelMixin
 from ..gpt_base import GPTBaseConfig
 
 
-class GPTBasePreTrainedModel_TP(PreTrainedModelMixin_TP):
+class GPTBasePreTrainedModel_TP(PreTrainedModelMixin):
     config_class = GPTBaseConfig
 
 
