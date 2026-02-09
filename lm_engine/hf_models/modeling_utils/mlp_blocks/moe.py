@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
 
+from ....dtensors import dtensor_to_tensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import ProcessGroupManager, is_sonicmoe_available, is_xma_available
@@ -22,7 +23,8 @@ from ...parameter import (
 )
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
-from ..linear import ParameterizedLinear
+from ..dtensor_module import DTensorModule
+from ..linear import ColumnParallelLinear, ParameterizedLinear, RowParallelLinear
 from .mlp import _get_std_for_linear
 
 
@@ -53,6 +55,16 @@ def compute_bincount(x: torch.Tensor, size: int, use_continuous_count: bool) -> 
         count = bincount(x, minlength=size)
 
     return count
+
+
+class SharedExpertsColumnParallelLinear(ColumnParallelLinear):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return F.linear(x, dtensor_to_tensor(self.weight), dtensor_to_tensor(self.bias))
+
+
+class SharedExpertsRowParallelLinear(RowParallelLinear):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return F.linear(x, dtensor_to_tensor(self.weight), dtensor_to_tensor(self.bias))
 
 
 class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
