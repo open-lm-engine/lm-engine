@@ -53,7 +53,5 @@ class MLP_TP(MLP):
         )
 
         self.dropout = Dropout(
-            dropout,
-            use_padding_free_transformer=use_padding_free_transformer,
-            sequence_parallel=sequence_parallel,
+            dropout, use_padding_free_transformer=use_padding_free_transformer, sequence_parallel=sequence_parallel
         )
