@@ -176,9 +176,9 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         if self.is_tp_enabled:
             assert is_kernel_allowed(Kernel.scattermoe)
 
-        x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
-
         if is_kernel_allowed(Kernel.scattermoe):
+            x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+
             x = scattered_experts(
                 inputs=x,
                 expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
