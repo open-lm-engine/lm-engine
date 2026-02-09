@@ -168,23 +168,24 @@ class Mamba2(nn.Module):
         # instantiate once and copy inv_dt in init_weights of PretrainedModel
         # Initialize log dt bias
         self.dt_bias = nn.Parameter(torch.empty(self.num_heads))
+        mark_parameter_as_no_weight_decay(self.dt_bias)
 
         # S4D real initialization. These are not discretized!
         # The core is to load them, compute the discrete states, then write the updated state. Keeps the memory bounded
         self.A_log = nn.Parameter(torch.empty(self.num_heads))
+        mark_parameter_as_no_weight_decay(self.A_log)
+        mark_parameter_as_mup_learning_rate(self.A_log)
+
         self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
+
         self.D = nn.Parameter(torch.empty(self.num_heads))
+        mark_parameter_as_no_weight_decay(self.D)
+        mark_parameter_as_mup_learning_rate(self.D)
 
         self.out_proj = ParameterizedLinear(
             self.intermediate_size, self.hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
         )
 
-        mark_parameter_as_no_weight_decay(self.dt_bias)
-        mark_parameter_as_no_weight_decay(self.A_log)
-        mark_parameter_as_no_weight_decay(self.D)
-
-        mark_parameter_as_mup_learning_rate(self.A_log)
-        mark_parameter_as_mup_learning_rate(self.D)
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.in_proj.weight)
         mark_parameter_as_mup_learning_rate(self.out_proj.weight)
@@ -600,39 +601,5 @@ class Mamba2(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = torch.empty(self.num_heads, dtype=torch.float32).uniform_(0, 16)
-
-        if isinstance(self.A_log, DTensor):
-            A = tensor_to_dtensor(
-                tensor=A,
-                device_mesh=self.A_log.device_mesh,
-                current_placement=[Replicate()] * len(self.A_log.placements),
-                desired_placement=self.A_log.placements,
-            )
-
-        self.A_log.copy_(torch.log(A))
-
-        # hard coded for now
-        dt_min = 0.001
-        dt_max = 0.1
-        dt_init_floor = 1e-4
-        dt = torch.exp(torch.rand(self.num_heads) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min))
-        dt = torch.clamp(dt, min=dt_init_floor)
-        # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
-        inv_dt = dt + torch.log(-torch.expm1(-dt))
-
-        if isinstance(self.dt_bias, DTensor):
-            inv_dt = tensor_to_dtensor(
-                tensor=inv_dt,
-                device_mesh=self.dt_bias.device_mesh,
-                current_placement=[Replicate()] * len(self.dt_bias.placements),
-                desired_placement=self.dt_bias.placements,
-            )
-
-        self.dt_bias.copy_(inv_dt)
-
         nn.init.ones_(self.D)
-
-        mark_parameter_as_initialized(self.A_log)
         mark_parameter_as_initialized(self.D)
-        mark_parameter_as_initialized(self.dt_bias)
