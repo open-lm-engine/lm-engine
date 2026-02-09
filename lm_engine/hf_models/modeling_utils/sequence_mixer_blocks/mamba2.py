@@ -177,14 +177,15 @@ class Mamba2(nn.Module):
             dt_init_floor=dt_init_floor,
         )
 
-        self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
-
         self.D = nn.Parameter(torch.empty(self.num_heads))
-        mark_parameter_as_no_weight_decay(self.D)
+
+        self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
 
         self.out_proj = ParameterizedLinear(
             self.intermediate_size, self.hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
         )
+
+        mark_parameter_as_no_weight_decay(self.D)
 
         mark_parameter_as_mup_learning_rate(self.decay_gate.A_log)
         mark_parameter_as_mup_learning_rate(self.D)
