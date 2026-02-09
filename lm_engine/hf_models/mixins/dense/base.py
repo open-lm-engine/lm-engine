@@ -107,7 +107,13 @@ class BaseModelMixin(PreTrainedModelMixin):
             config.sequence_mixer_blocks[i].sequence_mixer_type for i in range(config.num_layers)
         ]
 
-        self.wte = ParameterizedEmbedding(config.vocab_size, self.embed_dim, std=self.initializer_range)
+        self.wte = ParameterizedEmbedding(
+            config.vocab_size,
+            self.embed_dim,
+            std=self.initializer_range,
+            use_padding_free_transformer=self.use_padding_free_transformer,
+            sequence_parallel=self.sequence_parallel,
+        )
 
         self.embedding_dropout = Dropout(config.embedding_dropout)
         self.h = nn.ModuleList(
@@ -328,7 +334,13 @@ class BaseModelMixin(PreTrainedModelMixin):
         max_position_embeddings = self.config.max_position_embeddings
 
         if self.position_embedding_type == "learned_absolute":
-            self.wpe = ParameterizedEmbedding(max_position_embeddings, self.embed_dim, std=self.initializer_range)
+            self.wpe = ParameterizedEmbedding(
+                max_position_embeddings,
+                self.embed_dim,
+                std=self.initializer_range,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=False,
+            )
         elif self.position_embedding_type == "rope":
             if self.config.rope_scaling is None:
                 self.rope = RoPE(

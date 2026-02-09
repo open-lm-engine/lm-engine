@@ -14,13 +14,14 @@ from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import ParameterizedLinear
+from ...modeling_utils import LMHead, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
 
 class CausalLMModelMixin(PreTrainedModelMixin):
     base_model_class = None
+    model_parallel_state_dict_function = None
 
     def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:
         super().__init__(config, **kwargs)
@@ -29,14 +30,25 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         self._init_model(config, **kwargs)
 
     def _init_model(self, config: CommonConfig, **kwargs) -> None:
+        self.vocab_size = config.vocab_size
         self.transformer = self.base_model_class(config, **kwargs)
 
-        if not self._tied_word_embeddings:
-            self.lm_head = ParameterizedLinear(
-                config.hidden_size, config.vocab_size, bias=False, std=config.initializer_range
-            )
+        if self.is_last_stage:
+            if not self._tied_word_embeddings:
+                self.lm_head = LMHead(
+                    self.vocab_size,
+                    config.hidden_size,
+                    std=config.initializer_range,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    sequence_parallel=self.sequence_parallel,
+                )
 
-        self.m_width = config.m_width
+            self.m_width = config.m_width
+
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
+        if self.is_tp_enabled:
+            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
     def forward(
         self,
@@ -271,7 +283,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         output_parallel_lm_logits_if_possible: bool,
     ) -> tuple[torch.Tensor] | torch.Tensor:
         if self.is_last_stage:
-            vocab_size = self.config.vocab_size
+            vocab_size = self.vocab_size
             if output_parallel_lm_logits_if_possible:
                 vocab_size = divide_if_divisible(vocab_size, ProcessGroupManager.get_tensor_parallel_world_size(), "")
 

@@ -14,13 +14,18 @@ from ..modeling_utils.TP import get_module_placements
 
 class LMHead(ParameterizedEmbedding):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.compute_with_weight(
-            x,
-            self.weight,
-            use_padding_free_transformer=self.use_padding_free_transformer,
-            sequence_parallel=self.sequence_parallel,
-            tp_mesh=self.tp_mesh,
-        )
+        if self.is_tp_enabled:
+            x = self.compute_with_weight(
+                x,
+                self.weight,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+                tp_mesh=self.tp_mesh if self.is_tp_enabled else None,
+            )
+        else:
+            x = F.linear(x, weight=self.weight)
+
+        return x
 
     @staticmethod
     def compute_with_weight(
@@ -28,8 +33,11 @@ class LMHead(ParameterizedEmbedding):
         weight: torch.Tensor,
         use_padding_free_transformer: bool,
         sequence_parallel: bool,
-        tp_mesh: DeviceMesh,
+        tp_mesh: DeviceMesh | None,
     ) -> torch.Tensor:
+        if tp_mesh is None:
+            return F.linear(x, weight=weight)
+
         function = LMHead._compute_with_weight_compiled if use_async_tensor_parallel() else LMHead._compute_with_weight
 
         return function(

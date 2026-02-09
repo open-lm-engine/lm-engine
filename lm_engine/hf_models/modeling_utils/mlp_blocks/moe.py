@@ -233,6 +233,7 @@ class MoE(nn.Module):
         normalized_topk: bool,
         num_experts: int,
         num_experts_per_tok: int,
+        add_bias: bool,
         activation_function: str,
         dropout: float,
         init_method: str,
@@ -278,7 +279,7 @@ class MoE(nn.Module):
                 out_features=(
                     2 * self.shared_intermediate_size if is_glu(activation_function) else self.shared_intermediate_size
                 ),
-                bias=False,
+                bias=add_bias,
                 std=std,
             )
 
@@ -295,7 +296,7 @@ class MoE(nn.Module):
             self.c_proj_shared = SharedExpertsRowParallelLinear(
                 in_features=self.shared_intermediate_size,
                 out_features=self.hidden_size,
-                bias=False,
+                bias=add_bias,
                 std=std,
             )
 

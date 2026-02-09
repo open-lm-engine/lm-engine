@@ -131,7 +131,6 @@ class TestCommons(BaseTestCommons):
                     "num_experts_per_tok": num_experts_per_tok,
                     "normalized_topk": normalized_topk,
                     "activation_function": activation_function,
-                    "add_bias": add_bias,
                     "shared_intermediate_size": None if shared_n_inner is None else shared_n_inner,
                     "shared_expert_gating": shared_expert_gating,
                 }

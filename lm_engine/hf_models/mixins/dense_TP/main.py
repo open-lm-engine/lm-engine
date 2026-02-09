@@ -32,26 +32,6 @@ from ..modeling_outputs import (
 
 
 class CausalLMModelMixin_TP(CausalLMModelMixin):
-    model_parallel_state_dict_function = None
-
-    def _init_model(self, config: CommonConfig, **kwargs) -> None:
-        self.vocab_size = config.vocab_size
-        self.transformer = self.base_model_class(config, **kwargs)
-
-        if self.is_last_stage:
-            if not self._tied_word_embeddings:
-                self.lm_head = LMHead(
-                    self.vocab_size,
-                    config.hidden_size,
-                    std=config.initializer_range,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
-                    sequence_parallel=self.sequence_parallel,
-                )
-
-            self.m_width = config.m_width
-
-        self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
-
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,

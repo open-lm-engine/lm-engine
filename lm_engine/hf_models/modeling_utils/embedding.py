@@ -30,10 +30,10 @@ class ParameterizedEmbedding(DTensorModule):
         nn.Module.__init__(self)
 
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+        self.use_padding_free_transformer = use_padding_free_transformer
 
         if self.is_tp_enabled:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
-            self.use_padding_free_transformer = use_padding_free_transformer
             self.sequence_parallel = sequence_parallel
 
             self.vocab_start_index, self.vocab_end_index, num_embeddings_per_tp_rank = get_tensor_parallel_vocab_info(

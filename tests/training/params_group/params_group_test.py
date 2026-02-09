@@ -8,12 +8,9 @@ import os
 import torch
 from parameterized import parameterized
 
-from lm_engine.distributed import (
-    _get_parameter_marker_maps,
-    _set_parameter_marker_maps,
-    wrap_model_container_for_distributed_training,
-)
+from lm_engine.distributed import wrap_model_container_for_distributed_training
 from lm_engine.enums import ParamsGroupMethod
+from lm_engine.hf_models import get_parameter_marker_maps, set_parameter_marker_maps
 from lm_engine.model_wrapper import get_model_container
 from lm_engine.optimization.params_group import get_param_groups_list
 from lm_engine.utils import ProcessGroupManager
@@ -55,9 +52,9 @@ class ParamsGroupTest(TestCommons):
         if use_fsdp:
             model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
         elif use_torch_compile:
-            marker_maps = _get_parameter_marker_maps(model_container)
+            marker_maps = get_parameter_marker_maps(model_container)
             model_container = [torch.compile(model) for model in model_container]
-            _set_parameter_marker_maps(model_container, marker_maps)
+            set_parameter_marker_maps(model_container, marker_maps)
 
         params_groups = get_param_groups_list(model_container, args.optimizer_args.class_args, params_group_method)[0]
 
