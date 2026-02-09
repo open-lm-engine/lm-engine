@@ -17,7 +17,6 @@ def get_mlp_block_TP(
         hidden_size=config.hidden_size,
         intermediate_size=block.intermediate_size,
         activation_function=block.activation_function,
-        add_bias=block.add_bias,
         dropout=block.dropout,
         init_method=config.init_method,
         initializer_range=config.initializer_range,
@@ -28,7 +27,7 @@ def get_mlp_block_TP(
     )
 
     if mlp_type == "MLP":
-        mlp = MLP(**kwargs)
+        mlp = MLP(**kwargs, add_bias=block.add_bias)
     elif mlp_type == "MoE":
         mlp = MoE_TP(
             **kwargs,
