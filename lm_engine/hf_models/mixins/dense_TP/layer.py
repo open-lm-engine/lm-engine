@@ -7,7 +7,8 @@ from __future__ import annotations
 import torch.nn as nn
 
 from ...config import CommonConfig
-from ...modeling_utils_TP import get_mlp_block_TP, get_normalization_function_TP, get_sequence_mixer_TP
+from ...modeling_utils import get_normalization_function
+from ...modeling_utils_TP import get_mlp_block_TP, get_sequence_mixer_TP
 from ..dense import Block
 
 
@@ -25,7 +26,7 @@ class Block_TP(Block):
         self.m_residual = config.m_residual
         self.sequence_mixer_type = config.sequence_mixer_blocks[layer_idx].sequence_mixer_type
 
-        self.ln_1 = get_normalization_function_TP(
+        self.ln_1 = get_normalization_function(
             config.normalization_function,
             hidden_size,
             eps=config.layer_norm_epsilon,
@@ -39,7 +40,7 @@ class Block_TP(Block):
             layer_idx=layer_idx,
             sequence_parallel=sequence_parallel,
         )
-        self.ln_2 = get_normalization_function_TP(
+        self.ln_2 = get_normalization_function(
             config.normalization_function,
             hidden_size,
             eps=config.layer_norm_epsilon,

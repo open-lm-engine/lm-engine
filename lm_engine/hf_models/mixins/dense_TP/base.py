@@ -10,8 +10,7 @@ import torch.nn as nn
 from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE
-from ...modeling_utils_TP import get_normalization_function_TP
+from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
 from ...utils import is_generation_cache_enabled
 from ..dense import BaseModelMixin, PreTrainedModelMixin
 from ..modeling_outputs import BaseModelOutputWithPast
@@ -81,7 +80,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
         )
 
         if self.is_last_stage:
-            self.ln_f = get_normalization_function_TP(
+            self.ln_f = get_normalization_function(
                 config.normalization_function,
                 self.embed_dim,
                 eps=config.layer_norm_epsilon,
