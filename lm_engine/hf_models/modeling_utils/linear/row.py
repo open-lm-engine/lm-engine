@@ -66,11 +66,11 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
         if use_async_tensor_parallel():
             self.compile()
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        input = tensor_to_dtensor(input, device_mesh=self.tp_mesh, current_placement=Shard(-1))
-        input = super().forward(input)
-        input = dtensor_to_tensor(input, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
-        return input
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Shard(-1))
+        x = super().forward(x)
+        x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
+        return x
 
     def extra_repr(self) -> str:
         return "in_features_per_device={}, out_features={}, bias={}".format(

@@ -64,13 +64,13 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         if use_async_tensor_parallel():
             self.compile()
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        input = tensor_to_dtensor(
-            input, device_mesh=self.tp_mesh, current_placement=self.input_placement, desired_placement=Replicate()
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = tensor_to_dtensor(
+            x, device_mesh=self.tp_mesh, current_placement=self.input_placement, desired_placement=Replicate()
         )
-        input = super().forward(input)
-        input = dtensor_to_tensor(input, device_mesh=self.tp_mesh, desired_placement=Shard(-1))
-        return input
+        x = super().forward(x)
+        x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=Shard(-1))
+        return x
 
     def extra_repr(self) -> str:
         return "in_features={}, out_features_per_device={}, bias={}".format(
