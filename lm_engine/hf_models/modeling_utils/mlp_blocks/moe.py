@@ -318,6 +318,7 @@ class MoE(nn.Module):
             )
 
         self.dropout = Dropout(dropout)
+        self.placement = Shard(0) if sequence_parallel else Replicate()
 
         self.is_hopper_or_newer_gpu = torch.cuda.is_available() and torch.cuda.get_device_capability(
             torch.cuda.current_device()
@@ -333,15 +334,21 @@ class MoE(nn.Module):
             mark_parameter_as_mup_learning_rate(self.c_fc_shared.weight)
             mark_parameter_as_mup_learning_rate(self.c_proj_shared.weight)
 
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not self.use_padding_free_transformer:
             batch_size, sequence_length, _ = x.shape
 
         x = x.view(-1, self.hidden_size)
 
+        if self.is_tp_enabled:
+            x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=self.placement)
+
         if is_kernel_allowed(Kernel.sonicmoe):
             assert self.use_interleaved_weights
             assert self.activation_function_string == "swiglu"
+            assert not self.is_tp_enabled
 
             moe_output, router_logits, expert_frequency = moe_TC_softmax_topk_layer(
                 x=x,
@@ -358,6 +365,12 @@ class MoE(nn.Module):
             assert not self.use_interleaved_weights
 
             router_logits, router_weights, selected_experts = self._compute_routing_weights(x)
+
+            if self.is_tp_enabled:
+                x = dtensor_to_tensor(
+                    x, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
+                )
+
             moe_output, expert_frequency = self._compute_experts(x, router_weights, selected_experts)
 
         if self.shared_intermediate_size is None:
@@ -366,6 +379,12 @@ class MoE(nn.Module):
             x = moe_output + self._compute_shared_experts(x)
 
         del moe_output
+
+        if self.is_tp_enabled:
+            x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Partial())
+            x = dtensor_to_tensor(
+                x, device_mesh=self.tp_mesh, desired_placement=self.placement, grad_placement=self.placement
+            )
 
         if not self.use_padding_free_transformer:
             x = x.reshape(batch_size, sequence_length, self.hidden_size)
@@ -387,6 +406,12 @@ class MoE(nn.Module):
     def _compute_routing_weights(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # x -> (total_q, hidden_size)
         router_logits = self.gate(x)
+
+        if self.is_tp_enabled:
+            router_logits = dtensor_to_tensor(
+                router_logits, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
+            )
+
         # router_logits -> (total_q, num_experts)
 
         if self.normalized_topk:

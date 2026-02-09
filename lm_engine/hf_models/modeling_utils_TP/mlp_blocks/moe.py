@@ -46,7 +46,7 @@ class MoE_TP(MoE, DTensorModule):
         num_layers: int,
         use_padding_free_transformer: bool,
         sequence_parallel: bool = False,
-    ) -> MoE_TP:
+    ) -> MoE:
         nn.Module.__init__(self)
 
         self.num_experts = num_experts
@@ -70,6 +70,13 @@ class MoE_TP(MoE, DTensorModule):
             std=std,
         )
 
+        if self.shared_expert_gating:
+            assert shared_intermediate_size is not None
+
+            self.shared_expert_gate = ReplicatedLinear_TP(
+                in_features=self.hidden_size, out_features=1, bias=False, std=std
+            )
+
         self.c_fc = ColumnParallelExperts(
             num_experts=num_experts,
             in_features=self.hidden_size,
@@ -87,6 +94,7 @@ class MoE_TP(MoE, DTensorModule):
                 std=std,
             )
 
+        self.activation_function_string = activation_function
         self.act = get_activation_function(activation_function)
 
         std /= math.sqrt(2 * num_layers)
@@ -94,6 +102,7 @@ class MoE_TP(MoE, DTensorModule):
         self.c_proj = RowParallelExperts(
             num_experts=num_experts, in_features=self.intermediate_size, out_features=self.hidden_size, std=std
         )
+
         if self.shared_intermediate_size is not None:
             self.c_proj_shared = SharedExpertsRowParallelLinear(
                 in_features=self.shared_intermediate_size,
@@ -153,22 +162,3 @@ class MoE_TP(MoE, DTensorModule):
         add_aux_loss(aux_loss)
 
         return x
-
-    def _compute_routing_weights(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        # x -> (total_q, hidden_size)
-        router_logits = self.gate(x)
-        router_logits = dtensor_to_tensor(
-            router_logits, device_mesh=self.tp_mesh, desired_placement=Replicate(), grad_placement=Partial()
-        )
-        # router_logits -> (total_q, num_experts)
-
-        if self.normalized_topk:
-            router_weights, selected_experts = self._get_topk(router_logits)
-            router_weights = F.softmax(router_weights.float(), dim=-1)
-            router_weights = router_weights.type_as(x)
-        else:
-            router_weights = F.softmax(router_logits.float(), dim=-1)
-            router_weights = router_weights.type_as(x)
-            router_weights, selected_experts = self._get_topk(router_weights)
-
-        return router_logits, router_weights, selected_experts

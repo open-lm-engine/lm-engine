@@ -3,13 +3,12 @@
 # **************************************************
 
 from ...config import CommonConfig
-from ...modeling_utils import MLP
-from .moe import MoE_TP
+from ...modeling_utils import MLP, MoE
 
 
 def get_mlp_block_TP(
     config: CommonConfig, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
-) -> MLP | MoE_TP:
+) -> MLP | MoE:
     block = config.mlp_blocks[layer_idx]
     mlp_type = block.mlp_type
 
@@ -29,7 +28,7 @@ def get_mlp_block_TP(
     if mlp_type == "MLP":
         mlp = MLP(**kwargs, add_bias=block.add_bias)
     elif mlp_type == "MoE":
-        mlp = MoE_TP(
+        mlp = MoE(
             **kwargs,
             shared_intermediate_size=block.shared_intermediate_size,
             use_interleaved_weights=block.use_interleaved_weights,
