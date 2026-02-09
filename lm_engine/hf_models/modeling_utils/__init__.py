@@ -7,7 +7,7 @@ from .convolution import ParameterizedConv1d
 from .dropout import Dropout
 from .dtensor_module import DTensorModule
 from .embedding import ParameterizedEmbedding, get_tensor_parallel_vocab_info
-from .linear import ParameterizedLinear
+from .linear import ColumnParallelLinear, ParameterizedLinear, RowParallelLinear
 from .mlp_blocks import (
     MLP,
     MoE,

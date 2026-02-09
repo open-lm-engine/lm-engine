@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
+from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 
 
 class ParameterizedLinear(nn.Linear):

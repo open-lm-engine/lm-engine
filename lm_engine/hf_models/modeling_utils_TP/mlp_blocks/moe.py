@@ -17,16 +17,17 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import ProcessGroupManager, divide_if_divisible, is_xma_available
 from ...loss import add_aux_loss
 from ...modeling_utils import (
+    ColumnParallelLinear,
     Dropout,
     DTensorModule,
     MoE,
     ParameterizedExperts,
     ParameterizedLinear,
+    RowParallelLinear,
     get_activation_function,
     is_glu,
 )
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
-from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
 if is_xma_available():
