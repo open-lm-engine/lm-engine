@@ -53,9 +53,9 @@ def unpad_input(
 
 
 def flash_attention(
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
     attention_mask: torch.Tensor | None,
     cu_seqlens: torch.Tensor | None,
     max_seqlen: int | None,
@@ -88,9 +88,9 @@ def flash_attention(
         assert sliding_window is None
 
         attn_output = _flash_attention_varlen_function(
-            q=query,
-            k=key,
-            v=value,
+            q=q,
+            k=k,
+            v=v,
             softmax_scale=softmax_scale,
             causal=causal,
             cu_seqlens_q=cu_seqlens,
@@ -101,26 +101,24 @@ def flash_attention(
             softcap=softcap,
         )
     elif attention_mask is None:
-        attn_output = _flash_attention_function(
-            q=query,
-            k=key,
-            v=value,
+        x = _flash_attention_function(
+            q=q,
+            k=k,
+            v=v,
             softmax_scale=softmax_scale,
             causal=causal,
             window_size=window_size,
             softcap=softcap,
         )
     else:
-        batch_size, query_length, num_heads, head_dim = query.size()
+        B, S, N, H = q.size()
 
-        query, key, value, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k = unpad_input(
-            query, key, value, attention_mask, query_length
-        )
+        q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k = unpad_input(q, k, v, attention_mask, S)
 
-        attn_output = _flash_attention_varlen_function(
-            q=query,
-            k=key,
-            v=value,
+        x = _flash_attention_varlen_function(
+            q=q,
+            k=k,
+            v=v,
             softmax_scale=softmax_scale,
             causal=causal,
             cu_seqlens_q=cu_seqlens_q,
@@ -131,8 +129,6 @@ def flash_attention(
             softcap=softcap,
         )
 
-        attn_output = unpack_sequence(
-            inputs=attn_output, cu_seqlens=cu_seqlens_q, output_shape=(batch_size, query_length, num_heads, head_dim)
-        )
+        x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens_q, output_shape=(B, S, N, H))
 
-    return attn_output
+    return x
