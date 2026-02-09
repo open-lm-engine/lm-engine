@@ -252,18 +252,18 @@ class MoE(nn.Module):
             mark_parameter_as_mup_learning_rate(self.c_fc_shared.weight)
             mark_parameter_as_mup_learning_rate(self.c_proj_shared.weight)
 
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not self.use_padding_free_transformer:
-            batch_size, sequence_length, _ = hidden_states.shape
+            batch_size, sequence_length, _ = x.shape
 
-        hidden_states = hidden_states.view(-1, self.hidden_size)
+        x = x.view(-1, self.hidden_size)
 
         if is_kernel_allowed(Kernel.sonicmoe):
             assert self.use_interleaved_weights
             assert self.activation_function_string == "swiglu"
 
             moe_output, router_logits, expert_frequency = moe_TC_softmax_topk_layer(
-                x=hidden_states,
+                x=x,
                 router_w=self.gate.weight,
                 w1=self.c_fc.weight.permute(1, 2, 0),
                 b1=self.c_fc.bias,
@@ -276,20 +276,20 @@ class MoE(nn.Module):
         else:
             assert not self.use_interleaved_weights
 
-            router_logits, router_weights, selected_experts = self._compute_routing_weights(hidden_states)
-            moe_output, expert_frequency = self._compute_experts(hidden_states, router_weights, selected_experts)
+            router_logits, router_weights, selected_experts = self._compute_routing_weights(x)
+            moe_output, expert_frequency = self._compute_experts(x, router_weights, selected_experts)
 
         if self.shared_intermediate_size is None:
-            hidden_states = moe_output
+            x = moe_output
         else:
-            hidden_states = moe_output + self._compute_shared_experts(hidden_states)
+            x = moe_output + self._compute_shared_experts(x)
 
         del moe_output
 
         if not self.use_padding_free_transformer:
-            hidden_states = hidden_states.reshape(batch_size, sequence_length, self.hidden_size)
+            x = x.reshape(batch_size, sequence_length, self.hidden_size)
 
-        hidden_states = self.dropout(hidden_states)
+        x = self.dropout(x)
 
         aux_loss = (
             self._compute_switch_loss(
@@ -301,26 +301,26 @@ class MoE(nn.Module):
 
         add_aux_loss(aux_loss)
 
-        return hidden_states
+        return x
 
-    def _compute_routing_weights(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        # hidden_states -> (total_q, hidden_size)
-        router_logits = self.gate(hidden_states)
+    def _compute_routing_weights(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        # x -> (total_q, hidden_size)
+        router_logits = self.gate(x)
         # router_logits -> (total_q, num_experts)
 
         if self.normalized_topk:
             router_weights, selected_experts = self._get_topk(router_logits)
             router_weights = F.softmax(router_weights.float(), dim=-1)
-            router_weights = router_weights.type_as(hidden_states)
+            router_weights = router_weights.type_as(x)
         else:
             router_weights = F.softmax(router_logits.float(), dim=-1)
-            router_weights = router_weights.type_as(hidden_states)
+            router_weights = router_weights.type_as(x)
             router_weights, selected_experts = self._get_topk(router_weights)
 
         return router_logits, router_weights, selected_experts
 
     def _compute_experts(
-        self, hidden_states: torch.Tensor, router_weights: torch.Tensor, selected_experts: torch.Tensor
+        self, x: torch.Tensor, router_weights: torch.Tensor, selected_experts: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             sorted_expert_idxs, sorted_scattered_idxs = selected_experts.flatten().sort()
@@ -331,14 +331,14 @@ class MoE(nn.Module):
                 use_continuous_count=self.is_hopper_or_newer_gpu and is_kernel_allowed(Kernel.continuous_count),
             )
 
-        T = hidden_states.size(0)
+        T = x.size(0)
 
         if is_kernel_allowed(Kernel.scattermoe):
             with torch.no_grad():
                 expert_offsets = expert_frequency.cumsum(-1)
 
-            hidden_states = self.c_fc(
-                input=hidden_states,
+            x = self.c_fc(
+                input=x,
                 num_experts_per_token=self.top_k,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
@@ -346,10 +346,10 @@ class MoE(nn.Module):
                 grouped_out=True,
             )
 
-            hidden_states = self.act(hidden_states)
+            x = self.act(x)
 
-            hidden_states = self.c_proj(
-                input=hidden_states,
+            x = self.c_proj(
+                input=x,
                 num_experts_per_token=1,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
@@ -358,7 +358,7 @@ class MoE(nn.Module):
                 gates=router_weights,
             )
 
-            hidden_states = self.dropout(hidden_states)
+            x = self.dropout(x)
         else:
             batch_index = sorted_scattered_idxs // self.top_k
 
@@ -366,31 +366,31 @@ class MoE(nn.Module):
             router_weights = router_weights.flatten()
             batch_gates = router_weights[sorted_scattered_idxs]
 
-            hidden_states = hidden_states[batch_index]
+            x = x[batch_index]
 
-            hidden_states = self.c_fc(input=hidden_states, expert_frequency=expert_frequency)
-            hidden_states = self.act(hidden_states)
-            hidden_states = self.c_proj(input=hidden_states, expert_frequency=expert_frequency)
+            x = self.c_fc(input=x, expert_frequency=expert_frequency)
+            x = self.act(x)
+            x = self.c_proj(input=x, expert_frequency=expert_frequency)
 
-            hidden_states = hidden_states * batch_gates.unsqueeze(-1)  # [:, None]
-            zeros = torch.zeros((T, self.hidden_size), dtype=hidden_states.dtype, device=hidden_states.device)
-            hidden_states = zeros.index_add(0, batch_index, hidden_states)
+            x = x * batch_gates.unsqueeze(-1)  # [:, None]
+            zeros = torch.zeros((T, self.hidden_size), dtype=x.dtype, device=x.device)
+            x = zeros.index_add(0, batch_index, x)
 
-        return hidden_states, expert_frequency
+        return x, expert_frequency
 
-    def _compute_shared_experts(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        gate = None
+    def _compute_shared_experts(self, x: torch.Tensor) -> torch.Tensor:
+        g = None
         if self.shared_expert_gating:
-            gate = self.shared_expert_gate(hidden_states)
+            g = self.shared_expert_gate(x)
 
-        hidden_states = self.c_fc_shared(hidden_states)
-        hidden_states = self.act(hidden_states)
-        hidden_states = self.c_proj_shared(hidden_states)
+        x = self.c_fc_shared(x)
+        x = self.act(x)
+        x = self.c_proj_shared(x)
 
-        if gate is not None:
-            hidden_states = hidden_states * F.sigmoid(gate)
+        if g is not None:
+            x = x * F.sigmoid(g)
 
-        return hidden_states
+        return x
 
     def _get_topk(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if self.top_k == 1:

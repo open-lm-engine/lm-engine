@@ -18,7 +18,7 @@ def is_flash_attention_2_available() -> bool:
 
 
 try:
-    import flash_attn_3_cuda
+    from flash_attn_interface import flash_attn_func
 
     _IS_FLASH_ATTENTION_3_AVAILABLE = True
 except ImportError:
