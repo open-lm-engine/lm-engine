@@ -128,7 +128,7 @@ class Attention(nn.Module):
         self.num_key_value_heads = divide_if_divisible(
             self.global_num_key_value_heads,
             self.tp_world_size,
-            f"`num_key_value_heads` ({self.global_num_key_value_heads}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
+            f"`num_key_value_heads` ({self.global_num_key_value_heads}) must be divisible by `tensor_parallel_world_size` ({self.tp_world_size})",
         )
 
         std = initializer_range
