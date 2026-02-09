@@ -13,42 +13,18 @@ from torch.distributed._tensor.placement_types import Partial, Replicate, Shard
 
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
-from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import ProcessGroupManager, divide_if_divisible, is_xma_available
+from ....kernels import is_kernel_allowed
+from ....utils import ProcessGroupManager
 from ...loss import add_aux_loss
-from ...modeling_utils import (
-    Dropout,
-    DTensorModule,
-    MoE,
-    ParameterizedExperts,
-    ParameterizedLinear,
-    get_activation_function,
-    is_glu,
-)
+from ...modeling_utils import Dropout, DTensorModule, MoE, get_activation_function, is_glu
 from ...modeling_utils.mlp_blocks.mlp import _get_std_for_linear
 from ...modeling_utils.mlp_blocks.moe import (
     ColumnParallelExperts,
+    ReplicatedLinear_TP,
     RowParallelExperts,
     SharedExpertsColumnParallelLinear,
     SharedExpertsRowParallelLinear,
 )
-
-
-if is_xma_available():
-    from xma.layers.moe import scattered_experts
-
-
-class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
-    def __init__(
-        self, in_features: int, out_features: int, bias: bool = True, std: float | None = None
-    ) -> ReplicatedLinear_TP:
-        super().__init__(in_features=in_features, out_features=out_features, bias=bias, std=std)
-
-        self.weight = nn.Parameter(
-            tensor_to_dtensor(
-                self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Replicate()
-            )
-        )
 
 
 class MoE_TP(MoE, DTensorModule):
