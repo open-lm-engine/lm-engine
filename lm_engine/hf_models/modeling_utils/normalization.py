@@ -46,6 +46,8 @@ class LayerNorm(nn.LayerNorm, DTensorModule):
                 tensor_to_dtensor(self.bias, device_mesh=self.tp_mesh, current_placement=Replicate())
             )
 
+        self.reset_parameters()
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.is_tp_enabled:
             x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=self.placement)
@@ -82,6 +84,8 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
             self.weight = nn.Parameter(
                 tensor_to_dtensor(self.weight, device_mesh=self.tp_mesh, current_placement=Replicate())
             )
+
+        self.reset_parameters()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.is_tp_enabled:
