@@ -90,22 +90,15 @@ class ReplicatedLinear_TP(ParameterizedLinear, DTensorModule):
 
 class ParameterizedExperts(nn.Module):
     def __init__(
-        self,
-        num_experts: int,
-        in_features: int,
-        out_features: int,
-        add_bias: bool = False,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
+        self, num_experts: int, in_features: int, out_features: int, add_bias: bool = False, std: float | None = None
     ) -> ParameterizedExperts:
         super().__init__()
 
-        self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features, device=device, dtype=dtype))
+        self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features))
 
         self.bias = None
         if add_bias:
-            self.bias = nn.Parameter(torch.empty(num_experts, out_features, device=device, dtype=dtype))
+            self.bias = nn.Parameter(torch.empty(num_experts, out_features))
 
         self.std = std
 
@@ -226,7 +219,7 @@ class MoE(nn.Module):
             std=std,
         )
         if self.shared_intermediate_size is not None:
-            self.c_fc_shared = ParameterizedLinear(
+            self.c_fc_shared = SharedExpertsColumnParallelLinear(
                 in_features=self.hidden_size,
                 out_features=(
                     2 * self.shared_intermediate_size if is_glu(activation_function) else self.shared_intermediate_size
@@ -248,7 +241,7 @@ class MoE(nn.Module):
             std=std,
         )
         if self.shared_intermediate_size is not None:
-            self.c_proj_shared = ParameterizedLinear(
+            self.c_proj_shared = SharedExpertsRowParallelLinear(
                 in_features=self.shared_intermediate_size,
                 out_features=self.hidden_size,
                 bias=add_bias,
