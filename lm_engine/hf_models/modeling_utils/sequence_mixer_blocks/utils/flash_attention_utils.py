@@ -69,8 +69,11 @@ def flash_attention(
 
     assert use_flash_attention_3 or use_flash_attention_2, "enable flash_attention_2 or flash_attention_3"
 
-    if use_padding_free_transformer:
-        assert use_flash_attention_3 or use_flash_attention_2
+    if use_flash_attention_3:
+        assert dropout == 0
+    #     partial(flash_attention_3 if use_flash_attention_3 else flash_attention_2)
+    # else:
+    #     partial(flash_attention_3_varlen if use_flash_attention_3 else flash_attention_2_varlen)
 
     window_size = (-1, -1)
     if sliding_window is not None and key.size(1) > sliding_window:
@@ -91,7 +94,6 @@ def flash_attention(
         )
 
         if use_flash_attention_3:
-            assert dropout == 0
             attn_output = flash_attention_3_varlen(**kwargs)
         else:
             attn_output = flash_attention_2_varlen(**kwargs, dropout_p=dropout)
@@ -99,7 +101,6 @@ def flash_attention(
         kwargs.update({"window_size": window_size, "softcap": softcap})
 
         if use_flash_attention_3:
-            assert dropout == 0
             attn_output = flash_attention_3(**kwargs)
         else:
             attn_output = flash_attention_2(**kwargs, dropout_p=dropout)
@@ -122,7 +123,6 @@ def flash_attention(
         )
 
         if use_flash_attention_3:
-            assert dropout == 0
             attn_output = flash_attention_3_varlen(**kwargs)
         else:
             attn_output = flash_attention_2_varlen(**kwargs, dropout_p=dropout)
