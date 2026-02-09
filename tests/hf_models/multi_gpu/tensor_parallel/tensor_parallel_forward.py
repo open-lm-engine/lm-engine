@@ -58,7 +58,7 @@ config = GPTBaseConfig(
     ],
     mlp_blocks=[
         {"mlp_type": "MLP", "add_bias": False},
-        {"mlp_type": "MoE", "add_bias": False},
+        {"mlp_type": "MoE"},
     ],
 )
 
