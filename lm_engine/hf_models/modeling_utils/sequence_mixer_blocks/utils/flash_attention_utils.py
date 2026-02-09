@@ -84,24 +84,32 @@ def flash_attention(
     if sliding_window is not None and key.size(1) > sliding_window:
         window_size = (sliding_window, sliding_window)
 
-    kwargs = {"q": query, "k": key, "v": value, "softmax_scale": softmax_scale, "causal": causal}
-
     if use_padding_free_transformer:
         assert sliding_window is None
 
-        kwargs.update(
-            {
-                "cu_seqlens_q": cu_seqlens,
-                "cu_seqlens_k": cu_seqlens,
-                "max_seqlen_q": max_seqlen,
-                "max_seqlen_k": max_seqlen,
-            }
+        attn_output = _flash_attention_varlen_function(
+            q=query,
+            k=key,
+            v=value,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            cu_seqlens_q=cu_seqlens,
+            cu_seqlens_k=cu_seqlens,
+            max_seqlen_q=max_seqlen,
+            max_seqlen_k=max_seqlen,
+            window_size=window_size,
+            softcap=softcap,
         )
-
-        attn_output = _flash_attention_varlen_function(**kwargs)
     elif attention_mask is None:
-        kwargs.update({"window_size": window_size, "softcap": softcap})
-        attn_output = _flash_attention_function(**kwargs)
+        attn_output = _flash_attention_function(
+            q=query,
+            k=key,
+            v=value,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            window_size=window_size,
+            softcap=softcap,
+        )
     else:
         batch_size, query_length, num_heads, head_dim = query.size()
 
@@ -109,18 +117,19 @@ def flash_attention(
             query, key, value, attention_mask, query_length
         )
 
-        kwargs.update(
-            {
-                "cu_seqlens_q": cu_seqlens_q,
-                "cu_seqlens_k": cu_seqlens_k,
-                "max_seqlen_q": max_seqlen_q,
-                "max_seqlen_k": max_seqlen_k,
-                "window_size": window_size,
-                "softcap": softcap,
-            }
+        attn_output = _flash_attention_varlen_function(
+            q=query,
+            k=key,
+            v=value,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+            max_seqlen_q=max_seqlen_q,
+            max_seqlen_k=max_seqlen_k,
+            window_size=window_size,
+            softcap=softcap,
         )
-
-        attn_output = _flash_attention_varlen_function(**kwargs)
 
         attn_output = unpack_sequence(
             inputs=attn_output, cu_seqlens=cu_seqlens_q, output_shape=(batch_size, query_length, num_heads, head_dim)
