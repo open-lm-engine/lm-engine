@@ -28,7 +28,6 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         sequence_parallel: bool = False,
     ) -> ColumnParallelLinear:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
-        self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
         self.out_features_per_device = divide_if_divisible(
             out_features,
@@ -45,31 +44,43 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
             std=std,
         )
 
-        self.weight = nn.Parameter(
-            tensor_to_dtensor(
-                self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(0)
-            )
-        )
-        if bias:
-            self.bias = nn.Parameter(
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
+        if self.is_tp_enabled:
+            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
+            self.input_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+
+            self.weight = nn.Parameter(
                 tensor_to_dtensor(
-                    self.bias, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(0)
+                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(0)
                 )
             )
 
-        self.input_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+            if bias:
+                self.bias = nn.Parameter(
+                    tensor_to_dtensor(
+                        self.bias,
+                        device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
+                        current_placement=Shard(0),
+                    )
+                )
+
+            if use_async_tensor_parallel():
+                self.compile()
 
         self.reset_parameters()
 
-        if use_async_tensor_parallel():
-            self.compile()
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = tensor_to_dtensor(
-            x, device_mesh=self.tp_mesh, current_placement=self.input_placement, desired_placement=Replicate()
-        )
+        if self.is_tp_enabled:
+            x = tensor_to_dtensor(
+                x, device_mesh=self.tp_mesh, current_placement=self.input_placement, desired_placement=Replicate()
+            )
+
         x = super().forward(x)
-        x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=Shard(-1))
+
+        if self.is_tp_enabled:
+            x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=Shard(-1))
+
         return x
 
     def extra_repr(self) -> str:
