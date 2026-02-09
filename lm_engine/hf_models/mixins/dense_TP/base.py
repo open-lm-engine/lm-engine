@@ -16,7 +16,7 @@ from ..dense import BaseModelMixin, PreTrainedModelMixin
 from ..modeling_outputs import BaseModelOutputWithPast
 
 
-class BaseModelMixin_TP(PreTrainedModelMixin, BaseModelMixin):
+class BaseModelMixin_TP(BaseModelMixin):
     def _init_model(self, config: CommonConfig, **kwargs) -> None:
         self.embed_dim = config.hidden_size
         self.max_position_embeddings = config.max_position_embeddings
