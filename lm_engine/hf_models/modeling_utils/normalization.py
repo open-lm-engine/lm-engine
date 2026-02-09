@@ -60,6 +60,7 @@ class LayerNorm(nn.LayerNorm, DTensorModule):
     def reset_parameters(self) -> None:
         super().reset_parameters()
         mark_parameter_as_initialized(self.weight)
+        mark_parameter_as_initialized(self.bias)
 
 
 class RMSNorm(nn.RMSNorm, DTensorModule):
