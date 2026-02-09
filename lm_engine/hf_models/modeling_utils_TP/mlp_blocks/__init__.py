@@ -3,13 +3,13 @@
 # **************************************************
 
 from ...config import CommonConfig
-from .mlp import MLP_TP
+from ...modeling_utils import MLP
 from .moe import MoE_TP
 
 
 def get_mlp_block_TP(
     config: CommonConfig, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
-) -> MLP_TP | MoE_TP:
+) -> MLP | MoE_TP:
     block = config.mlp_blocks[layer_idx]
     mlp_type = block.mlp_type
 
@@ -28,7 +28,7 @@ def get_mlp_block_TP(
     )
 
     if mlp_type == "MLP":
-        mlp = MLP_TP(**kwargs)
+        mlp = MLP(**kwargs)
     elif mlp_type == "MoE":
         mlp = MoE_TP(
             **kwargs,

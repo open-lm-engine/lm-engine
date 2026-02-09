@@ -28,16 +28,15 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
         sequence_parallel: bool = False,
     ) -> RowParallelLinear:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
-        self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
-        self.in_features_per_device = divide_if_divisible(
+        self.in_features_per_tp_rank = divide_if_divisible(
             in_features,
             tp_world_size,
             f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
         )
 
         super().__init__(
-            in_features=self.in_features_per_device,
+            in_features=self.in_features_per_tp_rank,
             out_features=out_features,
             bias=bias,
             device=device,
@@ -45,34 +44,44 @@ class RowParallelLinear(ParameterizedLinear, DTensorModule):
             std=std,
         )
 
-        self.weight = nn.Parameter(
-            tensor_to_dtensor(
-                self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(1)
-            )
-        )
-        if bias:
-            self.bias = nn.Parameter(
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
+        if self.is_tp_enabled:
+            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
+            self.output_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+
+            self.weight = nn.Parameter(
                 tensor_to_dtensor(
-                    self.bias,
-                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
-                    current_placement=Replicate(),
+                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(1)
                 )
             )
 
-        self.output_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
+            if bias:
+                self.bias = nn.Parameter(
+                    tensor_to_dtensor(
+                        self.bias,
+                        device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
+                        current_placement=Replicate(),
+                    )
+                )
+
+            if use_async_tensor_parallel():
+                self.compile()
 
         self.reset_parameters()
 
-        if use_async_tensor_parallel():
-            self.compile()
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Shard(-1))
+        if self.is_tp_enabled:
+            x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=Shard(-1))
+
         x = super().forward(x)
-        x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
+
+        if self.is_tp_enabled:
+            x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.output_placement)
+
         return x
 
     def extra_repr(self) -> str:
-        return "in_features_per_device={}, out_features={}, bias={}".format(
-            self.in_features_per_device, self.out_features, self.bias is not None
+        return "in_features_per_tp_rank={}, out_features={}, bias={}".format(
+            self.in_features_per_tp_rank, self.out_features, self.bias is not None
         )
