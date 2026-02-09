@@ -33,7 +33,7 @@ class LMHead(ParameterizedEmbedding):
         function = LMHead._compute_with_weight_compiled if use_async_tensor_parallel() else LMHead._compute_with_weight
 
         return function(
-            input=x,
+            x=x,
             weight=weight,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
@@ -68,7 +68,7 @@ class LMHead(ParameterizedEmbedding):
         tp_mesh: DeviceMesh,
     ) -> torch.Tensor:
         return LMHead._compute_with_weight(
-            input=x,
+            x=x,
             weight=weight,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
