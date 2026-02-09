@@ -52,9 +52,6 @@ class CausalLMModelMixin_TP(PreTrainedModelMixin_TP, CausalLMModelMixin):
 
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
-        # Initialize weights and apply final processing
-        self.post_init()
-
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
