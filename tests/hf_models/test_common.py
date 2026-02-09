@@ -21,10 +21,6 @@ _DEBUG = False
 
 class TestCommons(BaseTestCommons):
     @staticmethod
-    def get_attention_implementations() -> list[str]:
-        return ["sdpa", "flash_attention_2"]
-
-    @staticmethod
     def get_position_embedding_types() -> list[str]:
         return ["learned_absolute", "rope"]
 
