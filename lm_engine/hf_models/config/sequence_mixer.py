@@ -26,29 +26,6 @@ class _SoftmaxAttentionArgs(BaseArgs):
         assert self.sequence_mixer_type == "softmax_attention"
 
 
-class _MultiHeadLatentAttentionArgs(BaseArgs):
-    sequence_mixer_type: str = "multihead_latent_attention"
-    num_attention_heads: int | None = None
-    softmax_dropout: float = 0
-    dropout: float = 0
-    add_bias: bool = False
-    attention_multiplier: float | None = None
-    sliding_window: int | None = None
-    query_compression_size: int | None = None
-    key_value_compression_size: int | None = None
-    num_attention_heads: int | None = None
-    head_dim: int | None = None
-    normalization_function: str = "layernorm"
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "multihead_latent_attention"
-        assert self.num_attention_heads is not None
-        assert self.query_compression_size is not None
-        assert self.key_value_compression_size is not None
-        assert self.num_attention_heads is not None
-        assert self.head_dim is not None
-
-
 class _SoftPlusDecayArgs(BaseArgs):
     A_init_min: float = 0
     A_init_max: float = 16
