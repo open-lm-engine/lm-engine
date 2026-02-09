@@ -29,7 +29,7 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
     ) -> ColumnParallelLinear:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
 
-        self.out_features_per_device = divide_if_divisible(
+        self.out_features_per_tp_rank = divide_if_divisible(
             out_features,
             tp_world_size,
             f"`out_features` ({out_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
@@ -37,7 +37,7 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
 
         super().__init__(
             in_features=in_features,
-            out_features=self.out_features_per_device,
+            out_features=self.out_features_per_tp_rank,
             bias=bias,
             device=device,
             dtype=dtype,
@@ -84,6 +84,6 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         return x
 
     def extra_repr(self) -> str:
-        return "in_features={}, out_features_per_device={}, bias={}".format(
-            self.in_features, self.out_features_per_device, self.bias is not None
+        return "in_features={}, out_features_per_tp_rank={}, bias={}".format(
+            self.in_features, self.out_features_per_tp_rank, self.bias is not None
         )
