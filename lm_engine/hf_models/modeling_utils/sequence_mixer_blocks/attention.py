@@ -155,9 +155,9 @@ class Attention(nn.Module):
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
 
-            total_q = hidden_states.shape[0]
-            input_shape = (total_q, self.num_key_value_heads, -1)
-            output_shape = (total_q, -1, self.head_dim)
+            T = hidden_states.size(0)
+            input_shape = (T, self.num_key_value_heads, -1)
+            output_shape = (T, -1, self.head_dim)
         else:
             batch_size, query_length = hidden_states.shape[:-1]
 
@@ -206,9 +206,9 @@ class Attention(nn.Module):
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
 
             hidden_states = flash_attention(
-                query=query,
-                key=key,
-                value=value,
+                q=query,
+                k=key,
+                v=value,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 attention_mask=attention_mask,

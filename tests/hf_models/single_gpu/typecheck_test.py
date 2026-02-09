@@ -7,6 +7,7 @@ from parameterized import parameterized
 
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
+from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available
 
 from ..test_common import TestCommons
 
@@ -25,5 +26,14 @@ class TypeCheckTest(TestCommons):
         input_ids, _, labels = self.get_dummy_inputs(device, return_list=True)
         attention_mask = [[1] * len(i) for i in input_ids]
 
-        with enable_kernels([Kernel.flash_attention_2]):
+        kernel = None
+        if is_flash_attention_3_available():
+            kernel = Kernel.flash_attention_3
+        if is_flash_attention_2_available():
+            kernel = Kernel.flash_attention_2
+
+        if kernel is None:
+            self.skipTest("skipping test because flash attention 2 or 3 is unavailable")
+
+        with enable_kernels([kernel]):
             self.assertRaises(AssertionError, model, input_ids=input_ids, attention_mask=attention_mask, labels=labels)
