@@ -25,7 +25,10 @@ class PaLMBlock(nn.Module):
         )
         self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
         self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
+            config,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=False,
+            layer_idx=layer_idx,
         )
 
     def forward(

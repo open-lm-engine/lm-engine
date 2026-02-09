@@ -30,7 +30,10 @@ class Block(nn.Module):
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
         self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
+            config,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=False,
+            layer_idx=layer_idx,
         )
 
     def forward(

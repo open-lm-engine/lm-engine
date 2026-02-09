@@ -336,6 +336,9 @@ class MoE(nn.Module):
 
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
+        if self.is_tp_enabled:
+            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not self.use_padding_free_transformer:
             batch_size, sequence_length, _ = x.shape

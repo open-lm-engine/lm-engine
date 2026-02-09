@@ -7,7 +7,9 @@ from .mlp import MLP, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_fo
 from .moe import MoE, ParameterizedExperts
 
 
-def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, layer_idx: int) -> MLP | MoE:
+def get_mlp_block(
+    config: CommonConfig, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
+) -> MLP | MoE:
     block = config.mlp_blocks[layer_idx]
     mlp_type = block.mlp_type
 
@@ -21,6 +23,7 @@ def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, laye
         m_width=config.m_width,
         num_layers=config.num_layers,
         use_padding_free_transformer=use_padding_free_transformer,
+        sequence_parallel=sequence_parallel,
     )
 
     if mlp_type == "MLP":
