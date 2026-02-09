@@ -37,19 +37,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         self.m_width = config.m_width
 
-    def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.transformer.wte
-
-    def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
-        self.transformer.wte = value
-
-    def get_output_embeddings(self) -> ParameterizedLinear:
-        return self.transformer.wte if self._tied_word_embeddings else self.lm_head
-
-    def set_output_embeddings(self, new_embeddings: ParameterizedLinear) -> None:
-        if not self._tied_word_embeddings:
-            self.lm_head = new_embeddings
-
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
