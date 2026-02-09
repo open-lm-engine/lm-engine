@@ -117,8 +117,6 @@ class GatedDeltaNet(nn.Module):
             std /= math.sqrt(m_width)
         self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False, std=std)
 
-        self.reset_parameters()
-
     def forward(
         self,
         hidden_states: torch.Tensor,
