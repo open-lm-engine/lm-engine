@@ -37,6 +37,7 @@ class TensorParallelTest(TestCommons):
         if (attention_implementation, dtype) not in [
             ("sdpa", torch.float32),
             ("flash_attention_2", torch.float16),
+            ("flash_attention_3", torch.float16),
         ]:
             self.skipTest("skipping test since running all takes too long")
 
