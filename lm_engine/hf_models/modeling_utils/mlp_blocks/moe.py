@@ -512,7 +512,6 @@ class MoE(nn.Module):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                grouped_out=True,
             )
 
             x = self.act(x)
@@ -523,7 +522,6 @@ class MoE(nn.Module):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                grouped_in=True,
                 gates=router_weights,
             )
 
