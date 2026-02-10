@@ -12,12 +12,12 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
+from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..chunk import contiguous_split
 from ..dropout import Dropout
-from ..linear import ParameterizedLinear
+from ..linear import ColumnParallelLinear, RowParallelLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
 
@@ -77,7 +77,6 @@ class Attention(nn.Module):
         sliding_window: int | None,
         position_embedding_type: str,
         add_bias: bool,
-        qkv_bias: bool,
         softmax_dropout: float,
         dropout: float,
         init_method: str,
@@ -85,55 +84,97 @@ class Attention(nn.Module):
         m_width: float,
         num_layers: int,
         causal: bool,
-        layer_idx: int,
-        use_padding_free_transformer: bool,
+        layer_idx: int | None = None,
+        use_padding_free_transformer: bool = False,
+        sequence_parallel: bool = False,
     ) -> Attention:
         super().__init__()
 
+        if ProcessGroupManager.is_initialized():
+            self.tp_world_size = (
+                ProcessGroupManager.get_tensor_parallel_world_size()
+                if ProcessGroupManager.is_tensor_parallel_enabled()
+                else 1
+            )
+        else:
+            self.tp_world_size = 1
+
         self.causal = causal
-        self.hidden_size = hidden_size
-        self.num_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
+        self.global_hidden_size = hidden_size
+        self.global_num_heads = num_attention_heads
+        self.global_num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
-        self.qkv_bias = qkv_bias
-        self.use_padding_free_transformer = use_padding_free_transformer
         self.sliding_window = sliding_window
 
-        self.head_dim = divide_if_divisible(
-            self.hidden_size,
-            self.num_heads,
-            f"`hidden_size` ({self.hidden_size}) must be divisible by `num_heads` ({self.num_heads})",
+        self.use_padding_free_transformer = use_padding_free_transformer
+        self.sequence_parallel = sequence_parallel
+
+        divide_if_divisible(self.global_hidden_size, self.global_num_heads)
+
+        self.hidden_size = divide_if_divisible(
+            self.global_hidden_size, self.tp_world_size, "hidden_size should be divisible by TP world size"
         )
 
+        self.num_heads = divide_if_divisible(
+            self.global_num_heads, self.tp_world_size, "num_heads must be divisible by TP world size"
+        )
+
+        self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "")
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
         self.layer_idx = layer_idx
 
         divide_if_divisible(
-            self.num_heads,
-            self.num_key_value_heads,
-            f"`num_heads` ({self.num_heads}) should be a multiple of `num_key_value_heads` ({self.num_key_value_heads})",
+            self.global_num_heads,
+            self.global_num_key_value_heads,
+            f"`num_heads` ({self.global_num_heads}) should be a multiple of `num_key_value_heads` ({self.global_num_key_value_heads})",
+        )
+
+        self.num_key_value_heads = divide_if_divisible(
+            self.global_num_key_value_heads,
+            self.tp_world_size,
+            f"`num_key_value_heads` ({self.global_num_key_value_heads}) must be divisible by `tensor_parallel_world_size` ({self.tp_world_size})",
         )
 
         std = initializer_range
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.c_attn = ParameterizedLinear(
-            self.hidden_size,
-            self.hidden_size + 2 * self.num_key_value_heads * self.head_dim,
-            bias=self.qkv_bias,
+
+        self.c_attn = ColumnParallelLinear(
+            self.global_hidden_size,
+            self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
+            bias=self.add_bias,
             std=std,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
 
         std = initializer_range / math.sqrt(2 * num_layers)
         if init_method == "mup":
             std /= math.sqrt(m_width)
-        self.c_proj = ParameterizedLinear(self.hidden_size, self.hidden_size, bias=self.add_bias, std=std)
+
+        self.c_proj = RowParallelLinear(
+            self.global_hidden_size,
+            self.global_hidden_size,
+            bias=self.add_bias,
+            std=std / math.sqrt(2 * num_layers),
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
+        )
 
         self.softmax_dropout_p = softmax_dropout
 
-        self.softmax_dropout = Dropout(softmax_dropout)
-        self.dropout = Dropout(dropout)
+        self.softmax_dropout = Dropout(
+            softmax_dropout,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
+        )
+
+        self.dropout = Dropout(
+            dropout,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
+        )
 
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
@@ -155,11 +196,12 @@ class Attention(nn.Module):
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
 
-            total_q = hidden_states.shape[0]
-            input_shape = (total_q, self.num_key_value_heads, -1)
-            output_shape = (total_q, -1, self.head_dim)
+            T = hidden_states.size(0) * (self.tp_world_size if self.sequence_parallel else 1)
+            input_shape = (T, self.num_key_value_heads, -1)
+            output_shape = (T, -1, self.head_dim)
         else:
             batch_size, query_length = hidden_states.shape[:-1]
+            query_length *= self.tp_world_size if self.sequence_parallel else 1
 
             input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
             output_shape = (batch_size, query_length, -1, self.head_dim)
@@ -206,9 +248,9 @@ class Attention(nn.Module):
             value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
 
             hidden_states = flash_attention(
-                query=query,
-                key=key,
-                value=value,
+                q=query,
+                k=key,
+                v=value,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 attention_mask=attention_mask,

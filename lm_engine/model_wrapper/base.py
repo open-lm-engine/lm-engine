@@ -205,7 +205,11 @@ class ModelWrapper(nn.Module):
     def calculate_num_parameters(self) -> tuple[int, int]:
         model_kwargs = self._get_model_kwargs()
 
-        with torch.device("meta"):
+        with (
+            torch.device("meta"),
+            ProcessGroupManager.set_dummy_tensor_parallel_world_size(1),
+            ProcessGroupManager.set_dummy_pipeline_parallel_world_size(1),
+        ):
             if self.model_name is not None:
                 model_kwargs["config"] = AutoConfig.from_pretrained(model_kwargs.pop("pretrained_model_name_or_path"))
 

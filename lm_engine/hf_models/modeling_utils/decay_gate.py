@@ -24,7 +24,7 @@ from .linear import ParameterizedLinear
 class SoftplusDecayGate(nn.Module):
     def __init__(
         self,
-        hidden_size: int,
+        hidden_size: int | None,
         output_size: int,
         std: float | None,
         has_projection: bool = False,
@@ -42,9 +42,14 @@ class SoftplusDecayGate(nn.Module):
         if has_projection:
             self.proj = ParameterizedLinear(hidden_size, self.output_size, std=std)
             mark_parameter_as_mup_learning_rate(self.proj.weight)
+        else:
+            assert hidden_size is None
 
         self.A_log = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
+        mark_parameter_as_no_weight_decay(self.A_log)
+
         self.dt_bias = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
+        mark_parameter_as_no_weight_decay(self.dt_bias)
 
         assert A_init_min >= 0
         assert A_init_max >= A_init_min
@@ -61,12 +66,9 @@ class SoftplusDecayGate(nn.Module):
 
         self.reset_parameters()
 
-        mark_parameter_as_no_weight_decay(self.A_log)
-        mark_parameter_as_no_weight_decay(self.dt_bias)
-
-    def forward(self, x: torch.Tensor, final_exponential: bool) -> torch.Tensor:
-        dtype = x.dtype
-
+    def forward(
+        self, x: torch.Tensor, final_exponential: bool, output_dtype: torch.dtype = torch.float32
+    ) -> torch.Tensor:
         if self.has_projection:
             x = self.proj(x)
 
@@ -78,7 +80,7 @@ class SoftplusDecayGate(nn.Module):
         if final_exponential:
             x = torch.exp(x)
 
-        x = x.to(dtype)
+        x = x.to(output_dtype)
 
         return x
 
@@ -101,7 +103,7 @@ class SoftplusDecayGate(nn.Module):
             + math.log(self.dt_init_min)
         )
         dt = torch.clamp(dt, min=self.dt_init_floor)
-
+        # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
         inv_dt = dt + torch.log(-torch.expm1(-dt))
 
         if isinstance(self.dt_bias, DTensor):

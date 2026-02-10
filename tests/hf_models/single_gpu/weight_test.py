@@ -19,7 +19,7 @@ class WeightTest(TestCommons):
         config = self.get_dense_test_config("learned_absolute")
 
         layer_idx = 1
-        attention = get_sequence_mixer(config, True, False, layer_idx)
+        attention = get_sequence_mixer(config, True, False, False, layer_idx)
         num_key_value_heads = config.sequence_mixer_blocks[layer_idx].num_key_value_heads
 
         state_dict = attention.state_dict()

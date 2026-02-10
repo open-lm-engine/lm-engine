@@ -16,7 +16,6 @@ from .sequence_mixer import (
     _GatedDeltaNetArgs,
     _GRUArgs,
     _Mamba2Args,
-    _MultiHeadLatentAttentionArgs,
     _RNNArgs,
     _RSAArgs,
     _SoftmaxAttentionArgs,
@@ -41,7 +40,6 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "causal_convolution": _CausalConvolution,
     "gru": _GRUArgs,
     "mamba2": _Mamba2Args,
-    "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
     "rsa": _RSAArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
@@ -179,7 +177,6 @@ class CommonConfig(PretrainedConfig):
             _CausalConvolution
             | _GRUArgs
             | _Mamba2Args
-            | _MultiHeadLatentAttentionArgs
             | _RNNArgs
             | _RSAArgs
             | _SoftmaxAttentionArgs

@@ -57,6 +57,7 @@ class ModelArgs(BaseArgs):
         if self.model_name is None:
             _check_not_None([(self.pretrained_config, "pretrained_config")])
         else:
+            assert not self.efficient_initialization, "efficient_initialization is not supported with HF models"
             assert self.pretrained_config is None, "pretrained_config shouldn't be specified with model_name"
 
 

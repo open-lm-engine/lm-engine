@@ -12,7 +12,7 @@ import torch.nn as nn
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
-from ..linear import ParameterizedLinear
+from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
 class MLP(nn.Module):
@@ -27,25 +27,36 @@ class MLP(nn.Module):
         initializer_range: float,
         m_width: float,
         num_layers: int,
+        use_padding_free_transformer: bool = False,
+        sequence_parallel: bool = False,
     ) -> MLP:
         super().__init__()
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
-        self.c_fc = ParameterizedLinear(
+        self.c_fc = ColumnParallelLinear(
             hidden_size,
             2 * intermediate_size if is_glu(activation_function) else intermediate_size,
             bias=add_bias,
             std=std,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
 
         self.act = get_activation_function(activation_function)
 
-        self.c_proj = ParameterizedLinear(
-            intermediate_size, hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
+        self.c_proj = RowParallelLinear(
+            intermediate_size,
+            hidden_size,
+            bias=add_bias,
+            std=std / math.sqrt(2 * num_layers),
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
 
-        self.dropout = Dropout(dropout)
+        self.dropout = Dropout(
+            dropout, use_padding_free_transformer=use_padding_free_transformer, sequence_parallel=sequence_parallel
+        )
 
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
