@@ -114,7 +114,7 @@ class RSA(nn.Module):
 
         if self.use_softplus_decay:
             self.decay_gate = SoftplusDecayGate(
-                hidden_size=0,
+                hidden_size=None,
                 output_size=self.num_heads,
                 std=None,
                 has_projection=False,
