@@ -10,10 +10,11 @@ from transformers import StoppingCriteriaList
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
+from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import ParameterizedEmbedding, ParameterizedLinear
+from ...modeling_utils import LMHead, ParameterizedLinear
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
@@ -28,27 +29,23 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         self._init_model(config, **kwargs)
 
     def _init_model(self, config: CommonConfig, **kwargs) -> None:
+        self.vocab_size = config.vocab_size
         self.transformer = self.base_model_class(config, **kwargs)
 
-        if not self._tied_word_embeddings:
-            self.lm_head = ParameterizedLinear(
-                config.hidden_size, config.vocab_size, bias=False, std=config.initializer_range
-            )
+        if self.is_last_stage:
+            if not self._tied_word_embeddings:
+                self.lm_head = LMHead(
+                    self.vocab_size,
+                    config.hidden_size,
+                    std=config.initializer_range,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    sequence_parallel=self.sequence_parallel,
+                )
 
-        self.m_width = config.m_width
+            self.m_width = config.m_width
 
-    def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.transformer.wte
-
-    def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
-        self.transformer.wte = value
-
-    def get_output_embeddings(self) -> ParameterizedLinear:
-        return self.transformer.wte if self._tied_word_embeddings else self.lm_head
-
-    def set_output_embeddings(self, new_embeddings: ParameterizedLinear) -> None:
-        if not self._tied_word_embeddings:
-            self.lm_head = new_embeddings
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+        self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh() if self.is_tp_enabled else None
 
     def forward(
         self,
@@ -254,3 +251,88 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             )
 
         return generated_tokens
+
+    def get_dummy_input_tensor(
+        self, micro_batch_size: int, sequence_length: int, intermediate_dtype: torch.dtype
+    ) -> tuple[torch.Tensor] | torch.Tensor:
+        if self.is_first_stage:
+            # 1 is added to sequence length since megatron's dataloader gives an extra token and for good reason
+            dummy_input = torch.empty(
+                micro_batch_size, sequence_length + 1, device=torch.cuda.current_device(), dtype=torch.long
+            )
+        else:
+            dummy_input = self._get_dummy_intermediate_tensor(
+                micro_batch_size, sequence_length, intermediate_dtype=intermediate_dtype
+            )
+
+            dummy_input = (
+                dummy_input,
+                torch.empty(1, device=torch.cuda.current_device(), dtype=intermediate_dtype),
+            )
+
+        return dummy_input
+
+    def get_dummy_output_tensor(
+        self,
+        micro_batch_size: int,
+        sequence_length: int,
+        intermediate_dtype: torch.dtype,
+        output_parallel_lm_logits_if_possible: bool,
+    ) -> tuple[torch.Tensor] | torch.Tensor:
+        if self.is_last_stage:
+            vocab_size = self.vocab_size
+            if output_parallel_lm_logits_if_possible:
+                vocab_size = divide_if_divisible(vocab_size, ProcessGroupManager.get_tensor_parallel_world_size(), "")
+
+            if self.use_padding_free_transformer:
+                tensor = torch.empty(
+                    micro_batch_size * sequence_length,
+                    vocab_size,
+                    device=torch.cuda.current_device(),
+                    dtype=intermediate_dtype,
+                )
+            else:
+                tensor = torch.empty(
+                    micro_batch_size,
+                    sequence_length,
+                    vocab_size,
+                    device=torch.cuda.current_device(),
+                    dtype=intermediate_dtype,
+                )
+        else:
+            tensor = self._get_dummy_intermediate_tensor(
+                micro_batch_size, sequence_length, intermediate_dtype=intermediate_dtype
+            )
+
+        tensor = (tensor, torch.empty(1, device=torch.cuda.current_device(), dtype=intermediate_dtype))
+
+        return tensor
+
+    def _get_dummy_intermediate_tensor(
+        self, micro_batch_size: int, sequence_length: int, intermediate_dtype: torch.dtype
+    ) -> tuple[torch.Tensor] | torch.Tensor:
+        sharded_sequence_length = (
+            divide_if_divisible(sequence_length, ProcessGroupManager.get_tensor_parallel_world_size(), "")
+            if self.sequence_parallel
+            else sequence_length
+        )
+
+        hidden_size = self.config.hidden_size
+
+        if self.use_padding_free_transformer:
+            tensor = torch.empty(
+                micro_batch_size * sharded_sequence_length,
+                hidden_size,
+                device=torch.cuda.current_device(),
+                dtype=intermediate_dtype,
+            )
+        else:
+            tensor = torch.empty(
+                micro_batch_size,
+                sharded_sequence_length,
+                hidden_size,
+                device=torch.cuda.current_device(),
+                dtype=intermediate_dtype,
+            )
+
+        return tensor

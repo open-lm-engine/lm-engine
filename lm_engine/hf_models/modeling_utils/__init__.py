@@ -5,8 +5,10 @@
 from .activations import get_activation_function, is_glu
 from .convolution import ParameterizedConv1d
 from .dropout import Dropout
-from .embedding import ParameterizedEmbedding
-from .linear import ParameterizedLinear
+from .dtensor_module import DTensorModule
+from .embedding import ParameterizedEmbedding, get_tensor_parallel_vocab_info
+from .linear import ColumnParallelLinear, ParameterizedLinear, RowParallelLinear
+from .lm_head import LMHead
 from .mlp_blocks import (
     MLP,
     MoE,
@@ -24,3 +26,4 @@ from .sequence_mixer_blocks import (
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,
 )
+from .TP import tensor_parallel_split_safetensor_slice

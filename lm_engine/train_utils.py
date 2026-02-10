@@ -139,20 +139,6 @@ def get_model_tflops(
             )
 
             sequence_mixer_flops += _get_attention_flops(b, s, h)
-        elif sequence_mixer_type == "multihead_latent_attention":
-            # QKV down and up projection FLOPs
-            sequence_mixer_flops = 2 * _get_linear_flops(
-                b * s,
-                h,
-                block.query_compression_size + 2 * block.key_value_compression_size,
-                gradient_checkpointing=gradient_checkpointing_enabled,
-            )
-            # output projection FLOPs
-            sequence_mixer_flops += _get_linear_flops(
-                b * s, h, h, gradient_checkpointing=gradient_checkpointing_enabled
-            )
-
-            sequence_mixer_flops += _get_attention_flops(b, s, h)
         elif sequence_mixer_type == "mamba2":
             # NOTE taken from NexaAI's fork (might be incorrect)
             # Mamba2 FLOP calculation based on its specific architecture

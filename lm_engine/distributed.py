@@ -30,7 +30,13 @@ from .arguments import TrainingArgs
 from .containers import ModelContainer
 from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
-from .hf_models import CausalLMOutputWithPast, is_parameter_initialized
+from .hf_models import (
+    _INIT_MARKER,
+    CausalLMOutputWithPast,
+    get_parameter_marker_maps,
+    is_parameter_initialized,
+    set_parameter_marker_maps,
+)
 from .kernels import is_kernel_allowed
 from .utils import (
     Accelerator,
@@ -119,36 +125,6 @@ def _get_fsdp_mixed_precision(
     return mixed_precision
 
 
-def _get_parameter_marker_maps(model_container: ModelContainer, extra_markers: list[str] = []) -> list[dict]:
-    marker_maps = []
-    for model in model_container:
-        marker_maps.append({})
-        for param_name, param in model.named_parameters():
-            marker_maps[-1][param_name] = {}
-            for marker in ["_no_weight_decay", "_has_mup_learning_rate"] + extra_markers:
-                marker_maps[-1][param_name][marker] = getattr(param, marker, False)
-
-    return marker_maps
-
-
-def _set_parameter_marker_maps(model_container: ModelContainer, marker_maps: list[dict]) -> None:
-    for model, _marker_map in zip(model_container, marker_maps):
-        for param_name, parameter in model.named_parameters():
-            # handle FSDP for TPU
-            param_name = param_name.replace(_FSDP_TPU_SHARD_SEPARATOR, ".")
-            param_name = param_name.replace(f"{_FSDP_TPU_SHARD}.", "")
-            param_name = param_name.replace(f"{_FSDP_TPU_FPW}.", "")
-
-            # handle FSDP-1
-            param_name = param_name.replace(f"{_FSDP_1_STRING}.", "")
-
-            # handle torch compile
-            param_name = param_name.replace(f"{_TORCH_COMPILE_STRING}.", "")
-
-            for marker, value in _marker_map[param_name].items():
-                setattr(parameter, marker, value)
-
-
 def wrap_model_container_for_distributed_training(
     args: TrainingArgs, model_container: ModelContainer
 ) -> tuple[ModelContainer, _PipelineSchedule]:
@@ -229,9 +205,9 @@ def wrap_model_container_for_distributed_training(
             for param_name, parameter in model.named_buffers():
                 parameter._is_initialized = False
 
-        marker_maps = _get_parameter_marker_maps(model_container)
+        marker_maps = get_parameter_marker_maps(model_container)
     else:
-        marker_maps = _get_parameter_marker_maps(model_container, extra_markers=["_is_initialized"])
+        marker_maps = get_parameter_marker_maps(model_container, extra_markers=[_INIT_MARKER])
 
     accelerator = Accelerator.get_accelerator()
 
@@ -387,7 +363,17 @@ def wrap_model_container_for_distributed_training(
         for i, model in enumerate(model_container):
             model_container[i] = torch.compile(model)
 
-    _set_parameter_marker_maps(model_container, marker_maps)
+    set_parameter_marker_maps(
+        model_container,
+        marker_maps,
+        replacement_patterns=[
+            (_FSDP_TPU_SHARD_SEPARATOR, "."),
+            (f"{_FSDP_TPU_SHARD}.", ""),
+            (f"{_FSDP_TPU_FPW}.", ""),
+            (f"{_FSDP_1_STRING}.", ""),
+            (f"{_TORCH_COMPILE_STRING}.", ""),
+        ],
+    )
 
     pipeline_stages = []
     pipeline_schedule = None

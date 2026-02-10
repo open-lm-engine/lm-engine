@@ -30,6 +30,14 @@ class PreTrainedModelMixin(PreTrainedModel):
     def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
         super().__init__(config, *args, **kwargs)
 
+        self.sequence_parallel = kwargs.get("sequence_parallel", False)
+        self.num_pipeline_stages = kwargs.get("num_pipeline_stages", 1)
+        self.pipeline_stage_id = kwargs.get("pipeline_stage_id", 0)
+
+        self.is_first_stage = self.pipeline_stage_id == 0
+        self.is_last_stage = self.pipeline_stage_id == self.num_pipeline_stages - 1
+        self.is_pipeline_parallel_enabled = self.num_pipeline_stages > 1
+
         assert self.config_class is not None
         self.generation_config = GenerationConfig.from_model_config(self.config)
 
@@ -37,6 +45,9 @@ class PreTrainedModelMixin(PreTrainedModel):
         self._tied_word_embeddings = config.tie_word_embeddings
 
         self._has_mamba2 = any([block.sequence_mixer_type == "mamba2" for block in self.config.sequence_mixer_blocks])
+
+        if self.is_pipeline_parallel_enabled and self._tied_word_embeddings:
+            raise NotImplementedError()
 
     # FIXME typing
     def prepare_inputs_for_model(
@@ -96,12 +107,23 @@ class BaseModelMixin(PreTrainedModelMixin):
             config.sequence_mixer_blocks[i].sequence_mixer_type for i in range(config.num_layers)
         ]
 
-        self.wte = ParameterizedEmbedding(config.vocab_size, self.embed_dim, std=self.initializer_range)
+        self.wte = ParameterizedEmbedding(
+            config.vocab_size,
+            self.embed_dim,
+            std=self.initializer_range,
+            use_padding_free_transformer=self.use_padding_free_transformer,
+            sequence_parallel=self.sequence_parallel,
+        )
 
         self.embedding_dropout = Dropout(config.embedding_dropout)
         self.h = nn.ModuleList(
             [
-                self.layer_class(config, use_padding_free_transformer=self.use_padding_free_transformer, layer_idx=i)
+                self.layer_class(
+                    config,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    sequence_parallel=self.sequence_parallel,
+                    layer_idx=i,
+                )
                 for i in range(config.num_layers)
             ]
         )
@@ -312,7 +334,13 @@ class BaseModelMixin(PreTrainedModelMixin):
         max_position_embeddings = self.config.max_position_embeddings
 
         if self.position_embedding_type == "learned_absolute":
-            self.wpe = ParameterizedEmbedding(max_position_embeddings, self.embed_dim, std=self.initializer_range)
+            self.wpe = ParameterizedEmbedding(
+                max_position_embeddings,
+                self.embed_dim,
+                std=self.initializer_range,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=False,
+            )
         elif self.position_embedding_type == "rope":
             if self.config.rope_scaling is None:
                 self.rope = RoPE(

@@ -104,33 +104,3 @@ class ModelConversionTest(TestCommons):
             compare_loss=False,
             logits_atol_float32=2.5e-5,
         )
-
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [False, True], [False, True]))
-    def test_qwen2_moe_model_conversion(self, device: torch.device, qkv_bias: bool, use_sliding_window: bool) -> None:
-        lm_engine_config = self.get_moe_test_config(
-            "rope",
-            qkv_bias=qkv_bias,
-            shared_n_inner=36,
-            activation_function="swiglu",
-            normalization_function="rmsnorm",
-            shared_expert_gating=True,
-            normalized_topk=False,
-        )
-
-        for layer_idx in [3, 6]:
-            mlp_block = lm_engine_config.mlp_blocks[layer_idx]
-            lm_engine_config.mlp_blocks[layer_idx] = _MLPArgs(
-                intermediate_size=mlp_block.intermediate_size, activation_function=mlp_block.activation_function
-            )
-
-        if use_sliding_window:
-            for layer_idx in range(3, lm_engine_config.num_layers):
-                lm_engine_config.sequence_mixer_blocks[layer_idx].sliding_window = 4096
-
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config,
-            model_type="qwen2_moe",
-            device=device,
-            exact_match=False,
-            weight_test_only=use_sliding_window,
-        )

@@ -14,7 +14,11 @@ from ...modeling_utils import get_mlp_block, get_normalization_function, get_seq
 
 class Block(nn.Module):
     def __init__(
-        self, config: CommonConfig, use_padding_free_transformer: bool, layer_idx: int | None = None
+        self,
+        config: CommonConfig,
+        use_padding_free_transformer: bool,
+        layer_idx: int,
+        sequence_parallel: bool,
     ) -> Block:
         super().__init__()
 
@@ -23,14 +27,31 @@ class Block(nn.Module):
         self.sequence_mixer_type = config.sequence_mixer_blocks[layer_idx].sequence_mixer_type
 
         self.ln_1 = get_normalization_function(
-            config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
+            config.normalization_function,
+            hidden_size,
+            eps=config.layer_norm_epsilon,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
-        self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
+        self.sequence_mixer = get_sequence_mixer(
+            config,
+            True,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
+            layer_idx=layer_idx,
+        )
         self.ln_2 = get_normalization_function(
-            config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
+            config.normalization_function,
+            hidden_size,
+            eps=config.layer_norm_epsilon,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
         self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
+            config,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
+            layer_idx=layer_idx,
         )
 
     def forward(

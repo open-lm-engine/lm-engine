@@ -23,6 +23,7 @@ def get_sequence_mixer(
     config: CommonConfig,
     causal: bool,
     use_padding_free_transformer: bool,
+    sequence_parallel: bool,
     layer_idx: int,
 ) -> SEQUENCE_MIXER_TYPE:
     block = config.sequence_mixer_blocks[layer_idx]
@@ -157,9 +158,9 @@ def get_sequence_mixer(
         if sequence_mixer_type == "softmax_attention":
             return Attention(
                 **sequence_mixer_kwargs,
-                qkv_bias=block.qkv_bias,
                 softmax_dropout=block.softmax_dropout,
                 use_padding_free_transformer=use_padding_free_transformer,
+                sequence_parallel=sequence_parallel,
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")

@@ -7,21 +7,15 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
+from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 
 
 class ParameterizedLinear(nn.Linear):
     def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        std: float | None = None,
+        self, in_features: int, out_features: int, bias: bool = True, std: float | None = None
     ) -> ParameterizedLinear:
         self.std = std
-        super().__init__(in_features, out_features, bias, device, dtype)
+        super().__init__(in_features, out_features, bias)
 
         mark_parameter_as_no_weight_decay(self.bias)
 

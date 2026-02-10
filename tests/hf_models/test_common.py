@@ -94,7 +94,6 @@ class TestCommons(BaseTestCommons):
         num_attention_heads: int = 4,
         shared_expert_gating: bool = False,
         normalized_topk: bool = True,
-        qkv_bias: bool = None,
     ) -> GPTBaseConfig:
         num_key_value_heads = 2
 
@@ -105,9 +104,6 @@ class TestCommons(BaseTestCommons):
             "num_key_value_heads": num_key_value_heads,
             "attention_multiplier": attention_multiplier,
         }
-
-        if qkv_bias is not None:
-            sequence_mixer["qkv_bias"] = qkv_bias
 
         return GPTBaseConfig(
             vocab_size=2048,
@@ -131,7 +127,6 @@ class TestCommons(BaseTestCommons):
                     "num_experts_per_tok": num_experts_per_tok,
                     "normalized_topk": normalized_topk,
                     "activation_function": activation_function,
-                    "add_bias": add_bias,
                     "shared_intermediate_size": None if shared_n_inner is None else shared_n_inner,
                     "shared_expert_gating": shared_expert_gating,
                 }
