@@ -54,7 +54,7 @@ class ParamsGroupTest(TestCommons):
         elif use_torch_compile:
             marker_maps = get_parameter_marker_maps(model_container)
             model_container = [torch.compile(model) for model in model_container]
-            set_parameter_marker_maps(model_container, marker_maps)
+            set_parameter_marker_maps(model_container, marker_maps, _trim_prefix="_orig_mod.")
 
         params_groups = get_param_groups_list(model_container, args.optimizer_args.class_args, params_group_method)[0]
 

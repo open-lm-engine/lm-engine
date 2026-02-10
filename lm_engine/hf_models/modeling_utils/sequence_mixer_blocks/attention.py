@@ -77,7 +77,6 @@ class Attention(nn.Module):
         sliding_window: int | None,
         position_embedding_type: str,
         add_bias: bool,
-        qkv_bias: bool,
         softmax_dropout: float,
         dropout: float,
         init_method: str,
@@ -98,7 +97,6 @@ class Attention(nn.Module):
         self.global_num_heads = num_attention_heads
         self.global_num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
-        self.qkv_bias = qkv_bias
         self.sliding_window = sliding_window
 
         self.use_padding_free_transformer = use_padding_free_transformer

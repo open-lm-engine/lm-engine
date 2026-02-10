@@ -21,7 +21,6 @@ from .base import PreTrainedModelMixin
 
 class CausalLMModelMixin(PreTrainedModelMixin):
     base_model_class = None
-    model_parallel_state_dict_function = None
 
     def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:
         super().__init__(config, **kwargs)
@@ -46,9 +45,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             self.m_width = config.m_width
 
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-
-        if self.is_tp_enabled:
-            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
+        self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh() if self.is_tp_enabled else None
 
     def forward(
         self,
@@ -339,19 +336,3 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             )
 
         return tensor
-
-    def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
-        with torch.device(torch.cuda.current_device()):
-            position_embedding_type = self.config.position_embedding_type
-
-            if position_embedding_type == "rope":
-                self.transformer.rope.reset_parameters()
-
-        state_dict = self.__class__.model_parallel_state_dict_function(
-            config=self.config,
-            safetensors_weights_manager=safetensors_weights_manager,
-            num_pipeline_stages=self.num_pipeline_stages,
-            pipeline_stage_id=self.pipeline_stage_id,
-        )
-
-        self.load_state_dict(state_dict)

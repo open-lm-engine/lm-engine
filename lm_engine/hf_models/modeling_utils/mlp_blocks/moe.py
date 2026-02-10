@@ -17,7 +17,11 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import ProcessGroupManager, divide_if_divisible, is_sonicmoe_available, is_xma_available
 from ...loss import add_aux_loss
-from ...parameter import mark_parameter_as_initialized, mark_parameter_as_mup_learning_rate
+from ...parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_no_weight_decay,
+)
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
@@ -66,12 +70,19 @@ class SharedExpertsRowParallelLinear(RowParallelLinear):
 
 class ParameterizedExperts(nn.Module):
     def __init__(
-        self, num_experts: int, in_features: int, out_features: int, std: float | None = None
+        self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> ParameterizedExperts:
         super().__init__()
 
-        self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features))
         self.std = std
+
+        self.weight = nn.Parameter(torch.empty(num_experts, out_features, in_features))
+
+        self.bias = None
+        if add_bias:
+            self.bias = nn.Parameter(torch.empty(num_experts, out_features))
+
+        mark_parameter_as_no_weight_decay(self.bias)
 
         self.num_experts = num_experts
         self.in_features = in_features
@@ -118,12 +129,16 @@ class ParameterizedExperts(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.weight, mean=0, std=self.std)
+        if self.bias is not None:
+            nn.init.zeros_(self.bias)
+
         mark_parameter_as_initialized(self.weight)
+        mark_parameter_as_initialized(self.bias)
 
 
 class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
-        self, num_experts: int, in_features: int, out_features: int, std: float | None = None
+        self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> ColumnParallelExperts:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
 
@@ -134,12 +149,18 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         )
 
         super().__init__(
-            num_experts=num_experts, in_features=in_features, out_features=self.out_features_per_tp_rank, std=std
+            num_experts=num_experts,
+            in_features=in_features,
+            out_features=self.out_features_per_tp_rank,
+            add_bias=add_bias,
+            std=std,
         )
 
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
         if self.is_tp_enabled:
+            assert not add_bias
+
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
                     self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(1)
@@ -194,23 +215,30 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
 
 class RowParallelExperts(ColumnParallelExperts):
     def __init__(
-        self, num_experts: int, in_features: int, out_features: int, std: float | None = None
+        self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> RowParallelExperts:
         tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
 
-        self.in_features_per_device = divide_if_divisible(
+        self.in_features_per_tp_rank = divide_if_divisible(
             in_features,
             tp_world_size,
             f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
         )
 
         ParameterizedExperts.__init__(
-            self, num_experts=num_experts, in_features=self.in_features_per_device, out_features=out_features, std=std
+            self,
+            num_experts=num_experts,
+            in_features=self.in_features_per_tp_rank,
+            out_features=out_features,
+            add_bias=add_bias,
+            std=std,
         )
 
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
         if self.is_tp_enabled:
+            assert not add_bias
+
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
                     self.weight,
@@ -220,6 +248,11 @@ class RowParallelExperts(ColumnParallelExperts):
             )
 
             self.reset_parameters()
+
+    def extra_repr(self) -> str:
+        return "num_experts={}, in_features_per_tp_rank={}, out_features={}".format(
+            self.num_experts, self.in_features_per_tp_rank, self.out_features
+        )
 
 
 class MoE(nn.Module):
@@ -270,6 +303,7 @@ class MoE(nn.Module):
             num_experts=num_experts,
             in_features=self.hidden_size,
             out_features=2 * self.intermediate_size if is_glu(activation_function) else self.intermediate_size,
+            add_bias=add_bias,
             std=std,
         )
 
@@ -289,7 +323,11 @@ class MoE(nn.Module):
         std /= math.sqrt(2 * num_layers)
 
         self.c_proj = RowParallelExperts(
-            num_experts=num_experts, in_features=self.intermediate_size, out_features=self.hidden_size, std=std
+            num_experts=num_experts,
+            in_features=self.intermediate_size,
+            out_features=self.hidden_size,
+            add_bias=add_bias,
+            std=std,
         )
 
         if self.shared_intermediate_size is not None:

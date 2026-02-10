@@ -27,7 +27,10 @@ class ParameterizedEmbedding(DTensorModule):
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> ParameterizedEmbedding:
-        nn.Module.__init__(self)
+        super().__init__()
+
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
 
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         self.use_padding_free_transformer = use_padding_free_transformer
@@ -68,12 +71,11 @@ class ParameterizedEmbedding(DTensorModule):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        if self.std is None:
-            super().reset_parameters()
-        else:
-            self.weight.normal_(mean=0, std=self.std)
-
+        self.weight.normal_(mean=0, std=1 if self.std is None else self.std)
         mark_parameter_as_initialized(self.weight)
+
+    def extra_repr(self) -> str:
+        return f"{self.num_embeddings}, {self.embedding_dim}"
 
 
 def get_tensor_parallel_vocab_info(vocab_size: int, make_vocab_size_divisible_by: int = 64) -> tuple[int, int, int]:

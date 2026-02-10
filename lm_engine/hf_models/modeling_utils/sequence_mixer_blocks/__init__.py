@@ -158,7 +158,6 @@ def get_sequence_mixer(
         if sequence_mixer_type == "softmax_attention":
             return Attention(
                 **sequence_mixer_kwargs,
-                qkv_bias=block.qkv_bias,
                 softmax_dropout=block.softmax_dropout,
                 use_padding_free_transformer=use_padding_free_transformer,
                 sequence_parallel=sequence_parallel,

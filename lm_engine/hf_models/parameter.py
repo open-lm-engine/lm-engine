@@ -59,7 +59,10 @@ def get_parameter_marker_maps(model_container: list[nn.Module], extra_markers: l
 
 
 def set_parameter_marker_maps(
-    model_container: list[nn.Module], marker_maps: list[dict], replacement_patterns: list[tuple[str]] = []
+    model_container: list[nn.Module],
+    marker_maps: list[dict],
+    replacement_patterns: list[tuple[str]] = [],
+    _trim_prefix: str | None = None,
 ) -> None:
     if isinstance(model_container, nn.Module):
         model_container = [model_container]
@@ -68,6 +71,9 @@ def set_parameter_marker_maps(
         for param_name, parameter in model.named_parameters():
             for pattern, replacement in replacement_patterns:
                 param_name = param_name.replace(pattern, replacement)
+
+            if _trim_prefix is not None:
+                param_name = param_name.removeprefix(_trim_prefix)
 
             for marker, value in _marker_map[param_name].items():
                 setattr(parameter, marker, value)
