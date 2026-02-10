@@ -190,7 +190,7 @@ class RSA(nn.Module):
         x, f, g = x.split((self.conv_dim, self.num_f_heads, self.g_shape), dim=-1)
 
         if self.use_softplus_decay:
-            f = self.decay_gate(f, final_exponential=True)
+            f = self.decay_gate(f, final_exponential=True, output_dtype=f.dtype)
         else:
             f = F.sigmoid(f.float()).type_as(f)
 
