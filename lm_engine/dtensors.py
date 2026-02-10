@@ -8,7 +8,11 @@ from torch.distributed._tensor.api import DTensor
 from torch.distributed._tensor.placement_types import Placement
 from torch.distributed.device_mesh import DeviceMesh
 
-from .hf_models.parameter import _ALL_MARKERS
+
+def _get_all_markers():
+    from .hf_models.parameter import _ALL_MARKERS
+
+    return _ALL_MARKERS
 
 
 def tensor_to_dtensor(
@@ -34,7 +38,7 @@ def tensor_to_dtensor(
         dtensor = dtensor.redistribute(device_mesh=device_mesh, placements=desired_placement, async_op=True)
 
     if copy_marker:
-        for marker in _ALL_MARKERS:
+        for marker in _get_all_markers():
             marker_value = getattr(dtensor, marker, None)
             if marker_value is not None:
                 setattr(dtensor, marker, marker_value)
@@ -66,7 +70,7 @@ def dtensor_to_tensor(
     tensor = dtensor.to_local(grad_placements=grad_placement)
 
     if copy_marker:
-        for marker in _ALL_MARKERS:
+        for marker in _get_all_markers():
             marker_value = getattr(tensor, marker, None)
             if marker_value is not None:
                 setattr(tensor, marker, marker_value)
