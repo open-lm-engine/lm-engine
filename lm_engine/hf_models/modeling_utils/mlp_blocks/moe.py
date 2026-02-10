@@ -140,7 +140,8 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
         self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> ColumnParallelExperts:
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size() if self.is_tp_enabled else 1
 
         self.out_features_per_tp_rank = divide_if_divisible(
             out_features,
@@ -155,8 +156,6 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
             add_bias=add_bias,
             std=std,
         )
-
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
         if self.is_tp_enabled:
             assert not add_bias
@@ -217,7 +216,8 @@ class RowParallelExperts(ColumnParallelExperts):
     def __init__(
         self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> RowParallelExperts:
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size() if self.is_tp_enabled else 1
 
         self.in_features_per_tp_rank = divide_if_divisible(
             in_features,
@@ -233,8 +233,6 @@ class RowParallelExperts(ColumnParallelExperts):
             add_bias=add_bias,
             std=std,
         )
-
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
         if self.is_tp_enabled:
             assert not add_bias

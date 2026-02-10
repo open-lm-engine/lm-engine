@@ -90,7 +90,14 @@ class Attention(nn.Module):
     ) -> Attention:
         super().__init__()
 
-        self.tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+        if ProcessGroupManager.is_initialized():
+            self.tp_world_size = (
+                ProcessGroupManager.get_tensor_parallel_world_size()
+                if ProcessGroupManager.is_tensor_parallel_enabled()
+                else 1
+            )
+        else:
+            self.tp_world_size = 1
 
         self.causal = causal
         self.global_hidden_size = hidden_size

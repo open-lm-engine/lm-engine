@@ -25,7 +25,8 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> ColumnParallelLinear:
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size() if self.is_tp_enabled else 1
 
         self.out_features_per_tp_rank = divide_if_divisible(
             out_features,
@@ -34,8 +35,6 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         )
 
         super().__init__(in_features=in_features, out_features=self.out_features_per_tp_rank, bias=bias, std=std)
-
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
         if self.is_tp_enabled:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()

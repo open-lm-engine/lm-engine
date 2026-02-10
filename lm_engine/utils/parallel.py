@@ -216,9 +216,6 @@ class ProcessGroupManager:
 
     @staticmethod
     def get_tensor_parallel_world_size() -> int:
-        if not ProcessGroupManager.is_tensor_parallel_enabled():
-            return 1
-
         global _TENSOR_PARALLEL_WORLD_SIZE
 
         if _TENSOR_PARALLEL_WORLD_SIZE is None:
