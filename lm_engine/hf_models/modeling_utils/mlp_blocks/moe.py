@@ -265,8 +265,6 @@ class RowParallelExperts(ColumnParallelExperts):
         if self.is_tp_enabled:
             assert is_kernel_allowed(Kernel.scattermoe)
 
-        assert gates is None
-
         if is_kernel_allowed(Kernel.scattermoe):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
 
