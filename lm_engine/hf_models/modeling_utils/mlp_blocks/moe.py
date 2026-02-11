@@ -578,7 +578,7 @@ class MoE(nn.Module):
 
         if ProcessGroupManager.is_initialized() and ProcessGroupManager.get_data_parallel_world_size() > 1:
             expert_frequency = all_reduce(
-                expert_frequency, reduceOp="sum", group=ProcessGroupManager.get_data_parallel_mesh()
+                expert_frequency, reduceOp="sum", group=ProcessGroupManager.get_data_parallel_group()
             )
 
         switch_loss = (
