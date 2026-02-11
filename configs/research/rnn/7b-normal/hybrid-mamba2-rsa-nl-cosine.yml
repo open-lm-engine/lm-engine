@@ -28,6 +28,7 @@ kernel_args:
     - rnn
     - gru
     - causal_conv1d
+    - mamba2_ssm
     - flash_attention_3
     - sonicmoe
 
@@ -47,30 +48,36 @@ model_args:
     vocab_size: 100352
     max_position_embeddings: 4096
     sequence_mixer_blocks:
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
       - sequence_mixer_type: rsa
         k_head_dim: 64
         v_head_dim: 16
@@ -91,54 +98,66 @@ model_args:
         num_attention_heads: 24
         num_key_value_heads: 24
         add_bias: false
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
       - sequence_mixer_type: rsa
         k_head_dim: 64
         v_head_dim: 16
@@ -159,54 +178,66 @@ model_args:
         num_attention_heads: 24
         num_key_value_heads: 24
         add_bias: false
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
       - sequence_mixer_type: rsa
         k_head_dim: 64
         v_head_dim: 16
@@ -227,54 +258,66 @@ model_args:
         num_attention_heads: 24
         num_key_value_heads: 24
         add_bias: false
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
       - sequence_mixer_type: rsa
         k_head_dim: 64
         v_head_dim: 16
@@ -295,54 +338,66 @@ model_args:
         num_attention_heads: 24
         num_key_value_heads: 24
         add_bias: false
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
       - sequence_mixer_type: rsa
         k_head_dim: 64
         v_head_dim: 16
@@ -363,30 +418,36 @@ model_args:
         num_attention_heads: 24
         num_key_value_heads: 24
         add_bias: false
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
-      - sequence_mixer_type: gated_deltanet
-        k_head_dim: 256
-        v_head_dim: 512
-        num_k_heads: 3
-        num_v_heads: 3
-        use_gate: true
-        allow_neg_eigval: false
-        kernel_size: 4
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
+      - sequence_mixer_type: mamba2
+        activation_function: silu
+        add_bias: false
+        use_conv_bias: true
+        num_heads: 32
+        state_size: 192
+        intermediate_size: 2048
+        conv_kernel_size: 4
+        num_groups: 1
+        chunk_size: 256
     mlp_blocks:
       - mlp_type: MoE
         shared_intermediate_size: 1024
@@ -714,11 +775,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints-7b/hybrid-gated-deltanet-rsa-4l-7b-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-7b/hybrid-mamba2-rsa-nl-7b-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/hybrid-gated-deltanet-rsa-4l-7b-cosine
+#   load_path: /mnt/vast/proj/checkpoints/mayank/hybrid-mamba2-rsa-nl-7b-cosine
 
 logging_args:
   log_interval: 10
@@ -726,7 +787,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: rsa
-    name: hybrid-gated-deltanet-rsa-4l-7b-cosine
+    name: hybrid-mamba2-rsa-nl-7b-cosine
 
 training_parameters:
   num_training_steps: 25000
