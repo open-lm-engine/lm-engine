@@ -1025,7 +1025,7 @@ logging_args:
   # torch_profiler_trace_path: tmp
   experiments_tracker_name: wandb
   wandb_args:
-    project: rsa
+    project: m2rnn
     name: rsa-7b-cosine
 
 training_parameters:
