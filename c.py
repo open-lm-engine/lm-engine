@@ -257,7 +257,7 @@ for model, values in data.items():
 plt.xlabel("Context Length", fontsize=FONTSIZE)
 plt.ylabel("Validation Accuracy", fontsize=FONTSIZE)
 plt.title("$S_3$ Validation Accuracy vs Context Length", fontsize=FONTSIZE)
-plt.legend()
+plt.legend(loc="center right", fontsize=14)  # adjust depending on #models
 plt.grid(True)
 plt.xticks([1, 128, 256, 384, 512], fontsize=FONTSIZE)
 plt.yticks([0, 20, 40, 60, 80, 100], fontsize=FONTSIZE)
