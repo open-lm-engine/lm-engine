@@ -17,8 +17,12 @@ class DTensorModule(nn.Module):
         super().__init__(*args, **kwargs)
 
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
         if self.is_tp_enabled:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
+            self.tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+        else:
+            self.tp_world_size = 1
 
     def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False) -> None:
         if self.is_tp_enabled:
