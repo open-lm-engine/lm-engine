@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
-from ...utils import ProcessGroupManager
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 
