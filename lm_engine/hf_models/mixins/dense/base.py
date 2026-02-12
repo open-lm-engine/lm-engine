@@ -101,37 +101,57 @@ class BaseModelMixin(PreTrainedModelMixin):
 
     def _init_model(self, config: CommonConfig, **kwargs) -> None:
         self.embed_dim = config.hidden_size
+        self.max_position_embeddings = config.max_position_embeddings
+        self.rope_dim = config.rope_dim
         self.m_emb = config.m_emb
         self.initializer_range = config.initializer_range
+
+        self.layers_per_stage = divide_if_divisible(
+            config.num_layers, self.num_pipeline_stages, "layers should be divisible by num_pipeline_stages"
+        )
+
+        self.layer_start_id = self.layers_per_stage * self.pipeline_stage_id
+        self.layer_end_id = self.layers_per_stage * (self.pipeline_stage_id + 1)
+
         self.sequence_mixer_block_types = [
             config.sequence_mixer_blocks[i].sequence_mixer_type for i in range(config.num_layers)
         ]
 
-        self.wte = ParameterizedEmbedding(
-            config.vocab_size,
-            self.embed_dim,
-            std=self.initializer_range,
-            use_padding_free_transformer=self.use_padding_free_transformer,
-            sequence_parallel=self.sequence_parallel,
-        )
+        if self.is_first_stage:
+            self.wte = ParameterizedEmbedding(
+                config.vocab_size,
+                self.embed_dim,
+                std=self.initializer_range,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+            )
 
-        self.embedding_dropout = Dropout(config.embedding_dropout)
-        self.h = nn.ModuleList(
-            [
-                self.layer_class(
+            self.embedding_dropout = Dropout(
+                config.embedding_dropout,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+            )
+
+        self.h = nn.ModuleDict(
+            {
+                str(i): self.layer_class(
                     config,
                     use_padding_free_transformer=self.use_padding_free_transformer,
                     sequence_parallel=self.sequence_parallel,
                     layer_idx=i,
                 )
-                for i in range(config.num_layers)
-            ]
-        )
-        self.ln_f = get_normalization_function(
-            config.normalization_function, self.embed_dim, eps=config.layer_norm_epsilon
+                for i in range(self.layer_start_id, self.layer_end_id)
+            }
         )
 
-        self.rope_dim = config.rope_dim
+        if self.is_last_stage:
+            self.ln_f = get_normalization_function(
+                config.normalization_function,
+                self.embed_dim,
+                eps=config.layer_norm_epsilon,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+            )
 
         self.position_embedding_type = config.position_embedding_type
         self._setup_positional_encoding()

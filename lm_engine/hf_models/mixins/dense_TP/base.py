@@ -5,71 +5,15 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
 
-from ....utils import ProcessGroupManager, divide_if_divisible
+from ....utils import ProcessGroupManager
 from ...cache import GenerationCache
-from ...config import CommonConfig
-from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
 from ...utils import is_generation_cache_enabled
-from ..dense import BaseModelMixin, PreTrainedModelMixin
+from ..dense import BaseModelMixin
 from ..modeling_outputs import BaseModelOutputWithPast
 
 
 class BaseModelMixin_TP(BaseModelMixin):
-    def _init_model(self, config: CommonConfig, **kwargs) -> None:
-        self.embed_dim = config.hidden_size
-        self.max_position_embeddings = config.max_position_embeddings
-        self.m_emb = config.m_emb
-        self.initializer_range = config.initializer_range
-        self.rope_dim = config.rope_dim
-
-        self.layers_per_stage = divide_if_divisible(
-            config.num_layers, self.num_pipeline_stages, "layers should be divisible by num_pipeline_stages"
-        )
-
-        self.layer_start_id = self.layers_per_stage * self.pipeline_stage_id
-        self.layer_end_id = self.layers_per_stage * (self.pipeline_stage_id + 1)
-
-        if self.is_first_stage:
-            self.wte = ParameterizedEmbedding(
-                config.vocab_size,
-                self.embed_dim,
-                std=self.initializer_range,
-                use_padding_free_transformer=self.use_padding_free_transformer,
-                sequence_parallel=self.sequence_parallel,
-            )
-
-            self.embedding_dropout = Dropout(
-                config.embedding_dropout,
-                use_padding_free_transformer=self.use_padding_free_transformer,
-                sequence_parallel=self.sequence_parallel,
-            )
-
-        self.h = nn.ModuleDict(
-            {
-                str(i): self.layer_class(
-                    config,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
-                    layer_idx=i,
-                    sequence_parallel=self.sequence_parallel,
-                )
-                for i in range(self.layer_start_id, self.layer_end_id)
-            }
-        )
-
-        if self.is_last_stage:
-            self.ln_f = get_normalization_function(
-                config.normalization_function,
-                self.embed_dim,
-                eps=config.layer_norm_epsilon,
-                use_padding_free_transformer=self.use_padding_free_transformer,
-                sequence_parallel=self.sequence_parallel,
-            )
-
-        self.position_embedding_type = config.position_embedding_type
-        self._setup_positional_encoding()
-
     def forward(
         self,
         input_ids: torch.Tensor | None = None,

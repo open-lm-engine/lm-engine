@@ -64,8 +64,8 @@ class Block(nn.Module):
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
         r = x
-        x = self.ln_1(x)
 
+        x = self.ln_1(x)
         x = self._sequence_mixer_forward(
             x=x,
             past_key_values=past_key_values,
@@ -79,10 +79,9 @@ class Block(nn.Module):
             x = x * self.m_residual
 
         x = x + r
-
         r = x
-        x = self.ln_2(x)
 
+        x = self.ln_2(x)
         x = self.mlp_block(x)
 
         if self.m_residual is not None:
