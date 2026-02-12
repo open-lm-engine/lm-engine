@@ -15,7 +15,10 @@ from ...utils import ProcessGroupManager
 class DTensorModule(nn.Module):
     def __init__(self, *args, **kwargs) -> DTensorModule:
         super().__init__(*args, **kwargs)
+
         self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+        if self.is_tp_enabled:
+            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
     def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False) -> None:
         if self.is_tp_enabled:

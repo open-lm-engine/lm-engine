@@ -51,7 +51,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
             self.m_width = config.m_width
 
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh() if self.is_tp_enabled else None
 
     def forward(

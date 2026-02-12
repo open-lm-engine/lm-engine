@@ -19,8 +19,6 @@ class ReplicatedLinear(ParameterizedLinear, DTensorModule):
     ) -> ReplicatedLinear:
         super().__init__(in_features=in_features, out_features=out_features, bias=bias, std=std)
 
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-
         if self.is_tp_enabled:
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
