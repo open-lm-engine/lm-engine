@@ -31,8 +31,6 @@ class ParameterizedEmbedding(DTensorModule):
 
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
-
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
         self.use_padding_free_transformer = use_padding_free_transformer
 
         if self.is_tp_enabled:

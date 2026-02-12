@@ -32,8 +32,6 @@ class LayerNorm(nn.LayerNorm, DTensorModule):
     ) -> LayerNorm:
         super().__init__(normalized_shape, eps=eps)
 
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-
         if self.is_tp_enabled:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
             self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
@@ -73,8 +71,6 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
         sequence_parallel: bool = False,
     ) -> RMSNorm:
         super().__init__(normalized_shape, eps=eps)
-
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
         if self.is_tp_enabled:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
