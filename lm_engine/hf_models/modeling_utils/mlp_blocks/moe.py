@@ -140,15 +140,16 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
         self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> ColumnParallelExperts:
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size() if self.is_tp_enabled else 1
+        DTensorModule.__init__(self)
 
         self.out_features_per_tp_rank = divide_if_divisible(
             out_features,
-            tp_world_size,
-            f"`out_features` ({out_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
+            self.tp_world_size,
+            f"`out_features` ({out_features}) must be divisible by `tensor_parallel_world_size` ({self.tp_world_size})",
         )
 
-        super().__init__(
+        ParameterizedExperts.__init__(
+            self,
             num_experts=num_experts,
             in_features=in_features,
             out_features=self.out_features_per_tp_rank,
@@ -211,16 +212,16 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         )
 
 
-class RowParallelExperts(ColumnParallelExperts):
+class RowParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
         self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> RowParallelExperts:
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size() if self.is_tp_enabled else 1
+        DTensorModule.__init__(self)
 
         self.in_features_per_tp_rank = divide_if_divisible(
             in_features,
-            tp_world_size,
-            f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
+            self.tp_world_size,
+            f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({self.tp_world_size})",
         )
 
         ParameterizedExperts.__init__(
