@@ -16,7 +16,12 @@ from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
 from ...modeling_utils import LMHead
 from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
-from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
+from ..modeling_outputs import (
+    BaseModelOutputWithPast,
+    CausalLMOutputWithPast,
+    PipelineParallelInput,
+    PipelineParallelOutput,
+)
 from .base import PreTrainedModelMixin
 
 
@@ -59,12 +64,19 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         labels: torch.Tensor | list[list[int]] | None = None,
         use_cache: bool | None = None,
         return_dict: bool = True,
+        output_parallel_lm_logits: bool = False,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
         reduction: str = "mean",
-    ) -> CausalLMOutputWithPast:
+        pipeline_parallel_input: PipelineParallelInput | None = None,
+    ) -> CausalLMOutputWithPast | PipelineParallelOutput:
         assert return_dict
         assert inputs_embeds is None
+
+        if self.is_pipeline_parallel_enabled:
+            assert past_key_values is None
+
+        clear_aux_loss()
 
         input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
             input_ids=input_ids,
@@ -76,8 +88,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             attention_mask=attention_mask,
             use_cache=use_cache,
         )
-
-        clear_aux_loss()
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids,
@@ -91,6 +101,8 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         hidden_states = transformer_outputs.last_hidden_state
         past_key_values = transformer_outputs.past_key_values
+
+        del pipeline_parallel_input
         del transformer_outputs
 
         lm_logits = None
