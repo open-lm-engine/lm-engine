@@ -19,7 +19,6 @@ from ...loss import (
     get_aux_loss,
     is_aux_loss_zero,
 )
-from ...modeling_utils import LMHead
 from ..dense import CausalLMModelMixin
 from ..modeling_outputs import (
     BaseModelOutputWithPast,
@@ -30,8 +29,6 @@ from ..modeling_outputs import (
 
 
 class CausalLMModelMixin_TP(CausalLMModelMixin):
-    model_parallel_state_dict_function = None
-
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,

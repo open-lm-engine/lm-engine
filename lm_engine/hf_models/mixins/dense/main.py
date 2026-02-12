@@ -14,13 +14,15 @@ from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import LMHead, ParameterizedLinear
+from ...modeling_utils import LMHead
+from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
 
 class CausalLMModelMixin(PreTrainedModelMixin):
     base_model_class = None
+    model_parallel_state_dict_function = None
 
     def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:
         super().__init__(config, **kwargs)
@@ -261,7 +263,7 @@ class CausalLMModelMixin(PreTrainedModelMixin):
     @classmethod
     def from_pretrained(
         cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
-    ) -> CausalLMModelMixin_TP:
+    ) -> CausalLMModelMixin:
         if ProcessGroupManager.is_tensor_parallel_enabled():
             config: CommonConfig = cls.config_class.from_pretrained(pretrained_model_name_or_path)
 
