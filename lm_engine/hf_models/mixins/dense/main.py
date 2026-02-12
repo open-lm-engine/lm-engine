@@ -15,7 +15,13 @@ from ....kernels import is_kernel_allowed
 from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
+from ...loss import (
+    add_aux_loss,
+    clear_aux_loss,
+    get_autoregressive_language_modeling_loss,
+    get_aux_loss,
+    is_aux_loss_zero,
+)
 from ...modeling_utils import DTensorModule, LMHead
 from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
 from ..modeling_outputs import (
