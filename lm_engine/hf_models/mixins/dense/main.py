@@ -14,7 +14,7 @@ from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import LMHead
+from ...modeling_utils import DTensorModule, LMHead
 from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
 from ..modeling_outputs import (
     BaseModelOutputWithPast,
@@ -25,7 +25,7 @@ from ..modeling_outputs import (
 from .base import PreTrainedModelMixin
 
 
-class CausalLMModelMixin(PreTrainedModelMixin):
+class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
     base_model_class = None
     model_parallel_state_dict_function = None
 
