@@ -252,6 +252,33 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         return generated_tokens
 
+    @classmethod
+    def from_pretrained(
+        cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
+    ) -> CausalLMModelMixin_TP:
+        if ProcessGroupManager.is_tensor_parallel_enabled():
+            config: CommonConfig = cls.config_class.from_pretrained(pretrained_model_name_or_path)
+
+            # use dummy tensors to avoid initializing model here
+            with torch.device("meta"):
+                # try sharding vocab matrices if really struggling for memory
+                model = cls._from_config(config, **kwargs)
+                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+
+                model = model.to(dtype=dtype)
+
+            # copy to device without copying storage
+            model = model.to_empty(device=torch.cuda.current_device())
+            set_parameter_marker_maps([model], marker_maps)
+
+            model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
+        else:
+            model = super().from_pretrained(
+                pretrained_model_name_or_path=pretrained_model_name_or_path, dtype=dtype, **kwargs
+            )
+
+        return model
+
     def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
         with torch.device(torch.cuda.current_device()):
             position_embedding_type = self.config.position_embedding_type

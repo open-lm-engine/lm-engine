@@ -10,9 +10,8 @@ from torch.distributed._tensor.placement_types import Replicate, Shard
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
+from ....utils import ProcessGroupManager
 from ...cache import GenerationCache
-from ...config import CommonConfig
 from ...loss import (
     add_aux_loss,
     clear_aux_loss,
@@ -21,7 +20,6 @@ from ...loss import (
     is_aux_loss_zero,
 )
 from ...modeling_utils import LMHead
-from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
 from ..dense import CausalLMModelMixin
 from ..modeling_outputs import (
     BaseModelOutputWithPast,
@@ -157,25 +155,3 @@ class CausalLMModelMixin_TP(CausalLMModelMixin):
             if self._tied_word_embeddings
             else self.lm_head(hidden_states)
         )
-
-    @classmethod
-    def from_pretrained(
-        cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
-    ) -> CausalLMModelMixin_TP:
-        config: CommonConfig = cls.config_class.from_pretrained(pretrained_model_name_or_path)
-
-        # use dummy tensors to avoid initializing model here
-        with torch.device("meta"):
-            # try sharding vocab matrices if really struggling for memory
-            model = cls._from_config(config, **kwargs)
-            marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
-
-            model = model.to(dtype=dtype)
-
-        # copy to device without copying storage
-        model = model.to_empty(device=torch.cuda.current_device())
-        set_parameter_marker_maps([model], marker_maps)
-
-        model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
-
-        return model
