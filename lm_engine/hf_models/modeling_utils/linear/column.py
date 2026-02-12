@@ -38,7 +38,6 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         )
 
         if self.is_tp_enabled:
-            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
             self.input_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
             self.weight = nn.Parameter(
