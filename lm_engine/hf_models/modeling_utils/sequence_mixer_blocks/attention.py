@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible, is_torch_xla_available
+from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..chunk import contiguous_split
