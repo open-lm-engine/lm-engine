@@ -334,19 +334,18 @@ class BaseModelMixin(PreTrainedModelMixin):
         max_position_embeddings = self.config.max_position_embeddings
 
         if self.position_embedding_type == "learned_absolute":
-            self.wpe = ParameterizedEmbedding(
-                max_position_embeddings,
-                self.embed_dim,
-                std=self.initializer_range,
-                use_padding_free_transformer=self.use_padding_free_transformer,
-                sequence_parallel=False,
-            )
+            if self.is_first_stage:
+                self.wpe = ParameterizedEmbedding(
+                    max_position_embeddings,
+                    self.embed_dim,
+                    std=self.initializer_range,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    sequence_parallel=self.sequence_parallel,
+                )
         elif self.position_embedding_type == "rope":
             if self.config.rope_scaling is None:
                 self.rope = RoPE(
-                    self.rope_dim,
-                    max_position_embeddings=max_position_embeddings,
-                    base=self.config.rope_theta,
+                    self.rope_dim, max_position_embeddings=max_position_embeddings, base=self.config.rope_theta
                 )
             else:
                 self.rope = YaRNScaledRoPE(

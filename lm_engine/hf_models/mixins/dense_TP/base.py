@@ -140,33 +140,3 @@ class BaseModelMixin_TP(BaseModelMixin):
             hidden_states = self.ln_f(hidden_states)
 
         return BaseModelOutputWithPast(last_hidden_state=hidden_states, past_key_values=past_key_values)
-
-    def _setup_positional_encoding(self) -> None:
-        max_position_embeddings = self.config.max_position_embeddings
-
-        if self.position_embedding_type == "learned_absolute":
-            if self.is_first_stage:
-                self.wpe = ParameterizedEmbedding(
-                    max_position_embeddings,
-                    self.embed_dim,
-                    std=self.initializer_range,
-                    use_padding_free_transformer=self.use_padding_free_transformer,
-                    sequence_parallel=self.sequence_parallel,
-                )
-        elif self.position_embedding_type == "rope":
-            if self.config.rope_scaling is None:
-                self.rope = RoPE(
-                    self.rope_dim, max_position_embeddings=max_position_embeddings, base=self.config.rope_theta
-                )
-            else:
-                self.rope = YaRNScaledRoPE(
-                    self.rope_dim,
-                    max_position_embeddings=max_position_embeddings,
-                    base=self.config.rope_theta,
-                    scale=self.config.rope_scaling["factor"],
-                    original_max_position_embeddings=self.config.rope_scaling["original_max_position_embeddings"],
-                )
-        elif self.position_embedding_type == "nope":
-            pass
-        else:
-            raise NotImplementedError()
