@@ -78,19 +78,24 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         clear_aux_loss()
 
-        input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
-            input_ids=input_ids,
-            position_ids=position_ids,
-            labels=labels,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            use_cache=use_cache,
-        )
+        if self.is_first_stage:
+            assert pipeline_parallel_input is None, "first stage should not get pipeline_parallel_input"
+            input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
+                input_ids=input_ids,
+                position_ids=position_ids,
+                labels=labels,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+                past_key_values=past_key_values,
+                attention_mask=attention_mask,
+                use_cache=use_cache,
+            )
+        else:
+            assert input_ids is None
+            add_aux_loss(pipeline_parallel_input.aux_loss)
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
-            input_ids,
+            input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -107,48 +112,58 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         lm_logits = None
         loss = None
+        aux_loss = get_aux_loss()
 
-        if labels is None:
-            if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
-                if self.m_width is not None:
-                    hidden_states = hidden_states / self.m_width
+        if self.is_last_stage:
+            if labels is None:
+                if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
+                    if self.m_width is not None:
+                        hidden_states = hidden_states / self.m_width
+                else:
+                    lm_logits = self.get_lm_logits(hidden_states)
+
+                    if self.m_width is not None:
+                        lm_logits = lm_logits / self.m_width
             else:
+                assert not self.is_pipeline_parallel_enabled
+                assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
+
                 lm_logits = self.get_lm_logits(hidden_states)
 
                 if self.m_width is not None:
                     lm_logits = lm_logits / self.m_width
-        else:
-            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
-            lm_logits = self.get_lm_logits(hidden_states)
+                loss = get_autoregressive_language_modeling_loss(
+                    lm_logits=lm_logits,
+                    labels=labels,
+                    hidden_states=None,
+                    vocab_weight=None,
+                    cu_seqlens=cu_seqlens,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    reduction=reduction,
+                    shift_logits_and_labels=True,
+                    tensor_parallel_enabled=self.is_tp_enabled,
+                )
 
-            if self.m_width is not None:
-                lm_logits = lm_logits / self.m_width
+            if not output_parallel_lm_logits:
+                # all gather
+                lm_logits = tensor_to_dtensor(lm_logits, device_mesh=self.tp_mesh, current_placement=Shard(-1))
+                lm_logits = dtensor_to_tensor(lm_logits, device_mesh=self.tp_mesh, desired_placement=Replicate())
 
-            loss = get_autoregressive_language_modeling_loss(
-                lm_logits=lm_logits,
-                labels=labels,
-                hidden_states=None,
-                vocab_weight=None,
-                cu_seqlens=cu_seqlens,
-                use_padding_free_transformer=self.use_padding_free_transformer,
-                reduction=reduction,
-                shift_logits_and_labels=True,
-                tensor_parallel_enabled=False,
+            if loss is not None and not is_aux_loss_zero(aux_loss):
+                loss = loss + self.router_aux_loss_coef * aux_loss
+
+            output = CausalLMOutputWithPast(
+                loss=loss,
+                aux_loss=aux_loss,
+                logits=lm_logits,
+                past_key_values=past_key_values,
+                last_hidden_state=hidden_states,
             )
+        else:
+            output = PipelineParallelOutput(hidden_states=hidden_states, aux_loss=aux_loss)
 
-        aux_loss = get_aux_loss()
-
-        if loss is not None and not is_aux_loss_zero(aux_loss):
-            loss = loss + self.router_aux_loss_coef * aux_loss
-
-        return CausalLMOutputWithPast(
-            loss=loss,
-            aux_loss=aux_loss,
-            logits=lm_logits,
-            past_key_values=past_key_values,
-            last_hidden_state=hidden_states,
-        )
+        return output
 
     def get_lm_logits(self, hidden_states: torch.Tensor) -> torch.Tensor:
         return (

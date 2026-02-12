@@ -28,7 +28,7 @@ from ..modeling_outputs import (
 )
 
 
-class CausalLMModelMixin_TP(CausalLMModelMixin):
+class CausalLMModelMixin(CausalLMModelMixin):
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
