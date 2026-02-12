@@ -252,6 +252,22 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         return generated_tokens
 
+    def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
+        with torch.device(torch.cuda.current_device()):
+            position_embedding_type = self.config.position_embedding_type
+
+            if position_embedding_type == "rope":
+                self.transformer.rope.reset_parameters()
+
+        state_dict = self.__class__.model_parallel_state_dict_function(
+            config=self.config,
+            safetensors_weights_manager=safetensors_weights_manager,
+            num_pipeline_stages=self.num_pipeline_stages,
+            pipeline_stage_id=self.pipeline_stage_id,
+        )
+
+        self.load_state_dict(state_dict)
+
     def get_dummy_input_tensor(
         self, micro_batch_size: int, sequence_length: int, intermediate_dtype: torch.dtype
     ) -> tuple[torch.Tensor] | torch.Tensor:
