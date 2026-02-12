@@ -33,6 +33,7 @@ class Block(nn.Module):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
+
         self.sequence_mixer = get_sequence_mixer(
             config,
             True,
@@ -40,6 +41,7 @@ class Block(nn.Module):
             sequence_parallel=sequence_parallel,
             layer_idx=layer_idx,
         )
+
         self.ln_2 = get_normalization_function(
             config.normalization_function,
             hidden_size,
@@ -47,6 +49,7 @@ class Block(nn.Module):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
+
         self.mlp_block = get_mlp_block(
             config,
             use_padding_free_transformer=use_padding_free_transformer,
