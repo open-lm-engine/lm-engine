@@ -10,7 +10,7 @@ from transformers import GenerationConfig, PreTrainedModel
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import Accelerator
+from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
@@ -166,22 +166,46 @@ class BaseModelMixin(PreTrainedModelMixin):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> BaseModelOutputWithPast:
-        (
-            use_cache,
-            hidden_states,
-            causal_mask,
-            position_ids,
-            rope_cos_sin,
-            past_key_values,
-        ) = self._prepare_a_bunch_of_stuff(
-            input_ids=input_ids,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            position_ids=position_ids,
-            use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-        )
+        if self.is_first_stage:
+            (
+                use_cache,
+                hidden_states,
+                causal_mask,
+                position_ids,
+                rope_cos_sin,
+                past_key_values,
+            ) = self._prepare_a_bunch_of_stuff(
+                input_ids=input_ids,
+                past_key_values=past_key_values,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                use_cache=use_cache,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
+        else:
+            assert past_key_values is None
+            assert attention_mask is None
+
+            hidden_states = input_ids
+            past_length = 0
+
+            if self.use_padding_free_transformer:
+                key_length = max_seqlen
+                # query length will change if past_key_values is not None
+                query_length = key_length - past_length
+            else:
+                key_length = (
+                    hidden_states.size(1) * ProcessGroupManager.get_tensor_parallel_world_size()
+                    if self.sequence_parallel
+                    else hidden_states.size(1)
+                )
+                query_length = key_length - past_length
+
+            position_ids = torch.arange(past_length, key_length, dtype=torch.long, device=hidden_states.device)
+            position_ids = position_ids.unsqueeze(0).view(-1, query_length)
+
+            rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
         if is_generation_cache_enabled():
             past_key_values = (
@@ -191,12 +215,15 @@ class BaseModelMixin(PreTrainedModelMixin):
         mamba_mask = None
         mamba_mask_computed = False
 
-        for sequence_mixer_type, block in zip(self.sequence_mixer_block_types, self.h):
+        for layer_idx in range(self.layer_start_id, self.layer_end_id):
+            sequence_mixer_type = self.sequence_mixer_block_types[layer_idx]
             is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
 
             if is_linear_layer and not mamba_mask_computed:
                 mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)
                 mamba_mask_computed = True
+
+            block = self.h[str(layer_idx)]
 
             hidden_states = block(
                 hidden_states,
@@ -207,7 +234,8 @@ class BaseModelMixin(PreTrainedModelMixin):
                 max_seqlen=max_seqlen,
             )
 
-        hidden_states = self.ln_f(hidden_states)
+        if self.is_last_stage:
+            hidden_states = self.ln_f(hidden_states)
 
         return BaseModelOutputWithPast(last_hidden_state=hidden_states, past_key_values=past_key_values)
 
