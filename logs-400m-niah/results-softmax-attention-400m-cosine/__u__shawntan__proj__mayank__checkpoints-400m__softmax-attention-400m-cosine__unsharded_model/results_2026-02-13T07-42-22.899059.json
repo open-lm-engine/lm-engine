@@ -1,0 +1,411 @@
+{
+  "results": {
+    "niah_single_1": {
+      "alias": "niah_single_1",
+      "4096,none": 0.986,
+      "4096_stderr,none": "N/A",
+      "1024,none": 1.0,
+      "1024_stderr,none": 0.0,
+      "2048,none": 0.996,
+      "2048_stderr,none": 0.002825591608118863,
+      "8192,none": 0.0,
+      "8192_stderr,none": "N/A",
+      "16384,none": 0.0,
+      "16384_stderr,none": "N/A"
+    },
+    "niah_single_2": {
+      "alias": "niah_single_2",
+      "4096,none": 0.786,
+      "4096_stderr,none": "N/A",
+      "1024,none": 1.0,
+      "1024_stderr,none": 0.0,
+      "2048,none": 1.0,
+      "2048_stderr,none": 0.0,
+      "8192,none": 0.0,
+      "8192_stderr,none": "N/A",
+      "16384,none": 0.0,
+      "16384_stderr,none": "N/A"
+    },
+    "niah_single_3": {
+      "alias": "niah_single_3",
+      "4096,none": 0.546,
+      "4096_stderr,none": "N/A",
+      "1024,none": 0.956,
+      "1024_stderr,none": 0.009181317617116441,
+      "2048,none": 0.956,
+      "2048_stderr,none": 0.009181317617116441,
+      "8192,none": 0.0,
+      "8192_stderr,none": "N/A",
+      "16384,none": 0.0,
+      "16384_stderr,none": "N/A"
+    }
+  },
+  "group_subtasks": {
+    "niah_single_1": [],
+    "niah_single_2": [],
+    "niah_single_3": []
+  },
+  "configs": {
+    "niah_single_1": {
+      "task": "niah_single_1",
+      "tag": [
+        "longcxt"
+      ],
+      "custom_dataset": "def niah_single_1(**kwargs):\n    seq_lengths = kwargs.pop(\"max_seq_lengths\", DEFAULT_SEQ_LENGTHS)\n    return download_dataset(\n        generate_samples(\n            get_haystack(type_haystack=\"repeat\"),\n            max_seq_length=seq,\n            template=TEMPLATE,\n            type_haystack=\"repeat\",\n            type_needle_k=\"words\",\n            type_needle_v=\"numbers\",\n            num_samples=500,\n            TOKENIZER=get_tokenizer(**kwargs),\n        )\n        for seq in seq_lengths\n    )\n",
+      "dataset_path": "",
+      "dataset_name": "",
+      "test_split": "test",
+      "doc_to_text": "{{input}}",
+      "doc_to_target": "{{outputs}}",
+      "unsafe_code": false,
+      "process_results": "def process_results(doc: dict, results: list[str]) -> dict[str, float]:\n    # hacky: set all other lengths to -1\n    metrics = {str(length): -1.0 for length in DEFAULT_SEQ_LENGTHS}\n    input_len = doc[\"max_length\"]\n    pred = postprocess_pred(results)\n    score = string_match_all(pred, [doc[\"outputs\"]])\n    metrics[str(input_len)] = score\n    return metrics\n",
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "fewshot_config": {
+        "sampler": "default",
+        "split": null,
+        "process_docs": null,
+        "fewshot_indices": null,
+        "samples": null,
+        "doc_to_text": "{{input}}",
+        "doc_to_choice": null,
+        "doc_to_target": "{{outputs}}",
+        "gen_prefix": "{{gen_prefix}}",
+        "fewshot_delimiter": "\n\n",
+        "target_delimiter": " "
+      },
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "4096",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "8192",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "16384",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "32768",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "65536",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "131072",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "generate_until",
+      "generation_kwargs": {
+        "do_sample": false,
+        "temperature": 0.0,
+        "max_gen_toks": 128,
+        "until": []
+      },
+      "repeats": 1,
+      "should_decontaminate": false,
+      "gen_prefix": "{{gen_prefix}}",
+      "metadata": {
+        "version": 1.0,
+        "dtype": "bfloat16",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/softmax-attention-400m-cosine/unsharded_model",
+        "max_length": 32768,
+        "max_seq_lengths": [
+          1024,
+          2048,
+          4096,
+          8192,
+          16384
+        ]
+      }
+    },
+    "niah_single_2": {
+      "task": "niah_single_2",
+      "tag": [
+        "longcxt"
+      ],
+      "custom_dataset": "def niah_single_2(**kwargs):\n    seq_lengths = kwargs.pop(\"max_seq_lengths\", DEFAULT_SEQ_LENGTHS)\n    return download_dataset(\n        generate_samples(\n            get_haystack(type_haystack=\"essay\"),\n            max_seq_length=seq,\n            template=TEMPLATE,\n            type_haystack=\"essay\",\n            type_needle_k=\"words\",\n            type_needle_v=\"numbers\",\n            num_samples=500,\n            TOKENIZER=get_tokenizer(**kwargs),\n        )\n        for seq in seq_lengths\n    )\n",
+      "dataset_path": "",
+      "dataset_name": "",
+      "test_split": "test",
+      "doc_to_text": "{{input}}",
+      "doc_to_target": "{{outputs}}",
+      "unsafe_code": false,
+      "process_results": "def process_results(doc: dict, results: list[str]) -> dict[str, float]:\n    # hacky: set all other lengths to -1\n    metrics = {str(length): -1.0 for length in DEFAULT_SEQ_LENGTHS}\n    input_len = doc[\"max_length\"]\n    pred = postprocess_pred(results)\n    score = string_match_all(pred, [doc[\"outputs\"]])\n    metrics[str(input_len)] = score\n    return metrics\n",
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "fewshot_config": {
+        "sampler": "default",
+        "split": null,
+        "process_docs": null,
+        "fewshot_indices": null,
+        "samples": null,
+        "doc_to_text": "{{input}}",
+        "doc_to_choice": null,
+        "doc_to_target": "{{outputs}}",
+        "gen_prefix": "{{gen_prefix}}",
+        "fewshot_delimiter": "\n\n",
+        "target_delimiter": " "
+      },
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "4096",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "8192",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "16384",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "32768",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "65536",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "131072",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "generate_until",
+      "generation_kwargs": {
+        "do_sample": false,
+        "temperature": 0.0,
+        "max_gen_toks": 128,
+        "until": []
+      },
+      "repeats": 1,
+      "should_decontaminate": false,
+      "gen_prefix": "{{gen_prefix}}",
+      "metadata": {
+        "version": 1.0,
+        "dtype": "bfloat16",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/softmax-attention-400m-cosine/unsharded_model",
+        "max_length": 32768,
+        "max_seq_lengths": [
+          1024,
+          2048,
+          4096,
+          8192,
+          16384
+        ]
+      }
+    },
+    "niah_single_3": {
+      "task": "niah_single_3",
+      "tag": [
+        "longcxt"
+      ],
+      "custom_dataset": "def niah_single_3(**kwargs):\n    seq_lengths = kwargs.pop(\"max_seq_lengths\", DEFAULT_SEQ_LENGTHS)\n    return download_dataset(\n        generate_samples(\n            get_haystack(type_haystack=\"essay\"),\n            max_seq_length=seq,\n            template=TEMPLATE,\n            type_haystack=\"essay\",\n            type_needle_k=\"words\",\n            type_needle_v=\"uuids\",\n            num_samples=500,\n            TOKENIZER=get_tokenizer(**kwargs),\n        )\n        for seq in seq_lengths\n    )\n",
+      "dataset_path": "",
+      "dataset_name": "",
+      "test_split": "test",
+      "doc_to_text": "{{input}}",
+      "doc_to_target": "{{outputs}}",
+      "unsafe_code": false,
+      "process_results": "def process_results(doc: dict, results: list[str]) -> dict[str, float]:\n    # hacky: set all other lengths to -1\n    metrics = {str(length): -1.0 for length in DEFAULT_SEQ_LENGTHS}\n    input_len = doc[\"max_length\"]\n    pred = postprocess_pred(results)\n    score = string_match_all(pred, [doc[\"outputs\"]])\n    metrics[str(input_len)] = score\n    return metrics\n",
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "fewshot_config": {
+        "sampler": "default",
+        "split": null,
+        "process_docs": null,
+        "fewshot_indices": null,
+        "samples": null,
+        "doc_to_text": "{{input}}",
+        "doc_to_choice": null,
+        "doc_to_target": "{{outputs}}",
+        "gen_prefix": "{{gen_prefix}}",
+        "fewshot_delimiter": "\n\n",
+        "target_delimiter": " "
+      },
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "4096",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "8192",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "16384",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "32768",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "65536",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        },
+        {
+          "metric": "131072",
+          "aggregation": "def aggregate_metrics(metrics: list[float]) -> float:\n    res = [x for x in metrics if x != -1]\n    if not res:\n        # we don't have any samples with this length\n        return -1\n    return sum(res) / len(res)\n",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "generate_until",
+      "generation_kwargs": {
+        "do_sample": false,
+        "temperature": 0.0,
+        "max_gen_toks": 128,
+        "until": []
+      },
+      "repeats": 1,
+      "should_decontaminate": false,
+      "gen_prefix": "{{gen_prefix}}",
+      "metadata": {
+        "version": 1.0,
+        "dtype": "bfloat16",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/softmax-attention-400m-cosine/unsharded_model",
+        "max_length": 32768,
+        "max_seq_lengths": [
+          1024,
+          2048,
+          4096,
+          8192,
+          16384
+        ]
+      }
+    }
+  },
+  "versions": {
+    "niah_single_1": 1.0,
+    "niah_single_2": 1.0,
+    "niah_single_3": 1.0
+  },
+  "n-shot": {
+    "niah_single_1": 0,
+    "niah_single_2": 0,
+    "niah_single_3": 0
+  },
+  "higher_is_better": {
+    "niah_single_1": {
+      "4096": true,
+      "8192": true,
+      "16384": true,
+      "32768": true,
+      "65536": true,
+      "131072": true
+    },
+    "niah_single_2": {
+      "4096": true,
+      "8192": true,
+      "16384": true,
+      "32768": true,
+      "65536": true,
+      "131072": true
+    },
+    "niah_single_3": {
+      "4096": true,
+      "8192": true,
+      "16384": true,
+      "32768": true,
+      "65536": true,
+      "131072": true
+    }
+  },
+  "n-samples": {
+    "niah_single_3": {
+      "original": 2500,
+      "effective": 2500
+    },
+    "niah_single_2": {
+      "original": 2500,
+      "effective": 2500
+    },
+    "niah_single_1": {
+      "original": 2500,
+      "effective": 2500
+    }
+  },
+  "config": {
+    "model": "hf",
+    "model_args": {
+      "dtype": "bfloat16",
+      "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/softmax-attention-400m-cosine/unsharded_model",
+      "max_length": 32768
+    },
+    "model_num_parameters": 406373376,
+    "model_dtype": "torch.bfloat16",
+    "model_revision": "main",
+    "model_sha": "",
+    "batch_size": "1",
+    "batch_sizes": [],
+    "device": "cuda:0",
+    "use_cache": null,
+    "limit": null,
+    "bootstrap_iters": 100000,
+    "gen_kwargs": {},
+    "random_seed": 0,
+    "numpy_seed": 1234,
+    "torch_seed": 1234,
+    "fewshot_seed": 1234
+  },
+  "git_hash": "979eee34",
+  "date": 1770966995.9439297,
+  "pretty_env_info": "PyTorch version: 2.9.1+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Red Hat Enterprise Linux 9.5 (Plow) (x86_64)\nGCC version: (GCC) 11.5.0 20240719 (Red Hat 11.5.0-2)\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: glibc-2.34\n\nPython version: 3.12.1 | packaged by Anaconda, Inc. | (main, Jan 19 2024, 15:51:05) [GCC 11.2.0] (64-bit runtime)\nPython platform: Linux-5.14.0-503.23.1.el9_5.x86_64-x86_64-with-glibc2.34\nIs CUDA available: True\nCUDA runtime version: 12.4.99\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: \nGPU 0: NVIDIA H100 80GB HBM3\nGPU 1: NVIDIA H100 80GB HBM3\nGPU 2: NVIDIA H100 80GB HBM3\nGPU 3: NVIDIA H100 80GB HBM3\nGPU 4: NVIDIA H100 80GB HBM3\nGPU 5: NVIDIA H100 80GB HBM3\nGPU 6: NVIDIA H100 80GB HBM3\nGPU 7: NVIDIA H100 80GB HBM3\n\nNvidia driver version: 570.86.10\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\n\nCPU:\nArchitecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        46 bits physical, 57 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               96\nOn-line CPU(s) list:                  0-95\nVendor ID:                            GenuineIntel\nModel name:                           Intel(R) Xeon(R) Platinum 8468\nCPU family:                           6\nModel:                                143\nThread(s) per core:                   1\nCore(s) per socket:                   48\nSocket(s):                            2\nStepping:                             8\nCPU(s) scaling MHz:                   87%\nCPU max MHz:                          3800.0000\nCPU min MHz:                          800.0000\nBogoMIPS:                             4200.00\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cat_l2 cdp_l3 cdp_l2 ssbd mba ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb intel_pt avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local split_lock_detect avx_vnni avx512_bf16 wbnoinvd dtherm ida arat pln pts avx512vbmi umip pku ospke waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg tme avx512_vpopcntdq la57 rdpid bus_lock_detect cldemote movdiri movdir64b enqcmd fsrm md_clear serialize tsxldtrk pconfig arch_lbr ibt amx_bf16 avx512_fp16 amx_tile amx_int8 flush_l1d arch_capabilities\nL1d cache:                            4.5 MiB (96 instances)\nL1i cache:                            3 MiB (96 instances)\nL2 cache:                             192 MiB (96 instances)\nL3 cache:                             210 MiB (2 instances)\nNUMA node(s):                         2\nNUMA node0 CPU(s):                    0-47\nNUMA node1 CPU(s):                    48-95\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; RSB filling; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n\nVersions of relevant libraries:\n[pip3] Could not collect\n[conda] No relevant packages",
+  "transformers_version": "4.57.3",
+  "lm_eval_version": "0.4.10.dev0",
+  "upper_git_hash": null,
+  "tokenizer_pad_token": [
+    "<|pad|>",
+    "100256"
+  ],
+  "tokenizer_eos_token": [
+    "<|end_of_text|>",
+    "100257"
+  ],
+  "tokenizer_bos_token": [
+    "<|end_of_text|>",
+    "100257"
+  ],
+  "eot_token_id": 100257,
+  "max_length": 32768,
+  "task_hashes": {},
+  "model_source": "hf",
+  "model_name": "/u/shawntan/proj/mayank/checkpoints-400m/softmax-attention-400m-cosine/unsharded_model",
+  "model_name_sanitized": "__u__shawntan__proj__mayank__checkpoints-400m__softmax-attention-400m-cosine__unsharded_model",
+  "system_instruction": null,
+  "system_instruction_sha": null,
+  "fewshot_as_multiturn": null,
+  "chat_template": null,
+  "chat_template_sha": null,
+  "total_evaluation_time_seconds": "1552.9915760792792"
+}
