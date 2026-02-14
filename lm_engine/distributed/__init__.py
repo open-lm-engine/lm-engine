@@ -212,6 +212,7 @@ def wrap_model_container_for_distributed_training(
         marker_maps = get_parameter_marker_maps(model_container, extra_markers=[_INIT_MARKER])
 
     accelerator = Accelerator.get_accelerator()
+    device = Accelerator.get_current_device()
 
     if accelerator == Accelerator.tpu:
         assert (
@@ -243,7 +244,7 @@ def wrap_model_container_for_distributed_training(
         if use_ddp and parallel_implementation == ParallelImplementation.custom:
             for i, model in enumerate(model_container):
                 if efficient_initialization:
-                    model = model.to_empty(accelerator.get_current_device())
+                    model = model.to_empty(device=device)
 
                 model_container[i] = DDP(
                     model=model,
@@ -305,8 +306,6 @@ def wrap_model_container_for_distributed_training(
                     )
 
                     if efficient_initialization:
-                        device = Accelerator.get_current_device()
-
                         # contributed by Yu Chin Fabian Lim
                         # original reference https://github.com/fabianlim/accelerate/pull/1
                         if model_name is None:
