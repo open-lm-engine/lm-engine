@@ -390,11 +390,11 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine
+  save_path: /u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-64-nl-400m-cosine
   save_interval: 5000
 
 # load_args:
-#   load_path: /mnt/vast/proj/checkpoints/mayank/hybrid-mamba2-rsa-nl-400m-cosine
+#   load_path: /mnt/vast/proj/checkpoints/mayank/hybrid-mamba2-rsa-64-nl-400m-cosine
 
 logging_args:
   log_interval: 10
@@ -402,7 +402,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: m2rnn
-    name: hybrid-mamba2-rsa-nl-400m-cosine
+    name: hybrid-mamba2-rsa-64-nl-400m-cosine
 
 training_parameters:
   num_training_steps: 25000
