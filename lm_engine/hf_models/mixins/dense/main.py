@@ -170,17 +170,17 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
         return output
 
-    def get_lm_logits(self, hidden_states: torch.Tensor) -> torch.Tensor:
+    def get_lm_logits(self, x: torch.Tensor) -> torch.Tensor:
         return (
             LMHead.compute_with_weight(
-                hidden_states,
+                x=x,
                 weight=self.transformer.wte.weight,
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 sequence_parallel=self.sequence_parallel,
-                tp_mesh=self.tp_mesh,
+                tp_mesh=self.tp_mesh if self.is_tp_enabled else None,
             )
             if self._tied_word_embeddings
-            else self.lm_head(hidden_states)
+            else self.lm_head(x)
         )
 
     @torch.inference_mode()
