@@ -16,7 +16,6 @@ from .sequence_mixer import (
     _GatedDeltaNetArgs,
     _GRUArgs,
     _Mamba2Args,
-    _MultiHeadLatentAttentionArgs,
     _RNNArgs,
     _SoftmaxAttentionArgs,
 )
@@ -40,7 +39,6 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "causal_convolution": _CausalConvolution,
     "gru": _GRUArgs,
     "mamba2": _Mamba2Args,
-    "multihead_latent_attention": _MultiHeadLatentAttentionArgs,
     "rnn": _RNNArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
     "gated_deltanet": _GatedDeltaNetArgs,
@@ -174,13 +172,7 @@ class CommonConfig(PretrainedConfig):
             self.sequence_mixer_blocks = [{} for _ in range(self.num_layers)]
 
         sequence_mixer_blocks: list[
-            _CausalConvolution
-            | _GRUArgs
-            | _Mamba2Args
-            | _MultiHeadLatentAttentionArgs
-            | _RNNArgs
-            | _SoftmaxAttentionArgs
-            | _GatedDeltaNetArgs
+            _CausalConvolution | _GRUArgs | _Mamba2Args | _RNNArgs | _SoftmaxAttentionArgs | _GatedDeltaNetArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])

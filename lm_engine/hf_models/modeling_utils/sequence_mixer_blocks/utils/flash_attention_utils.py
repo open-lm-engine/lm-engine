@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from functools import partial
+
 import torch
 
 from .....enums import Kernel
@@ -51,9 +53,9 @@ def unpad_input(
 
 
 def flash_attention(
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
     attention_mask: torch.Tensor | None,
     cu_seqlens: torch.Tensor | None,
     max_seqlen: int | None,
@@ -67,13 +69,16 @@ def flash_attention(
     use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
     use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
 
+    assert use_flash_attention_3 or use_flash_attention_2, "enable flash_attention_2 or flash_attention_3"
+
     if use_flash_attention_3:
         assert dropout == 0
 
-    assert use_flash_attention_3 or use_flash_attention_2, "enable flash_attention_2 or flash_attention_3"
-
-    if use_padding_free_transformer:
-        assert use_flash_attention_3 or use_flash_attention_2
+        _flash_attention_function = flash_attention_3
+        _flash_attention_varlen_function = flash_attention_3_varlen
+    else:
+        _flash_attention_function = partial(flash_attention_2, dropout_p=dropout)
+        _flash_attention_varlen_function = partial(flash_attention_2_varlen, dropout_p=dropout)
 
     window_size = (-1, -1)
     if sliding_window is not None and key.size(1) > sliding_window:
@@ -82,92 +87,48 @@ def flash_attention(
     if use_padding_free_transformer:
         assert sliding_window is None
 
-        if use_flash_attention_3:
-            attn_output, _ = flash_attention_3_varlen(
-                q=query,
-                k=key,
-                v=value,
-                cu_seqlens_q=cu_seqlens,
-                cu_seqlens_k=cu_seqlens,
-                max_seqlen_q=max_seqlen,
-                max_seqlen_k=max_seqlen,
-                softmax_scale=softmax_scale,
-                causal=causal,
-            )
-        else:
-            attn_output = flash_attention_2_varlen(
-                q=query,
-                k=key,
-                v=value,
-                cu_seqlens_q=cu_seqlens,
-                cu_seqlens_k=cu_seqlens,
-                max_seqlen_q=max_seqlen,
-                max_seqlen_k=max_seqlen,
-                dropout_p=dropout,
-                softmax_scale=softmax_scale,
-                causal=causal,
-            )
+        x = _flash_attention_varlen_function(
+            q=q,
+            k=k,
+            v=v,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            cu_seqlens_q=cu_seqlens,
+            cu_seqlens_k=cu_seqlens,
+            max_seqlen_q=max_seqlen,
+            max_seqlen_k=max_seqlen,
+            window_size=window_size,
+            softcap=softcap,
+        )
     elif attention_mask is None:
-        if use_flash_attention_3:
-            attn_output, _ = flash_attention_3(
-                q=query,
-                k=key,
-                v=value,
-                softmax_scale=softmax_scale,
-                causal=causal,
-                window_size=window_size,
-                softcap=softcap,
-            )
-        else:
-            attn_output = flash_attention_2(
-                q=query,
-                k=key,
-                v=value,
-                dropout_p=dropout,
-                softmax_scale=softmax_scale,
-                causal=causal,
-                window_size=window_size,
-                softcap=softcap,
-            )
+        x = _flash_attention_function(
+            q=q,
+            k=k,
+            v=v,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            window_size=window_size,
+            softcap=softcap,
+        )
     else:
-        batch_size, query_length, num_heads, head_dim = query.size()
+        B, S, N, H = q.size()
 
-        query, key, value, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k = unpad_input(
-            query, key, value, attention_mask, query_length
+        q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k = unpad_input(q, k, v, attention_mask, S)
+
+        x = _flash_attention_varlen_function(
+            q=q,
+            k=k,
+            v=v,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+            max_seqlen_q=max_seqlen_q,
+            max_seqlen_k=max_seqlen_k,
+            window_size=window_size,
+            softcap=softcap,
         )
 
-        if use_flash_attention_3:
-            attn_output, _ = flash_attention_3_varlen(
-                q=query,
-                k=key,
-                v=value,
-                cu_seqlens_q=cu_seqlens_q,
-                cu_seqlens_k=cu_seqlens_k,
-                max_seqlen_q=max_seqlen_q,
-                max_seqlen_k=max_seqlen_k,
-                softmax_scale=softmax_scale,
-                causal=causal,
-                window_size=window_size,
-                softcap=softcap,
-            )
-        else:
-            attn_output = flash_attention_2_varlen(
-                q=query,
-                k=key,
-                v=value,
-                cu_seqlens_q=cu_seqlens_q,
-                cu_seqlens_k=cu_seqlens_k,
-                max_seqlen_q=max_seqlen_q,
-                max_seqlen_k=max_seqlen_k,
-                dropout_p=dropout,
-                softmax_scale=softmax_scale,
-                causal=causal,
-                window_size=window_size,
-                softcap=softcap,
-            )
+        x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens_q, output_shape=(B, S, N, H))
 
-        attn_output = unpack_sequence(
-            inputs=attn_output, cu_seqlens=cu_seqlens_q, output_shape=(batch_size, query_length, num_heads, head_dim)
-        )
-
-    return attn_output
+    return x

@@ -2,200 +2,356 @@
 Copyright (c) 2025, Mayank Mishra
 ************************************************** -->
 
-<h1 align="center" style="font-size: 50px;">LM Engine</h1>
+<h1 align="center">LM Engine</h1>
 
 <p align="center">
-  <img src="assets/lm-engine.jpeg" width="300px" height="300px">
+  <b>A Hyper-Optimized Library for Pretraining, Finetuning, and Distillation of Large Language Models</b>
 </p>
 
-<!-- Topic -->
-[Efficient Training]: https://img.shields.io/static/v1?label=&message=Efficient%20Training&color=blueviolet
-[Efficient Inference]: https://img.shields.io/static/v1?label=&message=Efficient%20Inference&color=blueviolet
-[Learning Rate Scheduler]: https://img.shields.io/static/v1?label=&message=Learning%20Rate%20Scheduler&color=blueviolet
-[Instruction Finetuning]: https://img.shields.io/static/v1?label=&message=Instruction%20Finetuning&color=blueviolet
-[Mixture of Experts]: https://img.shields.io/static/v1?label=&message=Mixture%20of%20Experts&color=blueviolet
-[Model Architecture]: https://img.shields.io/static/v1?label=&message=Model%20Architecture&color=blueviolet
+<p align="center">
+  <a href="https://github.com/open-lm-engine/lm-engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+"></a>
+  <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-2.8+-orange.svg" alt="PyTorch 2.8+"></a>
+  <a href="https://discord.gg/AFDxmjH5RV"><img src="https://img.shields.io/badge/Discord%20-blue.svg"></a>
+</p>
 
-# Introduction
-This repository contains code used for training new model architectures. This repo has also been used to train IBM's Granite models. It also includes the following key innovations on model architectures, finetuning methods, systems optimizations:
-1. [Saving Memory Using Padding-Free Transformer Layers during Finetuning](https://huggingface.co/blog/mayank-mishra/padding-free-transformer)  
-_Mayank Mishra_  
-![image][Efficient Training]
-1. [Reducing Transformer Key-Value Cache Size with Cross-Layer Attention](https://arxiv.org/abs/2405.12981)  
-_William Brandon, Mayank Mishra, Aniruddha Nrusimha, Rameswar Panda, Jonathan Ragan Kelly_  
-![image][Efficient Inference] ![image][Model Architecture]
-1. [Power scheduler: a batch size and token number agnostic learning rate scheduler](https://arxiv.org/abs/2408.13359)  
-_Yikang Shen, Matthew Stallone, Mayank Mishra, Gaoyuan Zhang, Shawn Tan, Aditya Prasad, Adriana Meza Soria, David D. Cox, Rameswar Panda_  
-![image][Learning Rate Scheduler]
-1. [Scattered Mixture-of-Experts Implementation](https://arxiv.org/abs/2403.08245)  
-_Shawn Tan, Yikang Shen, Rameswar Panda, Aaron Courville_  
-![image][Mixture of Experts] ![image][Efficient Training] ![image][Efficient Inference]
+---
 
-# Discord Server
-Join the [discord server](https://discord.gg/AFDxmjH5RV) if you are interested in LLM architecture or distributed training/inference research.
+## Overview
 
-# Distributed finetuning
-This repository is meant for pretraining and finetuning large language models.
+**LM Engine** is a research-grade, production-ready library for training large language models at scale. Built with performance and flexibility in mind, it provides native support for multiple accelerators including NVIDIA GPUs, Google TPUs, and AWS Trainiums.
 
-The repository currently only supports generative models but can be easily extended to non-generative models if needed. 2 main class of models from [HuggingFace](https://huggingface.co/docs/transformers/index) are supported:
+### Key Features
 
-1. decoder models (`AutoModelForCausalLM`) like Granite, Llama, BLOOM etc
-1. encoder-decoder models (`AutoModelForSeq2SeqLM`) like T5, BART etc
+- 🚀 **Multi-Accelerator Support** — Train on NVIDIA CUDA GPUs, Google Cloud TPUs, and AWS Trainium
+- ⚡ **Advanced Distributed Training** — FSDP (1 & 2), Tensor Parallelism, Pipeline Parallelism, and ZeRO stages 1-3
+- 🔧 **Flexible Model Architectures** — Transformer variants, MoE, Mamba2, RNNs, and hybrid architectures
+- 📦 **HuggingFace Integration** — Seamless import/export with the HuggingFace ecosystem
+- 🎯 **Training Modes** — Pretraining from scratch, full finetuning, and knowledge distillation
+- 🔥 **Custom Kernels** — High-performance Triton, CUDA, and Pallas kernels via [XMA](./accelerated-model-architectures/)
+- 📊 **Experiment Tracking** — Native Weights & Biases and Aim integration
+- 💾 **Efficient Checkpointing** — Async checkpointing with full state resumability
 
-Please note that this repository doesn't support Tensor Parallel or Pipeline Parallel (yet :wink:).
+---
 
-# HuggingFace compatible custom models
-This repository works with all HuggingFace models (text-to-text only for the moment) out-of-the-box. The checkpoints have to be in safetensors format, if not you can check `tools/pt_to_safetensors.py`.
+## Installation
 
-> [!TIP]
-> You might be able to enjoy additional memory and computation savings when finetuning your models using the [padding free transformers optimization](https://huggingface.co/blog/mayank-mishra/padding-free-transformer). This optimization is currently only supported for decoder models and requires converting your model (say LLama-3 for example) to a [custom class](lm_engine/hf_models/models/gpt_base/) implemented in this repo. This is completely optional and not required for finetuning. The conversion can be achieved as follows:
+### Using uv (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/open-lm-engine/lm-engine.git
+cd lm-engine
+
+# Install with uv
+uv sync --extra cuda  # For NVIDIA GPUs
+uv sync --extra tpu   # For Google TPUs
+```
+
+### Using pip
+
+```bash
+pip install lm-engine
+
+# With optional dependencies
+pip install "lm-engine[cuda]"      # NVIDIA GPU support
+pip install "lm-engine[tpu]"       # Google TPU support
+pip install "lm-engine[mamba2]"    # Mamba2 architecture support
+pip install "lm-engine[data]"      # Data preprocessing utilities
+pip install "lm-engine[dev]"       # Development dependencies
+```
+
+### Docker
+
+```bash
+# Build for TPU
+docker build --build-arg EXTRA=tpu -t lm-engine:tpu -f docker/Dockerfile .
+
+# Build for CUDA
+docker build --build-arg EXTRA=cuda -t lm-engine:cuda -f docker/Dockerfile .
+```
+
+---
+
+## Quick Start
+
+### Pretraining
+
+Launch training using a sample pretraining config in [configs folder](configs/).
+
+```bash
+# Single GPU
+python -m lm_engine.pretrain --config config.yml
+
+# Multi-GPU with torchrun
+torchrun --nproc_per_node=8 -m lm_engine.pretrain --config config.yml
+
+# Multi-node
+torchrun --nnodes=2 --nproc_per_node=8 --rdzv_backend=c10d \
+    --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
+    -m lm_engine.pretrain --config config.yml
+```
+
+<!-- ### Finetuning
+
+```yaml
+datasets:
+  - class_name: HuggingFaceDataset
+    data_name: instruction-data
+    class_args:
+      data_path: your-org/instruction-dataset
+      input_key: instruction
+      output_key: response
+    input_format: "### Instruction:\n__input__\n\n### Response:\n"
+    output_format: "__output__"
+    max_input_tokens: 2048
+    max_output_tokens: 2048
+
+model_args:
+  model_name: meta-llama/Llama-3.1-8B
+
+tuning_args:
+  tuning_method: full_finetuning
+
+training_parameters:
+  num_training_steps: 5000
+  micro_batch_size: 2
+  eval_during_training: true
+  eval_interval: 500
+
+mixed_precision_args:
+  dtype: bf16
+
+save_args:
+  save_path: ./finetuned-model
+  save_interval: 1000
+```
+
+```bash
+torchrun --nproc_per_node=8 -m lm_engine.finetune --config finetune_config.yml
+```
+
+### Knowledge Distillation
+
+```yaml
+model_args:
+  model_name: student-model/path
+
+teacher_args:
+  model_name: teacher-model/path
+  dtype: bf16
+  kl_divergence_method: forward
+  kl_divergence_weight: 1.0
+
+tuning_args:
+  tuning_method: distillation
+
+# ... rest of training config
+```
+
+```bash
+torchrun --nproc_per_node=8 -m lm_engine.distill --config distill_config.yml
+```
+
+---
+
+## Supported Architectures
+
+LM Engine supports a variety of model architectures through its flexible configuration system:
+
+| Architecture | Description |
+|--------------|-------------|
+| `gpt_base` | Standard GPT-style transformer with configurable attention and MLP blocks |
+| `gpt_crosslayer` | Cross-layer attention sharing for parameter efficiency |
+| `ladder_residual` | Ladder residual connections for improved gradient flow |
+| `palm` | PaLM-style parallel attention and FFN |
+
+### Sequence Mixers
+
+- **Softmax Attention** — Standard multi-head attention with GQA/MQA support
+- **Mamba2** — State-space models for linear-time sequence modeling
+- **RNN/GRU** — Recurrent architectures with custom Triton kernels
+
+### MLP Variants
+
+- **Dense MLP** — Standard feed-forward with configurable activations (SwiGLU, GELU, etc.)
+- **Mixture of Experts (MoE)** — Sparse expert routing with load balancing -->
+
+---
+
+## Distributed Training
+
+LM Engine provides comprehensive distributed training support:
+
+### Data Parallelism (ZeRO)
+
+```yaml
+distributed_args:
+  stage: 3  # ZeRO stage (0, 1, 2, or 3)
+  fsdp_algorithm: 2  # FSDP-1 or FSDP-2
+  zero_topology:
+    data_parallel_replication_world_size: 2
+    data_parallel_sharding_world_size: 4
+```
+
+### Tensor Parallelism
+
+```yaml
+distributed_args:
+  tensor_parallel_world_size: 4
+  sequence_parallel: true
+  use_async_tensor_parallel: true
+```
+
+### Pipeline Parallelism
+
+```yaml
+distributed_args:
+  pipeline_parallel_world_size: 2
+  num_pipeline_stages: 4
+  pipeline_parallel_schedule: "1F1B"
+```
+
+### Gradient Checkpointing
+
+```yaml
+distributed_args:
+  gradient_checkpointing_method: block  # or "full"
+  gradient_checkpointing_args:
+    checkpoint_every_n_layers: 2
+```
+
+---
+
+## Model Import/Export
+
+### Import from HuggingFace
+
 ```python
-from lm_engine.hf_models import import_from_huggingface
+from tools.import_from_hf import convert_hf_to_lm_engine
 
-import_from_huggingface(
-    pretrained_model_name_or_path="ibm-granite/granite-3b-code-base",
-    save_path="lm_engine_compatible_model"
+convert_hf_to_lm_engine(
+    model_name="meta-llama/Llama-3.1-8B",
+    output_path="./converted-model"
 )
 ```
-Once done training, you can convert the model back to the HF class as:
-```python
-from lm_engine.hf_models import export_to_huggingface
 
-export_to_huggingface(
-    pretrained_model_name_or_path="trained_checkpoint",
-    save_path="hf_compatible_model",
-    model_type="llama",
+### Export to HuggingFace
+
+```python
+from tools.export_to_hf import convert_lm_engine_to_hf
+
+convert_lm_engine_to_hf(
+    checkpoint_path="./checkpoints/step-10000",
+    output_path="./hf-model",
+    model_type="llama"
 )
 ```
 
-If you are interested in using this optimization outside this repo for some reason, you can do as follows:
-```python
-from lm_engine.enums import Kernel
-from lm_engine.hf_models import GPTBaseForCausalLM
-from lm_engine.kernels import enable_kernels
+### Unshard Checkpoints
 
-
-# we need unpadded lists here for avoiding any useless computations on pad tokens
-# this is a bit different from the standard transformer which takes in tensors and an attention mask
-# if you turn off padding free transformers, you can use the tensor inputs with this class too
-input_ids = [[1, 2, 3, 4, 5, 0], [6, 7, 8, 0]]
-labels = [[-100, -100, -100, 4, 5, 0], [-100, -100, 8, 0]]
-
-# this will throw a warning saying that the model is of gpt_bigcode class
-# ignore the warning
-model = GPTBaseForCausalLM.from_pretrained(<model_path>, use_padding_free_transformer=True).cuda()
-
-with enable_kernels([Kernel.flash_attention_2]):
-    loss = model(input_ids=input_ids, labels=labels).loss
+```bash
+python -m lm_engine.unshard --config unshard.yml
 ```
 
-Note that padding free transformers doesn't support generation and thus for running generation on the model, you will need to load the model without padding-free transformers.
+---
 
-# Usage
-The typical training workflow looks like:
-1. [Pretraining](scripts/pretrain.sh) or [Finetuning](scripts/finetune.sh): This is the actual training process
-```shell
-# for finetuning
-sh scripts/common/finetune.sh configs/sst2/training.yml
-```
-```shell
-# for pretraining
-sh scripts/common/pretrain.sh configs/pretraining-examples/pretrain-1.yml
-```
+## Configuration Reference
 
-2. [Unshard the checkpoint](scripts/unshard.sh): This is used to unshard the model to a safetensors checkpoint since lm-engine saves a sharded model during training
-```shell
-sh scripts/common/unshard.sh configs/sst2/unshard.yml
-```
+<details>
+<summary><b>Full Configuration Options</b></summary>
 
-## Running basic inference
+### Training Parameters
 
-For a simple HuggingFace inference example, refer to [tools/inference.py](tools/inference.py).
-For an example running tensor parallel inference, refer to [tools/tensor_parallel_inference.py](tools/tensor_parallel_inference.py).
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `num_training_steps` | int | required | Total training steps |
+| `micro_batch_size` | int | required | Batch size per device |
+| `gradient_accumulation_steps` | int | 1 | Gradient accumulation steps |
+| `gradient_clipping` | float | 1.0 | Max gradient norm |
+| `eval_during_training` | bool | true | Enable validation |
+| `eval_interval` | int | — | Steps between evaluations |
 
-## Using custom datasets
-The data directory should obey the following structure:
-```text
-📦data
- ┣ 📂train
- ┃ ┣ 📜filename1.jsonl
- ┃ ┣ 📜filename2.jsonl
- ┃ ┗ 📜filename3.jsonl
- ┗ 📂val
- ┃ ┣ 📜filename1.jsonl
- ┃ ┣ 📜filename2.jsonl
- ┃ ┣ 📜filename3.jsonl
- ┣ 📂test
- ┃ ┣ 📜filename1.jsonl
- ┃ ┣ 📜filename2.jsonl
- ┃ ┣ 📜filename3.jsonl
-```
-Filenames can be anything as long as there are no whitespaces in them. Each line in each file should be a json (jsonlines file format) with the entries looking like:
-```json
-{"input": "The movie sucks", "output": "negative"}
-{"input": "The movie was awesome", "output": "positive"}
-```
-Note for the test set, only `input` field is needed in the json instances in each line. `output` field is not needed.  
+### Optimizer
 
-All the files in each directory are concatenated to form the respective split.  
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `class_name` | str | "TorchAdamW" | Optimizer class |
+| `lr` | float | 1e-5 | Learning rate |
+| `weight_decay` | float | 0.1 | Weight decay |
+| `betas` | list | [0.9, 0.95] | Adam betas |
 
-If you need reformatting of the examples, you can use `input_format` and `output_format` arguments. For example `input_format = 'Classify the sentiment of the sentence:\n__input__\nSentiment:'` and `output_format = ' __output__'` reformats the input and output examples to:
-```text
-INPUT:
-Classify the sentiment of the sentence:
-The movie sucks
-Sentiment:
+### LR Scheduler
 
-OUTPUT:
- negative
-```
-If you don't need any reformatting, leave the arguments `input_format` and `output_format` to their default values `__input__` and `__output__` respectively.  
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `lr_decay_style` | str | "cosine" | Decay schedule (linear, cosine, exponential) |
+| `num_warmup_steps` | int | 200 | Warmup steps |
+| `num_decay_steps` | int | — | Decay steps (defaults to remaining) |
+| `lr_decay_factor` | float | 0.1 | Final LR ratio |
 
-Please note that the user is expected to provide this at both training and inference time.  
+### Mixed Precision
 
-Try not to have trailing spaces in `input_format`, if you need a space between input and output, the space should be part of the `output_format` as in the above example.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `dtype` | str | "fp32" | Training dtype (fp32, bf16, fp16) |
 
-> [!TIP]
-> Alternatively, you can also add your own dataset class in the repository if you don't want to use the jsonlines format or need custom logic to load your own dataset.
+</details>
 
-Currently, the repo has following implemented dataclasses:
-```text
-AlpacaDataset
-DebugDataset
-DollyDataset
-HuggingFaceDataset
-SlimOrcaDataset
-SST2Dataset
+---
+
+## Cloud Deployment
+
+### Google Cloud TPU
+
+```bash
+# See scripts/gcp-tpu/ for TPU-specific launch scripts
+./scripts/gcp-tpu/launch.sh --config config.yml --tpu-name my-tpu-v4
 ```
 
-## Using Megatron Dataset outside of this repository
-This repository implements the dataloader from Megatron-LM for efficient pretraining. If for some reason you need to use that dataloader outside this repository, take a look at [this example](tools/megatron_dataset/megatron_dataloader.py).
+### AWS Trainium
 
-## Supported optimizers
-```python
-# https://pytorch.org/docs/stable/optim.html
-from torch.optim.adadelta import Adadelta as TorchAdadelta
-from torch.optim.adagrad import Adagrad as TorchAdagrad
-from torch.optim.adam import Adam as TorchAdam
-from torch.optim.adamax import Adamax as TorchAdamax
-from torch.optim.adamw import AdamW as TorchAdamW
-from torch.optim.asgd import ASGD as TorchASGD
-from torch.optim.lbfgs import LBFGS as TorchLBFGS
-from torch.optim.nadam import NAdam as TorchNAdam
-from torch.optim.radam import RAdam as TorchRAdam
-from torch.optim.rmsprop import RMSprop as TorchRMSprop
-from torch.optim.rprop import Rprop as TorchRprop
-from torch.optim.sgd import SGD as TorchSGD
+```bash
+# See scripts/aws-trainium/ for Trainium launch scripts
+./scripts/aws-trainium/launch.sh --config config.yml
 ```
 
-# Citation
-If you find this repository useful, please consider citing it in your research:
+### Kubernetes (GKE)
+
+```bash
+# See scripts/gke/ for Kubernetes manifests
+kubectl apply -f scripts/gke/training-job.yml
+```
+
+---
+
+## Community
+
+Join the [Discord server](https://discord.gg/AFDxmjH5RV) to discuss LLM architecture research, distributed training, and contribute to the project!
+
+---
+
+## Citation
+
+If you use LM Engine in your research, please cite:
+
 ```bibtex
-@software{Mishra_lm_engine_A_2024,
-    author = {Mishra, Mayank},
-    month = jun,
-    title = {{LM Engine: A Hyper-Optimized Library for Pretraining and Finetuning}},
-    url = {https://github.com/ibm/lm-engine},
-    year = {2024}
+@software{mishra2024lmengine,
+  title = {LM Engine: A Hyper-Optimized Library for Pretraining and Finetuning},
+  author = {Mishra, Mayank},
+  year = {2024},
+  url = {https://github.com/open-lm-engine/lm-engine}
 }
 ```
+
+---
+
+## License
+
+LM Engine is released under the [Apache 2.0 License](LICENSE).
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ by <a href="https://github.com/mayank31398">Mayank Mishra</a></sub>
+</p>

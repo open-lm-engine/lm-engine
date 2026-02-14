@@ -176,11 +176,11 @@ def _import_granitemoehybrid_state_dict(
                 state_dict[f"transformer.h.{layer_idx}.sequence_mixer.in_proj.bias"] = (
                     safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.in_proj.bias")
                 )
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.dt_bias"] = safetensors_weights_manager.get_tensor(
-                f"model.layers.{layer_idx}.mamba.dt_bias"
+            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.decay_gate.dt_bias"] = (
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.dt_bias")
             )
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.A_log"] = safetensors_weights_manager.get_tensor(
-                f"model.layers.{layer_idx}.mamba.A_log"
+            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.decay_gate.A_log"] = (
+                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.A_log")
             )
             state_dict[f"transformer.h.{layer_idx}.sequence_mixer.D"] = safetensors_weights_manager.get_tensor(
                 f"model.layers.{layer_idx}.mamba.D"
@@ -404,10 +404,10 @@ def _export_granitemoehybrid_state_dict(
                     f"transformer.h.{layer_idx}.sequence_mixer.in_proj.bias"
                 )
             state_dict[f"model.layers.{layer_idx}.mamba.dt_bias"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.dt_bias"
+                f"transformer.h.{layer_idx}.sequence_mixer.decay_gate.dt_bias"
             )
             state_dict[f"model.layers.{layer_idx}.mamba.A_log"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.A_log"
+                f"transformer.h.{layer_idx}.sequence_mixer.decay_gate.A_log"
             )
             state_dict[f"model.layers.{layer_idx}.mamba.D"] = safetensors_weights_manager.get_tensor(
                 f"transformer.h.{layer_idx}.sequence_mixer.D"

@@ -10,35 +10,13 @@ import torch.nn as nn
 from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...modeling_utils import Dropout, RoPE, YaRNScaledRoPE
-from ...modeling_utils_TP import Embedding_TP, get_normalization_function_TP
+from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
 from ...utils import is_generation_cache_enabled
 from ..dense import BaseModelMixin, PreTrainedModelMixin
 from ..modeling_outputs import BaseModelOutputWithPast
-from .layer import Block_TP
 
 
-class PreTrainedModelMixin_TP(PreTrainedModelMixin):
-    layer_class = Block_TP
-    _no_split_modules = ["Block_TP"]
-
-    def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin_TP:
-        self.sequence_parallel = kwargs.get("sequence_parallel", False)
-
-        self.num_pipeline_stages = kwargs.get("num_pipeline_stages", 1)
-        self.pipeline_stage_id = kwargs.get("pipeline_stage_id", 0)
-
-        self.is_first_stage = self.pipeline_stage_id == 0
-        self.is_last_stage = self.pipeline_stage_id == self.num_pipeline_stages - 1
-        self.is_pipeline_parallel_enabled = self.num_pipeline_stages > 1
-
-        super().__init__(config, *args, **kwargs)
-
-        if self.is_pipeline_parallel_enabled and self._tied_word_embeddings:
-            raise NotImplementedError()
-
-
-class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
+class BaseModelMixin_TP(BaseModelMixin):
     def _init_model(self, config: CommonConfig, **kwargs) -> None:
         self.embed_dim = config.hidden_size
         self.max_position_embeddings = config.max_position_embeddings
@@ -54,7 +32,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
         self.layer_end_id = self.layers_per_stage * (self.pipeline_stage_id + 1)
 
         if self.is_first_stage:
-            self.wte = Embedding_TP(
+            self.wte = ParameterizedEmbedding(
                 config.vocab_size,
                 self.embed_dim,
                 std=self.initializer_range,
@@ -81,7 +59,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
         )
 
         if self.is_last_stage:
-            self.ln_f = get_normalization_function_TP(
+            self.ln_f = get_normalization_function(
                 config.normalization_function,
                 self.embed_dim,
                 eps=config.layer_norm_epsilon,
@@ -91,9 +69,6 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
 
         self.position_embedding_type = config.position_embedding_type
         self._setup_positional_encoding()
-
-        # Initialize weights and apply final processing
-        self.post_init()
 
     def forward(
         self,
@@ -171,7 +146,7 @@ class BaseModelMixin_TP(PreTrainedModelMixin_TP, BaseModelMixin):
 
         if self.position_embedding_type == "learned_absolute":
             if self.is_first_stage:
-                self.wpe = Embedding_TP(
+                self.wpe = ParameterizedEmbedding(
                     max_position_embeddings,
                     self.embed_dim,
                     std=self.initializer_range,

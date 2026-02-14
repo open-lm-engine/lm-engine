@@ -23,27 +23,36 @@ class PaLMBlock(nn.Module):
         self.ln = get_normalization_function(
             config.normalization_function, config.hidden_size, eps=config.layer_norm_epsilon
         )
-        self.sequence_mixer = get_sequence_mixer(config, True, use_padding_free_transformer, layer_idx)
+        self.sequence_mixer = get_sequence_mixer(
+            config,
+            True,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=False,
+            layer_idx=layer_idx,
+        )
         self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
+            config,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=False,
+            layer_idx=layer_idx,
         )
 
     def forward(
         self,
-        hidden_states: torch.Tensor,
+        x: torch.Tensor,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        residual = hidden_states
-        hidden_states = self.ln(hidden_states)
+        r = x
+        x = self.ln(x)
 
         # NOTE we can contenate the input matrices of attention and MLP here for speedup
         # but right now we avoid it since this code is only used for accuracy benchmarking at small scale
-        attention_out = self.sequence_mixer(
-            hidden_states,
+        a = self.sequence_mixer(
+            x,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             rope_cos_sin=rope_cos_sin,
@@ -51,14 +60,14 @@ class PaLMBlock(nn.Module):
             max_seqlen=max_seqlen,
         )
 
-        mlp_out = self.mlp_block(hidden_states)
+        m = self.mlp_block(x)
 
-        hidden_states = attention_out + mlp_out
-        del attention_out, mlp_out
+        x = a + m
+        del a, m
 
         if self.m_residual is not None:
-            hidden_states = hidden_states * self.m_residual
+            x = x * self.m_residual
 
-        hidden_states = hidden_states + residual
+        x = x + r
 
-        return hidden_states
+        return x

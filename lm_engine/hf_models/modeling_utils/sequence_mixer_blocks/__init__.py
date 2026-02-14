@@ -12,18 +12,18 @@ from .causal_convolution import CausalConvolution
 from .gated_deltanet import GatedDeltaNet
 from .gru import GRU
 from .mamba2 import Mamba2
-from .multihead_latent_attention import MultiHeadLatentAttention
 from .rnn import RNN
 from .utils import flash_attention
 
 
-SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | MultiHeadLatentAttention | RNN | GatedDeltaNet
+SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | RNN | GatedDeltaNet
 
 
 def get_sequence_mixer(
     config: CommonConfig,
     causal: bool,
     use_padding_free_transformer: bool,
+    sequence_parallel: bool,
     layer_idx: int,
 ) -> SEQUENCE_MIXER_TYPE:
     block = config.sequence_mixer_blocks[layer_idx]
@@ -105,31 +105,13 @@ def get_sequence_mixer(
             init_method=config.init_method,
             normalization_function=block.normalization_function,
             m_width=config.m_width,
+            A_init_min=block.A_init_min,
+            A_init_max=block.A_init_max,
+            dt_init_min=block.dt_init_min,
+            dt_init_max=block.dt_init_max,
+            dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
-        )
-    elif sequence_mixer_type == "multihead_latent_attention":
-        return MultiHeadLatentAttention(
-            hidden_size=config.hidden_size,
-            query_compression_size=block.query_compression_size,
-            key_value_compression_size=block.key_value_compression_size,
-            num_attention_heads=block.num_attention_heads,
-            head_dim=block.head_dim,
-            attention_multiplier=block.attention_multiplier,
-            sliding_window=block.sliding_window,
-            position_embedding_type=config.position_embedding_type,
-            add_bias=block.add_bias,
-            softmax_dropout=block.softmax_dropout,
-            dropout=block.dropout,
-            init_method=config.init_method,
-            initializer_range=config.initializer_range,
-            m_width=config.m_width,
-            num_layers=config.num_layers,
-            causal=True,
-            layer_idx=layer_idx,
-            use_padding_free_transformer=use_padding_free_transformer,
-            normalization_function=block.normalization_function,
-            layer_norm_epsilon=config.layer_norm_epsilon,
         )
     elif sequence_mixer_type == "gated_deltanet":
         return GatedDeltaNet(
@@ -139,12 +121,19 @@ def get_sequence_mixer(
             num_k_heads=block.num_k_heads,
             num_v_heads=block.num_v_heads,
             use_gate=block.use_gate,
+            attention_multiplier=block.attention_multiplier,
             allow_neg_eigval=block.allow_neg_eigval,
-            conv_size=block.conv_size,
+            conv_size=block.kernel_size,
             layer_idx=layer_idx,
             norm_eps=config.layer_norm_epsilon,
             init_method=config.init_method,
             initializer_range=config.initializer_range,
+            m_width=config.m_width,
+            A_init_min=block.A_init_min,
+            A_init_max=block.A_init_max,
+            dt_init_min=block.dt_init_min,
+            dt_init_max=block.dt_init_max,
+            dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             use_padding_free_transformer=use_padding_free_transformer,
         )
@@ -169,9 +158,9 @@ def get_sequence_mixer(
         if sequence_mixer_type == "softmax_attention":
             return Attention(
                 **sequence_mixer_kwargs,
-                qkv_bias=block.qkv_bias,
                 softmax_dropout=block.softmax_dropout,
                 use_padding_free_transformer=use_padding_free_transformer,
+                sequence_parallel=sequence_parallel,
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")

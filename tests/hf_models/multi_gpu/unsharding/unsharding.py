@@ -60,7 +60,9 @@ enable_kernels([Kernel.scattermoe]).__enter__()
 
 
 if is_tp_first_rank:
-    model = TestCommons.from_config(None, config)
+    with ProcessGroupManager.set_dummy_tensor_parallel_world_size(1):
+        model = TestCommons.from_config(None, config)
+
     model.save_pretrained(args.tmp_path, safe_serialization=True)
 
 Communication.barrier()
