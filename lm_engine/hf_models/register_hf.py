@@ -7,7 +7,6 @@ from transformers import AutoConfig, AutoModel, AutoModelForCausalLM
 from .models import (
     GPTBaseConfig,
     GPTBaseForCausalLM,
-    GPTBaseForCausalLM_TP,
     GPTBaseModel,
     GPTCrossLayerConfig,
     GPTCrossLayerForCausalLM,
@@ -48,7 +47,7 @@ def is_custom_model(model_type: str) -> bool:
     return model_type in _CUSTOM_MODEL_TYPES
 
 
-_MODEL_PARALLEL_CLASS_MAPPING = {GPTBaseConfig.model_type: GPTBaseForCausalLM_TP}
+_MODEL_PARALLEL_CLASS_MAPPING = {GPTBaseConfig.model_type: GPTBaseForCausalLM}
 
 
 def get_model_parallel_class(model_type: str) -> AutoModelForCausalLM:

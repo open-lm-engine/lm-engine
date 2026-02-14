@@ -9,9 +9,7 @@ from .model_conversion import export_to_huggingface, import_from_huggingface
 from .models import (
     GPTBaseConfig,
     GPTBaseForCausalLM,
-    GPTBaseForCausalLM_TP,
     GPTBaseModel,
-    GPTBaseModel_TP,
     GPTCrossLayerConfig,
     GPTCrossLayerForCausalLM,
     GPTCrossLayerModel,
