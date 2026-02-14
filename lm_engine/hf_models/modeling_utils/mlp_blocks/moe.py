@@ -246,6 +246,31 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
 
             self.reset_parameters()
 
+    def forward(
+        self,
+        x: torch.Tensor,
+        num_experts_per_token: int | None = None,
+        expert_frequency: torch.Tensor | None = None,
+        sorted_expert_idxs: torch.Tensor | None = None,
+        sorted_scattered_idxs: torch.Tensor | None = None,
+        expert_offsets: torch.Tensor | None = None,
+        gates: torch.Tensor | None = None,
+        grouped_in: bool = False,
+        grouped_out: bool = False,
+    ) -> torch.Tensor:
+        return ColumnParallelExperts.forward(
+            self,
+            x=x,
+            num_experts_per_token=num_experts_per_token,
+            expert_frequency=expert_frequency,
+            sorted_expert_idxs=sorted_expert_idxs,
+            sorted_scattered_idxs=sorted_scattered_idxs,
+            expert_offsets=expert_offsets,
+            gates=gates,
+            grouped_in=grouped_in,
+            grouped_out=grouped_out,
+        )
+
     def extra_repr(self) -> str:
         return "num_experts={}, in_features_per_tp_rank={}, out_features={}".format(
             self.num_experts, self.in_features_per_tp_rank, self.out_features
