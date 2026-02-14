@@ -16,7 +16,7 @@
     },
     "boolq": {
       "alias": "boolq",
-      "acc,none": 0.6321100917431193,
+      "acc,none": 0.6553516819571865,
       "acc_stderr,none": 0.00843427659109292
     },
     "copa": {

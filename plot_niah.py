@@ -27,6 +27,7 @@ IGNORE_MODELS = [
     "Hybrid Mamba2",
     "Hybrid Mamba2 + RSA (1L)",
     "Hybrid Mamba2 + RSA (NL)",
+    "Gated DeltaNet (neg)",
     "Mamba2",
 ]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 OUTPUT = Path("niah.svg")
@@ -185,7 +186,7 @@ def main():
 
     axes[0].set_ylabel("Accuracy (%)")
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=min(5, len(labels)), frameon=False, fontsize=14)
+    fig.legend(handles, labels, loc="lower center", ncol=min(4, len(labels)), frameon=False, fontsize=14)
     plt.tight_layout(rect=[0, 0.1, 1, 1])
     plt.savefig(OUTPUT, format=OUTPUT.suffix.lstrip(".") or "svg")
     print(f"Saved {OUTPUT}")

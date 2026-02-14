@@ -30,7 +30,7 @@ BENCHMARKS = [
     ("openbookqa", "acc_norm,none", "OBQA"),
     ("copa", "acc,none", "COPA"),
     ("sciq", "acc,none", "SciQ"),
-    ("race", "acc,none", "RACE"),
+    # ("race", "acc,none", "RACE"),
 ]
 
 # Average columns configuration

@@ -66,7 +66,7 @@
     },
     "wikitext": {
       "alias": "wikitext",
-      "word_perplexity,none": 21.43856791007086,
+      "word_perplexity,none": 21.529012722149798,
       "word_perplexity_stderr,none": "N/A",
       "byte_perplexity,none": 1.7739454608580452,
       "byte_perplexity_stderr,none": "N/A",
