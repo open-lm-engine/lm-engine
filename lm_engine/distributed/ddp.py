@@ -29,12 +29,13 @@ class DDP(nn.Module):
             raise NotImplementedError()
 
         if sync_module_states:
-            torch.distributed._broadcast_coalesced(
-                process_group=self.process_group,
-                tensors=list(self.parameters()) + list(self.buffers()),
-                buffer_size=250 * (1024**2),
-                src=0,
-            )
+            with torch.no_grad():
+                torch.distributed._broadcast_coalesced(
+                    process_group=self.process_group,
+                    tensors=list(self.parameters()) + list(self.buffers()),
+                    buffer_size=250 * (1024**2),
+                    src=0,
+                )
 
         for parameter in self.parameters():
             if parameter.requires_grad:
