@@ -299,9 +299,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         if ProcessGroupManager.is_tensor_parallel_enabled():
             config: CommonConfig = cls.config_class.from_pretrained(pretrained_model_name_or_path)
 
-            # use dummy tensors to avoid initializing model here
             with torch.device("meta"):
-                # try sharding vocab matrices if really struggling for memory
                 model = cls._from_config(config, **kwargs)
                 marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
 
