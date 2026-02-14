@@ -297,10 +297,8 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
     ) -> CausalLMModelMixin:
         if ProcessGroupManager.is_tensor_parallel_enabled():
-            config: CommonConfig = cls.config_class.from_pretrained(pretrained_model_name_or_path)
-
             with torch.device("meta"):
-                model = cls._from_config(config, **kwargs)
+                model = cls._from_config(**kwargs)
                 marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
 
                 model = model.to(dtype=dtype)
