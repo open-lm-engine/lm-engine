@@ -7,9 +7,10 @@ import os
 
 import torch
 import torch.distributed
+from transformers import AutoModelForCausalLM
 
 from lm_engine.enums import Kernel
-from lm_engine.hf_models import GPTBaseConfig, get_model_parallel_class
+from lm_engine.hf_models import GPTBaseConfig
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import (
     Communication,
@@ -88,7 +89,7 @@ with enable_kernels(kernels):
     with torch.device("meta"):
         # try sharding vocab matrices if really struggling for memory
 
-        model_tp = get_model_parallel_class(config.model_type)._from_config(
+        model_tp = AutoModelForCausalLM.from_config(
             config,
             use_padding_free_transformer=args.use_padding_free_transformer,
             sequence_parallel=args.sequence_parallel,
