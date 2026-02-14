@@ -32,7 +32,12 @@ class DDP(nn.Module):
             raise NotImplementedError()
 
         if sync_module_states:
-            self._sync_module_states(list(self.parameters()) + list(self.buffers()))
+            torch.distributed._broadcast_coalesced(
+                process_group=self.process_group,
+                tensors=list(self.parameters()) + list(self.buffers()),
+                buffer_size=250 * (1024**2),
+                src=0,
+            )
 
         for parameter in self.parameters():
             if parameter.requires_grad:
@@ -44,8 +49,3 @@ class DDP(nn.Module):
     def _all_reduce_hook(self, grad: torch.Tensor) -> torch.Tensor:
         torch.distributed.all_reduce(grad, op=ReduceOp.AVG, group=self.process_group)
         return grad
-
-    def _sync_module_states(self, tensors: list[torch.Tensor]) -> None:
-        torch.distributed._broadcast_coalesced(
-            process_group=self.process_group, tensors=tensors, buffer_size=250 * (1024**2), src=0
-        )
