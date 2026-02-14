@@ -72,13 +72,13 @@ model_args:
         kernel_size: 4
       - sequence_mixer_type: rsa
         k_head_dim: 64
-        v_head_dim: 16
+        v_head_dim: 64
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
-        num_f_heads: 84
-        num_g_heads: 84
-        num_weight_heads: 84
+        num_v_heads: 21
+        num_f_heads: 21
+        num_g_heads: 21
+        num_weight_heads: 21
         use_residual: true
         activation_function: silu
         use_softplus_decay: true
@@ -140,13 +140,13 @@ model_args:
         kernel_size: 4
       - sequence_mixer_type: rsa
         k_head_dim: 64
-        v_head_dim: 16
+        v_head_dim: 64
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
-        num_f_heads: 84
-        num_g_heads: 84
-        num_weight_heads: 84
+        num_v_heads: 21
+        num_f_heads: 21
+        num_g_heads: 21
+        num_weight_heads: 21
         use_residual: true
         activation_function: silu
         use_softplus_decay: true
@@ -208,13 +208,13 @@ model_args:
         kernel_size: 4
       - sequence_mixer_type: rsa
         k_head_dim: 64
-        v_head_dim: 16
+        v_head_dim: 64
         num_q_heads: 1
         num_k_heads: 1
-        num_v_heads: 84
-        num_f_heads: 84
-        num_g_heads: 84
-        num_weight_heads: 84
+        num_v_heads: 21
+        num_f_heads: 21
+        num_g_heads: 21
+        num_weight_heads: 21
         use_residual: true
         activation_function: silu
         use_softplus_decay: true
