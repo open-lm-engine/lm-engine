@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from ....utils import ProcessGroupManager
 from ...config import CommonConfig
 from .attention import (
     Attention,
@@ -29,7 +30,10 @@ def get_sequence_mixer(
     block = config.sequence_mixer_blocks[layer_idx]
     sequence_mixer_type = block.sequence_mixer_type
 
+    is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
     if sequence_mixer_type == "causal_convolution":
+        assert not is_tp_enabled
         return CausalConvolution(
             hidden_size=config.hidden_size,
             in_channels=block.in_channels,
@@ -46,6 +50,7 @@ def get_sequence_mixer(
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "gru":
+        assert not is_tp_enabled
         return GRU(
             input_size=config.hidden_size,
             state_head_dim=block.state_head_dim,
@@ -69,6 +74,7 @@ def get_sequence_mixer(
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "rnn":
+        assert not is_tp_enabled
         return RNN(
             input_size=config.hidden_size,
             state_head_dim=block.state_head_dim,
@@ -88,6 +94,7 @@ def get_sequence_mixer(
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "mamba2":
+        assert not is_tp_enabled
         return Mamba2(
             hidden_size=config.hidden_size,
             ssm_state_size=block.state_size,
@@ -114,6 +121,7 @@ def get_sequence_mixer(
             layer_idx=layer_idx,
         )
     elif sequence_mixer_type == "gated_deltanet":
+        assert not is_tp_enabled
         return GatedDeltaNet(
             hidden_size=config.hidden_size,
             k_head_dim=block.k_head_dim,
@@ -137,8 +145,8 @@ def get_sequence_mixer(
             num_layers=config.num_layers,
             use_padding_free_transformer=use_padding_free_transformer,
         )
-    else:
-        sequence_mixer_kwargs = dict(
+    elif sequence_mixer_type == "softmax_attention":
+        return Attention(
             hidden_size=config.hidden_size,
             num_attention_heads=block.num_attention_heads,
             num_key_value_heads=block.num_key_value_heads,
@@ -153,14 +161,9 @@ def get_sequence_mixer(
             num_layers=config.num_layers,
             causal=causal,
             layer_idx=layer_idx,
+            softmax_dropout=block.softmax_dropout,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
-
-        if sequence_mixer_type == "softmax_attention":
-            return Attention(
-                **sequence_mixer_kwargs,
-                softmax_dropout=block.softmax_dropout,
-                use_padding_free_transformer=use_padding_free_transformer,
-                sequence_parallel=sequence_parallel,
-            )
-        else:
-            raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
+    else:
+        raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
