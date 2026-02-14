@@ -78,3 +78,8 @@ class Kernel(Enum):
     scattermoe = "scattermoe"
     # sonicmoe
     sonicmoe = "sonicmoe"
+
+
+class ParallelImplementation(Enum):
+    custom = "custom"
+    torch = "torch"

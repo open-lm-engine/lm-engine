@@ -13,6 +13,7 @@ from .enums import (
     KLDivergenceMethod,
     LossMask,
     LRDecaySchedule,
+    ParallelImplementation,
     ParamsGroupMethod,
     TuningMethod,
 )
@@ -234,6 +235,8 @@ class ZeroTopologyArgs(BaseArgs):
 
 
 class DistributedArgs(BaseArgs):
+    # parallel implementation
+    parallel_implementation: ParallelImplementation = ParallelImplementation.torch
     # ZeRO stage
     stage: int = 3
     # train with CPU offloading to save accelerator memory
