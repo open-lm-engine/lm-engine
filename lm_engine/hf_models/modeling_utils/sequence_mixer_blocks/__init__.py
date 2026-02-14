@@ -154,6 +154,7 @@ def get_sequence_mixer(
             sliding_window=block.sliding_window,
             position_embedding_type=config.position_embedding_type,
             add_bias=block.add_bias,
+            softmax_dropout=block.softmax_dropout,
             dropout=block.dropout,
             init_method=config.init_method,
             initializer_range=config.initializer_range,
@@ -161,7 +162,6 @@ def get_sequence_mixer(
             num_layers=config.num_layers,
             causal=causal,
             layer_idx=layer_idx,
-            softmax_dropout=block.softmax_dropout,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
