@@ -21,7 +21,7 @@ class DDP(nn.Module):
     ) -> DDP:
         super().__init__()
 
-        self.model = model
+        self._model = model
         self.overlap_communication = overlap_communication
         self.process_group = process_group
 
@@ -42,7 +42,10 @@ class DDP(nn.Module):
                 parameter.register_hook(self._all_reduce_hook)
 
     def forward(self, *args, **kwargs) -> Any:
-        return self.model(*args, **kwargs)
+        return self._model(*args, **kwargs)
+
+    def state_dict(self) -> dict:
+        return self._model.state_dict()
 
     def _all_reduce_hook(self, grad: torch.Tensor) -> torch.Tensor:
         torch.distributed.all_reduce(grad, op=ReduceOp.AVG, group=self.process_group)
