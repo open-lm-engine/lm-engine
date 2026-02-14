@@ -242,6 +242,9 @@ def wrap_model_container_for_distributed_training(
 
         if use_ddp and parallel_implementation == ParallelImplementation.custom:
             for i, model in enumerate(model_container):
+                if efficient_initialization:
+                    model = model.to_empty(accelerator.get_current_device())
+
                 model_container[i] = DDP(
                     model=model,
                     process_group=ProcessGroupManager.get_data_parallel_group(),
