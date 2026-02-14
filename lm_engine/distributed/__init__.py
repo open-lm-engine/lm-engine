@@ -244,7 +244,7 @@ def wrap_model_container_for_distributed_training(
             for i, model in enumerate(model_container):
                 model_container[i] = DDP(
                     model=model,
-                    device_mesh=ProcessGroupManager.get_data_parallel_group(),
+                    process_group=ProcessGroupManager.get_data_parallel_group(),
                     sync_module_states=efficient_initialization,
                     overlap_communication=False,
                 )
