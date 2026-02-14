@@ -150,7 +150,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                     tensor_parallel_enabled=self.is_tp_enabled,
                 )
 
-            if not output_parallel_lm_logits:
+            if self.is_tp_enabled and not output_parallel_lm_logits:
                 # all gather
                 lm_logits = tensor_to_dtensor(lm_logits, device_mesh=self.tp_mesh, current_placement=Shard(-1))
                 lm_logits = dtensor_to_tensor(lm_logits, device_mesh=self.tp_mesh, desired_placement=Replicate())
