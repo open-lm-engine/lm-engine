@@ -51,12 +51,6 @@ class DDP(nn.Module):
         torch.distributed.all_reduce(grad, op=ReduceOp.AVG, group=self.process_group)
         return grad
 
-    def named_parameters(
-        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
-    ) -> list[str, nn.Parameter]:
-        return self._model.named_parameters(prefix=prefix, recurse=recurse, remove_duplicate=remove_duplicate)
-
-    def named_buffers(
-        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
-    ) -> list[str, nn.Parameter]:
-        return self._model.named_buffers(prefix=prefix, recurse=recurse, remove_duplicate=remove_duplicate)
+    def process_marker_map(self, marker_map: dict) -> dict:
+        for name in marker_map:
+            print(name)

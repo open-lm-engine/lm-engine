@@ -246,12 +246,15 @@ def wrap_model_container_for_distributed_training(
                 if efficient_initialization:
                     model = model.to_empty(device=device)
 
-                model_container[i] = DDP(
+                model = DDP(
                     model=model,
                     process_group=ProcessGroupManager.get_data_parallel_group(),
                     sync_module_states=efficient_initialization,
                     overlap_communication=False,
                 )
+
+                model_container[i] = model
+                marker_maps[i] = model.process_marker_map(marker_maps[i])
         else:
             mixed_precision_policy = _get_fsdp_mixed_precision(
                 dtype=dtype,
