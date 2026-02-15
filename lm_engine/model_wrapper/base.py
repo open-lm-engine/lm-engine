@@ -84,8 +84,6 @@ class ModelWrapper(nn.Module):
         if use_model_parallelism:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
-        self.model_class = AutoModelForCausalLM
-
         if self.use_padding_free_transformer:
             assert self.is_custom_model, "padding free transformer is not supported with the specified model"
 
