@@ -64,3 +64,9 @@ class DDP(nn.Module):
             new_marker_map[f"_model.{key}"] = value
 
         return new_marker_map
+
+    def __getattr__(self, name):
+        return self._model.__getattr__(name)
+
+    def __setattr__(self, name, value):
+        return self._model.__setattr__(name, value)
