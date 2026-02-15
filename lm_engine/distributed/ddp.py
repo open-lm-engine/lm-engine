@@ -52,5 +52,8 @@ class DDP(nn.Module):
         return grad
 
     def process_marker_map(self, marker_map: dict) -> dict:
-        for name in marker_map:
-            print(name)
+        new_marker_map = {}
+        for key, value in marker_map.items():
+            new_marker_map[f"_model.{key}"] = value
+
+        return new_marker_map
