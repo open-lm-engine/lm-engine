@@ -50,3 +50,15 @@ class DDP(nn.Module):
     def _all_reduce_hook(self, grad: torch.Tensor) -> torch.Tensor:
         torch.distributed.all_reduce(grad, op=ReduceOp.AVG, group=self.process_group)
         return grad
+
+    def named_parameters(self, prefix="", recurse=True, remove_duplicate=True):
+        return self._model.named_parameters(prefix, recurse, remove_duplicate)
+
+    def named_buffers(self, prefix="", recurse=True, remove_duplicate=True):
+        return self._model.named_buffers()
+
+    def named_modules(self, memo=None, prefix="", remove_duplicate=True):
+        return self._model.named_modules()
+
+    def named_children(self):
+        return self._model.named_children()
