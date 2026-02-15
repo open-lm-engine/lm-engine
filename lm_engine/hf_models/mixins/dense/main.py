@@ -6,21 +6,36 @@ from __future__ import annotations
 
 import torch
 import torch.nn.functional as F
+from torch.distributed._tensor.placement_types import Replicate, Shard
 from transformers import StoppingCriteriaList
 
+from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import LMHead, ParameterizedLinear
-from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
+from ...loss import (
+    add_aux_loss,
+    clear_aux_loss,
+    get_autoregressive_language_modeling_loss,
+    get_aux_loss,
+    is_aux_loss_zero,
+)
+from ...modeling_utils import DTensorModule, LMHead
+from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
+from ..modeling_outputs import (
+    BaseModelOutputWithPast,
+    CausalLMOutputWithPast,
+    PipelineParallelInput,
+    PipelineParallelOutput,
+)
 from .base import PreTrainedModelMixin
 
 
-class CausalLMModelMixin(PreTrainedModelMixin):
+class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
     base_model_class = None
+    model_parallel_state_dict_function = None
 
     def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:
         super().__init__(config, **kwargs)
@@ -44,9 +59,6 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
             self.m_width = config.m_width
 
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh() if self.is_tp_enabled else None
-
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
@@ -57,28 +69,38 @@ class CausalLMModelMixin(PreTrainedModelMixin):
         labels: torch.Tensor | list[list[int]] | None = None,
         use_cache: bool | None = None,
         return_dict: bool = True,
+        output_parallel_lm_logits: bool = False,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
         reduction: str = "mean",
-    ) -> CausalLMOutputWithPast:
+        pipeline_parallel_input: PipelineParallelInput | None = None,
+    ) -> CausalLMOutputWithPast | PipelineParallelOutput:
         assert return_dict
         assert inputs_embeds is None
 
-        input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
-            input_ids=input_ids,
-            position_ids=position_ids,
-            labels=labels,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            use_cache=use_cache,
-        )
+        if self.is_pipeline_parallel_enabled:
+            assert past_key_values is None
 
         clear_aux_loss()
 
+        if self.is_first_stage:
+            assert pipeline_parallel_input is None, "first stage should not get pipeline_parallel_input"
+            input_ids, position_ids, labels, cu_seqlens, max_seqlen = self.prepare_inputs_for_model(
+                input_ids=input_ids,
+                position_ids=position_ids,
+                labels=labels,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+                past_key_values=past_key_values,
+                attention_mask=attention_mask,
+                use_cache=use_cache,
+            )
+        else:
+            assert input_ids is None
+            add_aux_loss(pipeline_parallel_input.aux_loss)
+
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
-            input_ids,
+            input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -89,58 +111,76 @@ class CausalLMModelMixin(PreTrainedModelMixin):
 
         hidden_states = transformer_outputs.last_hidden_state
         past_key_values = transformer_outputs.past_key_values
+
+        del pipeline_parallel_input
         del transformer_outputs
 
         lm_logits = None
         loss = None
+        aux_loss = get_aux_loss()
 
-        if labels is None:
-            if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
-                if self.m_width is not None:
-                    hidden_states = hidden_states / self.m_width
+        if self.is_last_stage:
+            if labels is None:
+                if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
+                    if self.m_width is not None:
+                        hidden_states = hidden_states / self.m_width
+                else:
+                    lm_logits = self.get_lm_logits(hidden_states)
+
+                    if self.m_width is not None:
+                        lm_logits = lm_logits / self.m_width
             else:
+                assert not self.is_pipeline_parallel_enabled
+                assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
+
                 lm_logits = self.get_lm_logits(hidden_states)
 
                 if self.m_width is not None:
                     lm_logits = lm_logits / self.m_width
-        else:
-            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
-            lm_logits = self.get_lm_logits(hidden_states)
+                loss = get_autoregressive_language_modeling_loss(
+                    lm_logits=lm_logits,
+                    labels=labels,
+                    hidden_states=None,
+                    vocab_weight=None,
+                    cu_seqlens=cu_seqlens,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    reduction=reduction,
+                    shift_logits_and_labels=True,
+                    tensor_parallel_enabled=self.is_tp_enabled,
+                )
 
-            if self.m_width is not None:
-                lm_logits = lm_logits / self.m_width
+            if self.is_tp_enabled and not output_parallel_lm_logits:
+                # all gather
+                lm_logits = tensor_to_dtensor(lm_logits, device_mesh=self.tp_mesh, current_placement=Shard(-1))
+                lm_logits = dtensor_to_tensor(lm_logits, device_mesh=self.tp_mesh, desired_placement=Replicate())
 
-            loss = get_autoregressive_language_modeling_loss(
-                lm_logits=lm_logits,
-                labels=labels,
-                hidden_states=None,
-                vocab_weight=None,
-                cu_seqlens=cu_seqlens,
-                use_padding_free_transformer=self.use_padding_free_transformer,
-                reduction=reduction,
-                shift_logits_and_labels=True,
-                tensor_parallel_enabled=False,
+            if loss is not None and not is_aux_loss_zero(aux_loss):
+                loss = loss + self.router_aux_loss_coef * aux_loss
+
+            output = CausalLMOutputWithPast(
+                loss=loss,
+                aux_loss=aux_loss,
+                logits=lm_logits,
+                past_key_values=past_key_values,
+                last_hidden_state=hidden_states,
             )
+        else:
+            output = PipelineParallelOutput(hidden_states=hidden_states, aux_loss=aux_loss)
 
-        aux_loss = get_aux_loss()
+        return output
 
-        if loss is not None and not is_aux_loss_zero(aux_loss):
-            loss = loss + self.router_aux_loss_coef * aux_loss
-
-        return CausalLMOutputWithPast(
-            loss=loss,
-            aux_loss=aux_loss,
-            logits=lm_logits,
-            past_key_values=past_key_values,
-            last_hidden_state=hidden_states,
-        )
-
-    def get_lm_logits(self, hidden_states: torch.Tensor) -> torch.Tensor:
+    def get_lm_logits(self, x: torch.Tensor) -> torch.Tensor:
         return (
-            F.linear(hidden_states, self.transformer.wte.weight)
+            LMHead.compute_with_weight(
+                x=x,
+                weight=self.transformer.wte.weight,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+                tp_mesh=self.tp_mesh if self.is_tp_enabled else None,
+            )
             if self._tied_word_embeddings
-            else self.lm_head(hidden_states)
+            else self.lm_head(x)
         )
 
     @torch.inference_mode()
@@ -251,6 +291,45 @@ class CausalLMModelMixin(PreTrainedModelMixin):
             )
 
         return generated_tokens
+
+    @classmethod
+    def from_pretrained(
+        cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
+    ) -> CausalLMModelMixin:
+        if ProcessGroupManager.is_tensor_parallel_enabled():
+            with torch.device("meta"):
+                model = cls._from_config(**kwargs)
+                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+
+                model = model.to(dtype=dtype)
+
+            # copy to device without copying storage
+            model = model.to_empty(device=torch.cuda.current_device())
+            set_parameter_marker_maps([model], marker_maps)
+
+            model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
+        else:
+            model = super().from_pretrained(
+                pretrained_model_name_or_path=pretrained_model_name_or_path, dtype=dtype, **kwargs
+            )
+
+        return model
+
+    def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
+        with torch.device(torch.cuda.current_device()):
+            position_embedding_type = self.config.position_embedding_type
+
+            if position_embedding_type == "rope":
+                self.transformer.rope.reset_parameters()
+
+        state_dict = self.__class__.model_parallel_state_dict_function(
+            config=self.config,
+            safetensors_weights_manager=safetensors_weights_manager,
+            num_pipeline_stages=self.num_pipeline_stages,
+            pipeline_stage_id=self.pipeline_stage_id,
+        )
+
+        self.load_state_dict(state_dict)
 
     def get_dummy_input_tensor(
         self, micro_batch_size: int, sequence_length: int, intermediate_dtype: torch.dtype
