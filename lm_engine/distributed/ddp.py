@@ -51,9 +51,6 @@ class DDP(nn.Module):
     def forward(self, *args, **kwargs) -> Any:
         return self._model(*args, **kwargs)
 
-    def state_dict(self) -> dict:
-        return self._model.state_dict()
-
     def _all_reduce_hook(self, grad: torch.Tensor) -> torch.Tensor:
         torch.distributed.all_reduce(grad, op=ReduceOp.AVG, group=self.process_group)
         return grad
@@ -65,8 +62,8 @@ class DDP(nn.Module):
 
         return new_marker_map
 
-    def __getattr__(self, name):
-        return self._model.__getattr__(name)
-
     def __setattr__(self, name, value):
         return self._model.__setattr__(name, value)
+
+    def __getattribute__(self, name):
+        return super().__getattribute__(name)
