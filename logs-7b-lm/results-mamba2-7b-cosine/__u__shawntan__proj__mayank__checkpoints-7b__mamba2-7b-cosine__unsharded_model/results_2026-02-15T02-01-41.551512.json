@@ -2,55 +2,55 @@
   "results": {
     "arc_challenge": {
       "alias": "arc_challenge",
-      "acc,none": 0.3771331058020478,
-      "acc_stderr,none": 0.01416336689619262,
-      "acc_norm,none": 0.4044368600682594,
-      "acc_norm_stderr,none": 0.014342036483436283
+      "acc,none": 0.3916382252559727,
+      "acc_stderr,none": 0.014264122124938267,
+      "acc_norm,none": 0.4351535836177474,
+      "acc_norm_stderr,none": 0.014487986197186081
     },
     "arc_easy": {
       "alias": "arc_easy",
-      "acc,none": 0.7369528619528619,
-      "acc_stderr,none": 0.009034514898865942,
-      "acc_norm,none": 0.6986531986531986,
-      "acc_norm_stderr,none": 0.009415259879351578
+      "acc,none": 0.7432659932659933,
+      "acc_stderr,none": 0.008963590834042483,
+      "acc_norm,none": 0.7175925925925926,
+      "acc_norm_stderr,none": 0.009237303403479292
     },
     "boolq": {
       "alias": "boolq",
-      "acc,none": 0.654434250764526,
-      "acc_stderr,none": 0.008317463342191522
+      "acc,none": 0.6400611620795107,
+      "acc_stderr,none": 0.008394940698369071
     },
     "copa": {
       "alias": "copa",
-      "acc,none": 0.78,
-      "acc_stderr,none": 0.041633319989322654
+      "acc,none": 0.8,
+      "acc_stderr,none": 0.04020151261036849
     },
     "hellaswag": {
       "alias": "hellaswag",
-      "acc,none": 0.5007966540529775,
-      "acc_stderr,none": 0.004989775077835642,
-      "acc_norm,none": 0.6699860585540729,
-      "acc_norm_stderr,none": 0.004692567655962077
+      "acc,none": 0.506970722963553,
+      "acc_stderr,none": 0.004989296471157074,
+      "acc_norm,none": 0.6742680740888269,
+      "acc_norm_stderr,none": 0.004676898861978937
     },
     "lambada_openai": {
       "alias": "lambada_openai",
-      "perplexity,none": 11.097833539356794,
-      "perplexity_stderr,none": 0.3901826359710266,
-      "acc,none": 0.48961769842810016,
-      "acc_stderr,none": 0.006964475739361835
+      "perplexity,none": 11.03484098142063,
+      "perplexity_stderr,none": 0.3924560955973748,
+      "acc,none": 0.5008732777023094,
+      "acc_stderr,none": 0.006965967032480399
     },
     "openbookqa": {
       "alias": "openbookqa",
-      "acc,none": 0.318,
-      "acc_stderr,none": 0.020847571620814014,
-      "acc_norm,none": 0.396,
-      "acc_norm_stderr,none": 0.021893529941665716
+      "acc,none": 0.322,
+      "acc_stderr,none": 0.020916668330019865,
+      "acc_norm,none": 0.41,
+      "acc_norm_stderr,none": 0.02201748257812769
     },
     "piqa": {
       "alias": "piqa",
-      "acc,none": 0.7736670293797606,
-      "acc_stderr,none": 0.009763294246879333,
-      "acc_norm,none": 0.778563656147987,
-      "acc_norm_stderr,none": 0.009687616456840284
+      "acc,none": 0.7682263329706203,
+      "acc_stderr,none": 0.009845143772794095,
+      "acc_norm,none": 0.7714907508161044,
+      "acc_norm_stderr,none": 0.00979631351182939
     },
     "race": {
       "alias": "race",
@@ -59,24 +59,24 @@
     },
     "sciq": {
       "alias": "sciq",
-      "acc,none": 0.923,
-      "acc_stderr,none": 0.00843458014024066,
-      "acc_norm,none": 0.896,
-      "acc_norm_stderr,none": 0.009658016218524242
+      "acc,none": 0.934,
+      "acc_stderr,none": 0.007855297938697532,
+      "acc_norm,none": 0.906,
+      "acc_norm_stderr,none": 0.009233052000787672
     },
     "wikitext": {
       "alias": "wikitext",
-      "word_perplexity,none": 13.893729568738879,
+      "word_perplexity,none": 13.726637172305402,
       "word_perplexity_stderr,none": "N/A",
-      "byte_perplexity,none": 1.6357345840428221,
+      "byte_perplexity,none": 1.6320376869765343,
       "byte_perplexity_stderr,none": "N/A",
-      "bits_per_byte,none": 0.709938674105124,
+      "bits_per_byte,none": 0.706674372374594,
       "bits_per_byte_stderr,none": "N/A"
     },
     "winogrande": {
       "alias": "winogrande",
-      "acc,none": 0.6006314127861089,
-      "acc_stderr,none": 0.0137649335467177
+      "acc,none": 0.6164167324388319,
+      "acc_stderr,none": 0.013666275889538936
     }
   },
   "group_subtasks": {
@@ -144,7 +144,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "arc_easy": {
@@ -197,7 +197,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "boolq": {
@@ -248,7 +248,7 @@
       "metadata": {
         "version": 2.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "copa": {
@@ -273,9 +273,9 @@
         "process_docs": null,
         "fewshot_indices": null,
         "samples": null,
-        "doc_to_text": "<function doc_to_text at 0x15302c90df80>",
-        "doc_to_choice": "<function doc_to_choice at 0x15302c90d440>",
-        "doc_to_target": "<function doc_to_target at 0x15302c90d9e0>",
+        "doc_to_text": "<function doc_to_text at 0x15420a305e40>",
+        "doc_to_choice": "<function doc_to_choice at 0x15420a305300>",
+        "doc_to_target": "<function doc_to_target at 0x15420a3058a0>",
         "gen_prefix": null,
         "fewshot_delimiter": "\n\n",
         "target_delimiter": " "
@@ -292,7 +292,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "hellaswag": {
@@ -314,7 +314,7 @@
       "fewshot_config": {
         "sampler": "default",
         "split": null,
-        "process_docs": "<function process_docs at 0x15302c90d4e0>",
+        "process_docs": "<function process_docs at 0x15420a306020>",
         "fewshot_indices": null,
         "samples": null,
         "doc_to_text": "{{query}}",
@@ -343,7 +343,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "lambada_openai": {
@@ -393,7 +393,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "openbookqa": {
@@ -443,7 +443,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "piqa": {
@@ -491,7 +491,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "race": {
@@ -512,9 +512,9 @@
         "process_docs": null,
         "fewshot_indices": null,
         "samples": null,
-        "doc_to_text": "<function doc_to_text at 0x152d41ea8400>",
-        "doc_to_choice": "<function doc_to_choice at 0x152d41ea8c20>",
-        "doc_to_target": "<function doc_to_target at 0x152d41ea8900>",
+        "doc_to_text": "<function doc_to_text at 0x153ebc17c2c0>",
+        "doc_to_choice": "<function doc_to_choice at 0x153ebc17cae0>",
+        "doc_to_target": "<function doc_to_target at 0x153ebc17c7c0>",
         "gen_prefix": null,
         "fewshot_delimiter": "\n\n",
         "target_delimiter": " "
@@ -533,7 +533,7 @@
       "metadata": {
         "version": 2.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "sciq": {
@@ -582,7 +582,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "wikitext": {
@@ -607,7 +607,7 @@
         "samples": null,
         "doc_to_text": "",
         "doc_to_choice": null,
-        "doc_to_target": "<function wikitext_detokenizer at 0x1530c4521940>",
+        "doc_to_target": "<function wikitext_detokenizer at 0x15423dacb6a0>",
         "gen_prefix": null,
         "fewshot_delimiter": "\n\n",
         "target_delimiter": " "
@@ -631,7 +631,7 @@
       "metadata": {
         "version": 2.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     },
     "winogrande": {
@@ -653,9 +653,9 @@
         "process_docs": null,
         "fewshot_indices": null,
         "samples": null,
-        "doc_to_text": "<function doc_to_text at 0x152d3775c9a0>",
-        "doc_to_choice": "<function doc_to_choice at 0x152d3775d120>",
-        "doc_to_target": "<function doc_to_target at 0x152d3775cd60>",
+        "doc_to_text": "<function doc_to_text at 0x153eb3034860>",
+        "doc_to_choice": "<function doc_to_choice at 0x153eb3034fe0>",
+        "doc_to_target": "<function doc_to_target at 0x153eb3034c20>",
         "gen_prefix": null,
         "fewshot_delimiter": "\n\n",
         "target_delimiter": " "
@@ -675,7 +675,7 @@
       "metadata": {
         "version": 1.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
       }
     }
   },
@@ -808,9 +808,9 @@
     "model": "hf",
     "model_args": {
       "dtype": "bfloat16",
-      "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model"
+      "pretrained": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model"
     },
-    "model_num_parameters": 6769039088,
+    "model_num_parameters": 6794289408,
     "model_dtype": "torch.bfloat16",
     "model_revision": "main",
     "model_sha": "",
@@ -827,8 +827,8 @@
     "fewshot_seed": 1234
   },
   "git_hash": "979eee34",
-  "date": 1770964842.0309193,
-  "pretty_env_info": "PyTorch version: 2.9.1+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Red Hat Enterprise Linux 9.5 (Plow) (x86_64)\nGCC version: (GCC) 11.5.0 20240719 (Red Hat 11.5.0-2)\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: glibc-2.34\n\nPython version: 3.12.1 | packaged by Anaconda, Inc. | (main, Jan 19 2024, 15:51:05) [GCC 11.2.0] (64-bit runtime)\nPython platform: Linux-5.14.0-503.23.1.el9_5.x86_64-x86_64-with-glibc2.34\nIs CUDA available: True\nCUDA runtime version: 12.4.99\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: \nGPU 0: NVIDIA H100 80GB HBM3\nGPU 1: NVIDIA H100 80GB HBM3\nGPU 2: NVIDIA H100 80GB HBM3\nGPU 3: NVIDIA H100 80GB HBM3\nGPU 4: NVIDIA H100 80GB HBM3\nGPU 5: NVIDIA H100 80GB HBM3\nGPU 6: NVIDIA H100 80GB HBM3\nGPU 7: NVIDIA H100 80GB HBM3\n\nNvidia driver version: 570.86.10\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\n\nCPU:\nArchitecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        46 bits physical, 57 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               96\nOn-line CPU(s) list:                  0-95\nVendor ID:                            GenuineIntel\nModel name:                           Intel(R) Xeon(R) Platinum 8468\nCPU family:                           6\nModel:                                143\nThread(s) per core:                   1\nCore(s) per socket:                   48\nSocket(s):                            2\nStepping:                             8\nCPU(s) scaling MHz:                   93%\nCPU max MHz:                          3800.0000\nCPU min MHz:                          800.0000\nBogoMIPS:                             4200.00\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cat_l2 cdp_l3 cdp_l2 ssbd mba ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb intel_pt avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local split_lock_detect avx_vnni avx512_bf16 wbnoinvd dtherm ida arat pln pts avx512vbmi umip pku ospke waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg tme avx512_vpopcntdq la57 rdpid bus_lock_detect cldemote movdiri movdir64b enqcmd fsrm md_clear serialize tsxldtrk pconfig arch_lbr ibt amx_bf16 avx512_fp16 amx_tile amx_int8 flush_l1d arch_capabilities\nL1d cache:                            4.5 MiB (96 instances)\nL1i cache:                            3 MiB (96 instances)\nL2 cache:                             192 MiB (96 instances)\nL3 cache:                             210 MiB (2 instances)\nNUMA node(s):                         2\nNUMA node0 CPU(s):                    0-47\nNUMA node1 CPU(s):                    48-95\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; RSB filling; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n\nVersions of relevant libraries:\n[pip3] Could not collect\n[conda] No relevant packages",
+  "date": 1771119944.8309946,
+  "pretty_env_info": "PyTorch version: 2.9.1+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Red Hat Enterprise Linux 9.5 (Plow) (x86_64)\nGCC version: (GCC) 11.5.0 20240719 (Red Hat 11.5.0-2)\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: glibc-2.34\n\nPython version: 3.12.1 | packaged by Anaconda, Inc. | (main, Jan 19 2024, 15:51:05) [GCC 11.2.0] (64-bit runtime)\nPython platform: Linux-5.14.0-503.23.1.el9_5.x86_64-x86_64-with-glibc2.34\nIs CUDA available: True\nCUDA runtime version: 12.4.99\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: \nGPU 0: NVIDIA H100 80GB HBM3\nGPU 1: NVIDIA H100 80GB HBM3\nGPU 2: NVIDIA H100 80GB HBM3\nGPU 3: NVIDIA H100 80GB HBM3\nGPU 4: NVIDIA H100 80GB HBM3\nGPU 5: NVIDIA H100 80GB HBM3\nGPU 6: NVIDIA H100 80GB HBM3\nGPU 7: NVIDIA H100 80GB HBM3\n\nNvidia driver version: 570.86.10\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\n\nCPU:\nArchitecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        46 bits physical, 57 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               96\nOn-line CPU(s) list:                  0-95\nVendor ID:                            GenuineIntel\nModel name:                           Intel(R) Xeon(R) Platinum 8468\nCPU family:                           6\nModel:                                143\nThread(s) per core:                   1\nCore(s) per socket:                   48\nSocket(s):                            2\nStepping:                             8\nCPU(s) scaling MHz:                   95%\nCPU max MHz:                          3800.0000\nCPU min MHz:                          800.0000\nBogoMIPS:                             4200.00\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cat_l2 cdp_l3 cdp_l2 ssbd mba ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb intel_pt avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local split_lock_detect avx_vnni avx512_bf16 wbnoinvd dtherm ida arat pln pts avx512vbmi umip pku ospke waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg tme avx512_vpopcntdq la57 rdpid bus_lock_detect cldemote movdiri movdir64b enqcmd fsrm md_clear serialize tsxldtrk pconfig arch_lbr ibt amx_bf16 avx512_fp16 amx_tile amx_int8 flush_l1d arch_capabilities\nL1d cache:                            4.5 MiB (96 instances)\nL1i cache:                            3 MiB (96 instances)\nL2 cache:                             192 MiB (96 instances)\nL3 cache:                             210 MiB (2 instances)\nNUMA node(s):                         2\nNUMA node0 CPU(s):                    0-47\nNUMA node1 CPU(s):                    48-95\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; RSB filling; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n\nVersions of relevant libraries:\n[pip3] Could not collect\n[conda] No relevant packages",
   "transformers_version": "4.57.3",
   "lm_eval_version": "0.4.10.dev0",
   "upper_git_hash": null,
@@ -848,12 +848,12 @@
   "max_length": 4096,
   "task_hashes": {},
   "model_source": "hf",
-  "model_name": "/u/shawntan/proj/mayank/checkpoints-7b/gated-deltanet-7b-cosine/unsharded_model",
-  "model_name_sanitized": "__u__shawntan__proj__mayank__checkpoints-7b__gated-deltanet-7b-cosine__unsharded_model",
+  "model_name": "/u/shawntan/proj/mayank/checkpoints-7b/mamba2-7b-cosine/unsharded_model",
+  "model_name_sanitized": "__u__shawntan__proj__mayank__checkpoints-7b__mamba2-7b-cosine__unsharded_model",
   "system_instruction": null,
   "system_instruction_sha": null,
   "fewshot_as_multiturn": null,
   "chat_template": null,
   "chat_template_sha": null,
-  "total_evaluation_time_seconds": "942.5641261823475"
+  "total_evaluation_time_seconds": "967.654753648676"
 }
