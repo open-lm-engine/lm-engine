@@ -32,12 +32,12 @@ class DDP(nn.Module):
             with torch.no_grad():
                 torch.distributed._broadcast_coalesced(
                     process_group=self.process_group,
-                    tensors=list(self.parameters()) + list(self.buffers()),
+                    tensors=list(self._model.parameters()) + list(self._model.buffers()),
                     buffer_size=250 * (1024**2),
                     src=0,
                 )
 
-        for parameter in self.parameters():
+        for parameter in self._model.parameters():
             if parameter.requires_grad:
                 parameter.register_hook(self._all_reduce_hook)
 
