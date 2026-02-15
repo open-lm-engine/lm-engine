@@ -2,101 +2,101 @@
   "results": {
     "longbench_2wikimqa": {
       "alias": "longbench_2wikimqa",
-      "score,none": 0.031719937973464694,
-      "score_stderr,none": 0.004665604427360212,
-      "qa_f1_score,none": 0.031719937973464694,
-      "qa_f1_score_stderr,none": 0.004665604427360212
+      "score,none": 0.05372846045998893,
+      "score_stderr,none": 0.007711832133960322,
+      "qa_f1_score,none": 0.05372846045998893,
+      "qa_f1_score_stderr,none": 0.007711832133960322
     },
     "longbench_gov_report": {
       "alias": "longbench_gov_report",
-      "score,none": 0.09293264299872367,
-      "score_stderr,none": 0.0023886857843956194,
-      "rouge_score,none": 0.09293264299872367,
-      "rouge_score_stderr,none": 0.0023886857843956194
+      "score,none": 0.09834462019630674,
+      "score_stderr,none": 0.0061663773931808314,
+      "rouge_score,none": 0.09834462019630674,
+      "rouge_score_stderr,none": 0.0061663773931808314
     },
     "longbench_hotpotqa": {
       "alias": "longbench_hotpotqa",
-      "score,none": 0.02790350671657091,
-      "score_stderr,none": 0.0037265061832925063,
-      "qa_f1_score,none": 0.02790350671657091,
-      "qa_f1_score_stderr,none": 0.0037265061832925063
+      "score,none": 0.025896661865019585,
+      "score_stderr,none": 0.004586351926987519,
+      "qa_f1_score,none": 0.025896661865019585,
+      "qa_f1_score_stderr,none": 0.004586351926987519
     },
     "longbench_lcc": {
       "alias": "longbench_lcc",
-      "score,none": 0.17876,
-      "score_stderr,none": 0.006327099586568613,
-      "code_sim_score,none": 0.17876,
-      "code_sim_score_stderr,none": 0.006327099586568613
+      "score,none": 0.13218000000000002,
+      "score_stderr,none": 0.005412493452258532,
+      "code_sim_score,none": 0.13218000000000002,
+      "code_sim_score_stderr,none": 0.005412493452258532
     },
     "longbench_multi_news": {
       "alias": "longbench_multi_news",
-      "score,none": 0.09208034444923496,
-      "score_stderr,none": 0.002467383733159632,
-      "rouge_score,none": 0.09208034444923496,
-      "rouge_score_stderr,none": 0.002467383733159632
+      "score,none": 0.07544211636591151,
+      "score_stderr,none": 0.005832443108769308,
+      "rouge_score,none": 0.07544211636591151,
+      "rouge_score_stderr,none": 0.005832443108769308
     },
     "longbench_multifieldqa_en_e": {
       "alias": "longbench_multifieldqa_en_e",
-      "score,none": 0.0845815297420127,
-      "score_stderr,none": 0.0065270492592315425,
-      "qa_f1_score,none": 0.0845815297420127,
-      "qa_f1_score_stderr,none": 0.0065270492592315425
+      "score,none": 0.1114162262506954,
+      "score_stderr,none": 0.009164638511411635,
+      "qa_f1_score,none": 0.1114162262506954,
+      "qa_f1_score_stderr,none": 0.009164638511411635
     },
     "longbench_musique": {
       "alias": "longbench_musique",
-      "score,none": 0.019541812014806925,
-      "score_stderr,none": 0.0035317841328018486,
-      "qa_f1_score,none": 0.019541812014806925,
-      "qa_f1_score_stderr,none": 0.0035317841328018486
+      "score,none": 0.012510179883892698,
+      "score_stderr,none": 0.0026689427057508927,
+      "qa_f1_score,none": 0.012510179883892698,
+      "qa_f1_score_stderr,none": 0.0026689427057508927
     },
     "longbench_narrativeqa": {
       "alias": "longbench_narrativeqa",
-      "score,none": 0.01460059622278588,
-      "score_stderr,none": 0.002073997869602013,
-      "qa_f1_score,none": 0.01460059622278588,
-      "qa_f1_score_stderr,none": 0.002073997869602013
+      "score,none": 0.009722732939842464,
+      "score_stderr,none": 0.002313392365429089,
+      "qa_f1_score,none": 0.009722732939842464,
+      "qa_f1_score_stderr,none": 0.002313392365429089
     },
     "longbench_qasper": {
       "alias": "longbench_qasper",
-      "score,none": 0.03377394931743632,
-      "score_stderr,none": 0.004199007148319741,
-      "qa_f1_score,none": 0.03377394931743632,
-      "qa_f1_score_stderr,none": 0.004199007148319741
+      "score,none": 0.06037450014400206,
+      "score_stderr,none": 0.006906218233032044,
+      "qa_f1_score,none": 0.06037450014400206,
+      "qa_f1_score_stderr,none": 0.006906218233032044
     },
     "longbench_qmsum": {
       "alias": "longbench_qmsum",
-      "score,none": 0.15224888526796607,
-      "score_stderr,none": 0.004495888858412293,
-      "rouge_score,none": 0.15224888526796607,
-      "rouge_score_stderr,none": 0.004495888858412293
+      "score,none": 0.09021466932708996,
+      "score_stderr,none": 0.005694946198018388,
+      "rouge_score,none": 0.09021466932708996,
+      "rouge_score_stderr,none": 0.005694946198018388
     },
     "longbench_repobench-p": {
       "alias": "longbench_repobench-p",
-      "score,none": 0.14946,
-      "score_stderr,none": 0.006061724656533259,
-      "code_sim_score,none": 0.14946,
-      "code_sim_score_stderr,none": 0.006061724656533259
+      "score,none": 0.09766,
+      "score_stderr,none": 0.0038447643915398644,
+      "code_sim_score,none": 0.09766,
+      "code_sim_score_stderr,none": 0.0038447643915398644
     },
     "longbench_samsum": {
       "alias": "longbench_samsum",
-      "score,none": 0.049903002185567195,
-      "score_stderr,none": 0.004376293100696885,
-      "rouge_score,none": 0.049903002185567195,
-      "rouge_score_stderr,none": 0.004376293100696885
+      "score,none": 0.12616862844742535,
+      "score_stderr,none": 0.006775530639908727,
+      "rouge_score,none": 0.12616862844742535,
+      "rouge_score_stderr,none": 0.006775530639908727
     },
     "longbench_trec": {
       "alias": "longbench_trec",
-      "score,none": 0.005,
-      "score_stderr,none": 0.005,
-      "classification_score,none": 0.005,
-      "classification_score_stderr,none": 0.005
+      "score,none": 0.225,
+      "score_stderr,none": 0.029601626330440618,
+      "classification_score,none": 0.225,
+      "classification_score_stderr,none": 0.029601626330440618
     },
     "longbench_triviaqa": {
       "alias": "longbench_triviaqa",
-      "score,none": 0.12222814830935085,
-      "score_stderr,none": 0.016358892302471336,
-      "qa_f1_score,none": 0.12222814830935085,
-      "qa_f1_score_stderr,none": 0.016358892302471336
+      "score,none": 0.1327862686277244,
+      "score_stderr,none": 0.020393205302136244,
+      "qa_f1_score,none": 0.1327862686277244,
+      "qa_f1_score_stderr,none": 0.020393205302136244
     }
   },
   "group_subtasks": {
@@ -170,7 +170,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -235,7 +235,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -300,7 +300,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -365,7 +365,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -430,7 +430,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -495,7 +495,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -560,7 +560,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -625,7 +625,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -690,7 +690,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -755,7 +755,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -820,7 +820,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -887,7 +887,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -954,7 +954,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -1021,7 +1021,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -1185,10 +1185,10 @@
     "model": "hf",
     "model_args": {
       "dtype": "bfloat16",
-      "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
+      "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
       "max_length": 500000
     },
-    "model_num_parameters": 406665600,
+    "model_num_parameters": 407731176,
     "model_dtype": "torch.bfloat16",
     "model_revision": "main",
     "model_sha": "",
@@ -1205,8 +1205,8 @@
     "fewshot_seed": 1234
   },
   "git_hash": "979eee34",
-  "date": 1770967147.6318285,
-  "pretty_env_info": "PyTorch version: 2.9.1+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Red Hat Enterprise Linux 9.5 (Plow) (x86_64)\nGCC version: (GCC) 11.5.0 20240719 (Red Hat 11.5.0-2)\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: glibc-2.34\n\nPython version: 3.12.1 | packaged by Anaconda, Inc. | (main, Jan 19 2024, 15:51:05) [GCC 11.2.0] (64-bit runtime)\nPython platform: Linux-5.14.0-503.23.1.el9_5.x86_64-x86_64-with-glibc2.34\nIs CUDA available: True\nCUDA runtime version: 12.4.99\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: \nGPU 0: NVIDIA H100 80GB HBM3\nGPU 1: NVIDIA H100 80GB HBM3\nGPU 2: NVIDIA H100 80GB HBM3\nGPU 3: NVIDIA H100 80GB HBM3\nGPU 4: NVIDIA H100 80GB HBM3\nGPU 5: NVIDIA H100 80GB HBM3\nGPU 6: NVIDIA H100 80GB HBM3\nGPU 7: NVIDIA H100 80GB HBM3\n\nNvidia driver version: 570.86.10\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\n\nCPU:\nArchitecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        46 bits physical, 57 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               96\nOn-line CPU(s) list:                  0-95\nVendor ID:                            GenuineIntel\nModel name:                           Intel(R) Xeon(R) Platinum 8468\nCPU family:                           6\nModel:                                143\nThread(s) per core:                   1\nCore(s) per socket:                   48\nSocket(s):                            2\nStepping:                             8\nCPU(s) scaling MHz:                   88%\nCPU max MHz:                          3800.0000\nCPU min MHz:                          800.0000\nBogoMIPS:                             4200.00\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cat_l2 cdp_l3 cdp_l2 ssbd mba ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb intel_pt avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local split_lock_detect avx_vnni avx512_bf16 wbnoinvd dtherm ida arat pln pts avx512vbmi umip pku ospke waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg tme avx512_vpopcntdq la57 rdpid bus_lock_detect cldemote movdiri movdir64b enqcmd fsrm md_clear serialize tsxldtrk pconfig arch_lbr ibt amx_bf16 avx512_fp16 amx_tile amx_int8 flush_l1d arch_capabilities\nL1d cache:                            4.5 MiB (96 instances)\nL1i cache:                            3 MiB (96 instances)\nL2 cache:                             192 MiB (96 instances)\nL3 cache:                             210 MiB (2 instances)\nNUMA node(s):                         2\nNUMA node0 CPU(s):                    0-47\nNUMA node1 CPU(s):                    48-95\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; RSB filling; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n\nVersions of relevant libraries:\n[pip3] Could not collect\n[conda] No relevant packages",
+  "date": 1771119915.5810428,
+  "pretty_env_info": "PyTorch version: 2.9.1+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Red Hat Enterprise Linux 9.5 (Plow) (x86_64)\nGCC version: (GCC) 11.5.0 20240719 (Red Hat 11.5.0-2)\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: glibc-2.34\n\nPython version: 3.12.1 | packaged by Anaconda, Inc. | (main, Jan 19 2024, 15:51:05) [GCC 11.2.0] (64-bit runtime)\nPython platform: Linux-5.14.0-503.23.1.el9_5.x86_64-x86_64-with-glibc2.34\nIs CUDA available: True\nCUDA runtime version: 12.4.99\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: \nGPU 0: NVIDIA H100 80GB HBM3\nGPU 1: NVIDIA H100 80GB HBM3\nGPU 2: NVIDIA H100 80GB HBM3\nGPU 3: NVIDIA H100 80GB HBM3\nGPU 4: NVIDIA H100 80GB HBM3\nGPU 5: NVIDIA H100 80GB HBM3\nGPU 6: NVIDIA H100 80GB HBM3\nGPU 7: NVIDIA H100 80GB HBM3\n\nNvidia driver version: 570.86.10\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\n\nCPU:\nArchitecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        46 bits physical, 57 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               96\nOn-line CPU(s) list:                  0-95\nVendor ID:                            GenuineIntel\nModel name:                           Intel(R) Xeon(R) Platinum 8468\nCPU family:                           6\nModel:                                143\nThread(s) per core:                   1\nCore(s) per socket:                   48\nSocket(s):                            2\nStepping:                             8\nCPU(s) scaling MHz:                   90%\nCPU max MHz:                          3800.0000\nCPU min MHz:                          800.0000\nBogoMIPS:                             4200.00\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cat_l2 cdp_l3 cdp_l2 ssbd mba ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb intel_pt avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local split_lock_detect avx_vnni avx512_bf16 wbnoinvd dtherm ida arat pln pts avx512vbmi umip pku ospke waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg tme avx512_vpopcntdq la57 rdpid bus_lock_detect cldemote movdiri movdir64b enqcmd fsrm md_clear serialize tsxldtrk pconfig arch_lbr ibt amx_bf16 avx512_fp16 amx_tile amx_int8 flush_l1d arch_capabilities\nL1d cache:                            4.5 MiB (96 instances)\nL1i cache:                            3 MiB (96 instances)\nL2 cache:                             192 MiB (96 instances)\nL3 cache:                             210 MiB (2 instances)\nNUMA node(s):                         2\nNUMA node0 CPU(s):                    0-47\nNUMA node1 CPU(s):                    48-95\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; RSB filling; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n\nVersions of relevant libraries:\n[pip3] Could not collect\n[conda] No relevant packages",
   "transformers_version": "4.57.3",
   "lm_eval_version": "0.4.10.dev0",
   "upper_git_hash": null,
@@ -1226,12 +1226,12 @@
   "max_length": 500000,
   "task_hashes": {},
   "model_source": "hf",
-  "model_name": "/u/shawntan/proj/mayank/checkpoints-400m/rnn-400m-cosine/unsharded_model",
-  "model_name_sanitized": "__u__shawntan__proj__mayank__checkpoints-400m__rnn-400m-cosine__unsharded_model",
+  "model_name": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-1l-400m-cosine/unsharded_model",
+  "model_name_sanitized": "__u__shawntan__proj__mayank__checkpoints-400m__hybrid-mamba2-rsa-1l-400m-cosine__unsharded_model",
   "system_instruction": null,
   "system_instruction_sha": null,
   "fewshot_as_multiturn": null,
   "chat_template": null,
   "chat_template_sha": null,
-  "total_evaluation_time_seconds": "755.3146383538842"
+  "total_evaluation_time_seconds": "636.1587725821882"
 }

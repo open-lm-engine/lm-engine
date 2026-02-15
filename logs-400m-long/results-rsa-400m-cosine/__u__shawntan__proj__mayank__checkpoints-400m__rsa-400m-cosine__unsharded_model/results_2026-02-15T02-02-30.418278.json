@@ -2,101 +2,101 @@
   "results": {
     "longbench_2wikimqa": {
       "alias": "longbench_2wikimqa",
-      "score,none": 0.08215522969624464,
-      "score_stderr,none": 0.00852149123820814,
-      "qa_f1_score,none": 0.08215522969624464,
-      "qa_f1_score_stderr,none": 0.00852149123820814
+      "score,none": 0.08256328334018972,
+      "score_stderr,none": 0.007858286711812563,
+      "qa_f1_score,none": 0.08256328334018972,
+      "qa_f1_score_stderr,none": 0.007858286711812563
     },
     "longbench_gov_report": {
       "alias": "longbench_gov_report",
-      "score,none": 0.10573294443235304,
-      "score_stderr,none": 0.005571441260676101,
-      "rouge_score,none": 0.10573294443235304,
-      "rouge_score_stderr,none": 0.005571441260676101
+      "score,none": 0.06327993962687259,
+      "score_stderr,none": 0.001984199836963293,
+      "rouge_score,none": 0.06327993962687259,
+      "rouge_score_stderr,none": 0.001984199836963293
     },
     "longbench_hotpotqa": {
       "alias": "longbench_hotpotqa",
-      "score,none": 0.04819625600845743,
-      "score_stderr,none": 0.005712941488074629,
-      "qa_f1_score,none": 0.04819625600845743,
-      "qa_f1_score_stderr,none": 0.005712941488074629
+      "score,none": 0.037132875000030145,
+      "score_stderr,none": 0.004555294109018565,
+      "qa_f1_score,none": 0.037132875000030145,
+      "qa_f1_score_stderr,none": 0.004555294109018565
     },
     "longbench_lcc": {
       "alias": "longbench_lcc",
-      "score,none": 0.1062,
-      "score_stderr,none": 0.006107776179569732,
-      "code_sim_score,none": 0.1062,
-      "code_sim_score_stderr,none": 0.006107776179569732
+      "score,none": 0.10656,
+      "score_stderr,none": 0.006343627986575516,
+      "code_sim_score,none": 0.10656,
+      "code_sim_score_stderr,none": 0.006343627986575516
     },
     "longbench_multi_news": {
       "alias": "longbench_multi_news",
-      "score,none": 0.1317871392524478,
-      "score_stderr,none": 0.006699146848613877,
-      "rouge_score,none": 0.1317871392524478,
-      "rouge_score_stderr,none": 0.006699146848613877
+      "score,none": 0.10809489856530241,
+      "score_stderr,none": 0.004833144780700152,
+      "rouge_score,none": 0.10809489856530241,
+      "rouge_score_stderr,none": 0.004833144780700152
     },
     "longbench_multifieldqa_en_e": {
       "alias": "longbench_multifieldqa_en_e",
-      "score,none": 0.12711352205855894,
-      "score_stderr,none": 0.009573349650193767,
-      "qa_f1_score,none": 0.12711352205855894,
-      "qa_f1_score_stderr,none": 0.009573349650193767
+      "score,none": 0.11700844209817451,
+      "score_stderr,none": 0.009120484509616309,
+      "qa_f1_score,none": 0.11700844209817451,
+      "qa_f1_score_stderr,none": 0.009120484509616309
     },
     "longbench_musique": {
       "alias": "longbench_musique",
-      "score,none": 0.03244610728448369,
-      "score_stderr,none": 0.004647076080399065,
-      "qa_f1_score,none": 0.03244610728448369,
-      "qa_f1_score_stderr,none": 0.004647076080399065
+      "score,none": 0.026509437779430014,
+      "score_stderr,none": 0.003995123129371621,
+      "qa_f1_score,none": 0.026509437779430014,
+      "qa_f1_score_stderr,none": 0.003995123129371621
     },
     "longbench_narrativeqa": {
       "alias": "longbench_narrativeqa",
-      "score,none": 0.013007625252625405,
-      "score_stderr,none": 0.0015460896079301778,
-      "qa_f1_score,none": 0.013007625252625405,
-      "qa_f1_score_stderr,none": 0.0015460896079301778
+      "score,none": 0.018756942436337885,
+      "score_stderr,none": 0.0019664779973245735,
+      "qa_f1_score,none": 0.018756942436337885,
+      "qa_f1_score_stderr,none": 0.0019664779973245735
     },
     "longbench_qasper": {
       "alias": "longbench_qasper",
-      "score,none": 0.029547363607913622,
-      "score_stderr,none": 0.0031009581159709455,
-      "qa_f1_score,none": 0.029547363607913622,
-      "qa_f1_score_stderr,none": 0.0031009581159709455
+      "score,none": 0.03572221489773423,
+      "score_stderr,none": 0.0031621415363761365,
+      "qa_f1_score,none": 0.03572221489773423,
+      "qa_f1_score_stderr,none": 0.0031621415363761365
     },
     "longbench_qmsum": {
       "alias": "longbench_qmsum",
-      "score,none": 0.1573683778199958,
-      "score_stderr,none": 0.004441736114680424,
-      "rouge_score,none": 0.1573683778199958,
-      "rouge_score_stderr,none": 0.004441736114680424
+      "score,none": 0.16388335306694732,
+      "score_stderr,none": 0.005960144023959633,
+      "rouge_score,none": 0.16388335306694732,
+      "rouge_score_stderr,none": 0.005960144023959633
     },
     "longbench_repobench-p": {
       "alias": "longbench_repobench-p",
-      "score,none": 0.13344,
-      "score_stderr,none": 0.006196735581233675,
-      "code_sim_score,none": 0.13344,
-      "code_sim_score_stderr,none": 0.006196735581233675
+      "score,none": 0.10068,
+      "score_stderr,none": 0.005807868617294256,
+      "code_sim_score,none": 0.10068,
+      "code_sim_score_stderr,none": 0.005807868617294256
     },
     "longbench_samsum": {
       "alias": "longbench_samsum",
-      "score,none": 0.12231416248527051,
-      "score_stderr,none": 0.008301443213781436,
-      "rouge_score,none": 0.12231416248527051,
-      "rouge_score_stderr,none": 0.008301443213781436
+      "score,none": 0.13181296432646808,
+      "score_stderr,none": 0.009138547197949477,
+      "rouge_score,none": 0.13181296432646808,
+      "rouge_score_stderr,none": 0.009138547197949477
     },
     "longbench_trec": {
       "alias": "longbench_trec",
-      "score,none": 0.295,
-      "score_stderr,none": 0.03232801420614268,
-      "classification_score,none": 0.295,
-      "classification_score_stderr,none": 0.03232801420614268
+      "score,none": 0.22,
+      "score_stderr,none": 0.02936514188266327,
+      "classification_score,none": 0.22,
+      "classification_score_stderr,none": 0.02936514188266327
     },
     "longbench_triviaqa": {
       "alias": "longbench_triviaqa",
-      "score,none": 0.3172964060052161,
-      "score_stderr,none": 0.030857765872753903,
-      "qa_f1_score,none": 0.3172964060052161,
-      "qa_f1_score_stderr,none": 0.030857765872753903
+      "score,none": 0.24308229525718605,
+      "score_stderr,none": 0.024221315778913226,
+      "qa_f1_score,none": 0.24308229525718605,
+      "qa_f1_score_stderr,none": 0.024221315778913226
     }
   },
   "group_subtasks": {
@@ -170,7 +170,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -235,7 +235,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -300,7 +300,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -365,7 +365,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -430,7 +430,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -495,7 +495,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -560,7 +560,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -625,7 +625,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -690,7 +690,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -755,7 +755,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -820,7 +820,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -887,7 +887,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -954,7 +954,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -1021,7 +1021,7 @@
       "metadata": {
         "version": 5.0,
         "dtype": "bfloat16",
-        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+        "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
         "max_length": 500000,
         "max_seq_lengths": [
           1024,
@@ -1185,10 +1185,10 @@
     "model": "hf",
     "model_args": {
       "dtype": "bfloat16",
-      "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
+      "pretrained": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
       "max_length": 500000
     },
-    "model_num_parameters": 407977176,
+    "model_num_parameters": 410736576,
     "model_dtype": "torch.bfloat16",
     "model_revision": "main",
     "model_sha": "",
@@ -1205,7 +1205,7 @@
     "fewshot_seed": 1234
   },
   "git_hash": "979eee34",
-  "date": 1770967174.612409,
+  "date": 1771119917.1100867,
   "pretty_env_info": "PyTorch version: 2.9.1+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Red Hat Enterprise Linux 9.5 (Plow) (x86_64)\nGCC version: (GCC) 11.5.0 20240719 (Red Hat 11.5.0-2)\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: glibc-2.34\n\nPython version: 3.12.1 | packaged by Anaconda, Inc. | (main, Jan 19 2024, 15:51:05) [GCC 11.2.0] (64-bit runtime)\nPython platform: Linux-5.14.0-503.23.1.el9_5.x86_64-x86_64-with-glibc2.34\nIs CUDA available: True\nCUDA runtime version: 12.4.99\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: \nGPU 0: NVIDIA H100 80GB HBM3\nGPU 1: NVIDIA H100 80GB HBM3\nGPU 2: NVIDIA H100 80GB HBM3\nGPU 3: NVIDIA H100 80GB HBM3\nGPU 4: NVIDIA H100 80GB HBM3\nGPU 5: NVIDIA H100 80GB HBM3\nGPU 6: NVIDIA H100 80GB HBM3\nGPU 7: NVIDIA H100 80GB HBM3\n\nNvidia driver version: 570.86.10\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\n\nCPU:\nArchitecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        46 bits physical, 57 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               96\nOn-line CPU(s) list:                  0-95\nVendor ID:                            GenuineIntel\nModel name:                           Intel(R) Xeon(R) Platinum 8468\nCPU family:                           6\nModel:                                143\nThread(s) per core:                   1\nCore(s) per socket:                   48\nSocket(s):                            2\nStepping:                             8\nCPU(s) scaling MHz:                   87%\nCPU max MHz:                          3800.0000\nCPU min MHz:                          800.0000\nBogoMIPS:                             4200.00\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cat_l2 cdp_l3 cdp_l2 ssbd mba ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb intel_pt avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local split_lock_detect avx_vnni avx512_bf16 wbnoinvd dtherm ida arat pln pts avx512vbmi umip pku ospke waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg tme avx512_vpopcntdq la57 rdpid bus_lock_detect cldemote movdiri movdir64b enqcmd fsrm md_clear serialize tsxldtrk pconfig arch_lbr ibt amx_bf16 avx512_fp16 amx_tile amx_int8 flush_l1d arch_capabilities\nL1d cache:                            4.5 MiB (96 instances)\nL1i cache:                            3 MiB (96 instances)\nL2 cache:                             192 MiB (96 instances)\nL3 cache:                             210 MiB (2 instances)\nNUMA node(s):                         2\nNUMA node0 CPU(s):                    0-47\nNUMA node1 CPU(s):                    48-95\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; RSB filling; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n\nVersions of relevant libraries:\n[pip3] Could not collect\n[conda] No relevant packages",
   "transformers_version": "4.57.3",
   "lm_eval_version": "0.4.10.dev0",
@@ -1226,12 +1226,12 @@
   "max_length": 500000,
   "task_hashes": {},
   "model_source": "hf",
-  "model_name": "/u/shawntan/proj/mayank/checkpoints-400m/hybrid-mamba2-rsa-nl-400m-cosine/unsharded_model",
-  "model_name_sanitized": "__u__shawntan__proj__mayank__checkpoints-400m__hybrid-mamba2-rsa-nl-400m-cosine__unsharded_model",
+  "model_name": "/u/shawntan/proj/mayank/checkpoints-400m/rsa-400m-cosine/unsharded_model",
+  "model_name_sanitized": "__u__shawntan__proj__mayank__checkpoints-400m__rsa-400m-cosine__unsharded_model",
   "system_instruction": null,
   "system_instruction_sha": null,
   "fewshot_as_multiturn": null,
   "chat_template": null,
   "chat_template_sha": null,
-  "total_evaluation_time_seconds": "779.1592574277893"
+  "total_evaluation_time_seconds": "1043.8723315112293"
 }
