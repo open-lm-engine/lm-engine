@@ -7,16 +7,16 @@ from __future__ import annotations
 import math
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible, is_torch_xla_available
+from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..chunk import contiguous_split
 from ..dropout import Dropout
+from ..dtensor_module import DTensorModule
 from ..linear import ColumnParallelLinear, RowParallelLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
@@ -67,7 +67,7 @@ def split_query_key_value_tensor_for_attention(
     return query_weight, key_weight, value_weight
 
 
-class Attention(nn.Module):
+class Attention(DTensorModule):
     def __init__(
         self,
         hidden_size: int,
@@ -89,15 +89,6 @@ class Attention(nn.Module):
         sequence_parallel: bool = False,
     ) -> Attention:
         super().__init__()
-
-        if ProcessGroupManager.is_initialized():
-            self.tp_world_size = (
-                ProcessGroupManager.get_tensor_parallel_world_size()
-                if ProcessGroupManager.is_tensor_parallel_enabled()
-                else 1
-            )
-        else:
-            self.tp_world_size = 1
 
         self.causal = causal
         self.global_hidden_size = hidden_size

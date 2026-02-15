@@ -13,8 +13,19 @@ from ...utils import ProcessGroupManager
 
 
 class DTensorModule(nn.Module):
+    def __init__(self, *args, **kwargs) -> DTensorModule:
+        super().__init__(*args, **kwargs)
+
+        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+
+        if self.is_tp_enabled:
+            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
+            self.tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size()
+        else:
+            self.tp_world_size = 1
+
     def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False) -> None:
-        if ProcessGroupManager.is_tensor_parallel_enabled():
+        if self.is_tp_enabled:
             state_dict = modify_state_dict_to_dtensor_dict(self, state_dict=state_dict, prefix="", strip_keys=False)
 
         super().load_state_dict(state_dict, strict, assign)
@@ -22,7 +33,7 @@ class DTensorModule(nn.Module):
     def _load_from_state_dict(
         self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
     ) -> None:
-        if ProcessGroupManager.is_tensor_parallel_enabled():
+        if self.is_tp_enabled:
             state_dict = modify_state_dict_to_dtensor_dict(self, state_dict=state_dict, prefix=prefix, strip_keys=True)
 
         super()._load_from_state_dict(
