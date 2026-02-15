@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 from torch.distributed import ProcessGroup, ReduceOp
 
+from ..utils import Accelerator
+
 
 class DDP(nn.Module):
     def __init__(
@@ -29,6 +31,11 @@ class DDP(nn.Module):
             raise NotImplementedError()
 
         if sync_module_states:
+            for module in model.modules():
+                if hasattr(module, "reset_parameters"):
+                    with torch.device(Accelerator.get_current_device()):
+                        module.reset_parameters()
+
             with torch.no_grad():
                 torch.distributed._broadcast_coalesced(
                     process_group=self.process_group,
