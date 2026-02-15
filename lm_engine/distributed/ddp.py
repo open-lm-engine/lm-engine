@@ -51,14 +51,12 @@ class DDP(nn.Module):
         torch.distributed.all_reduce(grad, op=ReduceOp.AVG, group=self.process_group)
         return grad
 
-    def named_parameters(self, prefix="", recurse=True, remove_duplicate=True):
-        return self._model.named_parameters(prefix, recurse, remove_duplicate)
+    def named_parameters(
+        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+    ) -> list[str, nn.Parameter]:
+        return self._model.named_parameters(prefix=prefix, recurse=recurse, remove_duplicate=remove_duplicate)
 
-    def named_buffers(self, prefix="", recurse=True, remove_duplicate=True):
-        return self._model.named_buffers()
-
-    def named_modules(self, memo=None, prefix="", remove_duplicate=True):
-        return self._model.named_modules()
-
-    def named_children(self):
-        return self._model.named_children()
+    def named_buffers(
+        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+    ) -> list[str, nn.Parameter]:
+        return self._model.named_buffers(prefix=prefix, recurse=recurse, remove_duplicate=remove_duplicate)
