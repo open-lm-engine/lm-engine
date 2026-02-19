@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Plot NIAH results from logs-400m-niah.
-Supports: (1) lm-eval JSON results in subdirs results-<model>-400m-cosine,
+Plot NIAH results from logs-7b-niah.
+Supports: (1) lm-eval JSON results in subdirs results-<model>-7b-cosine,
           (2) flat .txt files with lines "Model;  score1 score2 ..."
 Edit the variables at the top to choose which runs/models to ignore.
 """
 
 import fnmatch
 import json
+import math
 import re
 from pathlib import Path
 
@@ -18,7 +19,7 @@ import seaborn as sns
 # -----------------------------------------------------------------------------
 # Config: edit these (no need to pass args)
 # -----------------------------------------------------------------------------
-LOG_DIR = Path(__file__).resolve().parent / "logs-400m-niah"
+LOG_DIR = Path(__file__).resolve().parent / "logs-7b-niah"
 IGNORE = []  # Result dir or file name patterns to ignore (glob or substring)
 # IGNORE_MODELS = ["RNN", "GRU", "Gated DeltaNet", "Hybrid Gated DeltaNet", "Hybrid Gated DeltaNet + RSA (1L)", "Hybrid Gated DeltaNet + RSA (NL)", "Gated DeltaNet (neg)", "GDN"]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 IGNORE_MODELS = [
@@ -31,9 +32,10 @@ IGNORE_MODELS = [
     "Mamba2",
 ]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 OUTPUT = Path("niah.svg")
-FIGSIZE = (18, 6)
-# For JSON mode: model size in dir name (e.g. "400m") and display names
-SIZE = "400m"
+NCOLS = 3
+FIGSIZE_PER_ROW = (18, 5)
+# For JSON mode: model size in dir name (e.g. "7b") and display names
+SIZE = "7b"
 MODEL_NAME_MAP = {
     "softmax-attention": "Softmax Attention",
     "mamba2": "Mamba2",
@@ -50,8 +52,15 @@ MODEL_NAME_MAP = {
     "hybrid-gated-deltanet-rsa-nl": "Hybrid Gated DeltaNet + RSA (NL)",
     "hybrid-rsa": "Hybrid RSA",
 }
-NIAH_TASKS = ["niah_single_1", "niah_single_2", "niah_single_3"]
-TASK_TITLES = ["S-NIAH-1", "S-NIAH-2", "S-NIAH-3"]
+NIAH_TASKS = [
+    "niah_single_1",
+    "niah_single_2",
+    "niah_single_3",
+    "niah_multikey_1",
+    "niah_multiquery",
+    "niah_multivalue",
+]
+TASK_TITLES = ["S-NIAH-1", "S-NIAH-2", "S-NIAH-3", "NIAH-MK", "NIAH-MQ", "NIAH-MV"]
 # -----------------------------------------------------------------------------
 
 SEQUENCE_LENGTHS = [1024, 2048, 4096, 8192, 16384]
@@ -176,18 +185,32 @@ def main():
     ignore_models = set(m.strip() for m in IGNORE_MODELS)
 
     n_tasks = len(task_data)
-    fig, axes = plt.subplots(1, n_tasks, figsize=FIGSIZE, sharey=True)
-    if n_tasks == 1:
-        axes = [axes]
+    n_rows = math.ceil(n_tasks / NCOLS)
+    fig_w, fig_h_per_row = FIGSIZE_PER_ROW
+    fig, axes = plt.subplots(n_rows, NCOLS, figsize=(fig_w, fig_h_per_row * n_rows), sharey=True)
     sns.set(style="whitegrid")
 
-    for ax, (results, title) in zip(axes, task_data):
-        plot_task(results, SEQUENCE_LENGTHS, ax, title, ignore_models)
+    if n_rows == 1 and NCOLS == 1:
+        axes = [[axes]]
+    elif n_rows == 1:
+        axes = [axes]
+    elif NCOLS == 1:
+        axes = [[ax] for ax in axes]
 
-    axes[0].set_ylabel("Accuracy (%)")
-    handles, labels = axes[0].get_legend_handles_labels()
+    for idx, (results, title) in enumerate(task_data):
+        r, c = divmod(idx, NCOLS)
+        plot_task(results, SEQUENCE_LENGTHS, axes[r][c], title, ignore_models)
+
+    for idx in range(n_tasks, n_rows * NCOLS):
+        r, c = divmod(idx, NCOLS)
+        axes[r][c].set_visible(False)
+
+    for r in range(n_rows):
+        axes[r][0].set_ylabel("Accuracy (%)")
+
+    handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=min(4, len(labels)), frameon=False, fontsize=14)
-    plt.tight_layout(rect=[0, 0.1, 1, 1])
+    plt.tight_layout(rect=[0, 0.08, 1, 1])
     plt.savefig(OUTPUT, format=OUTPUT.suffix.lstrip(".") or "svg")
     print(f"Saved {OUTPUT}")
 

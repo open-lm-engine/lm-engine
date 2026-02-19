@@ -1,0 +1,30 @@
+\begin{table}[htbp]
+\centering
+\caption{7B Retrieval Evaluation Results}
+\label{tab:7b-retrieval-results}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccc}
+\toprule
+Model & SQuAD & NQ & DROP & TriviaQA & FDA & SWDE & Avg \\
+\midrule
+Mamba2 & 41.7 & 26.5 & 30.0 & 65.0 & 33.0 & 54.4 & 41.8 \\
+Gated DeltaNet & 40.3 & 24.2 & 29.9 & 64.3 & 32.4 & 61.8 & 42.2 \\
+Gated DeltaNet (neg) & 41.0 & 26.1 & 29.2 & 64.6 & 30.6 & 65.9 & \textbf{42.9} \\
+RNN & 20.0 & 12.2 & 20.4 & 53.1 & 0.8 & 9.8 & 19.4 \\
+GRU & 27.0 & 16.7 & 24.6 & 59.3 & 5.2 & 18.4 & 25.2 \\
+RSA & 37.9 & 21.1 & 28.2 & 62.5 & 27.6 & 49.9 & 37.9 \\
+\midrule
+Softmax Attention & 22.1 & 24.0 & 27.6 & 62.2 & 67.0 & 70.1 & 45.5 \\
+Hybrid Mamba2 & 48.2 & 31.4 & 32.7 & 67.9 & 76.6 & 77.1 & \textbf{55.6} \\
+Hybrid Gated DeltaNet & 46.4 & 31.2 & 28.3 & 63.6 & 67.1 & 71.9 & 51.4 \\
+Hybrid RSA & 48.4 & 31.4 & 31.4 & 64.6 & 78.0 & 79.8 & 55.6 \\
+\midrule
+Hybrid Mamba2 + RSA (1L) & 46.6 & 30.6 & 33.6 & 67.1 & 78.4 & 75.0 & \textbf{55.2} \\
+Hybrid Mamba2 + RSA (NL) & 46.8 & 31.5 & 28.7 & 66.0 & 78.5 & 79.7 & 55.2 \\
+\midrule
+Hybrid Gated DeltaNet + RSA (1L) & 46.4 & 29.6 & 32.1 & 66.4 & 73.1 & 77.4 & 54.2 \\
+Hybrid Gated DeltaNet + RSA (NL) & 47.1 & 32.0 & 31.2 & 65.5 & 77.2 & 77.9 & \textbf{55.1} \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
