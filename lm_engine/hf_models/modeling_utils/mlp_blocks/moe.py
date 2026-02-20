@@ -283,8 +283,8 @@ class MoE(DTensorModule):
         hidden_size: int,
         intermediate_size: int,
         shared_intermediate_size: int,
-        use_interleaved_weights_for_mlp: bool,
-        use_interleaved_weights_for_moe: bool,
+        use_interleaved_weights_for_shared_experts: bool,
+        use_interleaved_weights: bool,
         shared_expert_gating: bool,
         normalized_topk: bool,
         num_experts: int,
@@ -309,8 +309,8 @@ class MoE(DTensorModule):
         self.shared_intermediate_size = shared_intermediate_size
         self.shared_expert_gating = shared_expert_gating
         self.normalized_topk = normalized_topk
-        self.use_interleaved_weights_for_mlp = use_interleaved_weights_for_mlp
-        self.use_interleaved_weights_for_moe = use_interleaved_weights_for_moe
+        self.use_interleaved_weights_for_shared_experts = use_interleaved_weights_for_shared_experts
+        self.use_interleaved_weights = use_interleaved_weights
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
@@ -389,7 +389,7 @@ class MoE(DTensorModule):
             x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=self.placement)
 
         if is_kernel_allowed(Kernel.sonicmoe):
-            assert self.use_interleaved_weights_for_moe
+            assert self.use_interleaved_weights
             assert self.activation_function_string == "swiglu"
             assert not self.is_tp_enabled
 
@@ -493,7 +493,7 @@ class MoE(DTensorModule):
                 grouped_out=True,
             )
 
-            x = self.act(x, is_interleaved=self.use_interleaved_weights_for_moe) if self.is_glu else self.act(x)
+            x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
 
             x = self.c_proj(
                 x=x,
@@ -516,7 +516,7 @@ class MoE(DTensorModule):
             x = x[batch_index]
 
             x = self.c_fc(x=x, expert_frequency=expert_frequency)
-            x = self.act(x, is_interleaved=self.use_interleaved_weights_for_moe) if self.is_glu else self.act(x)
+            x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
             x = self.c_proj(x=x, expert_frequency=expert_frequency)
 
             x = x * batch_gates.unsqueeze(-1)  # [:, None]
@@ -531,7 +531,7 @@ class MoE(DTensorModule):
             g = self.shared_expert_gate(x)
 
         x = self.c_fc_shared(x)
-        x = self.act(x, is_interleaved=self.use_interleaved_weights_for_mlp) if self.is_glu else self.act(x)
+        x = self.act(x, is_interleaved=self.use_interleaved_weights_for_shared_experts) if self.is_glu else self.act(x)
         x = self.c_proj_shared(x)
 
         if g is not None:

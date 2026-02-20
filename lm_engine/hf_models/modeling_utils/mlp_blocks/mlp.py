@@ -23,6 +23,7 @@ class MLP(nn.Module):
         activation_function: str,
         add_bias: bool,
         dropout: float,
+        use_interleaved_weights: bool,
         init_method: str,
         initializer_range: float,
         m_width: float,
@@ -35,7 +36,7 @@ class MLP(nn.Module):
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
         self.is_glu = is_glu(activation_function)
-        self.use_interleaved_weights = False
+        self.use_interleaved_weights = use_interleaved_weights
 
         self.c_fc = ColumnParallelLinear(
             hidden_size,
