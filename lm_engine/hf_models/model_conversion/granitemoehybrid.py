@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import torch
 from transformers import GraniteMoeHybridConfig, GraniteMoeHybridForCausalLM
 
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible
@@ -10,6 +11,12 @@ from ..modeling_utils import (
     split_query_key_value_tensor_for_attention,
 )
 from ..models import GPTBaseConfig
+
+
+def _split_and_reorder_for_glu(weight: torch.Tensor, dim: int) -> torch.Tensor:
+    x, y = weight.chunk(2, dim=dim)
+    weight = torch.cat([y, x], dim=dim)
+    return weight
 
 
 def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
