@@ -10,11 +10,11 @@ from transformers import StoppingCriteriaList
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
+from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import clear_aux_loss, get_autoregressive_language_modeling_loss, get_aux_loss, is_aux_loss_zero
-from ...modeling_utils import LMHead, ParameterizedLinear
+from ...modeling_utils import LMHead
 from ..modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from .base import PreTrainedModelMixin
 
