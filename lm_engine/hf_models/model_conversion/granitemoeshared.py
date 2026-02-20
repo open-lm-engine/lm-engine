@@ -134,6 +134,7 @@ def _export_granitemoeshared_config(config: GPTBaseConfig) -> GraniteMoeSharedCo
 
     config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "add_bias", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "add_bias", False)
+    config.check_equal_for_all_and_get_value("mlp_blocks", "use_interleaved_weights", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "activation_function", "swiglu")
     config.check_equal_for_all_and_get_value("mlp_blocks", "mlp_type", "MoE")
     shared_intermediate_size = config.check_equal_for_all_and_get_value("mlp_blocks", "shared_intermediate_size")

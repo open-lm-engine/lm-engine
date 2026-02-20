@@ -64,6 +64,7 @@ def _export_granitemoe_config(config: GPTBaseConfig) -> GraniteMoeConfig:
 
     config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "add_bias", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "add_bias", False)
+    config.check_equal_for_all_and_get_value("mlp_blocks", "use_interleaved_weights", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "activation_function", "swiglu")
     config.check_equal_for_all_and_get_value("mlp_blocks", "mlp_type", "MoE")
 
