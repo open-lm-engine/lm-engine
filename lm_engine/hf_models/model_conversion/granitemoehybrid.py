@@ -10,7 +10,6 @@ from ..modeling_utils import (
     split_query_key_value_tensor_for_attention,
 )
 from ..models import GPTBaseConfig
-from .granitemoeshared import _split_and_reorder_for_glu
 
 
 def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
