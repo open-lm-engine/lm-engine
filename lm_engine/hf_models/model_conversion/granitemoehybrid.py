@@ -240,7 +240,8 @@ def _export_granitemoehybrid_config(config: GPTBaseConfig) -> GraniteMoeHybridCo
     assert config.position_embedding_type == "nope"
 
     config.check_equal_for_all_and_get_value("mlp_blocks", "add_bias", False)
-    config.check_equal_for_all_and_get_value("mlp_blocks", "use_interleaved_weights", False)
+    config.check_equal_for_all_and_get_value("mlp_blocks", "use_interleaved_weights_for_mlp", False)
+    config.check_equal_for_all_and_get_value("mlp_blocks", "use_interleaved_weights_for_moe", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "activation_function", "swiglu")
 
     # Allow for 0 experts: if all mlp_blocks have mlp_type "None", set num_local_experts to 0

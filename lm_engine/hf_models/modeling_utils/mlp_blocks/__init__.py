@@ -33,7 +33,8 @@ def get_mlp_block(
         mlp = MoE(
             **kwargs,
             shared_intermediate_size=block.shared_intermediate_size,
-            use_interleaved_weights=block.use_interleaved_weights,
+            use_interleaved_weights_for_mlp=block.use_interleaved_weights_for_mlp,
+            use_interleaved_weights_for_moe=block.use_interleaved_weights_for_moe,
             shared_expert_gating=block.shared_expert_gating,
             normalized_topk=block.normalized_topk,
             num_experts=block.num_experts,

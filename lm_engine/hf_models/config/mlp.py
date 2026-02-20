@@ -22,7 +22,8 @@ class _MoEArgs(_MLPArgs):
     mlp_type: str = "MoE"
     shared_intermediate_size: int | None = None
     num_experts: int = 8
-    use_interleaved_weights: bool = False
+    use_interleaved_weights_for_mlp: bool = False
+    use_interleaved_weights_for_moe: bool = False
     num_experts_per_tok: int = 2
     shared_expert_gating: bool = False
     normalized_topk: bool = True

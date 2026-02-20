@@ -34,9 +34,12 @@ class MLP(nn.Module):
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
 
+        self.is_glu = is_glu(activation_function)
+        self.use_interleaved_weights = False
+
         self.c_fc = ColumnParallelLinear(
             hidden_size,
-            2 * intermediate_size if is_glu(activation_function) else intermediate_size,
+            2 * intermediate_size if self.is_glu else intermediate_size,
             bias=add_bias,
             std=std,
             use_padding_free_transformer=use_padding_free_transformer,
@@ -63,7 +66,7 @@ class MLP(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.c_fc(x)
-        x = self.act(x)
+        x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
         x = self.c_proj(x)
         x = self.dropout(x)
         return x
