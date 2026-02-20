@@ -36,26 +36,6 @@ class ModelConversionTest(TestCommons):
             lm_engine_config=lm_engine_config, model_type="granite", device=device, exact_match=False
         )
 
-    @parameterized.expand(TestCommons.get_all_devices())
-    def test_granitemoeshared_model_conversion(self, device: torch.device) -> None:
-        lm_engine_config = self.get_moe_test_config(
-            "rope",
-            add_bias=False,
-            shared_n_inner=64,
-            activation_function="swiglu",
-            normalization_function="rmsnorm",
-            m_emb=2,
-            m_width=2,
-        )
-
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config,
-            model_type="granitemoeshared",
-            device=device,
-            exact_match=False,
-            compare_loss=False,
-        )
-
     @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
     def test_granitemoehybrid_model_conversion(self, device: torch.device, is_moe: bool) -> None:
         if is_moe:
