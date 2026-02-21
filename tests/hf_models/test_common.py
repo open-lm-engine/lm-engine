@@ -184,8 +184,13 @@ class TestCommons(BaseTestCommons):
             lm_engine_model.save_pretrained(save_path, safe_serialization=True)
 
             export_to_huggingface(save_path, model_type, export_path)
-            import_from_huggingface(export_path, import_path)
-
+            import_from_huggingface(
+                export_path,
+                import_path,
+                use_interleaved_weights=lm_engine_config.check_equal_for_all_and_get_value(
+                    "mlp_blocks", "use_interleaved_weights"
+                ),
+            )
             assert self.compare_saved_models(save_path, import_path)
 
             hf_model = AutoModelForCausalLM.from_pretrained(export_path).to(device)

@@ -19,9 +19,10 @@ def _split_and_reorder_for_glu(weight: torch.Tensor, dim: int) -> torch.Tensor:
     return weight
 
 
-def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
+def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **kwargs) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert not original_config.attention_bias
+    use_interleaved_weights = kwargs.pop("use_interleaved_weights", None)
 
     sequence_mixer_blocks = []
     for layer_idx in range(original_config.num_hidden_layers):
@@ -101,6 +102,12 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> 
         mlp_blocks=mlp_blocks,
     )
 
+    if use_interleaved_weights is not None:
+        for block in config.mlp_blocks:
+            block.use_interleaved_weights = use_interleaved_weights
+
+    assert len(kwargs) == 0
+
     return config
 
 
@@ -127,6 +134,9 @@ def _import_granitemoehybrid_state_dict(
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
     for layer_idx in range(config.num_layers):
+        config.mlp_blocks[layer_idx].use_interleaved_weights
+        config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts
+
         state_dict[f"transformer.h.{layer_idx}.ln_1.weight"] = safetensors_weights_manager.get_tensor(
             f"model.layers.{layer_idx}.input_layernorm.weight"
         )
