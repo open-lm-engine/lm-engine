@@ -72,9 +72,6 @@ export TOKENIZERS_PARALLELISM=false
 MASTER_ADDR=$(scontrol show hostnames "$SLURM_NODELIST" | head -n 1)
 MASTER_PORT=29500
 
-export WANDB_API_KEY=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
-export WANDB_BASE_URL=https://api.wandb.ai
-
 echo "Running srun torchrun on ${SLURM_JOB_NUM_NODES:-1} node(s)" >&2
 echo "Rendezvous endpoint: $MASTER_ADDR:$MASTER_PORT" >&2
 srun torchrun \
