@@ -15,16 +15,6 @@ from ..modeling_utils import (
 from ..models import GPTBaseConfig
 
 
-def _split_and_reorder_for_glu(weight: torch.Tensor, dim: int, is_interleaved: bool) -> torch.Tensor:
-    if is_interleaved:
-        assert False
-    else:
-        x, y = weight.chunk(2, dim=dim)
-        weight = torch.cat([y, x], dim=dim)
-
-    return weight
-
-
 def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **kwargs) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert not original_config.attention_bias
