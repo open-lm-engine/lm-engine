@@ -12,8 +12,12 @@ import math
 import re
 from pathlib import Path
 
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+
+matplotlib.rcParams.update({"font.size": 16})
 
 
 # -----------------------------------------------------------------------------
@@ -56,11 +60,11 @@ NIAH_TASKS = [
     "niah_single_1",
     "niah_single_2",
     "niah_single_3",
-    "niah_multikey_1",
     "niah_multiquery",
+    "niah_multikey_1",
     "niah_multivalue",
 ]
-TASK_TITLES = ["S-NIAH-1", "S-NIAH-2", "S-NIAH-3", "NIAH-MK", "NIAH-MQ", "NIAH-MV"]
+TASK_TITLES = ["S-NIAH-1", "S-NIAH-2", "S-NIAH-3", "MQ-NIAH", "MK-NIAH", "MV-NIAH"]
 # -----------------------------------------------------------------------------
 
 SEQUENCE_LENGTHS = [1024, 2048, 4096, 8192, 16384]
@@ -162,7 +166,7 @@ def plot_task(results: dict[str, list[float]], sequence_lengths: list[int], ax, 
         ax.plot(sequence_lengths, scores, marker="o", linewidth=2, label=model)
     ax.set_xticks(sequence_lengths)
     ax.set_xlabel("Sequence Length")
-    ax.set_title(title)
+    ax.set_title(title, fontsize=16)
     ax.set_xticklabels(sequence_lengths, rotation=45, ha="right")
     ax.grid(True)
     ax.axvline(x=4096, color="black", linestyle="--", linewidth=1.5, alpha=0.8)
