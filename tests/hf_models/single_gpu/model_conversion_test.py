@@ -88,7 +88,8 @@ class ModelConversionTest(TestCommons):
 
         for block in lm_engine_config.mlp_blocks:
             block.use_interleaved_weights = use_interleaved_weights
-            block.use_interleaved_weights_for_shared_experts = use_interleaved_weights_for_shared_experts
+            if block.mlp_type == "MoE":
+                block.use_interleaved_weights_for_shared_experts = use_interleaved_weights_for_shared_experts
 
         self.model_conversion_test(
             lm_engine_config=lm_engine_config,
