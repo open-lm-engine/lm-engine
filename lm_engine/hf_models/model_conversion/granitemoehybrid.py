@@ -18,7 +18,8 @@ from ..models import GPTBaseConfig
 def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **kwargs) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert not original_config.attention_bias
-    use_interleaved_weights = kwargs.pop("use_interleaved_weights", None)
+    use_interleaved_weights = kwargs.pop("use_interleaved_weights", False)
+    use_interleaved_weights_for_shared_experts = kwargs.pop("use_interleaved_weights_for_shared_experts", False)
 
     sequence_mixer_blocks = []
     for layer_idx in range(original_config.num_hidden_layers):
@@ -59,6 +60,7 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "intermediate_size": original_config.shared_intermediate_size,
                 "activation_function": "swiglu",
                 "add_bias": False,
+                "use_interleaved_weights": use_interleaved_weights,
             }
         else:
             mlp_block = {
@@ -71,6 +73,8 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "num_experts_per_tok": original_config.num_experts_per_tok,
                 "activation_function": "swiglu",
                 "add_bias": False,
+                "use_interleaved_weights": use_interleaved_weights,
+                "use_interleaved_weights_for_shared_experts": use_interleaved_weights_for_shared_experts,
             }
 
         mlp_blocks.append(mlp_block)

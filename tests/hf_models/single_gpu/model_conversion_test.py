@@ -21,7 +21,11 @@ class ModelConversionTest(TestCommons):
             block.use_interleaved_weights = use_interleaved_weights
 
         self.model_conversion_test(
-            lm_engine_config=lm_engine_config, model_type="llama", device=device, exact_match=False
+            lm_engine_config=lm_engine_config,
+            model_type="llama",
+            device=device,
+            exact_match=False,
+            use_interleaved_weights=use_interleaved_weights,
         )
 
     @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False], [True, False]))
@@ -41,7 +45,11 @@ class ModelConversionTest(TestCommons):
             block.use_interleaved_weights = use_interleaved_weights
 
         self.model_conversion_test(
-            lm_engine_config=lm_engine_config, model_type="granite", device=device, exact_match=False
+            lm_engine_config=lm_engine_config,
+            model_type="granite",
+            device=device,
+            exact_match=False,
+            use_interleaved_weights=use_interleaved_weights,
         )
 
     @parameterized.expand(
@@ -89,4 +97,6 @@ class ModelConversionTest(TestCommons):
             exact_match=False,
             compare_loss=False,
             logits_atol_float32=2.5e-5,
+            use_interleaved_weights=use_interleaved_weights,
+            use_interleaved_weights_for_shared_experts=use_interleaved_weights_for_shared_experts,
         )

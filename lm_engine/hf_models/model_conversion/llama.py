@@ -17,7 +17,7 @@ from ..models import GPTBaseConfig
 def _import_llama_config(original_config: LlamaConfig, **kwargs) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert original_config.mlp_bias == original_config.attention_bias
-    use_interleaved_weights = kwargs.pop("use_interleaved_weights", None)
+    use_interleaved_weights = kwargs.pop("use_interleaved_weights", False)
 
     config = GPTBaseConfig(
         vocab_size=original_config.vocab_size,
@@ -51,14 +51,11 @@ def _import_llama_config(original_config: LlamaConfig, **kwargs) -> GPTBaseConfi
                 "add_bias": original_config.mlp_bias,
                 "activation_function": "swiglu",
                 "intermediate_size": original_config.intermediate_size,
+                "use_interleaved_weights": use_interleaved_weights,
             }
             for _ in range(original_config.num_hidden_layers)
         ],
     )
-
-    if use_interleaved_weights is not None:
-        for block in config.mlp_blocks:
-            block.use_interleaved_weights = use_interleaved_weights
 
     assert len(kwargs) == 0
 
