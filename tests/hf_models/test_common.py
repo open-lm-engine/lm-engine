@@ -167,6 +167,7 @@ class TestCommons(BaseTestCommons):
         loss_rtol_bfloat16: float = 0,
         loss_atol_bfloat16: float = 1e-5,
         weight_test_only: bool = False,
+        **kwargs,
     ) -> None:
         self.skip_test_if_device_unavailable(device)
 
@@ -184,7 +185,7 @@ class TestCommons(BaseTestCommons):
             lm_engine_model.save_pretrained(save_path, safe_serialization=True)
 
             export_to_huggingface(save_path, model_type, export_path)
-            import_from_huggingface(export_path, import_path)
+            import_from_huggingface(export_path, import_path, **kwargs)
 
             assert self.compare_saved_models(save_path, import_path)
 

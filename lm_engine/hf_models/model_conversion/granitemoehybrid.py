@@ -8,20 +8,18 @@ from transformers import GraniteMoeHybridConfig, GraniteMoeHybridForCausalLM
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible
 from ..modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
+    interleave_up_gate_tensor_for_mlp,
     split_query_key_value_tensor_for_attention,
+    split_up_gate_tensor_for_mlp,
 )
 from ..models import GPTBaseConfig
 
 
-def _split_and_reorder_for_glu(weight: torch.Tensor, dim: int) -> torch.Tensor:
-    x, y = weight.chunk(2, dim=dim)
-    weight = torch.cat([y, x], dim=dim)
-    return weight
-
-
-def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> GPTBaseConfig:
+def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **kwargs) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert not original_config.attention_bias
+    use_interleaved_weights = kwargs.pop("use_interleaved_weights", False)
+    use_interleaved_weights_for_shared_experts = kwargs.pop("use_interleaved_weights_for_shared_experts", False)
 
     sequence_mixer_blocks = []
     for layer_idx in range(original_config.num_hidden_layers):
@@ -62,6 +60,7 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> 
                 "intermediate_size": original_config.shared_intermediate_size,
                 "activation_function": "swiglu",
                 "add_bias": False,
+                "use_interleaved_weights": use_interleaved_weights,
             }
         else:
             mlp_block = {
@@ -74,6 +73,8 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> 
                 "num_experts_per_tok": original_config.num_experts_per_tok,
                 "activation_function": "swiglu",
                 "add_bias": False,
+                "use_interleaved_weights": use_interleaved_weights,
+                "use_interleaved_weights_for_shared_experts": use_interleaved_weights_for_shared_experts,
             }
 
         mlp_blocks.append(mlp_block)
@@ -101,6 +102,12 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig) -> 
         mlp_blocks=mlp_blocks,
     )
 
+    if use_interleaved_weights is not None:
+        for block in config.mlp_blocks:
+            block.use_interleaved_weights = use_interleaved_weights
+
+    assert len(kwargs) == 0
+
     return config
 
 
@@ -127,94 +134,102 @@ def _import_granitemoehybrid_state_dict(
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
     for layer_idx in range(config.num_layers):
-        state_dict[f"transformer.h.{layer_idx}.ln_1.weight"] = safetensors_weights_manager.get_tensor(
-            f"model.layers.{layer_idx}.input_layernorm.weight"
+        use_interleaved_weights = config.mlp_blocks[layer_idx].use_interleaved_weights
+        import_prefix = f"transformer.h.{layer_idx}."
+        export_prefix = f"model.layers.{layer_idx}."
+
+        state_dict[f"{import_prefix}ln_1.weight"] = safetensors_weights_manager.get_tensor(
+            f"{export_prefix}input_layernorm.weight"
         )
-        state_dict[f"transformer.h.{layer_idx}.ln_2.weight"] = safetensors_weights_manager.get_tensor(
-            f"model.layers.{layer_idx}.post_attention_layernorm.weight"
+        state_dict[f"{import_prefix}ln_2.weight"] = safetensors_weights_manager.get_tensor(
+            f"{export_prefix}post_attention_layernorm.weight"
         )
 
-        if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"):
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.gate.weight"] = safetensors_weights_manager.get_tensor(
-                f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"
+        if safetensors_weights_manager.has_tensor(f"{export_prefix}block_sparse_moe.router.layer.weight"):
+            state_dict[f"{import_prefix}mlp_block.gate.weight"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}block_sparse_moe.router.layer.weight"
             )
 
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
-                safetensors_weights_manager.get_tensor(
-                    f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"
-                ),
-                dim=1,
+            g, u = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}block_sparse_moe.input_linear.weight"
+            ).chunk(2, dim=1)
+            state_dict[f"{import_prefix}mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
+                up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights, dim=1
             )
 
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
-                f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"
+            state_dict[f"{import_prefix}mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}block_sparse_moe.output_linear.weight"
             )
 
-            if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"):
-                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = _split_and_reorder_for_glu(
-                    safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"),
-                    dim=0,
+            if safetensors_weights_manager.has_tensor(f"{export_prefix}shared_mlp.input_linear.weight"):
+                g, u = safetensors_weights_manager.get_tensor(f"{export_prefix}shared_mlp.input_linear.weight").chunk(
+                    2
                 )
-                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
-                    safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.output_linear.weight")
+                state_dict[f"{import_prefix}mlp_block.c_fc_shared.weight"] = interleave_up_gate_tensor_for_mlp(
+                    up_weight=u,
+                    gate_weight=g,
+                    is_interleaved=config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts,
+                )
+                state_dict[f"{import_prefix}mlp_block.c_proj_shared.weight"] = safetensors_weights_manager.get_tensor(
+                    f"{export_prefix}shared_mlp.output_linear.weight"
                 )
         else:
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"),
-                dim=0,
+            g, u = safetensors_weights_manager.get_tensor(f"{export_prefix}shared_mlp.input_linear.weight").chunk(2)
+            state_dict[f"{import_prefix}mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
+                up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights
             )
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
-                f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"
+            state_dict[f"{import_prefix}mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}shared_mlp.output_linear.weight"
             )
 
         if sequence_mixer_block_types[layer_idx] == "mamba":
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.conv1d.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.conv1d.weight")
+            state_dict[f"{import_prefix}sequence_mixer.conv1d.weight"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}mamba.conv1d.weight"
             )
-            if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.mamba.conv1d.bias"):
-                state_dict[f"transformer.h.{layer_idx}.sequence_mixer.conv1d.bias"] = (
-                    safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.conv1d.bias")
+            if safetensors_weights_manager.has_tensor(f"{export_prefix}mamba.conv1d.bias"):
+                state_dict[f"{import_prefix}sequence_mixer.conv1d.bias"] = safetensors_weights_manager.get_tensor(
+                    f"{export_prefix}mamba.conv1d.bias"
                 )
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.in_proj.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.in_proj.weight")
+            state_dict[f"{import_prefix}sequence_mixer.in_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}mamba.in_proj.weight"
             )
-            if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.mamba.in_proj.bias"):
-                state_dict[f"transformer.h.{layer_idx}.sequence_mixer.in_proj.bias"] = (
-                    safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.in_proj.bias")
+            if safetensors_weights_manager.has_tensor(f"{export_prefix}mamba.in_proj.bias"):
+                state_dict[f"{import_prefix}sequence_mixer.in_proj.bias"] = safetensors_weights_manager.get_tensor(
+                    f"{export_prefix}mamba.in_proj.bias"
                 )
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.decay_gate.dt_bias"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.dt_bias")
+            state_dict[f"{import_prefix}sequence_mixer.decay_gate.dt_bias"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}mamba.dt_bias"
             )
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.decay_gate.A_log"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.A_log")
+            state_dict[f"{import_prefix}sequence_mixer.decay_gate.A_log"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}mamba.A_log"
             )
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.D"] = safetensors_weights_manager.get_tensor(
-                f"model.layers.{layer_idx}.mamba.D"
+            state_dict[f"{import_prefix}sequence_mixer.D"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}mamba.D"
             )
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.out_proj.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.out_proj.weight")
+            state_dict[f"{import_prefix}sequence_mixer.out_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}mamba.out_proj.weight"
             )
-            if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.mamba.out_proj.bias"):
-                state_dict[f"transformer.h.{layer_idx}.sequence_mixer.out_proj.bias"] = (
-                    safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.out_proj.bias")
+            if safetensors_weights_manager.has_tensor(f"{export_prefix}mamba.out_proj.bias"):
+                state_dict[f"{import_prefix}sequence_mixer.out_proj.bias"] = safetensors_weights_manager.get_tensor(
+                    f"{export_prefix}mamba.out_proj.bias"
                 )
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.norm.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.mamba.norm.weight")
+            state_dict[f"{import_prefix}sequence_mixer.norm.weight"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}mamba.norm.weight"
             )
         elif sequence_mixer_block_types[layer_idx] == "attention":
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"] = (
+            state_dict[f"{import_prefix}sequence_mixer.c_attn.weight"] = (
                 interleave_query_key_value_tensor_for_attention(
-                    safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.q_proj.weight"),
-                    safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.k_proj.weight"),
-                    safetensors_weights_manager.get_slice(f"model.layers.{layer_idx}.self_attn.v_proj.weight"),
+                    safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.q_proj.weight"),
+                    safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.k_proj.weight"),
+                    safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.v_proj.weight"),
                     num_attention_heads,
                     num_key_value_heads,
                     head_dim,
                 )
             )
 
-            state_dict[f"transformer.h.{layer_idx}.sequence_mixer.c_proj.weight"] = (
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.self_attn.o_proj.weight")
+            state_dict[f"{import_prefix}sequence_mixer.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}self_attn.o_proj.weight"
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_block_types[layer_idx]})")
@@ -246,7 +261,6 @@ def _export_granitemoehybrid_config(config: GPTBaseConfig) -> GraniteMoeHybridCo
     assert config.position_embedding_type == "nope"
 
     config.check_equal_for_all_and_get_value("mlp_blocks", "add_bias", False)
-    config.check_equal_for_all_and_get_value("mlp_blocks", "use_interleaved_weights", False)
     config.check_equal_for_all_and_get_value("mlp_blocks", "activation_function", "swiglu")
 
     # Allow for 0 experts: if all mlp_blocks have mlp_type "None", set num_local_experts to 0
@@ -261,7 +275,6 @@ def _export_granitemoehybrid_config(config: GPTBaseConfig) -> GraniteMoeHybridCo
         num_local_experts = config.check_equal_for_all_and_get_value("mlp_blocks", "num_experts")
         num_experts_per_tok = config.check_equal_for_all_and_get_value("mlp_blocks", "num_experts_per_tok")
         shared_intermediate_size = config.check_equal_for_all_and_get_value("mlp_blocks", "shared_intermediate_size")
-        config.check_equal_for_all_and_get_value("mlp_blocks", "use_interleaved_weights_for_shared_experts", False)
 
     original_config = GraniteMoeHybridConfig(
         vocab_size=config.vocab_size,
@@ -362,87 +375,96 @@ def _export_granitemoehybrid_state_dict(
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
     for layer_idx in range(config.num_layers):
-        state_dict[f"model.layers.{layer_idx}.input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
-            f"transformer.h.{layer_idx}.ln_1.weight"
+        use_interleaved_weights = config.mlp_blocks[layer_idx].use_interleaved_weights
+        import_prefix = f"transformer.h.{layer_idx}."
+        export_prefix = f"model.layers.{layer_idx}."
+
+        state_dict[f"{export_prefix}input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
+            f"{import_prefix}ln_1.weight"
         )
-        state_dict[f"model.layers.{layer_idx}.post_attention_layernorm.weight"] = (
-            safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.ln_2.weight")
+        state_dict[f"{export_prefix}post_attention_layernorm.weight"] = safetensors_weights_manager.get_tensor(
+            f"{import_prefix}ln_2.weight"
         )
 
-        if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.gate.weight"):
-            state_dict[f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"] = (
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.gate.weight")
+        if safetensors_weights_manager.has_tensor(f"{import_prefix}mlp_block.gate.weight"):
+            state_dict[f"{export_prefix}block_sparse_moe.router.layer.weight"] = (
+                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.gate.weight")
             )
-            state_dict[f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"] = _split_and_reorder_for_glu(
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"), dim=1
+            u, g = split_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight"),
+                is_interleaved=use_interleaved_weights,
+                dim=1,
             )
-            state_dict[f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"] = (
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")
+            state_dict[f"{export_prefix}block_sparse_moe.input_linear.weight"] = torch.cat([g, u], dim=1)
+            state_dict[f"{export_prefix}block_sparse_moe.output_linear.weight"] = (
+                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_proj.weight")
             )
 
-            if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
-                state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
-                    safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"),
-                    dim=0,
+            if safetensors_weights_manager.has_tensor(f"{import_prefix}mlp_block.c_fc_shared.weight"):
+                u, g = split_up_gate_tensor_for_mlp(
+                    safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc_shared.weight"),
+                    is_interleaved=config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts,
                 )
-                state_dict[f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"] = (
-                    safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
+                state_dict[f"{export_prefix}shared_mlp.input_linear.weight"] = torch.cat([g, u], dim=0)
+                state_dict[f"{export_prefix}shared_mlp.output_linear.weight"] = safetensors_weights_manager.get_tensor(
+                    f"{import_prefix}mlp_block.c_proj_shared.weight"
                 )
         else:
-            state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"),
-                dim=0,
+            u, g = split_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight"),
+                is_interleaved=use_interleaved_weights,
             )
-            state_dict[f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"] = (
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")
+            state_dict[f"{export_prefix}shared_mlp.input_linear.weight"] = torch.cat([g, u], dim=0)
+            state_dict[f"{export_prefix}shared_mlp.output_linear.weight"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}mlp_block.c_proj.weight"
             )
 
         if sequence_mixer_block_types[layer_idx] == "mamba":
-            state_dict[f"model.layers.{layer_idx}.mamba.conv1d.weight"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.conv1d.weight"
+            state_dict[f"{export_prefix}mamba.conv1d.weight"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.conv1d.weight"
             )
-            if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.sequence_mixer.conv1d.bias"):
-                state_dict[f"model.layers.{layer_idx}.mamba.conv1d.bias"] = safetensors_weights_manager.get_tensor(
-                    f"transformer.h.{layer_idx}.sequence_mixer.conv1d.bias"
+            if safetensors_weights_manager.has_tensor(f"{import_prefix}sequence_mixer.conv1d.bias"):
+                state_dict[f"{export_prefix}mamba.conv1d.bias"] = safetensors_weights_manager.get_tensor(
+                    f"{import_prefix}sequence_mixer.conv1d.bias"
                 )
-            state_dict[f"model.layers.{layer_idx}.mamba.in_proj.weight"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.in_proj.weight"
+            state_dict[f"{export_prefix}mamba.in_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.in_proj.weight"
             )
-            if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.sequence_mixer.in_proj.bias"):
-                state_dict[f"model.layers.{layer_idx}.mamba.in_proj.bias"] = safetensors_weights_manager.get_tensor(
-                    f"transformer.h.{layer_idx}.sequence_mixer.in_proj.bias"
+            if safetensors_weights_manager.has_tensor(f"{import_prefix}sequence_mixer.in_proj.bias"):
+                state_dict[f"{export_prefix}mamba.in_proj.bias"] = safetensors_weights_manager.get_tensor(
+                    f"{import_prefix}sequence_mixer.in_proj.bias"
                 )
-            state_dict[f"model.layers.{layer_idx}.mamba.dt_bias"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.decay_gate.dt_bias"
+            state_dict[f"{export_prefix}mamba.dt_bias"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.decay_gate.dt_bias"
             )
-            state_dict[f"model.layers.{layer_idx}.mamba.A_log"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.decay_gate.A_log"
+            state_dict[f"{export_prefix}mamba.A_log"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.decay_gate.A_log"
             )
-            state_dict[f"model.layers.{layer_idx}.mamba.D"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.D"
+            state_dict[f"{export_prefix}mamba.D"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.D"
             )
-            state_dict[f"model.layers.{layer_idx}.mamba.out_proj.weight"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.out_proj.weight"
+            state_dict[f"{export_prefix}mamba.out_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.out_proj.weight"
             )
-            if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.sequence_mixer.out_proj.bias"):
-                state_dict[f"model.layers.{layer_idx}.mamba.out_proj.bias"] = safetensors_weights_manager.get_tensor(
-                    f"transformer.h.{layer_idx}.sequence_mixer.out_proj.bias"
+            if safetensors_weights_manager.has_tensor(f"{import_prefix}sequence_mixer.out_proj.bias"):
+                state_dict[f"{export_prefix}mamba.out_proj.bias"] = safetensors_weights_manager.get_tensor(
+                    f"{import_prefix}sequence_mixer.out_proj.bias"
                 )
-            state_dict[f"model.layers.{layer_idx}.mamba.norm.weight"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.norm.weight"
+            state_dict[f"{export_prefix}mamba.norm.weight"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.norm.weight"
             )
         elif sequence_mixer_block_types[layer_idx] == "attention":
             query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
-                safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"),
+                safetensors_weights_manager.get_tensor(f"{import_prefix}sequence_mixer.c_attn.weight"),
                 num_attention_heads,
                 num_key_value_heads,
             )
-            state_dict[f"model.layers.{layer_idx}.self_attn.q_proj.weight"] = query_weight
-            state_dict[f"model.layers.{layer_idx}.self_attn.k_proj.weight"] = key_weight
-            state_dict[f"model.layers.{layer_idx}.self_attn.v_proj.weight"] = value_weight
+            state_dict[f"{export_prefix}self_attn.q_proj.weight"] = query_weight
+            state_dict[f"{export_prefix}self_attn.k_proj.weight"] = key_weight
+            state_dict[f"{export_prefix}self_attn.v_proj.weight"] = value_weight
 
-            state_dict[f"model.layers.{layer_idx}.self_attn.o_proj.weight"] = safetensors_weights_manager.get_tensor(
-                f"transformer.h.{layer_idx}.sequence_mixer.c_proj.weight"
+            state_dict[f"{export_prefix}self_attn.o_proj.weight"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.c_proj.weight"
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({sequence_mixer_block_types[layer_idx]})")

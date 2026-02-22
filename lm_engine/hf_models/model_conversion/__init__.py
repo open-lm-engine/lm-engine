@@ -25,7 +25,7 @@ _MODEL_IMPORT_FUNCTIONS = {
 
 
 def import_from_huggingface(
-    pretrained_model_name_or_path: str, save_path: str | None = None
+    pretrained_model_name_or_path: str, save_path: str | None = None, **kwargs
 ) -> tuple[GPTBaseConfig, GenerationConfig, AutoTokenizer, dict]:
     original_config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
     model_type = original_config.model_type
@@ -35,7 +35,7 @@ def import_from_huggingface(
 
     config_import_function, state_dict_import_function = _MODEL_IMPORT_FUNCTIONS[model_type]
 
-    config = config_import_function(original_config)
+    config = config_import_function(original_config, **kwargs)
 
     state_dict = state_dict_import_function(
         config=config, safetensors_weights_manager=SafeTensorsWeightsManager(downloaded_model_path)
