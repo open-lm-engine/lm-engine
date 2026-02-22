@@ -44,9 +44,15 @@ class ModelConversionTest(TestCommons):
             lm_engine_config=lm_engine_config, model_type="granite", device=device, exact_match=False
         )
 
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False], [True, False]))
+    @parameterized.expand(
+        TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False], [True, False], [True, False])
+    )
     def test_granitemoehybrid_model_conversion(
-        self, device: torch.device, is_moe: bool, use_interleaved_weights: bool
+        self,
+        device: torch.device,
+        is_moe: bool,
+        use_interleaved_weights: bool,
+        use_interleaved_weights_for_shared_experts: bool,
     ) -> None:
         if is_moe:
             lm_engine_config = self.get_moe_test_config(
@@ -74,6 +80,7 @@ class ModelConversionTest(TestCommons):
 
         for block in lm_engine_config.mlp_blocks:
             block.use_interleaved_weights = use_interleaved_weights
+            block.use_interleaved_weights_for_shared_experts = use_interleaved_weights_for_shared_experts
 
         self.model_conversion_test(
             lm_engine_config=lm_engine_config,
