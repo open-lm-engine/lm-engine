@@ -25,13 +25,13 @@ matplotlib.rcParams.update({"font.size": 16})
 # -----------------------------------------------------------------------------
 LOG_DIR = Path(__file__).resolve().parent / "logs-7b-niah"
 IGNORE = []  # Result dir or file name patterns to ignore (glob or substring)
-# IGNORE_MODELS = ["RNN", "GRU", "Gated DeltaNet", "Hybrid Gated DeltaNet", "Hybrid Gated DeltaNet + RSA (1L)", "Hybrid Gated DeltaNet + RSA (NL)", "Gated DeltaNet (neg)", "GDN"]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
+# IGNORE_MODELS = ["RNN", "GRU", "Gated DeltaNet", "Hybrid Gated DeltaNet", "Hybrid Gated DeltaNet + $M^2RNN$-1", "Hybrid Gated DeltaNet + $M^2RNN$-n", "Gated DeltaNet (neg)", "GDN"]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 IGNORE_MODELS = [
     "RNN",
     "GRU",
     "Hybrid Mamba2",
-    "Hybrid Mamba2 + RSA (1L)",
-    "Hybrid Mamba2 + RSA (NL)",
+    "Hybrid Mamba2 + $M^2RNN$-1",
+    "Hybrid Mamba2 + $M^2RNN$-n",
     "Gated DeltaNet (neg)",
     "Mamba2",
 ]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
@@ -47,14 +47,14 @@ MODEL_NAME_MAP = {
     "gated-deltanet-neg": "Gated DeltaNet (neg)",
     "gru": "GRU",
     "rnn": "RNN",
-    "rsa": "RSA",
+    "rsa": "$M^2RNN$",
     "hybrid-mamba2": "Hybrid Mamba2",
-    "hybrid-mamba2-rsa-1l": "Hybrid Mamba2 + RSA (1L)",
-    "hybrid-mamba2-rsa-nl": "Hybrid Mamba2 + RSA (NL)",
+    "hybrid-mamba2-rsa-1l": "Hybrid Mamba2 + $M^2RNN$-1",
+    "hybrid-mamba2-rsa-nl": "Hybrid Mamba2 + $M^2RNN$-n",
     "hybrid-gated-deltanet": "Hybrid Gated DeltaNet",
-    "hybrid-gated-deltanet-rsa-1l": "Hybrid Gated DeltaNet + RSA (1L)",
-    "hybrid-gated-deltanet-rsa-nl": "Hybrid Gated DeltaNet + RSA (NL)",
-    "hybrid-rsa": "Hybrid RSA",
+    "hybrid-gated-deltanet-rsa-1l": "Hybrid Gated DeltaNet + $M^2RNN$-1",
+    "hybrid-gated-deltanet-rsa-nl": "Hybrid Gated DeltaNet + $M^2RNN$-n",
+    "hybrid-rsa": "Hybrid $M^2RNN$",
 }
 NIAH_TASKS = [
     "niah_single_1",
