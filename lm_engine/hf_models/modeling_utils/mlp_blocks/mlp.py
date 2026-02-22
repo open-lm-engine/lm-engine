@@ -96,11 +96,19 @@ def interleave_up_gate_tensor_for_mlp(
     return W
 
 
-def split_up_gate_tensor_for_mlp(c_fc_weight: torch.Tensor, is_interleaved: bool) -> tuple[torch.Tensor, torch.Tensor]:
+def split_up_gate_tensor_for_mlp(
+    c_fc_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
+) -> tuple[torch.Tensor, torch.Tensor]:
     if is_interleaved:
-        u = c_fc_weight[1::2].contiguous()
-        g = c_fc_weight[::2].contiguous()
+        if dim == 0:
+            u = c_fc_weight[1::2].contiguous()
+            g = c_fc_weight[::2].contiguous()
+        elif dim == 1:
+            u = c_fc_weight[:, 1::2].contiguous()
+            g = c_fc_weight[:, ::2].contiguous()
+        else:
+            raise ValueError
     else:
-        u, g = c_fc_weight.chunk(2)
+        u, g = c_fc_weight.chunk(2, dim=dim)
 
     return u, g

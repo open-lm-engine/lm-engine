@@ -144,12 +144,11 @@ def _import_granitemoehybrid_state_dict(
                 f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"
             )
 
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
-                safetensors_weights_manager.get_tensor(
-                    f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"
-                ),
-                dim=1,
-                is_interleaved=use_interleaved_weights,
+            g, u = safetensors_weights_manager.get_tensor(
+                f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"
+            ).chunk(2, dim=1)
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
+                up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights
             )
 
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
@@ -161,7 +160,13 @@ def _import_granitemoehybrid_state_dict(
                     safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"),
                     is_interleaved=config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts,
                 )
-                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = torch.cat([g, u], dim=0)
+                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = (
+                    interleave_up_gate_tensor_for_mlp(
+                        up_weight=u,
+                        gate_weight=g,
+                        is_interleaved=config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts,
+                    )
+                )
                 state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
                     safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.output_linear.weight")
                 )
@@ -382,10 +387,13 @@ def _export_granitemoehybrid_state_dict(
             state_dict[f"model.layers.{layer_idx}.block_sparse_moe.router.layer.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.gate.weight")
             )
-            state_dict[f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"] = _split_and_reorder_for_glu(
+            u, g = split_up_gate_tensor_for_mlp(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"),
-                dim=1,
                 is_interleaved=use_interleaved_weights,
+                dim=1,
+            )
+            state_dict[f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"] = (
+                interleave_up_gate_tensor_for_mlp(up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights)
             )
             state_dict[f"model.layers.{layer_idx}.block_sparse_moe.output_linear.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")
