@@ -8,15 +8,20 @@ from transformers import GraniteMoeHybridConfig, GraniteMoeHybridForCausalLM
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible
 from ..modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
+    interleave_up_gate_tensor_for_mlp,
     split_query_key_value_tensor_for_attention,
+    split_up_gate_tensor_for_mlp,
 )
 from ..models import GPTBaseConfig
 
 
 def _split_and_reorder_for_glu(weight: torch.Tensor, dim: int, is_interleaved: bool) -> torch.Tensor:
-    assert not is_interleaved
-    x, y = weight.chunk(2, dim=dim)
-    weight = torch.cat([y, x], dim=dim)
+    if is_interleaved:
+        assert False
+    else:
+        x, y = weight.chunk(2, dim=dim)
+        weight = torch.cat([y, x], dim=dim)
+
     return weight
 
 
@@ -162,19 +167,20 @@ def _import_granitemoehybrid_state_dict(
             )
 
             if safetensors_weights_manager.has_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"):
-                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = _split_and_reorder_for_glu(
+                u, g = split_up_gate_tensor_for_mlp(
                     safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"),
-                    dim=0,
                     is_interleaved=config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts,
                 )
+                state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"] = torch.cat([g, u], dim=0)
                 state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight"] = (
                     safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.output_linear.weight")
                 )
         else:
-            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = _split_and_reorder_for_glu(
-                safetensors_weights_manager.get_tensor(f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"),
-                dim=0,
-                is_interleaved=use_interleaved_weights,
+            g, u = safetensors_weights_manager.get_tensor(
+                f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"
+            ).chunk(2)
+            state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
+                up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights
             )
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
                 f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"
@@ -396,20 +402,20 @@ def _export_granitemoehybrid_state_dict(
             )
 
             if safetensors_weights_manager.has_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"):
-                state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
+                u, g = split_up_gate_tensor_for_mlp(
                     safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc_shared.weight"),
-                    dim=0,
                     is_interleaved=config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts,
                 )
+                state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = torch.cat([g, u], dim=0)
                 state_dict[f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"] = (
                     safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj_shared.weight")
                 )
         else:
-            state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = _split_and_reorder_for_glu(
+            u, g = split_up_gate_tensor_for_mlp(
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"),
-                dim=0,
                 is_interleaved=use_interleaved_weights,
             )
+            state_dict[f"model.layers.{layer_idx}.shared_mlp.input_linear.weight"] = torch.cat([g, u], dim=0)
             state_dict[f"model.layers.{layer_idx}.shared_mlp.output_linear.weight"] = (
                 safetensors_weights_manager.get_tensor(f"transformer.h.{layer_idx}.mlp_block.c_proj.weight")
             )
