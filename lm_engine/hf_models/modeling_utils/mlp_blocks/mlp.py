@@ -84,14 +84,29 @@ def _get_std_for_linear(initializer_range: float, init_method: str, m_width: flo
 
 
 def interleave_up_gate_tensor_for_mlp(
-    up_weight: torch.Tensor, gate_weight: torch.Tensor, is_interleaved: bool
+    up_weight: torch.Tensor, gate_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
 ) -> torch.Tensor:
     if is_interleaved:
-        W = torch.empty(2 * up_weight.size(0), *up_weight.size()[1:], dtype=up_weight.dtype, device=up_weight.device)
-        W[1::2] = up_weight
-        W[::2] = gate_weight
+        if dim == 0:
+            W = torch.empty(
+                2 * up_weight.size(0), *up_weight.size()[1:], dtype=up_weight.dtype, device=up_weight.device
+            )
+            W[1::2] = up_weight
+            W[::2] = gate_weight
+        elif dim == 1:
+            W = torch.empty(
+                up_weight.size(0),
+                2 * up_weight.size(1),
+                *up_weight.size()[2:],
+                dtype=up_weight.dtype,
+                device=up_weight.device,
+            )
+            W[:, 1::2] = up_weight
+            W[:, ::2] = gate_weight
+        else:
+            raise ValueError
     else:
-        W = torch.cat([up_weight, gate_weight])
+        W = torch.cat([up_weight, gate_weight], dim=dim)
 
     return W
 

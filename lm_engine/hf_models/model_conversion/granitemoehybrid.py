@@ -148,7 +148,7 @@ def _import_granitemoehybrid_state_dict(
                 f"model.layers.{layer_idx}.block_sparse_moe.input_linear.weight"
             ).chunk(2, dim=1)
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
-                up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights
+                up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights, dim=1
             )
 
             state_dict[f"transformer.h.{layer_idx}.mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
