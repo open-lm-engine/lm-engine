@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Plot NIAH results from logs-7b-niah.
-Supports: (1) lm-eval JSON results in subdirs results-<model>-7b-cosine,
+Plot NIAH results from logs-400m-niah.
+Supports: (1) lm-eval JSON results in subdirs results-<model>-400m-cosine,
           (2) flat .txt files with lines "Model;  score1 score2 ..."
 Edit the variables at the top to choose which runs/models to ignore.
 """
@@ -23,23 +23,23 @@ matplotlib.rcParams.update({"font.size": 16})
 # -----------------------------------------------------------------------------
 # Config: edit these (no need to pass args)
 # -----------------------------------------------------------------------------
-LOG_DIR = Path(__file__).resolve().parent / "logs-7b-niah"
+LOG_DIR = Path(__file__).resolve().parent / "logs-400m-niah"
 IGNORE = []  # Result dir or file name patterns to ignore (glob or substring)
-# IGNORE_MODELS = ["RNN", "GRU", "Gated DeltaNet", "Hybrid Gated DeltaNet", "Hybrid Gated DeltaNet + $M^2RNN$-1", "Hybrid Gated DeltaNet + $M^2RNN$-n", "Gated DeltaNet (neg)", "GDN"]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
+# IGNORE_MODELS = ["RNN", "GRU", "Gated DeltaNet", "Hybrid Gated DeltaNet", "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-1", "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-3", "Gated DeltaNet (neg)", "GDN"]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 IGNORE_MODELS = [
     "RNN",
     "GRU",
     "Hybrid Mamba2",
-    "Hybrid Mamba2 + $M^2RNN$-1",
-    "Hybrid Mamba2 + $M^2RNN$-n",
+    "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-1",
+    "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-3",
     "Gated DeltaNet (neg)",
     "Mamba2",
 ]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 OUTPUT = Path("niah.svg")
 NCOLS = 3
 FIGSIZE_PER_ROW = (18, 5)
-# For JSON mode: model size in dir name (e.g. "7b") and display names
-SIZE = "7b"
+# For JSON mode: model size in dir name (e.g. "400m") and display names
+SIZE = "400m"
 MODEL_NAME_MAP = {
     "softmax-attention": "Softmax Attention",
     "mamba2": "Mamba2",
@@ -47,15 +47,35 @@ MODEL_NAME_MAP = {
     "gated-deltanet-neg": "Gated DeltaNet (neg)",
     "gru": "GRU",
     "rnn": "RNN",
-    "rsa": "$M^2RNN$",
+    "rsa": "$\mathrm{M}^2\mathrm{RNN}$",
     "hybrid-mamba2": "Hybrid Mamba2",
-    "hybrid-mamba2-rsa-1l": "Hybrid Mamba2 + $M^2RNN$-1",
-    "hybrid-mamba2-rsa-nl": "Hybrid Mamba2 + $M^2RNN$-n",
+    "hybrid-mamba2-rsa-1l": "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-1",
+    "hybrid-mamba2-rsa-nl": "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-3",
     "hybrid-gated-deltanet": "Hybrid Gated DeltaNet",
-    "hybrid-gated-deltanet-rsa-1l": "Hybrid Gated DeltaNet + $M^2RNN$-1",
-    "hybrid-gated-deltanet-rsa-nl": "Hybrid Gated DeltaNet + $M^2RNN$-n",
-    "hybrid-rsa": "Hybrid $M^2RNN$",
+    "hybrid-gated-deltanet-rsa-1l": "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-1",
+    "hybrid-gated-deltanet-rsa-nl": "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-3",
+    "hybrid-rsa": "Hybrid $\mathrm{M}^2\mathrm{RNN}$",
 }
+# Canonical display order and pinned colours (consistent across all subplots)
+MODEL_ORDER = [
+    "Softmax Attention",
+    "Mamba2",
+    "Gated DeltaNet",
+    "Gated DeltaNet (neg)",
+    "GRU",
+    "RNN",
+    "$\\mathrm{M}^2\\mathrm{RNN}$",
+    "Hybrid Mamba2",
+    "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-1",
+    "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-3",
+    "Hybrid Gated DeltaNet",
+    "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-1",
+    "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-3",
+    "Hybrid $\\mathrm{M}^2\\mathrm{RNN}$",
+]
+_tab10 = plt.cm.tab10.colors
+MODEL_COLORS = {name: _tab10[i % len(_tab10)] for i, name in enumerate(MODEL_ORDER)}
+
 NIAH_TASKS = [
     "niah_single_1",
     "niah_single_2",
@@ -158,8 +178,15 @@ def load_niah_from_txt(log_dir: Path, ext: str) -> list[tuple[dict[str, list[flo
 
 def plot_task(results: dict[str, list[float]], sequence_lengths: list[int], ax, title: str, ignore_models: set[str]):
     """Draw one subplot for one task."""
+    for model in MODEL_ORDER:
+        if model not in results or model in ignore_models:
+            continue
+        scores = results[model]
+        if len(scores) != len(sequence_lengths):
+            continue
+        ax.plot(sequence_lengths, scores, marker="o", linewidth=2, label=model, color=MODEL_COLORS.get(model))
     for model, scores in results.items():
-        if model in ignore_models:
+        if model in ignore_models or model in MODEL_COLORS:
             continue
         if len(scores) != len(sequence_lengths):
             continue
