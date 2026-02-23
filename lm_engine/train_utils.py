@@ -64,6 +64,9 @@ def track_metrics(
 
     message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
     for key in metrics_tracker:
+        if key == "tokens":
+            continue
+
         if key == "learning_rate":
             message += f", {key} = {metrics_tracker[key]:.4e}"
         else:
