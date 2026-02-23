@@ -243,7 +243,7 @@ def main():
         axes[r][0].set_ylabel("Accuracy (%)")
 
     handles, labels = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=min(4, len(labels)), frameon=False, fontsize=14)
+    fig.legend(handles, labels, loc="lower center", ncol=min(4, len(labels)), frameon=False, fontsize=16)
     plt.tight_layout(rect=[0, 0.08, 1, 1])
     plt.savefig(OUTPUT, format=OUTPUT.suffix.lstrip(".") or "svg")
     print(f"Saved {OUTPUT}")
