@@ -398,6 +398,7 @@ def train(
     while global_step < num_training_steps:
         global_step += 1
         steps_since_start_time += 1
+        global_step_in_tokens += tokens_per_batch
 
         if is_pipeline_parallel_enabled:
             loss_step_dict = train_step_with_pipeline_parallel(
