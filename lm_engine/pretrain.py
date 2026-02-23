@@ -294,6 +294,9 @@ def track_val_metrics(
         message += f", group_name = {group_name}"
 
     for key in metrics_tracker:
+        if key == "tokens":
+            continue
+
         message += f", {context}-{key} = {metrics_tracker[key]:.4f}"
 
     log_rank_0(logging.INFO, message)
