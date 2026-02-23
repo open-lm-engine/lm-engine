@@ -456,12 +456,12 @@ def train(
 
         if eval_during_training and (global_step % eval_interval == 0 or global_step == num_training_steps):
             evaluate(
-                val_dataloaders,
-                model_container,
-                global_step,
-                experiments_tracker,
-                eval_steps,
-                group_names,
+                val_dataloaders=val_dataloaders,
+                model_container=model_container,
+                global_step=global_step,
+                experiments_tracker=experiments_tracker,
+                eval_steps=eval_steps,
+                group_names=group_names,
                 lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
                 context="val",
             )
@@ -486,12 +486,12 @@ def train(
 
     if eval_during_training:
         evaluate(
-            test_dataloaders,
-            model_container,
-            global_step,
-            experiments_tracker,
-            eval_steps,
-            group_names,
+            val_dataloaders=test_dataloaders,
+            model_container=model_container,
+            global_step=global_step,
+            experiments_tracker=experiments_tracker,
+            eval_steps=eval_steps,
+            group_names=group_names,
             lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
             context="test",
         )
