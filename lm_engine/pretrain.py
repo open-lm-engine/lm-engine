@@ -355,15 +355,19 @@ def train(
     global_batch_size = StepTracker.get_global_batch_size()
     tokens_per_batch = global_batch_size * sequence_length
 
+    global_step = starting_iteration
+    global_step_in_tokens = global_step * tokens_per_batch
+
     if eval_during_training:
         eval_steps = args.datasets[0].class_args.get("eval_steps")
         evaluate(
-            val_dataloaders,
-            model_container,
-            starting_iteration,
-            experiments_tracker,
-            eval_steps,
-            group_names,
+            val_dataloaders=val_dataloaders,
+            model_container=model_container,
+            global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
+            experiments_tracker=experiments_tracker,
+            eval_steps=eval_steps,
+            group_names=group_names,
             lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
             context="val",
         )
@@ -393,9 +397,6 @@ def train(
     start_time = time.perf_counter()
     steps_since_start_time = 0
     metrics_tracker = MetricsTrackingDict({})
-
-    global_step = starting_iteration
-    global_step_in_tokens = global_step * tokens_per_batch
 
     while global_step < num_training_steps:
         global_step += 1
