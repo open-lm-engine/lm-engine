@@ -440,6 +440,7 @@ def train(
 
             metrics_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
             metrics_tracker["step_time (sec)"] = step_time
+            metrics_tracker["tokens"] = global_step_in_tokens
 
             track_metrics(
                 global_step=global_step,
