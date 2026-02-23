@@ -60,9 +60,7 @@ def track_metrics(
     """
 
     # experiments tracker
-    experiments_tracker.track(
-        metrics_tracker.get_dict(), step=global_step, global_step_in_tokens=global_step_in_tokens, context=context
-    )
+    experiments_tracker.track(metrics_tracker.get_dict(), step=global_step, context=context)
 
     message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
     for key in metrics_tracker:
