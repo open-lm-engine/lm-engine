@@ -195,7 +195,7 @@ class ModelWrapper(nn.Module):
             else:
                 self.model = AutoModelForCausalLM.from_pretrained(**model_kwargs, **kwargs)
 
-    def calculate_num_parameters(self, return_dict: bool = False) -> tuple[int, int]:
+    def calculate_num_parameters(self, return_dict: bool = False) -> tuple[int, int] | dict[str, int]:
         if hasattr(self, "_parameter_metadata"):
             num_parameters = self._parameter_metadata["num_parameters"]
             active_parameters = self._parameter_metadata["active_parameters"]
