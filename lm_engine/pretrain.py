@@ -393,6 +393,8 @@ def train(
     metrics_tracker = MetricsTrackingDict({})
 
     global_step = starting_iteration
+    global_step_in_tokens = global_step * tokens_per_batch
+
     while global_step < num_training_steps:
         global_step += 1
         steps_since_start_time += 1
@@ -437,10 +439,10 @@ def train(
 
             metrics_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
             metrics_tracker["step_time (sec)"] = step_time
-            metrics_tracker["tokens"] = global_step * tokens_per_batch
 
             track_metrics(
                 global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
                 metrics_tracker=metrics_tracker,
                 context="train",
