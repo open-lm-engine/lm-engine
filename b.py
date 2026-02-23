@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 # Data
 lengths = [1024, 2048, 4096, 8192, 16384]
-plt.rcParams.update({"font.size": 16})
+plt.rcParams.update({"font.size": 15})
 
 data = {
     "Mamba2": [25.3321, 25.8392, 24.9781, 24.8765, 23.2763],
@@ -19,19 +19,18 @@ data = {
 }
 
 # Plot
-plt.figure(figsize=(9, 6))
+plt.figure(figsize=(9, 7))
 for model, values in data.items():
     plt.plot(lengths, values, marker="o", label=model)
 
 plt.xlabel("Context Length")
-plt.ylabel("Training Throughput (B tokens/day)")
-plt.title("Training Throughput (B tokens/day) vs Context Length")
-plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3, frameon=False)
+plt.ylabel("Throughput (B tokens/day)")
+# plt.title("Training Throughput (B tokens/day) vs Context Length")
+plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.25), ncol=3, frameon=False)
 plt.grid(True)
-plt.xticks(lengths)
+plt.xticks(lengths, rotation=45, ha="right")
 # plt.xscale("log", base=2)  # optional, nice for powers of 2
 plt.tight_layout()
-plt.subplots_adjust(bottom=0.25)
 
 # plt.show()
-plt.savefig("niah.svg", format="svg")
+plt.savefig("niah.svg", format="svg", bbox_inches="tight")
