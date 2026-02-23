@@ -76,6 +76,9 @@ MODEL_ORDER = [
 _tab10 = plt.cm.tab10.colors
 MODEL_COLORS = {name: _tab10[i % len(_tab10)] for i, name in enumerate(MODEL_ORDER)}
 
+MODEL_COLORS["Hybrid Gated DeltaNet"] = (0.1, 0.1, 0.1)
+MODEL_COLORS["Gated DeltaNet"] = (0.5, 0.5, 0.5)
+
 NIAH_TASKS = [
     "niah_single_1",
     "niah_single_2",
