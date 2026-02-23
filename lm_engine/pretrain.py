@@ -558,7 +558,7 @@ def evaluate(
     model.eval()
 
     for group_name, val_dataloader in zip(group_names, val_dataloaders):
-        metrics_tracker = MetricsTrackingDict({"tokens": global_step_in_tokens})
+        metrics_tracker = MetricsTrackingDict({})
 
         for _ in range(eval_steps):
             batch = get_next_batch(val_dataloader)
@@ -571,6 +571,7 @@ def evaluate(
             metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
 
         metrics_tracker = all_reduce_metrics_tracker(metrics_tracker)
+        metrics_tracker["tokens"] = global_step_in_tokens
 
         track_val_metrics(
             global_step=global_step,
