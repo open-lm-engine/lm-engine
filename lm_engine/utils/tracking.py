@@ -128,7 +128,13 @@ class ExperimentsTracker:
             else:
                 raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
 
-    def track(self, values: dict, step: int | None = None, context: str | None = None) -> None:
+    def track(
+        self,
+        values: dict,
+        step: int | None = None,
+        global_step_in_tokens: int | None = None,
+        context: str | None = None,
+    ) -> None:
         """main tracking method
 
         Args:
@@ -153,6 +159,7 @@ class ExperimentsTracker:
             # this is for a custom step, we can't use the wandb step
             # since it doesn't allow time travel to the past
             values["iteration"] = step
+            values["tokens"] = global_step_in_tokens
             # track the LSF/Slurm job in W&B per run - bobcalio
             if _JOB_ID is not None:
                 values["job"] = _JOB_ID

@@ -440,6 +440,7 @@ def train(
 
             track_metrics(
                 global_step=global_step,
+                global_step_in_tokens=global_step * tokens_per_batch * sequence_length,
                 experiments_tracker=experiments_tracker,
                 metrics_tracker=metrics_tracker,
                 context="train",
