@@ -18,6 +18,7 @@ import seaborn as sns
 
 
 matplotlib.rcParams.update({"font.size": 16})
+n = 3
 
 
 # -----------------------------------------------------------------------------
@@ -25,16 +26,25 @@ matplotlib.rcParams.update({"font.size": 16})
 # -----------------------------------------------------------------------------
 LOG_DIR = Path(__file__).resolve().parent / "logs-400m-niah"
 IGNORE = []  # Result dir or file name patterns to ignore (glob or substring)
-# IGNORE_MODELS = ["RNN", "GRU", "Gated DeltaNet", "Hybrid Gated DeltaNet", "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-1", "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-3", "Gated DeltaNet (neg)", "GDN"]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 IGNORE_MODELS = [
     "RNN",
     "GRU",
-    "Hybrid Mamba2",
-    "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-1",
-    "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-3",
+    "Gated DeltaNet",
+    "Hybrid Gated DeltaNet",
+    "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-1",
+    "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-" + f"{n}",
     "Gated DeltaNet (neg)",
-    "Mamba2",
+    "GDN",
 ]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
+# IGNORE_MODELS = [
+#     "RNN",
+#     "GRU",
+#     "Hybrid Mamba2",
+#     "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-1",
+#     "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-" + f"{n}",
+#     "Gated DeltaNet (neg)",
+#     "Mamba2",
+# ]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 OUTPUT = Path("niah.svg")
 NCOLS = 3
 FIGSIZE_PER_ROW = (18, 5)
@@ -50,10 +60,10 @@ MODEL_NAME_MAP = {
     "rsa": "$\mathrm{M}^2\mathrm{RNN}$",
     "hybrid-mamba2": "Hybrid Mamba2",
     "hybrid-mamba2-rsa-1l": "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-1",
-    "hybrid-mamba2-rsa-nl": "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-3",
+    "hybrid-mamba2-rsa-nl": "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-" + f"{n}",
     "hybrid-gated-deltanet": "Hybrid Gated DeltaNet",
     "hybrid-gated-deltanet-rsa-1l": "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-1",
-    "hybrid-gated-deltanet-rsa-nl": "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-3",
+    "hybrid-gated-deltanet-rsa-nl": "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-" + f"{n}",
     "hybrid-rsa": "Hybrid $\mathrm{M}^2\mathrm{RNN}$",
 }
 # Canonical display order and pinned colours (consistent across all subplots)
@@ -67,10 +77,10 @@ MODEL_ORDER = [
     "$\\mathrm{M}^2\\mathrm{RNN}$",
     "Hybrid Mamba2",
     "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-1",
-    "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-3",
+    "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-" + f"{n}",
     "Hybrid Gated DeltaNet",
     "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-1",
-    "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-3",
+    "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-" + f"{n}",
     "Hybrid $\\mathrm{M}^2\\mathrm{RNN}$",
 ]
 _tab10 = plt.cm.tab10.colors
