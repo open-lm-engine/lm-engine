@@ -64,7 +64,7 @@ def track_metrics(
         metrics_tracker.get_dict(), step=global_step, global_step_in_tokens=global_step_in_tokens, context=context
     )
 
-    message = f"step = {global_step}, tokens = {global_step_in_tokens}"
+    message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
     for key in metrics_tracker:
         if key == "learning_rate":
             message += f", {key} = {metrics_tracker[key]:.4e}"
