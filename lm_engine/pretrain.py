@@ -272,6 +272,7 @@ def train_step_without_pipeline_parallel(
 
 def track_val_metrics(
     global_step: int,
+    global_step_in_tokens: int,
     experiments_tracker: ExperimentsTracker,
     metrics_tracker: MetricsTrackingDict,
     group_name: str | None = None,
@@ -281,13 +282,14 @@ def track_val_metrics(
 
     Args:
         global_step (int): global step during training
+        global_step_in_tokens (int): global step during training in number of tokens
         experiments_tracker (ExperimentsTracker): experiments tracker
         metrics_tracker (MetricsTrackingDict): metrics tracker
         group_name (str | None): group name for the validation / test set
         context (str): context
     """
 
-    message = f"step = {global_step}"
+    message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
     if group_name is not None:
         message += f", group_name = {group_name}"
 
@@ -459,6 +461,7 @@ def train(
                 val_dataloaders=val_dataloaders,
                 model_container=model_container,
                 global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
                 eval_steps=eval_steps,
                 group_names=group_names,
@@ -489,6 +492,7 @@ def train(
             val_dataloaders=test_dataloaders,
             model_container=model_container,
             global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
             experiments_tracker=experiments_tracker,
             eval_steps=eval_steps,
             group_names=group_names,
@@ -505,6 +509,7 @@ def evaluate(
     val_dataloaders: list[DataLoader],
     model_container: ModelContainer,
     global_step: int,
+    global_step_in_tokens: int,
     experiments_tracker: ExperimentsTracker,
     eval_steps: int,
     group_names: list[str],
@@ -517,6 +522,7 @@ def evaluate(
         val_dataloaders (list[DataLoader]): list of validation dataloaders
         model_container (ModelContainer): container of models
         global_step (int): global step during training
+        global_step_in_tokens (int): global step during training in number of tokens
         experiments_tracker (ExperimentsTracker): metrics tracker
         eval_steps (int): number of steps to run eval for
         group_names (list[str]): names of the datasets in validation/test group
@@ -551,7 +557,7 @@ def evaluate(
     model.eval()
 
     for group_name, val_dataloader in zip(group_names, val_dataloaders):
-        metrics_tracker = MetricsTrackingDict({})
+        metrics_tracker = MetricsTrackingDict({"tokens": global_step_in_tokens})
 
         for _ in range(eval_steps):
             batch = get_next_batch(val_dataloader)
@@ -567,6 +573,7 @@ def evaluate(
 
         track_val_metrics(
             global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
             experiments_tracker=experiments_tracker,
             metrics_tracker=metrics_tracker,
             group_name=group_name,
