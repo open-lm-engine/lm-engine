@@ -55,8 +55,6 @@ class RSA(nn.Module):
         m_width: float,
         init_method: str,
         normalization_function: str | None,
-        use_softplus_decay: bool,
-        norm_after_flatten: bool,
         A_init_min: float,
         A_init_max: float,
         dt_init_min: float,
@@ -78,8 +76,6 @@ class RSA(nn.Module):
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
         self.use_residual = use_residual
-        self.use_softplus_decay = use_softplus_decay
-        self.norm_after_flatten = norm_after_flatten
 
         self.num_q_heads = num_q_heads
         self.num_k_heads = num_k_heads
@@ -112,18 +108,17 @@ class RSA(nn.Module):
             self.input_size, self.conv_dim + self.num_f_heads + self.g_shape, bias=add_bias, std=std
         )
 
-        if self.use_softplus_decay:
-            self.decay_gate = SoftplusDecayGate(
-                hidden_size=None,
-                output_size=self.num_heads,
-                std=None,
-                has_projection=False,
-                A_init_min=A_init_min,
-                A_init_max=A_init_max,
-                dt_init_min=dt_init_min,
-                dt_init_max=dt_init_max,
-                dt_init_floor=dt_init_floor,
-            )
+        self.decay_gate = SoftplusDecayGate(
+            hidden_size=None,
+            output_size=self.num_heads,
+            std=None,
+            has_projection=False,
+            A_init_min=A_init_min,
+            A_init_max=A_init_max,
+            dt_init_min=dt_init_min,
+            dt_init_max=dt_init_max,
+            dt_init_floor=dt_init_floor,
+        )
 
         if kernel_size is None:
             assert activation_function is None
@@ -153,9 +148,7 @@ class RSA(nn.Module):
             std /= math.sqrt(m_width)
         self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
 
-        self.g_norm = get_normalization_function(
-            normalization_function, (self.num_heads if self.norm_after_flatten else 1) * self.v_head_dim
-        )
+        self.g_norm = get_normalization_function(normalization_function, self.num_heads * self.v_head_dim)
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
@@ -189,10 +182,7 @@ class RSA(nn.Module):
         x = self.input_projection(x)
         x, f, g = x.split((self.conv_dim, self.num_f_heads, self.g_shape), dim=-1)
 
-        if self.use_softplus_decay:
-            f = self.decay_gate(f, final_exponential=True, output_dtype=f.dtype)
-        else:
-            f = F.sigmoid(f.float()).type_as(f)
+        f = self.decay_gate(f, final_exponential=True, output_dtype=f.dtype)
 
         if self.kernel_size is not None:
             x, conv_state = causal_convolution(
@@ -234,17 +224,10 @@ class RSA(nn.Module):
                 conv_state=conv_state, ssm_state=rsa_state, num_tokens_added=x.size(1), layer_idx=self.layer_idx
             )
 
-        if self.norm_after_flatten:
-            x = x.flatten(-2, -1)
-            g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)
-            x = x * F.silu(g)
-            x = self.g_norm(x)
-        else:
-            g = g.view(*g.size()[:-1], -1, self.v_head_dim)
-            g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-2)
-            x = x * F.silu(g)
-            x = self.g_norm(x)
-            x = x.flatten(-2, -1)
+        x = x.flatten(-2, -1)
+        g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)
+        x = x * F.silu(g)
+        x = self.g_norm(x)
 
         x = self.output_projection(x)
 

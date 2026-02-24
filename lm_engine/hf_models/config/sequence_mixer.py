@@ -102,8 +102,6 @@ class _RSAArgs(BaseArgs):
     add_bias: bool = False
     gradient_clipping: float | None = None
     normalization_function: str | None = None
-    use_softplus_decay: bool = False
-    norm_after_flatten: bool = True
     A_init_min: float = 0
     A_init_max: float = 16
     dt_init_min: float = 1e-3

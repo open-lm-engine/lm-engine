@@ -109,8 +109,6 @@ def get_sequence_mixer(
             m_width=config.m_width,
             init_method=config.init_method,
             normalization_function=block.normalization_function,
-            use_softplus_decay=block.use_softplus_decay,
-            norm_after_flatten=block.norm_after_flatten,
             A_init_min=block.A_init_min,
             A_init_max=block.A_init_max,
             dt_init_min=block.dt_init_min,

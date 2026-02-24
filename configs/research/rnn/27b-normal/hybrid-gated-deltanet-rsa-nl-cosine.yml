@@ -82,7 +82,6 @@ model_args:
         num_weight_heads: 248
         use_residual: false
         activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
@@ -150,7 +149,6 @@ model_args:
         num_weight_heads: 248
         use_residual: false
         activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
@@ -218,7 +216,6 @@ model_args:
         num_weight_heads: 248
         use_residual: false
         activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
@@ -286,7 +283,6 @@ model_args:
         num_weight_heads: 248
         use_residual: false
         activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
@@ -354,7 +350,6 @@ model_args:
         num_weight_heads: 248
         use_residual: false
         activation_function: silu
-        use_softplus_decay: true
         normalization_function: rmsnorm
         kernel_size: 4
         add_bias: false
