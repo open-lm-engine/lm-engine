@@ -225,7 +225,7 @@ class Attention(DTensorModule):
                 g = g.transpose(1, 2)
 
         if self.position_embedding_type == "rope":
-            q, k = [apply_rotary_pos_emb(i) for i in (q, k)]
+            q, k = [apply_rotary_pos_emb(i, cos_sin=rope_cos_sin) for i in (q, k)]
 
         if past_key_values is not None:
             k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
