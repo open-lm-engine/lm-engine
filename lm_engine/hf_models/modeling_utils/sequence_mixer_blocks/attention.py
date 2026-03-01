@@ -76,6 +76,7 @@ class Attention(DTensorModule):
         attention_multiplier: float,
         sliding_window: int | None,
         position_embedding_type: str,
+        attention_gate: bool,
         add_bias: bool,
         softmax_dropout: float,
         dropout: float,
@@ -96,6 +97,7 @@ class Attention(DTensorModule):
         self.global_num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
         self.sliding_window = sliding_window
+        self.attention_gate = attention_gate
 
         self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
@@ -115,7 +117,7 @@ class Attention(DTensorModule):
         self.attention_multiplier = attention_multiplier
         self.layer_idx = layer_idx
 
-        divide_if_divisible(
+        self.num_groups = divide_if_divisible(
             self.global_num_heads,
             self.global_num_key_value_heads,
             f"`num_heads` ({self.global_num_heads}) should be a multiple of `num_key_value_heads` ({self.global_num_key_value_heads})",
@@ -133,7 +135,9 @@ class Attention(DTensorModule):
 
         self.c_attn = ColumnParallelLinear(
             self.global_hidden_size,
-            self.global_hidden_size + 2 * self.global_num_key_value_heads * self.head_dim,
+            self.global_hidden_size
+            + 2 * self.global_num_key_value_heads * self.head_dim
+            + (self.global_hidden_size if self.attention_gate else 0),
             bias=self.add_bias,
             std=std,
             use_padding_free_transformer=use_padding_free_transformer,
@@ -172,7 +176,7 @@ class Attention(DTensorModule):
 
     def forward(
         self,
-        hidden_states: torch.Tensor,
+        x: torch.Tensor,
         past_key_values: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
@@ -187,40 +191,44 @@ class Attention(DTensorModule):
             assert use_flash_attention_2 or use_flash_attention_3
             assert past_key_values is None
 
-            T = hidden_states.size(0) * (self.tp_world_size if self.sequence_parallel else 1)
+            T = x.size(0) * (self.tp_world_size if self.sequence_parallel else 1)
             input_shape = (T, self.num_key_value_heads, -1)
             output_shape = (T, -1, self.head_dim)
         else:
-            batch_size, query_length = hidden_states.shape[:-1]
+            batch_size, query_length = x.size()[:-1]
             query_length *= self.tp_world_size if self.sequence_parallel else 1
 
             input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
             output_shape = (batch_size, query_length, -1, self.head_dim)
 
-        hidden_states = self.c_attn(hidden_states)
-        hidden_states = hidden_states.view(*input_shape)
+        x = self.c_attn(x)
+        x = x.view(*input_shape)
 
-        query, key, value = (
-            contiguous_split if Accelerator.get_accelerator() == Accelerator.trainium else torch.split
-        )(
-            hidden_states,
-            ((self.num_heads // self.num_key_value_heads) * self.head_dim, self.head_dim, self.head_dim),
-            dim=-1,
-        )
+        if self.attention_gate:
+            q, k, v, g = (contiguous_split if Accelerator.get_accelerator() == Accelerator.trainium else torch.split)(
+                x,
+                (self.num_groups * self.head_dim, self.head_dim, self.head_dim, self.num_groups * self.head_dim),
+                dim=-1,
+            )
 
-        query = query.reshape(*output_shape)
+            g = g.reshape(*output_shape)
+        else:
+            q, k, v = (contiguous_split if Accelerator.get_accelerator() == Accelerator.trainium else torch.split)(
+                x, (self.num_groups * self.head_dim, self.head_dim, self.head_dim), dim=-1
+            )
+
+        q = q.reshape(*output_shape)
 
         if not self.use_padding_free_transformer:
-            query = query.transpose(1, 2)
-            key = key.transpose(1, 2)
-            value = value.transpose(1, 2)
+            q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
+            if self.attention_gate:
+                g = g.transpose(1, 2)
 
         if self.position_embedding_type == "rope":
-            query = apply_rotary_pos_emb(query, rope_cos_sin)
-            key = apply_rotary_pos_emb(key, rope_cos_sin)
+            q, k = [apply_rotary_pos_emb(i) for i in (q, k)]
 
         if past_key_values is not None:
-            key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
+            k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
 
         if use_flash_attention_2 or use_flash_attention_3:
             assert accelerator == Accelerator.cuda
@@ -228,20 +236,20 @@ class Attention(DTensorModule):
             if self.use_padding_free_transformer:
                 output_shape = (-1, self.hidden_size)
             else:
-                query = query.transpose(1, 2)
-                key = key.transpose(1, 2)
-                value = value.transpose(1, 2)
+                q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
+                if self.attention_gate:
+                    g = g.transpose(1, 2)
 
                 output_shape = (batch_size, query_length, -1)
 
-            query = wait_for_ACT(query, wait_in_forward=True, wait_in_backward=False)
-            key = wait_for_ACT(key, wait_in_forward=True, wait_in_backward=False)
-            value = wait_for_ACT(value, wait_in_forward=True, wait_in_backward=False)
+            q = wait_for_ACT(q, wait_in_forward=True, wait_in_backward=False)
+            k = wait_for_ACT(k, wait_in_forward=True, wait_in_backward=False)
+            v = wait_for_ACT(v, wait_in_forward=True, wait_in_backward=False)
 
-            hidden_states = flash_attention(
-                q=query,
-                k=key,
-                v=value,
+            x = flash_attention(
+                q=q,
+                k=k,
+                v=v,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
                 attention_mask=attention_mask,
@@ -252,10 +260,8 @@ class Attention(DTensorModule):
                 sliding_window=self.sliding_window,
             )
 
-            del query, key, value
-
-            hidden_states = wait_for_ACT(hidden_states, wait_in_forward=False, wait_in_backward=True)
-            hidden_states = hidden_states.view(*output_shape)
+            x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
+            x = x.view(*output_shape)
         else:
             assert self.sliding_window is None
 
@@ -263,10 +269,10 @@ class Attention(DTensorModule):
                 assert attention_mask is None
                 assert self.softmax_dropout_p == 0
 
-                hidden_states = flash_attention_tpu(
-                    query,
-                    key,
-                    value,
+                x = flash_attention_tpu(
+                    q,
+                    k,
+                    v,
                     causal=self.causal if attention_mask is None else False,
                     sm_scale=(
                         1 / math.sqrt(self.head_dim)
@@ -275,10 +281,10 @@ class Attention(DTensorModule):
                     ),
                 )
             else:
-                hidden_states = F.scaled_dot_product_attention(
-                    query,
-                    key,
-                    value,
+                x = F.scaled_dot_product_attention(
+                    query=q,
+                    key=k,
+                    value=v,
                     attn_mask=attention_mask,
                     dropout_p=self.softmax_dropout_p if self.training else 0,
                     is_causal=self.causal if attention_mask is None else False,
@@ -288,11 +294,11 @@ class Attention(DTensorModule):
 
             del query, key, value
 
-            batch_size = hidden_states.shape[0]
-            hidden_states = hidden_states.transpose(1, 2)
-            hidden_states = hidden_states.reshape(batch_size, -1, self.num_heads * self.head_dim)
+            batch_size = x.shape[0]
+            x = x.transpose(1, 2)
+            x = x.reshape(batch_size, -1, self.num_heads * self.head_dim)
 
-        hidden_states = self.c_proj(hidden_states)
-        hidden_states = self.dropout(hidden_states)
+        x = self.c_proj(x)
+        x = self.dropout(x)
 
-        return hidden_states
+        return x
