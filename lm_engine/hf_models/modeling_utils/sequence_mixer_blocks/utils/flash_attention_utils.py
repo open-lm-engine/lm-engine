@@ -8,17 +8,22 @@ import torch
 
 from .....enums import Kernel
 from .....kernels import is_kernel_allowed
-from .....utils import is_flash_attention_2_available, is_flash_attention_3_available
+from .....utils import is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available
 from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+
+
+if is_flash_attention_4_available():
+    from flash_attn.cute import flash_attn_func as flash_attention_4
+    from flash_attn.cute import flash_attn_varlen_func as flash_attention_4_varlen
+
+if is_flash_attention_3_available():
+    from flash_attn_interface import flash_attn_func as flash_attention_3
+    from flash_attn_interface import flash_attn_varlen_func as flash_attention_3_varlen
 
 
 if is_flash_attention_2_available():
     from flash_attn import flash_attn_func as flash_attention_2
     from flash_attn import flash_attn_varlen_func as flash_attention_2_varlen
-
-if is_flash_attention_3_available():
-    from flash_attn_interface import flash_attn_func as flash_attention_3
-    from flash_attn_interface import flash_attn_varlen_func as flash_attention_3_varlen
 
 
 def unpad_input(
@@ -66,14 +71,21 @@ def flash_attention(
     sliding_window: int | None = None,
     softcap: float = 0,
 ) -> torch.Tensor:
-    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
+    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
     use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
+    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
 
-    assert use_flash_attention_3 or use_flash_attention_2, "enable flash_attention_2 or flash_attention_3"
+    assert (
+        use_flash_attention_4 or use_flash_attention_3 or use_flash_attention_2
+    ), "enable flash_attention_2 or flash_attention_3"
 
-    if use_flash_attention_3:
+    if use_flash_attention_4 or use_flash_attention_3:
         assert dropout == 0
 
+    if use_flash_attention_4:
+        _flash_attention_function = flash_attention_4
+        _flash_attention_varlen_function = flash_attention_4_varlen
+    elif use_flash_attention_3:
         _flash_attention_function = flash_attention_3
         _flash_attention_varlen_function = flash_attention_3_varlen
     else:
@@ -81,7 +93,7 @@ def flash_attention(
         _flash_attention_varlen_function = partial(flash_attention_2_varlen, dropout_p=dropout)
 
     window_size = (-1, -1)
-    if sliding_window is not None and key.size(1) > sliding_window:
+    if sliding_window is not None and k.size(1) > sliding_window:
         window_size = (sliding_window, sliding_window)
 
     if use_padding_free_transformer:

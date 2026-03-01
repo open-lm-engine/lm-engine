@@ -30,6 +30,18 @@ def is_flash_attention_3_available() -> bool:
 
 
 try:
+    from flash_attn.cute import flash_attn_func
+
+    _IS_FLASH_ATTENTION_4_AVAILABLE = True
+except ImportError:
+    _IS_FLASH_ATTENTION_4_AVAILABLE = False
+
+
+def is_flash_attention_4_available() -> bool:
+    return _IS_FLASH_ATTENTION_4_AVAILABLE
+
+
+try:
     import aim
 
     _IS_AIM_AVAILABLE = True
