@@ -153,6 +153,7 @@ def get_sequence_mixer(
             attention_multiplier=block.attention_multiplier,
             sliding_window=block.sliding_window,
             position_embedding_type=config.position_embedding_type,
+            attention_gate=block.attention_gate,
             add_bias=block.add_bias,
             softmax_dropout=block.softmax_dropout,
             dropout=block.dropout,
