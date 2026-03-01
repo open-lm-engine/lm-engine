@@ -242,9 +242,7 @@ class Attention(DTensorModule):
 
                 output_shape = (batch_size, query_length, -1)
 
-            q = wait_for_ACT(q, wait_in_forward=True, wait_in_backward=False)
-            k = wait_for_ACT(k, wait_in_forward=True, wait_in_backward=False)
-            v = wait_for_ACT(v, wait_in_forward=True, wait_in_backward=False)
+            q, k, v = [wait_for_ACT(i, wait_in_forward=True, wait_in_backward=False) for i in (q, k, v)]
 
             x = flash_attention(
                 q=q,
