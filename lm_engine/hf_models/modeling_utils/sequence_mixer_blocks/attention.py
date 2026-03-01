@@ -192,7 +192,7 @@ class Attention(DTensorModule):
         accelerator = Accelerator.get_accelerator()
 
         if self.use_padding_free_transformer:
-            assert use_flash_attention_2 or use_flash_attention_3
+            assert use_flash_attention
             assert past_key_values is None
 
             T = x.size(0) * (self.tp_world_size if self.sequence_parallel else 1)
