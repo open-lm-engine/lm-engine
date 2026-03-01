@@ -74,7 +74,7 @@ def flash_attention(
 
     assert (
         use_flash_attention_4 or use_flash_attention_3 or use_flash_attention_2
-    ), "enable flash_attention_2 or flash_attention_3"
+    ), "enable flash_attention_2, flash_attention_3, or flash_attention_4"
 
     if use_flash_attention_4 or use_flash_attention_3:
         assert dropout == 0
