@@ -183,8 +183,12 @@ class Attention(DTensorModule):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
-        use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
+        use_flash_attention = (
+            is_kernel_allowed(Kernel.flash_attention_2)
+            or is_kernel_allowed(Kernel.flash_attention_3)
+            or is_kernel_allowed(Kernel.flash_attention_4)
+        )
+
         accelerator = Accelerator.get_accelerator()
 
         if self.use_padding_free_transformer:
@@ -230,7 +234,7 @@ class Attention(DTensorModule):
         if past_key_values is not None:
             k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
 
-        if use_flash_attention_2 or use_flash_attention_3:
+        if use_flash_attention:
             assert accelerator == Accelerator.cuda
 
             if self.use_padding_free_transformer:
