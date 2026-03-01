@@ -292,8 +292,6 @@ class Attention(DTensorModule):
                     enable_gqa=True,
                 )
 
-            del query, key, value
-
             batch_size = x.shape[0]
             x = x.transpose(1, 2)
             x = x.reshape(batch_size, -1, self.num_heads * self.head_dim)
