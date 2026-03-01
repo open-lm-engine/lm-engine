@@ -18,7 +18,7 @@ if is_flash_attention_4_available():
 elif is_flash_attention_3_available():
     from flash_attn_interface import flash_attn_func as flash_attention_3
     from flash_attn_interface import flash_attn_varlen_func as flash_attention_3_varlen
-else:
+elif is_flash_attention_2_available():
     from flash_attn import flash_attn_func as flash_attention_2
     from flash_attn import flash_attn_varlen_func as flash_attention_2_varlen
 
