@@ -9,6 +9,8 @@ try:
     from flash_attn.cute import flash_attn_func
 
     _IS_FLASH_ATTENTION_4_AVAILABLE = True
+    _IS_FLASH_ATTENTION_3_AVAILABLE = False
+    _IS_FLASH_ATTENTION_2_AVAILABLE = False
 except ImportError:
     _IS_FLASH_ATTENTION_4_AVAILABLE = False
 
@@ -16,6 +18,7 @@ except ImportError:
         from flash_attn_interface import flash_attn_func
 
         _IS_FLASH_ATTENTION_3_AVAILABLE = True
+        _IS_FLASH_ATTENTION_2_AVAILABLE = False
     except ImportError:
         _IS_FLASH_ATTENTION_3_AVAILABLE = False
 
