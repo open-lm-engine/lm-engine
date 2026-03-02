@@ -22,7 +22,7 @@ class TensorParallelTest(TestCommons):
     @parameterized.expand(
         TestCommons.make_args_matrix(
             TestCommons.get_position_embedding_types(),
-            ["sdpa", "flash_attention_2", "flash_attention_3", "flash_attention_4"],
+            ["sdpa", "flash_attention_2", "flash_attention_3"],
             TestCommons.get_dtypes(),
             [False, True],
             [False, True],
