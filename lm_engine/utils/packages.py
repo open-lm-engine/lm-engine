@@ -6,39 +6,37 @@ import torch
 
 
 try:
-    import flash_attn
-
-    _IS_FLASH_ATTENTION_2_AVAILABLE = True
-except ImportError:
-    _IS_FLASH_ATTENTION_2_AVAILABLE = False
-
-
-def is_flash_attention_2_available() -> bool:
-    return _IS_FLASH_ATTENTION_2_AVAILABLE
-
-
-try:
-    from flash_attn_interface import flash_attn_func
-
-    _IS_FLASH_ATTENTION_3_AVAILABLE = True
-except ImportError:
-    _IS_FLASH_ATTENTION_3_AVAILABLE = False
-
-
-def is_flash_attention_3_available() -> bool:
-    return _IS_FLASH_ATTENTION_3_AVAILABLE
-
-
-try:
     from flash_attn.cute import flash_attn_func
 
     _IS_FLASH_ATTENTION_4_AVAILABLE = True
 except ImportError:
     _IS_FLASH_ATTENTION_4_AVAILABLE = False
 
+    try:
+        from flash_attn_interface import flash_attn_func
+
+        _IS_FLASH_ATTENTION_3_AVAILABLE = True
+    except ImportError:
+        _IS_FLASH_ATTENTION_3_AVAILABLE = False
+
+        try:
+            import flash_attn
+
+            _IS_FLASH_ATTENTION_2_AVAILABLE = True
+        except ImportError:
+            _IS_FLASH_ATTENTION_2_AVAILABLE = False
+
 
 def is_flash_attention_4_available() -> bool:
     return _IS_FLASH_ATTENTION_4_AVAILABLE
+
+
+def is_flash_attention_3_available() -> bool:
+    return _IS_FLASH_ATTENTION_3_AVAILABLE
+
+
+def is_flash_attention_2_available() -> bool:
+    return _IS_FLASH_ATTENTION_2_AVAILABLE
 
 
 try:
