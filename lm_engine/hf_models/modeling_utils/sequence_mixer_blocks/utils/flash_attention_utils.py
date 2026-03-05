@@ -109,6 +109,10 @@ def flash_attention(
             window_size=window_size,
             softcap=softcap,
         )
+
+        if use_flash_attention_4:
+            assert isinstance(x, tuple)
+            x = x[0]
     elif attention_mask is None:
         x = _flash_attention_function(
             q=q,
@@ -119,6 +123,10 @@ def flash_attention(
             window_size=window_size,
             softcap=softcap,
         )
+
+        if use_flash_attention_4:
+            assert isinstance(x, tuple)
+            x = x[0]
     else:
         B, S, N, H = q.size()
 
@@ -137,6 +145,10 @@ def flash_attention(
             window_size=window_size,
             softcap=softcap,
         )
+
+        if use_flash_attention_4:
+            assert isinstance(x, tuple)
+            x = x[0]
 
         x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens_q, output_shape=(B, S, N, H))
 

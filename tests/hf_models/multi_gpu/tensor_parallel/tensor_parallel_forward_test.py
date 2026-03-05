@@ -8,7 +8,12 @@ import tempfile
 import torch
 from parameterized import parameterized
 
-from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, torch_dtype_to_string
+from lm_engine.utils import (
+    is_flash_attention_2_available,
+    is_flash_attention_3_available,
+    is_flash_attention_4_available,
+    torch_dtype_to_string,
+)
 
 from ...test_common import TestCommons
 
@@ -38,6 +43,7 @@ class TensorParallelTest(TestCommons):
             ("sdpa", torch.float32),
             ("flash_attention_2", torch.float16),
             ("flash_attention_3", torch.float16),
+            ("flash_attention_4", torch.float16),
         ]:
             self.skipTest("skipping test since running all takes too long")
 
@@ -45,8 +51,14 @@ class TensorParallelTest(TestCommons):
             self.skipTest("skipping test because flash attention 2 is unavailable")
         elif attention_implementation == "flash_attention_3" and not is_flash_attention_3_available():
             self.skipTest("skipping test because flash attention 3 is unavailable")
+        elif attention_implementation == "flash_attention_4" and not is_flash_attention_4_available():
+            self.skipTest("skipping test because flash attention 4 is unavailable")
 
-        if use_padding_free_transformer and attention_implementation != "flash_attention_2":
+        if use_padding_free_transformer and attention_implementation not in [
+            "flash_attention_2",
+            "flash_attention_3",
+            "flash_attention_4",
+        ]:
             self.skipTest("skipping test since flash attention is needed for padding free transformer")
 
         gpus_per_node = torch.cuda.device_count()

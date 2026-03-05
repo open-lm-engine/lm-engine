@@ -68,6 +68,8 @@ if args.attention_implementation == "flash_attention_2":
     kernels.append(Kernel.flash_attention_2)
 elif args.attention_implementation == "flash_attention_3":
     kernels.append(Kernel.flash_attention_3)
+elif args.attention_implementation == "flash_attention_4":
+    kernels.append(Kernel.flash_attention_4)
 
 with enable_kernels(kernels):
     if torch.distributed.get_rank() == 0:
