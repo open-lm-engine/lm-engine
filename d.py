@@ -39,9 +39,10 @@ for i in range(n_samples):
     y = decay_gate(x, A_samples[i], dt_bias_samples[i])
     ax.plot(x, y, label=f"$\\alpha_n$={A_samples[i]:.1f}, $\\beta_n$={dt_samples[i]:.4f}")
 
-ax.set_xlabel("$x_t$")
-ax.set_ylabel("forget gate ($f_t$)")
-ax.legend(fontsize=7, loc="upper right")
+ax.set_xlabel("$x_t$", fontsize=16)
+ax.set_ylabel("forget gate ($f_t$)", fontsize=16)
+ax.legend(loc="upper right")
+ax.tick_params(axis="both", labelsize=16)
 ax.grid(True, alpha=0.3)
 # ax.set_ylim(-0.05, 1.05)
 
