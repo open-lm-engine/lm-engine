@@ -237,14 +237,10 @@ class Attention(DTensorModule):
         if use_flash_attention:
             assert accelerator == Accelerator.cuda
 
-            if self.use_padding_free_transformer:
-                output_shape = (-1, self.hidden_size)
-            else:
+            if not self.use_padding_free_transformer:
                 q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
                 if self.attention_gate:
                     g = g.transpose(1, 2)
-
-                output_shape = (batch_size, query_length, -1)
 
             q, k, v = [wait_for_ACT(i, wait_in_forward=True, wait_in_backward=False) for i in (q, k, v)]
 
@@ -263,7 +259,6 @@ class Attention(DTensorModule):
             )
 
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
-            x = x.view(*output_shape)
         else:
             assert self.sliding_window is None
 
@@ -296,8 +291,11 @@ class Attention(DTensorModule):
 
             batch_size = x.shape[0]
             x = x.transpose(1, 2)
-            x = x.reshape(batch_size, -1, self.num_heads * self.head_dim)
 
+        if self.attention_gate:
+            x = x * F.sigmoid(g)
+
+        x = x.flatten(-2, -1)
         x = self.c_proj(x)
         x = self.dropout(x)
 
