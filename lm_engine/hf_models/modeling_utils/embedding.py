@@ -45,7 +45,6 @@ class ParameterizedEmbedding(DTensorModule):
                     torch.empty(num_embeddings_per_tp_rank, embedding_dim),
                     device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
                     current_placement=Shard(0),
-                    run_check=True,
                 )
             )
 

@@ -247,7 +247,6 @@ class RSA(nn.Module):
                 device_mesh=self.state_weight.device_mesh,
                 current_placement=[Replicate()] * len(self.state_weight.placements),
                 desired_placement=self.state_weight.placements,
-                run_check=True,
             )
 
         self.state_weight.copy_(W)

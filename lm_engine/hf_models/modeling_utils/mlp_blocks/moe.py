@@ -170,10 +170,7 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
 
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
-                    self.weight,
-                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
-                    current_placement=Shard(1),
-                    run_check=True,
+                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(1)
                 )
             )
 
@@ -249,7 +246,6 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
                     self.weight,
                     device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
                     current_placement=Shard(-1),
-                    run_check=True,
                 )
             )
 

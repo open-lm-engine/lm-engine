@@ -20,7 +20,7 @@ class M(nn.Module):
         super().__init__(*args, **kwargs)
         self.qk = ReplicatedLinear(400, 800)
         self.v = ColumnParallelLinear(400, 800)
-        self.D = nn.Parameter(tensor_to_dtensor(torch.randn(200), run_check=True))
+        self.D = nn.Parameter(tensor_to_dtensor(torch.randn(200)))
         self.o = RowParallelLinear(800, 400)
 
     def forward(self, x):
