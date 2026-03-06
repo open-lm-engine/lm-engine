@@ -148,16 +148,16 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
         self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> ColumnParallelExperts:
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size() if self.is_tp_enabled else 1
+        DTensorModule.__init__(self)
 
         self.out_features_per_tp_rank = divide_if_divisible(
             out_features,
-            tp_world_size,
-            f"`out_features` ({out_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
+            self.tp_world_size,
+            f"`out_features` ({out_features}) must be divisible by `tensor_parallel_world_size` ({self.tp_world_size})",
         )
 
-        super().__init__(
+        ParameterizedExperts.__init__(
+            self,
             num_experts=num_experts,
             in_features=in_features,
             out_features=self.out_features_per_tp_rank,
@@ -220,17 +220,16 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         )
 
 
-class RowParallelExperts(ColumnParallelExperts):
+class RowParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
         self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> RowParallelExperts:
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        tp_world_size = ProcessGroupManager.get_tensor_parallel_world_size() if self.is_tp_enabled else 1
+        DTensorModule.__init__(self)
 
         self.in_features_per_tp_rank = divide_if_divisible(
             in_features,
-            tp_world_size,
-            f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({tp_world_size})",
+            self.tp_world_size,
+            f"`in_features` ({in_features}) must be divisible by `tensor_parallel_world_size` ({self.tp_world_size})",
         )
 
         ParameterizedExperts.__init__(
@@ -296,12 +295,13 @@ class RowParallelExperts(ColumnParallelExperts):
         )
 
 
-class MoE(nn.Module):
+class MoE(DTensorModule):
     def __init__(
         self,
         hidden_size: int,
         intermediate_size: int,
         shared_intermediate_size: int,
+        use_interleaved_weights_for_shared_experts: bool,
         use_interleaved_weights: bool,
         shared_expert_gating: bool,
         normalized_topk: bool,
@@ -327,6 +327,7 @@ class MoE(nn.Module):
         self.shared_intermediate_size = shared_intermediate_size
         self.shared_expert_gating = shared_expert_gating
         self.normalized_topk = normalized_topk
+        self.use_interleaved_weights_for_shared_experts = use_interleaved_weights_for_shared_experts
         self.use_interleaved_weights = use_interleaved_weights
 
         std = _get_std_for_linear(initializer_range, init_method, m_width)
@@ -340,10 +341,12 @@ class MoE(nn.Module):
                 in_features=self.hidden_size, out_features=1, bias=False, std=std
             )
 
+        self.is_glu = is_glu(activation_function)
+
         self.c_fc = ColumnParallelExperts(
             num_experts=num_experts,
             in_features=self.hidden_size,
-            out_features=2 * self.intermediate_size if is_glu(activation_function) else self.intermediate_size,
+            out_features=2 * self.intermediate_size if self.is_glu else self.intermediate_size,
             add_bias=add_bias,
             std=std,
         )
@@ -351,9 +354,7 @@ class MoE(nn.Module):
         if self.shared_intermediate_size is not None:
             self.c_fc_shared = SharedExpertsColumnParallelLinear(
                 in_features=self.hidden_size,
-                out_features=(
-                    2 * self.shared_intermediate_size if is_glu(activation_function) else self.shared_intermediate_size
-                ),
+                out_features=2 * self.shared_intermediate_size if self.is_glu else self.shared_intermediate_size,
                 bias=add_bias,
                 std=std,
             )
@@ -396,11 +397,6 @@ class MoE(nn.Module):
             mark_parameter_as_mup_learning_rate(self.c_fc_shared.weight)
             mark_parameter_as_mup_learning_rate(self.c_proj_shared.weight)
 
-        self.is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-
-        if self.is_tp_enabled:
-            self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not self.use_padding_free_transformer:
             batch_size, sequence_length, _ = x.shape
@@ -427,8 +423,6 @@ class MoE(nn.Module):
                 is_inference_mode_enabled=False,
             )
         else:
-            assert not self.use_interleaved_weights
-
             router_logits, router_weights, selected_experts = self._compute_routing_weights(x)
 
             if self.is_tp_enabled:
@@ -516,7 +510,7 @@ class MoE(nn.Module):
                 expert_offsets=expert_offsets,
             )
 
-            x = self.act(x)
+            x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
 
             x = self.c_proj(
                 x=x,
@@ -538,7 +532,7 @@ class MoE(nn.Module):
             x = x[batch_index]
 
             x = self.c_fc(x=x, expert_frequency=expert_frequency)
-            x = self.act(x)
+            x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
             x = self.c_proj(x=x, expert_frequency=expert_frequency)
 
             x = x * batch_gates.unsqueeze(-1)  # [:, None]
@@ -553,7 +547,7 @@ class MoE(nn.Module):
             g = self.shared_expert_gate(x)
 
         x = self.c_fc_shared(x)
-        x = self.act(x)
+        x = self.act(x, is_interleaved=self.use_interleaved_weights_for_shared_experts) if self.is_glu else self.act(x)
         x = self.c_proj_shared(x)
 
         if g is not None:

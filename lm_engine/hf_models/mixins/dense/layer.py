@@ -33,6 +33,7 @@ class Block(nn.Module):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
+
         self.sequence_mixer = get_sequence_mixer(
             config,
             True,
@@ -40,6 +41,7 @@ class Block(nn.Module):
             sequence_parallel=sequence_parallel,
             layer_idx=layer_idx,
         )
+
         self.ln_2 = get_normalization_function(
             config.normalization_function,
             hidden_size,
@@ -47,6 +49,7 @@ class Block(nn.Module):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
+
         self.mlp_block = get_mlp_block(
             config,
             use_padding_free_transformer=use_padding_free_transformer,
@@ -64,8 +67,8 @@ class Block(nn.Module):
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
         r = x
-        x = self.ln_1(x)
 
+        x = self.ln_1(x)
         x = self._sequence_mixer_forward(
             x=x,
             past_key_values=past_key_values,
@@ -79,10 +82,9 @@ class Block(nn.Module):
             x = x * self.m_residual
 
         x = x + r
-
         r = x
-        x = self.ln_2(x)
 
+        x = self.ln_2(x)
         x = self.mlp_block(x)
 
         if self.m_residual is not None:

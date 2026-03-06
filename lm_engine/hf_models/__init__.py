@@ -9,9 +9,7 @@ from .model_conversion import export_to_huggingface, import_from_huggingface
 from .models import (
     GPTBaseConfig,
     GPTBaseForCausalLM,
-    GPTBaseForCausalLM_TP,
     GPTBaseModel,
-    GPTBaseModel_TP,
     GPTCrossLayerConfig,
     GPTCrossLayerForCausalLM,
     GPTCrossLayerModel,
@@ -33,7 +31,7 @@ from .parameter import (
     mark_parameter_as_no_weight_decay,
     set_parameter_marker_maps,
 )
-from .register_hf import get_model_parallel_class, is_custom_model, register_model_classes
+from .register_hf import is_custom_model, register_model_classes
 from .unshard import fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
 from .utils import convert_padding_free_lists_to_tensors, disable_generation_cache
 

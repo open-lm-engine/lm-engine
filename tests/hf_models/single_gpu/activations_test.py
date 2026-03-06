@@ -13,8 +13,8 @@ from ..test_common import TestCommons
 
 
 class ActivationsTest(TestCommons):
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices()))
-    def test_sigmoid_glu(self, device: torch.device) -> None:
+    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [False, True]))
+    def test_sigmoid_glu(self, device: torch.device, is_interleaved: bool) -> None:
         self.skip_test_if_device_unavailable(device)
 
         base_sigmoid = get_base_activation("sigmoid")
@@ -23,7 +23,7 @@ class ActivationsTest(TestCommons):
         pytorch_glu = get_activation_function("glu")
 
         x = torch.randn(10, 10, device=device)
-        sigmoid_glu_output = sigmoid_glu(x)
-        pytorch_glu_output = pytorch_glu(x)
+        sigmoid_glu_output = sigmoid_glu(x, is_interleaved=is_interleaved)
+        pytorch_glu_output = pytorch_glu(x, is_interleaved=is_interleaved)
 
         self.assert_equal_tensors(sigmoid_glu_output, pytorch_glu_output, True)

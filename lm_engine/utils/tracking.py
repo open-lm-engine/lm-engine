@@ -99,7 +99,7 @@ class ExperimentsTracker:
         elif experiments_tracker_name is not None:
             raise ValueError(f"unexpected experiments_tracker ({experiments_tracker_name})")
 
-    def log_args(self, args: BaseArgs) -> None:
+    def log_args(self, args: BaseArgs, **extra_metadata) -> None:
         """log args
 
         Args:
@@ -111,6 +111,11 @@ class ExperimentsTracker:
 
         if self.tracking_enabled:
             args: dict = args.to_dict()
+
+            for k, v in extra_metadata.items():
+                if k in args:
+                    raise ValueError(f"duplicate key ({k})")
+                args[k] = v
 
             if self.experiments_tracker_name == ExperimentsTrackerName.aim:
                 for k, v in args.items():

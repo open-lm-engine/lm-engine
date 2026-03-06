@@ -7,9 +7,10 @@ from transformers import GraniteConfig, GraniteForCausalLM
 from ..models import GPTBaseConfig
 
 
-def _import_granite_config(original_config: GraniteConfig) -> GPTBaseConfig:
+def _import_granite_config(original_config: GraniteConfig, **kwargs) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert original_config.mlp_bias == original_config.attention_bias
+    use_interleaved_weights = kwargs.pop("use_interleaved_weights", False)
 
     config = GPTBaseConfig(
         vocab_size=original_config.vocab_size,
@@ -47,10 +48,13 @@ def _import_granite_config(original_config: GraniteConfig) -> GPTBaseConfig:
                 "add_bias": original_config.mlp_bias,
                 "activation_function": "swiglu",
                 "intermediate_size": original_config.intermediate_size,
+                "use_interleaved_weights": use_interleaved_weights,
             }
             for _ in range(original_config.num_hidden_layers)
         ],
     )
+
+    assert len(kwargs) == 0
 
     return config
 

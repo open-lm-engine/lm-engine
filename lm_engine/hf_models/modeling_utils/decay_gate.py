@@ -18,10 +18,11 @@ from ..parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
+from .dtensor_module import DTensorModule
 from .linear import ParameterizedLinear
 
 
-class SoftplusDecayGate(nn.Module):
+class SoftplusDecayGate(DTensorModule):
     def __init__(
         self,
         hidden_size: int | None,
