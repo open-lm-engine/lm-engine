@@ -12,7 +12,7 @@ from torch.distributed._tensor.placement_types import Replicate
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed, wait_for_ACT
-from ...utils import ProcessGroupManager, is_xma_available
+from ...utils import is_xma_available
 from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
