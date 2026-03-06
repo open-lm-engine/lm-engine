@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 #!/usr/bin/env python3
 """
 Generate a LaTeX table from retrieval results in logs-{size}-retrieval directories.

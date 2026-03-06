@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 #!/usr/bin/env python3
 """
 Generate a LaTeX table from LongBench results in logs-{size}-long directories.

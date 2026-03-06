@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
 #!/usr/bin/env python3
 """
 Plot NIAH results from logs-400m-niah.
