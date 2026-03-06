@@ -94,6 +94,7 @@ class SoftplusDecayGate(nn.Module):
                 device_mesh=self.A_log.device_mesh,
                 current_placement=[Replicate()] * len(self.A_log.placements),
                 desired_placement=self.A_log.placements,
+                run_check=True,
             )
 
         self.A_log.copy_(torch.log(A))
@@ -112,6 +113,7 @@ class SoftplusDecayGate(nn.Module):
                 device_mesh=self.dt_bias.device_mesh,
                 current_placement=[Replicate()] * len(self.dt_bias.placements),
                 desired_placement=self.dt_bias.placements,
+                run_check=True,
             )
 
         self.dt_bias.copy_(inv_dt)

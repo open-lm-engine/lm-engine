@@ -42,7 +42,10 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
 
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
-                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(0)
+                    self.weight,
+                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
+                    current_placement=Shard(0),
+                    run_check=True,
                 )
             )
 
@@ -52,6 +55,7 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
                         self.bias,
                         device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
                         current_placement=Shard(0),
+                        run_check=True,
                     )
                 )
 

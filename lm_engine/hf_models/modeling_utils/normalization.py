@@ -39,11 +39,11 @@ class LayerNorm(nn.LayerNorm, DTensorModule):
             self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
             self.weight = nn.Parameter(
-                tensor_to_dtensor(self.weight, device_mesh=self.tp_mesh, current_placement=Replicate())
+                tensor_to_dtensor(self.weight, device_mesh=self.tp_mesh, current_placement=Replicate(), run_check=True)
             )
 
             self.bias = nn.Parameter(
-                tensor_to_dtensor(self.bias, device_mesh=self.tp_mesh, current_placement=Replicate())
+                tensor_to_dtensor(self.bias, device_mesh=self.tp_mesh, current_placement=Replicate(), run_check=True)
             )
 
         self.reset_parameters()
@@ -81,7 +81,7 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
             self.placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
             self.weight = nn.Parameter(
-                tensor_to_dtensor(self.weight, device_mesh=self.tp_mesh, current_placement=Replicate())
+                tensor_to_dtensor(self.weight, device_mesh=self.tp_mesh, current_placement=Replicate(), run_check=True)
             )
 
         self.reset_parameters()

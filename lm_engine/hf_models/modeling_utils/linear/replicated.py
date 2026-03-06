@@ -27,6 +27,7 @@ class ReplicatedLinear(ParameterizedLinear, DTensorModule):
                     self.weight,
                     device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
                     current_placement=Replicate(),
+                    run_check=True,
                 )
             )
 
@@ -36,5 +37,6 @@ class ReplicatedLinear(ParameterizedLinear, DTensorModule):
                         self.bias,
                         device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
                         current_placement=Replicate(),
+                        run_check=True,
                     )
                 )
