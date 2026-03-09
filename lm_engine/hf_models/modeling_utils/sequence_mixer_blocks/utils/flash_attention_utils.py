@@ -20,7 +20,6 @@ if is_flash_attention_3_available():
     from flash_attn_interface import flash_attn_func as flash_attention_3
     from flash_attn_interface import flash_attn_varlen_func as flash_attention_3_varlen
 
-
 if is_flash_attention_4_available():
     from flash_attn.cute import flash_attn_func as flash_attention_4
     from flash_attn.cute import flash_attn_varlen_func as flash_attention_4_varlen
