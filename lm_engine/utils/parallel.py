@@ -15,6 +15,7 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
+from .accelerator import Accelerator
 from .miscellaneous import divide_if_divisible
 from .packages import is_torch_xla_available
 
@@ -26,7 +27,7 @@ if is_torch_xla_available():
 
 
 # general
-_MESH: DeviceMesh | None = None
+_DENSE_MESH: DeviceMesh | None = None
 _GLOBAL_RANK: int | None = None
 _LOCAL_RANK: int | None = None
 _WORLD_SIZE: int | None = None
@@ -65,9 +66,7 @@ class ProcessGroupManager:
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
-        from .accelerator import Accelerator
-
-        global _MESH
+        global _DENSE_MESH
         global _TENSOR_PARALLEL_FIRST_RANK
         global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
         global _DATA_PARALLEL_SHARDING_WORLD_SIZE
@@ -158,23 +157,19 @@ class ProcessGroupManager:
         return torch.distributed.is_initialized()
 
     @staticmethod
-    def get_mesh() -> DeviceMesh:
-        global _MESH
-        return _MESH
+    def get_dense_mesh() -> DeviceMesh:
+        return _DENSE_MESH
 
     @staticmethod
     def get_global_rank() -> int:
-        global _GLOBAL_RANK
         return _GLOBAL_RANK
 
     @staticmethod
     def get_local_rank() -> int:
-        global _LOCAL_RANK
         return _LOCAL_RANK
 
     @staticmethod
     def get_world_size() -> int:
-        global _WORLD_SIZE
         return _WORLD_SIZE
 
     # tensor parallel
@@ -183,7 +178,7 @@ class ProcessGroupManager:
         global _TENSOR_PARALLEL_MESH
 
         if _TENSOR_PARALLEL_MESH is None:
-            _TENSOR_PARALLEL_MESH = ProcessGroupManager.get_mesh()["tp"]
+            _TENSOR_PARALLEL_MESH = ProcessGroupManager.get_dense_mesh()["tp"]
         return _TENSOR_PARALLEL_MESH
 
     @staticmethod
@@ -268,7 +263,7 @@ class ProcessGroupManager:
         global _PIPELINE_PARALLEL_MESH
 
         if _PIPELINE_PARALLEL_MESH is None:
-            _PIPELINE_PARALLEL_MESH = ProcessGroupManager.get_mesh()["pp"]
+            _PIPELINE_PARALLEL_MESH = ProcessGroupManager.get_dense_mesh()["pp"]
         return _PIPELINE_PARALLEL_MESH
 
     @staticmethod
@@ -325,7 +320,7 @@ class ProcessGroupManager:
         global _DATA_PARALLEL_MESH
 
         if _DATA_PARALLEL_MESH is None:
-            _DATA_PARALLEL_MESH = ProcessGroupManager.get_mesh()["ddp", "fsdp"]
+            _DATA_PARALLEL_MESH = ProcessGroupManager.get_dense_mesh()["ddp", "fsdp"]
         return _DATA_PARALLEL_MESH
 
     @staticmethod
@@ -385,7 +380,7 @@ class ProcessGroupManager:
         _DATA_PARALLEL_WORLD_SIZE = original_world_size
 
     def __str__(self) -> str:
-        return str(self.get_mesh())
+        return str(self.get_dense_mesh())
 
     @staticmethod
     def destroy_process_groups() -> None:
@@ -397,7 +392,6 @@ class ProcessGroupManager:
 
     @staticmethod
     def get_cpu_group() -> ProcessGroup | None:
-        global _CPU_GROUP
         return _CPU_GROUP
 
 
