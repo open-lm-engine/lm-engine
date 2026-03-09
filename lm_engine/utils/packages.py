@@ -9,37 +9,24 @@ try:
     from flash_attn.cute import flash_attn_func
 
     _IS_FLASH_ATTENTION_4_AVAILABLE = True
-    _IS_FLASH_ATTENTION_3_AVAILABLE = False
-    _IS_FLASH_ATTENTION_2_AVAILABLE = False
 except ImportError:
     _IS_FLASH_ATTENTION_4_AVAILABLE = False
 
-    try:
-        from flash_attn_interface import flash_attn_func
 
-        _IS_FLASH_ATTENTION_3_AVAILABLE = True
-        _IS_FLASH_ATTENTION_2_AVAILABLE = False
-    except ImportError:
-        _IS_FLASH_ATTENTION_3_AVAILABLE = False
+try:
+    from flash_attn_interface import flash_attn_func
 
-        try:
-            import flash_attn
-
-            _IS_FLASH_ATTENTION_2_AVAILABLE = True
-        except ImportError:
-            _IS_FLASH_ATTENTION_2_AVAILABLE = False
+    _IS_FLASH_ATTENTION_3_AVAILABLE = True
+except ImportError:
+    _IS_FLASH_ATTENTION_3_AVAILABLE = False
 
 
-def is_flash_attention_4_available() -> bool:
-    return _IS_FLASH_ATTENTION_4_AVAILABLE
+try:
+    import flash_attn
 
-
-def is_flash_attention_3_available() -> bool:
-    return _IS_FLASH_ATTENTION_3_AVAILABLE
-
-
-def is_flash_attention_2_available() -> bool:
-    return _IS_FLASH_ATTENTION_2_AVAILABLE
+    _IS_FLASH_ATTENTION_2_AVAILABLE = True
+except ImportError:
+    _IS_FLASH_ATTENTION_2_AVAILABLE = False
 
 
 try:
@@ -50,20 +37,12 @@ except ImportError:
     _IS_AIM_AVAILABLE = False
 
 
-def is_aim_available() -> bool:
-    return _IS_AIM_AVAILABLE
-
-
 try:
     import wandb
 
     _IS_WANDB_AVAILABLE = True
 except ImportError:
     _IS_WANDB_AVAILABLE = False
-
-
-def is_wandb_available() -> bool:
-    return _IS_WANDB_AVAILABLE
 
 
 try:
@@ -74,20 +53,12 @@ except ImportError:
     _IS_COLORLOG_AVAILABLE = False
 
 
-def is_colorlog_available() -> bool:
-    return _IS_COLORLOG_AVAILABLE
-
-
 try:
     import triton
 
     _IS_TRITON_AVAILABLE = True
 except ImportError:
     _IS_TRITON_AVAILABLE = False
-
-
-def is_triton_available() -> bool:
-    return _IS_TRITON_AVAILABLE
 
 
 try:
@@ -98,20 +69,12 @@ except:
     _IS_XMA_AVAILABLE = False
 
 
-def is_xma_available() -> bool:
-    return _IS_XMA_AVAILABLE
-
-
 try:
     import causal_conv1d
 
     _IS_CAUSAL_CONV1D_AVAILABLE = True
 except ImportError:
     _IS_CAUSAL_CONV1D_AVAILABLE = False
-
-
-def is_causal_conv1d_available() -> bool:
-    return _IS_CAUSAL_CONV1D_AVAILABLE
 
 
 try:
@@ -122,20 +85,12 @@ except ImportError:
     _IS_MAMBA_2_SSM_AVAILABLE = False
 
 
-def is_mamba_2_ssm_available() -> bool:
-    return _IS_MAMBA_2_SSM_AVAILABLE
-
-
 try:
     import torchao
 
     _IS_TORCHAO_AVAILABLE = True
 except ImportError:
     _IS_TORCHAO_AVAILABLE = False
-
-
-def is_torchao_available() -> bool:
-    return _IS_TORCHAO_AVAILABLE
 
 
 try:
@@ -146,10 +101,6 @@ except ImportError:
     _IS_ZSTANDARD_AVAILABLE = False
 
 
-def is_zstandard_available() -> bool:
-    return _IS_ZSTANDARD_AVAILABLE
-
-
 try:
     import torch_xla
 
@@ -158,20 +109,12 @@ except ImportError:
     _IS_TORCH_XLA_AVAILABLE = False
 
 
-def is_torch_xla_available() -> bool:
-    return _IS_TORCH_XLA_AVAILABLE
-
-
 try:
     import torch_neuronx
 
     _IS_TORCH_NEURONX_AVAILABLE = True
 except ImportError:
     _IS_TORCH_NEURONX_AVAILABLE = False
-
-
-def is_torch_neuronx_available() -> bool:
-    return _IS_TORCH_NEURONX_AVAILABLE
 
 
 try:
@@ -194,20 +137,12 @@ except ImportError:
     _IS_SONIC_MOE_AVAILABLE = False
 
 
-def is_sonicmoe_available() -> bool:
-    return _IS_SONIC_MOE_AVAILABLE
-
-
 try:
     import ray
 
     _IS_RAY_AVAILABLE = True
 except ImportError:
     _IS_RAY_AVAILABLE = False
-
-
-def is_ray_available() -> bool:
-    return _IS_RAY_AVAILABLE
 
 
 try:
@@ -218,5 +153,69 @@ except ImportError:
     _IS_FLA_AVAILABLE = False
 
 
+def is_aim_available() -> bool:
+    return _IS_AIM_AVAILABLE
+
+
+def is_causal_conv1d_available() -> bool:
+    return _IS_CAUSAL_CONV1D_AVAILABLE
+
+
+def is_colorlog_available() -> bool:
+    return _IS_COLORLOG_AVAILABLE
+
+
 def is_fla_available() -> bool:
     return _IS_FLA_AVAILABLE
+
+
+def is_flash_attention_2_available() -> bool:
+    return _IS_FLASH_ATTENTION_2_AVAILABLE
+
+
+def is_flash_attention_3_available() -> bool:
+    return _IS_FLASH_ATTENTION_3_AVAILABLE
+
+
+def is_flash_attention_4_available() -> bool:
+    return _IS_FLASH_ATTENTION_4_AVAILABLE
+
+
+def is_mamba_2_ssm_available() -> bool:
+    return _IS_MAMBA_2_SSM_AVAILABLE
+
+
+def is_sonicmoe_available() -> bool:
+    return _IS_SONIC_MOE_AVAILABLE
+
+
+def is_ray_available() -> bool:
+    return _IS_RAY_AVAILABLE
+
+
+def is_torch_xla_available() -> bool:
+    return _IS_TORCH_XLA_AVAILABLE
+
+
+def is_torchao_available() -> bool:
+    return _IS_TORCHAO_AVAILABLE
+
+
+def is_torch_neuronx_available() -> bool:
+    return _IS_TORCH_NEURONX_AVAILABLE
+
+
+def is_triton_available() -> bool:
+    return _IS_TRITON_AVAILABLE
+
+
+def is_wandb_available() -> bool:
+    return _IS_WANDB_AVAILABLE
+
+
+def is_xma_available() -> bool:
+    return _IS_XMA_AVAILABLE
+
+
+def is_zstandard_available() -> bool:
+    return _IS_ZSTANDARD_AVAILABLE
