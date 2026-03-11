@@ -86,8 +86,11 @@ def _get_linear_flops(m: int, k: int, n: int, gradient_checkpointing: bool = Fal
     return total_flops
 
 
-def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int) -> int:
-    attention_forward_flops = 2 * batch_size * sequence_length * (sequence_length + 1) * hidden_size
+def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int, window_size: int | None) -> float:
+    if window_size is None:
+        window_size = sequence_length
+
+    attention_forward_flops = 2 * batch_size * sequence_length * window_size * hidden_size
     attention_backward_flops = 5 * attention_forward_flops / 2
     return attention_forward_flops + attention_backward_flops
 
@@ -146,7 +149,7 @@ def get_model_tflops(
                 b * s, h, h, gradient_checkpointing=gradient_checkpointing_enabled
             )
 
-            sequence_mixer_flops += _get_attention_flops(b, s, h)
+            sequence_mixer_flops += _get_attention_flops(b, s, h, block.sliding_window)
         elif sequence_mixer_type == "mamba2":
             # NOTE taken from NexaAI's fork (might be incorrect)
             # Mamba2 FLOP calculation based on its specific architecture
