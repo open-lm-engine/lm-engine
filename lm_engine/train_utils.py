@@ -149,7 +149,7 @@ def get_model_tflops(
                 b * s, h, h, gradient_checkpointing=gradient_checkpointing_enabled
             )
 
-            sequence_mixer_flops += _get_attention_flops(b, s, h)
+            sequence_mixer_flops += _get_attention_flops(b, s, h, block.sliding_window)
         elif sequence_mixer_type == "mamba2":
             # NOTE taken from NexaAI's fork (might be incorrect)
             # Mamba2 FLOP calculation based on its specific architecture
