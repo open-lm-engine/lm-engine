@@ -1,0 +1,6 @@
+LM:
+    hybrid mamba-410m (21.43 -> 21.59) PPL
+    hybrid mamba-7b (13.00 -> 13.10) PPL and dropped avg accuracy
+
+real-retrieval:
+    hybrid mamba-7b (55.6 -> 55.1) avg acc
