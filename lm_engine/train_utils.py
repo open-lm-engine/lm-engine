@@ -86,8 +86,11 @@ def _get_linear_flops(m: int, k: int, n: int, gradient_checkpointing: bool = Fal
     return total_flops
 
 
-def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int) -> int:
-    attention_forward_flops = 2 * batch_size * sequence_length * (sequence_length + 1) * hidden_size
+def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int, window_size: int | None) -> int:
+    if window_size is None:
+        window_size = sequence_length
+
+    attention_forward_flops = 2 * batch_size * sequence_length * window_size * hidden_size
     attention_backward_flops = 5 * attention_forward_flops / 2
     return attention_forward_flops + attention_backward_flops
 
