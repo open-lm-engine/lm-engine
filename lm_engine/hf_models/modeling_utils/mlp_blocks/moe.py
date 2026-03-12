@@ -90,45 +90,6 @@ class ParameterizedExperts(nn.Module):
 
         self.reset_parameters()
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        num_experts_per_token: int | None = None,
-        expert_frequency: torch.Tensor | None = None,
-        sorted_expert_idxs: torch.Tensor | None = None,
-        sorted_scattered_idxs: torch.Tensor | None = None,
-        expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
-    ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.scattermoe):
-            assert self.bias is None
-
-            if gates is None:
-                x = up_projection_experts(
-                    inputs=x,
-                    expert_weights=self.weight.permute(0, 2, 1),
-                    k=num_experts_per_token,
-                    sorted_expert_idxs=sorted_expert_idxs,
-                    sorted_scattered_idxs=sorted_scattered_idxs,
-                    expert_offsets=expert_offsets,
-                )
-            else:
-                x = down_projection_experts(
-                    inputs=x,
-                    expert_weights=self.weight.permute(0, 2, 1),
-                    k=num_experts_per_token,
-                    sorted_expert_idxs=sorted_expert_idxs,
-                    sorted_scattered_idxs=sorted_scattered_idxs,
-                    expert_offsets=expert_offsets,
-                    gates=gates,
-                )
-        else:
-            x = x.split(expert_frequency.tolist(), dim=0)
-            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
-            x = torch.cat(x, dim=0)
-
-        return x
-
     def extra_repr(self) -> str:
         return "num_experts={}, in_features={}, out_features={}".format(
             self.num_experts, self.in_features, self.out_features
