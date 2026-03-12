@@ -140,12 +140,10 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         sorted_expert_idxs: torch.Tensor | None = None,
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if self.is_tp_enabled:
             assert is_kernel_allowed(Kernel.scattermoe)
 
-        assert gates is None
         weight = dtensor_to_tensor(self.weight)
 
         if is_kernel_allowed(Kernel.scattermoe):
@@ -216,7 +214,7 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
         sorted_expert_idxs: torch.Tensor | None = None,
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
+        router_weights: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if self.is_tp_enabled:
             assert is_kernel_allowed(Kernel.scattermoe)
@@ -233,7 +231,7 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                gates=gates,
+                router_weights=router_weights,
             )
 
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
@@ -473,7 +471,7 @@ class MoE(DTensorModule):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                gates=router_weights,
+                router_weights=router_weights,
             )
 
             x = self.dropout(x)
