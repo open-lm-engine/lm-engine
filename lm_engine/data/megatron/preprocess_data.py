@@ -5,6 +5,8 @@ from __future__ import annotations
 import gzip
 import io
 import json
+import os
+import time
 from typing import Iterator
 
 import pyarrow as pa
@@ -155,5 +157,178 @@ def convert_file(
 
     for key in json_keys:
         builders[key].finalize(get_idx_path(f"{output_prefix}_{key}"))
+
+    return skipped
+
+
+def convert_file_with_meta(
+    tokenizer,
+    input_file: str,
+    output_prefix: str,
+    subset: str | None = None,
+    json_keys: list[str] = ["text"],
+    append_eos_token: bool = True,
+    meta_keys: list[str] | str | None = "all",  # SIDECAR: only addition to the signature
+) -> int:
+    """Tokenize a file and optionally write a per-document metadata sidecar.
+
+    This function is identical to convert_file() when meta_keys is None.
+    When meta_keys is provided, it additionally writes one .meta.jsonl file per
+    json_key: document N in {output_prefix}_{key}.idx corresponds to line N in
+    {output_prefix}_{key}.meta.jsonl.
+
+    Sidecar generation is supported for .jsonl, .jsonl.zst, and .json.gz
+    inputs (formats that carry structured per-document JSON).  For parquet,
+    arrow, and HuggingFace dataset inputs the sidecar is silently skipped
+    because the metadata fields are not available at that stage.
+
+    Parameters
+    ----------
+    tokenizer, input_file, output_prefix, subset, json_keys, append_eos_token:
+        Same as convert_file().
+    meta_keys:
+        Controls which fields are written to the sidecar:
+        - "all" (default): all fields except the tokenized json_keys.
+        - list[str]: specific fields to include (missing ones written as null).
+        - None: no sidecar is written; falls back to plain convert_file().
+
+    Returns
+    -------
+    int
+        Number of skipped lines — same as convert_file().
+    """
+
+    # ── Formats that don't carry per-document JSON metadata ────────────────────
+    # SIDECAR: for these formats we fall back to the original convert_file() so
+    # that all non-sidecar behaviour is identical and tested.
+    sidecar_supported = meta_keys is not None and (  # None → fall back to convert_file(), no sidecar
+        input_file.endswith(".jsonl") or input_file.endswith(".jsonl.zst") or input_file.endswith(".json.gz")
+    )
+    if not sidecar_supported:
+        return convert_file(
+            tokenizer,
+            input_file,
+            output_prefix,
+            subset=subset,
+            json_keys=json_keys,
+            append_eos_token=append_eos_token,
+        )
+
+    encoder = Encoder(tokenizer, json_keys, append_eos_token)
+
+    # ── Raw-line iterators (mirror convert_file() exactly) ─────────────────────
+    # SIDECAR: convert_file() uses map(encoder.encode, lines) which calls
+    # json.loads() internally but discards the parsed dict.  We iterate raw
+    # lines ourselves so we can extract metadata from `data` without parsing
+    # twice.  No efficiency difference — both are lazy one-line-at-a-time.
+    if input_file.endswith(".jsonl"):
+        assert subset is None, "jsonl doesn't support a subset"
+
+        def _jsonl_lines(path):
+            with open(path, "r", encoding="utf-8") as f:
+                yield from f
+
+        lines = _jsonl_lines(input_file)
+
+    elif input_file.endswith(".jsonl.zst"):
+        assert subset is None, "zst jsonl doesn't support a subset"
+
+        def _zstd_lines(path):
+            with open(path, "rb") as compressed:
+                dctx = ZstdDecompressor()
+                with dctx.stream_reader(compressed) as reader:
+                    # 64 MB buffer — matches the value in convert_file().
+                    buffered = io.BufferedReader(reader, buffer_size=64 * 1024 * 1024)
+                    for line in buffered:
+                        yield line.decode("utf-8", errors="replace")
+
+        lines = _zstd_lines(input_file)
+
+    elif input_file.endswith(".json.gz"):
+        assert subset is None, "json.gz doesn't support a subset"
+
+        def _gzip_lines(path):
+            with gzip.open(path, "rt", encoding="utf-8") as f:
+                yield from f
+
+        lines = _gzip_lines(input_file)
+
+    # ── Builders — identical to convert_file() ─────────────────────────────────
+    builders = {
+        key: MMapIndexedDatasetBuilder(
+            get_bin_path(f"{output_prefix}_{key}"),
+            dtype=DType.optimal_dtype(tokenizer.vocab_size),
+        )
+        for key in json_keys
+    }
+
+    # SIDECAR: open one .tmp sidecar per key before the loop.
+    # Writing to .tmp + atomic rename at the end ensures the final .meta.jsonl
+    # only appears once finalize() has succeeded — never in a partial state.
+    meta_tmp = {key: f"{output_prefix}_{key}.meta.jsonl.tmp" for key in json_keys}
+    meta_final = {key: f"{output_prefix}_{key}.meta.jsonl" for key in json_keys}
+    meta_files = {key: open(meta_tmp[key], "w", encoding="utf-8") for key in json_keys}
+
+    skipped = 0
+    fname = os.path.basename(input_file)
+    processed = 0
+    _log_interval = 100_000
+    _next_log = _log_interval
+    _t0 = time.time()
+
+    try:
+        for raw in lines:
+            # SIDECAR: convert_file() calls encoder.encode(raw) which does
+            # json.loads() + _encode_data() but returns only token ids.  We
+            # split the two steps to keep `data` for metadata extraction.
+            # The skip logic (empty dict → increment skipped) is identical.
+            try:
+                data = json.loads(raw)
+                item = encoder._encode_data(data)
+            except (json.JSONDecodeError, KeyError, TypeError):
+                skipped += 1
+                continue
+
+            if not item:  # identical to convert_file()
+                skipped += 1
+                continue
+
+            # SIDECAR: extract metadata once per document, shared across all keys.
+            # "all" → every field except the tokenized json_keys.
+            # list  → only the specified fields (missing ones become null).
+            if meta_keys == "all":
+                meta = {k: v for k, v in data.items() if k not in json_keys}
+            else:
+                meta = {k: data.get(k) for k in meta_keys}
+
+            for key, document in item.items():
+                builders[key].add_item(torch.IntTensor(document))  # identical
+                builders[key].end_document()  # identical
+                # SIDECAR: one sidecar line per (document, key) — keeps the
+                # .meta.jsonl in exact 1:1 correspondence with the .idx.
+                meta_files[key].write(json.dumps(meta, ensure_ascii=False) + "\n")
+
+            processed += 1
+            if processed >= _next_log:
+                elapsed = time.time() - _t0
+                rate = processed / elapsed if elapsed > 0 else 0
+                print(f"[worker] {fname}: {processed:,} lines  ({rate:,.0f} lines/s)", flush=True)
+                _next_log += _log_interval
+
+    finally:
+        # SIDECAR: always close .tmp files.  If we crash mid-loop, .tmp is left
+        # behind but .meta.jsonl is never written — consistent with .idx also
+        # being absent (finalize() below would not have run).
+        for key in json_keys:
+            meta_files[key].close()
+
+    elapsed = time.time() - _t0
+    print(f"[worker] {fname}: done — {processed:,} lines, {skipped:,} skipped, {elapsed:.1f}s", flush=True)
+
+    # ── Finalize — identical to convert_file() ─────────────────────────────────
+    for key in json_keys:
+        builders[key].finalize(get_idx_path(f"{output_prefix}_{key}"))
+        # SIDECAR: atomic rename — sidecar appears at the same moment as .idx.
+        os.replace(meta_tmp[key], meta_final[key])
 
     return skipped
