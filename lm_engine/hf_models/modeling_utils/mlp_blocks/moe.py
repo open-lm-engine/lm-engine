@@ -31,7 +31,7 @@ from .mlp import _get_std_for_linear
 
 if is_xma_available():
     from xma import continuous_count
-    from xma.layers.moe import scattered_experts
+    from xma.layers.moe import down_projection_experts, up_projection_experts
 
 
 if is_sonicmoe_available():
@@ -90,42 +90,6 @@ class ParameterizedExperts(nn.Module):
 
         self.reset_parameters()
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        num_experts_per_token: int | None = None,
-        expert_frequency: torch.Tensor | None = None,
-        sorted_expert_idxs: torch.Tensor | None = None,
-        sorted_scattered_idxs: torch.Tensor | None = None,
-        expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
-    ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.scattermoe):
-            x = scattered_experts(
-                inputs=x,
-                expert_weights=self.weight.permute(0, 2, 1),
-                k=num_experts_per_token,
-                sorted_expert_idxs=sorted_expert_idxs,
-                sorted_scattered_idxs=sorted_scattered_idxs,
-                expert_offsets=expert_offsets,
-                gates=gates,
-                grouped_in=grouped_in,
-                grouped_out=grouped_out,
-            )
-        else:
-            x = x.split(expert_frequency.tolist(), dim=0)
-            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
-            x = torch.cat(x, dim=0)
-
-        return x
-
-    def extra_repr(self) -> str:
-        return "num_experts={}, in_features={}, out_features={}".format(
-            self.num_experts, self.in_features, self.out_features
-        )
-
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.weight, mean=0, std=self.std)
@@ -176,32 +140,28 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         sorted_expert_idxs: torch.Tensor | None = None,
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
     ) -> torch.Tensor:
         if self.is_tp_enabled:
             assert is_kernel_allowed(Kernel.scattermoe)
 
+        weight = dtensor_to_tensor(self.weight)
+
         if is_kernel_allowed(Kernel.scattermoe):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
 
-            x = scattered_experts(
-                inputs=x,
-                expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
+            x = up_projection_experts(
+                x=x,
+                expert_weights=weight.permute(0, 2, 1),
                 k=num_experts_per_token,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                gates=gates,
-                grouped_in=grouped_in,
-                grouped_out=grouped_out,
             )
 
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             x = x.split(expert_frequency.tolist(), dim=0)
-            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
+            x = [F.linear(x[i], weight[i]) for i in range(self.num_experts)]
             x = torch.cat(x, dim=0)
 
         return x
@@ -254,22 +214,33 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
         sorted_expert_idxs: torch.Tensor | None = None,
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
+        router_weights: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        return ColumnParallelExperts.forward(
-            self,
-            x=x,
-            num_experts_per_token=num_experts_per_token,
-            expert_frequency=expert_frequency,
-            sorted_expert_idxs=sorted_expert_idxs,
-            sorted_scattered_idxs=sorted_scattered_idxs,
-            expert_offsets=expert_offsets,
-            gates=gates,
-            grouped_in=grouped_in,
-            grouped_out=grouped_out,
-        )
+        if self.is_tp_enabled:
+            assert is_kernel_allowed(Kernel.scattermoe)
+
+        weight = dtensor_to_tensor(self.weight)
+
+        if is_kernel_allowed(Kernel.scattermoe):
+            x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+
+            x = down_projection_experts(
+                x=x,
+                expert_weights=weight.permute(0, 2, 1),
+                k=num_experts_per_token,
+                sorted_expert_idxs=sorted_expert_idxs,
+                sorted_scattered_idxs=sorted_scattered_idxs,
+                expert_offsets=expert_offsets,
+                router_weights=router_weights,
+            )
+
+            x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
+        else:
+            x = x.split(expert_frequency.tolist(), dim=0)
+            x = [F.linear(x[i], weight[i]) for i in range(self.num_experts)]
+            x = torch.cat(x, dim=0)
+
+        return x
 
     def extra_repr(self) -> str:
         return "num_experts={}, in_features_per_tp_rank={}, out_features={}".format(
@@ -490,7 +461,6 @@ class MoE(DTensorModule):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                grouped_out=True,
             )
 
             x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
@@ -501,8 +471,7 @@ class MoE(DTensorModule):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                grouped_in=True,
-                gates=router_weights,
+                router_weights=router_weights,
             )
 
             x = self.dropout(x)
