@@ -146,13 +146,14 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
             assert is_kernel_allowed(Kernel.scattermoe)
 
         assert gates is None
+        weight = dtensor_to_tensor(self.weight)
 
         if is_kernel_allowed(Kernel.scattermoe):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
 
             x = up_projection_experts(
                 x=x,
-                expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
+                expert_weights=weight.permute(0, 2, 1),
                 k=num_experts_per_token,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
@@ -162,7 +163,7 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             x = x.split(expert_frequency.tolist(), dim=0)
-            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
+            x = [F.linear(x[i], weight[i]) for i in range(self.num_experts)]
             x = torch.cat(x, dim=0)
 
         return x
@@ -220,12 +221,14 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
         if self.is_tp_enabled:
             assert is_kernel_allowed(Kernel.scattermoe)
 
+        weight = dtensor_to_tensor(self.weight)
+
         if is_kernel_allowed(Kernel.scattermoe):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
 
             x = down_projection_experts(
                 x=x,
-                expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
+                expert_weights=weight.permute(0, 2, 1),
                 k=num_experts_per_token,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
@@ -236,7 +239,7 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             x = x.split(expert_frequency.tolist(), dim=0)
-            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
+            x = [F.linear(x[i], weight[i]) for i in range(self.num_experts)]
             x = torch.cat(x, dim=0)
 
         return x
