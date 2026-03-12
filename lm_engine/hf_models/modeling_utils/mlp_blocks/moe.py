@@ -151,7 +151,7 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
 
             x = up_projection_experts(
-                inputs=x,
+                x=x,
                 expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
                 k=num_experts_per_token,
                 sorted_expert_idxs=sorted_expert_idxs,
@@ -224,7 +224,7 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
 
             x = down_projection_experts(
-                inputs=x,
+                x=x,
                 expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
                 k=num_experts_per_token,
                 sorted_expert_idxs=sorted_expert_idxs,
