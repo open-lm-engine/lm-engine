@@ -31,7 +31,7 @@ from .mlp import _get_std_for_linear
 
 if is_xma_available():
     from xma import continuous_count
-    from xma.layers.moe import scattered_experts
+    from xma.layers.moe import down_projection_experts, up_projection_experts
 
 
 if is_sonicmoe_available():
@@ -99,21 +99,29 @@ class ParameterizedExperts(nn.Module):
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
         gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
     ) -> torch.Tensor:
         if is_kernel_allowed(Kernel.scattermoe):
-            x = scattered_experts(
-                inputs=x,
-                expert_weights=self.weight.permute(0, 2, 1),
-                k=num_experts_per_token,
-                sorted_expert_idxs=sorted_expert_idxs,
-                sorted_scattered_idxs=sorted_scattered_idxs,
-                expert_offsets=expert_offsets,
-                gates=gates,
-                grouped_in=grouped_in,
-                grouped_out=grouped_out,
-            )
+            assert self.bias is None
+
+            if gates is None:
+                x = up_projection_experts(
+                    inputs=x,
+                    expert_weights=self.weight.permute(0, 2, 1),
+                    k=num_experts_per_token,
+                    sorted_expert_idxs=sorted_expert_idxs,
+                    sorted_scattered_idxs=sorted_scattered_idxs,
+                    expert_offsets=expert_offsets,
+                )
+            else:
+                x = down_projection_experts(
+                    inputs=x,
+                    expert_weights=self.weight.permute(0, 2, 1),
+                    k=num_experts_per_token,
+                    sorted_expert_idxs=sorted_expert_idxs,
+                    sorted_scattered_idxs=sorted_scattered_idxs,
+                    expert_offsets=expert_offsets,
+                    gates=gates,
+                )
         else:
             x = x.split(expert_frequency.tolist(), dim=0)
             x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
@@ -177,25 +185,22 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
         gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
     ) -> torch.Tensor:
         if self.is_tp_enabled:
             assert is_kernel_allowed(Kernel.scattermoe)
 
+        assert gates is None
+
         if is_kernel_allowed(Kernel.scattermoe):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
 
-            x = scattered_experts(
+            x = up_projection_experts(
                 inputs=x,
                 expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
                 k=num_experts_per_token,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                gates=gates,
-                grouped_in=grouped_in,
-                grouped_out=grouped_out,
             )
 
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
@@ -255,21 +260,30 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
         gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
     ) -> torch.Tensor:
-        return ColumnParallelExperts.forward(
-            self,
-            x=x,
-            num_experts_per_token=num_experts_per_token,
-            expert_frequency=expert_frequency,
-            sorted_expert_idxs=sorted_expert_idxs,
-            sorted_scattered_idxs=sorted_scattered_idxs,
-            expert_offsets=expert_offsets,
-            gates=gates,
-            grouped_in=grouped_in,
-            grouped_out=grouped_out,
-        )
+        if self.is_tp_enabled:
+            assert is_kernel_allowed(Kernel.scattermoe)
+
+        if is_kernel_allowed(Kernel.scattermoe):
+            x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+
+            x = down_projection_experts(
+                inputs=x,
+                expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
+                k=num_experts_per_token,
+                sorted_expert_idxs=sorted_expert_idxs,
+                sorted_scattered_idxs=sorted_scattered_idxs,
+                expert_offsets=expert_offsets,
+                gates=gates,
+            )
+
+            x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
+        else:
+            x = x.split(expert_frequency.tolist(), dim=0)
+            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
+            x = torch.cat(x, dim=0)
+
+        return x
 
     def extra_repr(self) -> str:
         return "num_experts={}, in_features_per_tp_rank={}, out_features={}".format(
@@ -490,7 +504,6 @@ class MoE(DTensorModule):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                grouped_out=True,
             )
 
             x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
@@ -501,7 +514,6 @@ class MoE(DTensorModule):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                grouped_in=True,
                 gates=router_weights,
             )
 
