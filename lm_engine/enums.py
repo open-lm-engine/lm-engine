@@ -65,6 +65,7 @@ class Kernel(Enum):
     cross_entropy = "cross_entropy"
     fused_linear_cross_entropy = "fused_linear_cross_entropy"
     gru = "gru"
+    m2rnn = "m2rnn"
     pack_sequence = "pack_sequence"
     rmsnorm = "rmsnorm"
     rmsnorm_memory_efficient = "rmsnorm_memory_efficient"

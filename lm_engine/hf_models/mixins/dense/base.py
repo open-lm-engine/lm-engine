@@ -217,7 +217,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         for layer_idx in range(self.layer_start_id, self.layer_end_id):
             sequence_mixer_type = self.sequence_mixer_block_types[layer_idx]
-            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
+            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru", "m2rnn", "gated_deltanet"]
 
             if is_linear_layer and not mamba_mask_computed:
                 mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)
