@@ -90,11 +90,6 @@ class ParameterizedExperts(nn.Module):
 
         self.reset_parameters()
 
-    def extra_repr(self) -> str:
-        return "num_experts={}, in_features={}, out_features={}".format(
-            self.num_experts, self.in_features, self.out_features
-        )
-
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.weight, mean=0, std=self.std)
