@@ -87,6 +87,32 @@ class _RNNArgs(BaseArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
+class _M2RNNArgs(BaseArgs):
+    sequence_mixer_type: str = "m2rnn"
+    k_head_dim: int = 16
+    v_head_dim: int = 16
+    num_q_heads: int = 128
+    num_k_heads: int = 128
+    num_v_heads: int = 128
+    num_f_heads: int = 128
+    num_g_heads: int = 128
+    num_weight_heads: int = 128
+    use_residual: bool = True
+    kernel_size: int | None = None
+    activation_function: str | None = None
+    add_bias: bool = False
+    gradient_clipping: float | None = None
+    normalization_function: str | None = None
+    A_init_min: float = 0
+    A_init_max: float = 16
+    dt_init_min: float = 1e-3
+    dt_init_max: float = 0.1
+    dt_init_floor: float = 1e-4
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "m2rnn"
+
+
 class _CausalConvolution(BaseArgs):
     sequence_mixer_type: str = "causal_convolution"
     activation_function: str = "silu"

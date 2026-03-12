@@ -206,7 +206,7 @@ def get_model_tflops(
         elif sequence_mixer_type == "gated_deltanet":
             return 0
         else:
-            raise NotImplementedError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
+            return 0
 
         total_flops += sequence_mixer_flops
 
