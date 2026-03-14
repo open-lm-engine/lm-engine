@@ -22,6 +22,7 @@ from ...parameter import (
 from ..activations import clip_gradients, get_activation_function, is_glu, sigmoid, tanh
 from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
+from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
@@ -95,9 +96,7 @@ class GRU(nn.Module):
         self.xr_shape = self.num_reset_input_heads * self.state_head_dim
         self.g_shape = self.num_heads * self.state_head_dim
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
+        std = _get_std_for_linear(initializer_range, init_method, m_width)
         self.state_weight_std = std
 
         self.input_projection = ParameterizedLinear(
@@ -129,10 +128,9 @@ class GRU(nn.Module):
             )
         )
 
-        std = initializer_range / math.sqrt(2 * num_layers)
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-        self.output_projection = ParameterizedLinear(self.state_size, output_size, bias=False, std=std)
+        self.output_projection = ParameterizedLinear(
+            self.state_size, output_size, bias=False, std=std / math.sqrt(2 * num_layers)
+        )
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
 
