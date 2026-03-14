@@ -18,6 +18,7 @@ from ...cache import GenerationCache
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
 from ..linear import ParameterizedLinear
+from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
@@ -77,9 +78,7 @@ class GatedDeltaNet(nn.Module):
 
         divide_if_divisible(self.num_v_heads, self.num_k_heads)
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
+        std = _get_std_for_linear(initializer_range, init_method, m_width)
         self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=std)
 
         self.ab_proj = ParameterizedLinear(
@@ -111,11 +110,7 @@ class GatedDeltaNet(nn.Module):
         self.activation_string = "silu"
 
         self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
-
-        std = initializer_range / math.sqrt(2 * num_layers)
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-        self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False, std=std)
+        self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False, std=std / math.sqrt(2 * num_layers))
 
     def forward(
         self,

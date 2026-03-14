@@ -26,6 +26,7 @@ from ..activations import clip_gradients, is_glu, tanh
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
 from ..linear import ParameterizedLinear
+from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
@@ -102,9 +103,7 @@ class M2RNN(nn.Module):
 
         self.conv_dim = self.q_shape + self.k_shape + self.v_shape
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
+        std = _get_std_for_linear(initializer_range, init_method, m_width)
 
         self.input_projection = ParameterizedLinear(
             self.input_size, self.conv_dim + self.num_f_heads + self.g_shape, bias=add_bias, std=std
@@ -144,11 +143,9 @@ class M2RNN(nn.Module):
             mark_parameter_as_no_weight_decay(self.D)
 
         self.state_weight = nn.Parameter(torch.empty(self.num_weight_heads, self.v_head_dim, self.v_head_dim))
-
-        std = initializer_range / math.sqrt(2 * num_layers)
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-        self.output_projection = ParameterizedLinear(self.g_shape, self.output_size, bias=False, std=std)
+        self.output_projection = ParameterizedLinear(
+            self.g_shape, self.output_size, bias=False, std=std / math.sqrt(2 * num_layers)
+        )
 
         self.g_norm = get_normalization_function(normalization_function, self.num_heads * self.v_head_dim)
 

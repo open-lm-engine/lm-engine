@@ -18,6 +18,7 @@ from ..chunk import contiguous_split
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
 from ..linear import ColumnParallelLinear, RowParallelLinear
+from ..mlp_blocks.mlp import _get_std_for_linear
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
 
@@ -129,9 +130,7 @@ class Attention(DTensorModule):
             f"`num_key_value_heads` ({self.global_num_key_value_heads}) must be divisible by `tensor_parallel_world_size` ({self.tp_world_size})",
         )
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
+        std = _get_std_for_linear(initializer_range, init_method, m_width)
 
         self.c_attn = ColumnParallelLinear(
             self.global_hidden_size,
@@ -143,10 +142,6 @@ class Attention(DTensorModule):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
-
-        std = initializer_range / math.sqrt(2 * num_layers)
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
 
         self.c_proj = RowParallelLinear(
             self.global_hidden_size,
