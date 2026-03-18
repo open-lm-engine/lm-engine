@@ -42,7 +42,7 @@ mamba2 = [
     "mamba-ssm>=2.2.6.post3",
 ]
 tpu = [
-    "torch==2.9.0",
+    "torch==2.10.0",
     "torch-xla[pallas,tpu]==2.9.0",
 ]
 data = [
