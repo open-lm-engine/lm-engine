@@ -70,6 +70,7 @@ class Kernel(Enum):
     rmsnorm = "rmsnorm"
     rmsnorm_memory_efficient = "rmsnorm_memory_efficient"
     rnn = "rnn"
+    scattermoe = "scattermoe"
     swiglu_packed = "swiglu_packed"
     unpack_sequence = "unpack_sequence"
     # external kernels
@@ -77,6 +78,4 @@ class Kernel(Enum):
     flash_attention_3 = "flash_attention_3"
     flash_attention_4 = "flash_attention_4"
     mamba2_ssm = "mamba2_ssm"
-    scattermoe = "scattermoe"
-    # sonicmoe
     sonicmoe = "sonicmoe"
