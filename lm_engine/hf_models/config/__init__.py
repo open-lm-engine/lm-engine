@@ -10,7 +10,7 @@ from typing import Any, Callable
 from transformers import PretrainedConfig
 
 from ...utils import BaseArgs, divide_if_divisible
-from .mlp import _MLPArgs, _MoEArgs
+from .mlp import _DeltaMLPArgs, _MLPArgs, _MoEArgs
 from .sequence_mixer import (
     _CausalConvolution,
     _GatedDeltaNetArgs,
@@ -46,7 +46,7 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "gated_deltanet": _GatedDeltaNetArgs,
 }
 
-_MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
+_MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs, "DeltaMLP": _DeltaMLPArgs}
 
 
 class CommonConfig(PretrainedConfig):
@@ -199,7 +199,7 @@ class CommonConfig(PretrainedConfig):
         if self.mlp_blocks is None:
             self.mlp_blocks = [{} for _ in range(self.num_layers)]
 
-        mlp_blocks: list[_MLPArgs | _MoEArgs] = []
+        mlp_blocks: list[_MLPArgs | _MoEArgs | _DeltaMLPArgs] = []
         for i in range(self.num_layers):
             mlp_block = deepcopy(self.mlp_blocks[i])
             mlp_block["intermediate_size"] = mlp_block.pop("intermediate_size", 4 * self.hidden_size)

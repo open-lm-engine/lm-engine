@@ -5,6 +5,7 @@
 from typing import Any
 
 from ...utils import BaseArgs
+from .sequence_mixer import _SoftPlusDecayArgs
 
 
 class _MLPArgs(BaseArgs):
@@ -31,3 +32,28 @@ class _MoEArgs(_MLPArgs):
 
     def model_post_init(self, __context: Any) -> None:
         assert self.mlp_type == "MoE"
+
+
+class _DeltaMLPArgs(_MLPArgs, _SoftPlusDecayArgs):
+    mlp_type: str = "DeltaMLP"
+    num_ranks: int
+    num_heads: int
+    use_v_proj: bool
+    use_q_l2norm: bool
+    use_shortconv: bool
+    use_head_norm: bool
+    use_tied_beta: bool
+    use_decay_beta: bool
+    use_mlp_stream: bool
+    use_input_gate: bool
+    use_output_gate: bool
+    use_output_norm: bool
+    use_zero_init_k: bool
+    allow_neg_eigval: bool
+    kernel_size: int
+
+    def model_post_init(self, __context: object) -> None:
+        assert self.mlp_type == "DeltaMLP"
+        assert self.A_init_min >= 0
+        assert self.A_init_min <= self.A_init_max
+        assert self.dt_init_min <= self.dt_init_max

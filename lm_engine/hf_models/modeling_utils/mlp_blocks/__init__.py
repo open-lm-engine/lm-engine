@@ -3,13 +3,14 @@
 # **************************************************
 
 from ...config import CommonConfig
+from .delta import DeltaMLP
 from .mlp import MLP, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_for_mlp
 from .moe import MoE, ParameterizedExperts
 
 
 def get_mlp_block(
     config: CommonConfig, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
-) -> MLP | MoE:
+) -> MLP | MoE | DeltaMLP:
     block = config.mlp_blocks[layer_idx]
     mlp_type = block.mlp_type
 
@@ -39,6 +40,32 @@ def get_mlp_block(
             normalized_topk=block.normalized_topk,
             num_experts=block.num_experts,
             num_experts_per_tok=block.num_experts_per_tok,
+        )
+    elif mlp_type == "DeltaMLP":
+        mlp = DeltaMLP(
+            **kwargs,
+            num_ranks=block.num_ranks,
+            num_heads=block.num_heads,
+            use_v_proj=block.use_v_proj,
+            use_q_l2norm=block.use_q_l2norm,
+            use_shortconv=block.use_shortconv,
+            use_head_norm=block.use_head_norm,
+            use_tied_beta=block.use_tied_beta,
+            use_decay_beta=block.use_decay_beta,
+            use_mlp_stream=block.use_mlp_stream,
+            use_input_gate=block.use_input_gate,
+            use_output_gate=block.use_output_gate,
+            use_output_norm=block.use_output_norm,
+            use_zero_init_k=block.use_zero_init_k,
+            allow_neg_eigval=block.allow_neg_eigval,
+            conv_size=block.kernel_size,
+            layer_idx=layer_idx,
+            norm_eps=config.layer_norm_epsilon,
+            A_init_min=block.A_init_min,
+            A_init_max=block.A_init_max,
+            dt_init_min=block.dt_init_min,
+            dt_init_max=block.dt_init_max,
+            dt_init_floor=block.dt_init_floor,
         )
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")

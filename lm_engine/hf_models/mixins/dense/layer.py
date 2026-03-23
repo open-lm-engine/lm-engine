@@ -24,6 +24,7 @@ class Block(nn.Module):
 
         hidden_size = config.hidden_size
         self.m_residual = config.m_residual
+        self.mlp_type = config.mlp_blocks[layer_idx].mlp_type
         self.sequence_mixer_type = config.sequence_mixer_blocks[layer_idx].sequence_mixer_type
 
         self.ln_1 = get_normalization_function(
@@ -85,12 +86,43 @@ class Block(nn.Module):
         r = x
 
         x = self.ln_2(x)
-        x = self.mlp_block(x)
+        x = self._mlp_forward(
+            x=x,
+            past_key_values=past_key_values,
+            attention_mask=attention_mask,
+            rope_cos_sin=rope_cos_sin,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+        )
 
         if self.m_residual is not None:
             x = x * self.m_residual
 
         x = x + r
+
+        return x
+
+    def _mlp_forward(
+        self,
+        x: torch.Tensor,
+        past_key_values: GenerationCache | None = None,
+        attention_mask: torch.Tensor | None = None,
+        rope_cos_sin: torch.Tensor | None = None,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
+    ) -> torch.Tensor:
+        if self.mlp_type in ["MLP", "MoE"]:
+            x = self.mlp_block(x)
+        elif self.mlp_type == "DeltaMLP":
+            x = self.mlp_block(
+                x,
+                cache_params=past_key_values,
+                attention_mask=attention_mask,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
+        else:
+            raise ValueError(f"unexpected mlp_type ({self.mlp_type})")
 
         return x
 
