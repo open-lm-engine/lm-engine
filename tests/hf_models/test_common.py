@@ -78,51 +78,6 @@ class TestCommons(BaseTestCommons):
             self.skipTest("LayerNormKernelImpl not implemented for Half")
 
     @staticmethod
-    def get_dense_test_config(
-        position_embedding_type: str,
-        num_layers: int = 8,
-        add_bias: bool = True,
-        activation_function: str = "gelu_pytorch_tanh",
-        normalization_function: str = "layernorm",
-        m_emb: float = None,
-        m_width: float = None,
-        m_residual: float = None,
-        attention_multiplier: float = None,
-        num_attention_heads: int = 4,
-    ) -> GPTBaseConfig:
-        num_key_value_heads = 2
-
-        return GPTBaseConfig(
-            vocab_size=2048,
-            max_position_embeddings=1024,
-            hidden_size=32,
-            num_layers=num_layers,
-            position_embedding_type=position_embedding_type,
-            normalization_function=normalization_function,
-            tie_word_embeddings=False,
-            bos_token_id=0,
-            eos_token_id=1,
-            pad_token_id=2,
-            m_emb=m_emb,
-            m_width=m_width,
-            m_residual=m_residual,
-            sequence_mixer_blocks=[
-                {
-                    "sequence_mixer_type": "softmax_attention",
-                    "add_bias": add_bias,
-                    "num_attention_heads": num_attention_heads,
-                    "num_key_value_heads": num_key_value_heads,
-                    "attention_multiplier": attention_multiplier,
-                }
-                for _ in range(num_layers)
-            ],
-            mlp_blocks=[
-                {"mlp_type": "MLP", "activation_function": activation_function, "add_bias": add_bias}
-                for _ in range(num_layers)
-            ],
-        )
-
-    @staticmethod
     def get_moe_test_config(
         position_embedding_type: str,
         num_layers: int = 8,
