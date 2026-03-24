@@ -9,8 +9,7 @@ from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available
 
-from ...test_common import skip_test_if_device_unavailable
-from ...utils import from_config, get_dense_test_config, get_dummy_inputs
+from ...utils import from_config, get_dense_test_config, get_dummy_inputs, skip_test_if_device_unavailable
 
 
 @pytest.mark.parametrize("device", [torch.device("cuda")])
@@ -33,5 +32,5 @@ def test_no_attention_mask_flash_attention(device: torch.device) -> None:
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    with enable_kernels([kernel]):
-        pytest.assertRaises(AssertionError, model, input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    with enable_kernels([kernel]), pytest.raises(AssertionError):
+        model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
