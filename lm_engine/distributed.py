@@ -152,7 +152,11 @@ def wrap_model_container_for_distributed_training(
 
     if fsdp_algorithm is None:
         for i, model in enumerate(model_container):
-            model_container[i] = model.to(Accelerator.get_current_device())
+            model = model.to(Accelerator.get_current_device())
+            if torch_compile:
+                model = torch.compile(model)
+
+            model_container[i] = model
 
         return model_container, None
 
