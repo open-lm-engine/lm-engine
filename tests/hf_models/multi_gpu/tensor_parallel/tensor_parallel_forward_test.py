@@ -33,11 +33,8 @@ def test_tensor_parallel_forward(
 ) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
 
-    if (attention_implementation, dtype) not in [
-        ("sdpa", torch.float32),
-        ("flash_attention_2", torch.float16),
-        ("flash_attention_3", torch.float16),
-        ("flash_attention_4", torch.float16),
+    if (attention_implementation, dtype) not in [("sdpa", torch.float32)] + [
+        (f"flash_attention_{i}", torch.float16) for i in range(2, 5)
     ]:
         pytest.skip("skipping test since running all takes too long")
 
