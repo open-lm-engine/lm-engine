@@ -21,4 +21,3 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
     elif accelerator == Accelerator.mps:
         torch.mps.manual_seed(seed)
-        torch.mps.seed(seed)
