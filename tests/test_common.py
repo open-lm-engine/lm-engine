@@ -4,7 +4,7 @@
 
 import os
 from itertools import product
-from typing import Any, Callable
+from typing import Callable
 from unittest import TestCase, skipUnless
 
 import pytest
@@ -24,17 +24,6 @@ def skip_test_if_device_unavailable(device: torch.device) -> None:
 
 
 class BaseTestCommons(TestCase):
-    @staticmethod
-    def get_all_devices() -> list[torch.device]:
-        return [torch.device("cpu"), torch.device("cuda")]
-
-    @staticmethod
-    def get_dtypes() -> list[torch.dtype]:
-        return [torch.float32, torch.float16, torch.bfloat16]
-
-    def make_args_matrix(*args_lists) -> list[Any]:
-        return [p for p in product(*args_lists)]
-
     @staticmethod
     def slow_test(func: Callable) -> Callable:
         return skipUnless(_RUN_SLOW, "skipping slow test since RUN_SLOW=True is not set in the environment")(func)
