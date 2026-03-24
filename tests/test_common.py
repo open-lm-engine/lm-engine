@@ -3,7 +3,6 @@
 # **************************************************
 
 import os
-from itertools import product
 from typing import Callable
 from unittest import TestCase, skipUnless
 
