@@ -13,7 +13,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingface, import_from_huggingface
 from lm_engine.utils import SafeTensorsWeightsManager
 
-from ..test_common import BaseTestCommons, skip_test_if_device_unavailable
+from ..test_common import skip_test_if_device_unavailable
 
 
 _DEBUG = False
@@ -290,9 +290,3 @@ def model_conversion_test(
             rtol_bfloat16=loss_rtol_bfloat16,
             atol_bfloat16=loss_atol_bfloat16,
         )
-
-
-class TestCommons(BaseTestCommons):
-    @staticmethod
-    def get_position_embedding_types() -> list[str]:
-        return ["learned_absolute", "rope"]
