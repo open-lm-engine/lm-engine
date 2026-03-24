@@ -4,12 +4,12 @@
 
 import pytest
 import torch
-from parameterized import parameterized
 
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available
 
+from ...test_common import skip_test_if_device_unavailable
 from ..test_common import from_config, get_dense_test_config, get_dummy_inputs
 
 
