@@ -190,11 +190,9 @@ def train_step_without_pipeline_parallel(
 
     no_sync = nullcontext
     if not sync_every_gradient_accumulation_step:
-        if fsdp_algorithm is None:
-            pass
-        elif fsdp_algorithm == 1:
+        if fsdp_algorithm == 1:
             no_sync = model.no_sync
-        else:
+        elif fsdp_algorithm == 2:
             model.set_requires_gradient_sync(False)
 
     metrics_tracker = MetricsTrackingDict({})
