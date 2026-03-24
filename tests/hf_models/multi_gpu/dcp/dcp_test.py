@@ -8,7 +8,7 @@ import tempfile
 import torch
 from parameterized import parameterized
 
-from ...utils import TestCommons
+from ....utils import TestCommons
 
 
 class DCPTest(TestCommons):

@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from ...test_common import skip_test_if_device_unavailable
-from ..utils import from_config, get_dense_test_config, get_dummy_inputs, get_moe_test_config
+from ...utils import from_config, get_dense_test_config, get_dummy_inputs, get_moe_test_config
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])

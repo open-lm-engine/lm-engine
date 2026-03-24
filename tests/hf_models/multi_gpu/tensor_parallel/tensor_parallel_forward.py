@@ -20,7 +20,7 @@ from lm_engine.utils import (
     string_to_torch_dtype,
 )
 
-from ...utils import TestCommons
+from ....utils import TestCommons
 
 
 parser = argparse.ArgumentParser()

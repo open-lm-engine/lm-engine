@@ -13,7 +13,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingface, import_from_huggingface
 from lm_engine.utils import SafeTensorsWeightsManager
 
-from ..test_common import skip_test_if_device_unavailable
+from .test_common import skip_test_if_device_unavailable
 
 
 _DEBUG = False

@@ -15,7 +15,7 @@ from lm_engine.hf_models import GPTBaseConfig, fix_unsharded_state_dict, unshard
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import Communication, ProcessGroupManager
 
-from ...utils import TestCommons
+from ....utils import TestCommons
 
 
 parser = argparse.ArgumentParser()
