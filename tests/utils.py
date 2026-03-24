@@ -5,7 +5,10 @@
 import json
 import os
 import tempfile
+from typing import Callable
+from unittest import skipUnless
 
+import pytest
 import torch
 from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM
@@ -13,10 +16,22 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingface, import_from_huggingface
 from lm_engine.utils import SafeTensorsWeightsManager
 
-from .test_common import skip_test_if_device_unavailable
-
 
 _DEBUG = False
+_RUN_SLOW = True if os.getenv("RUN_SLOW", "False").lower() in ["1", "true"] else False
+
+
+def skip_test_if_device_unavailable(device: torch.device) -> None:
+    # convert to str
+    if isinstance(device, torch.device):
+        device = device.type
+
+    if device == "cuda" and not torch.cuda.is_available():
+        pytest.skip("skipping test because CUDA is unavailable")
+
+
+def slow_test(func: Callable) -> Callable:
+    return skipUnless(_RUN_SLOW, "skipping slow test since RUN_SLOW=True is not set in the environment")(func)
 
 
 def get_dense_test_config(
