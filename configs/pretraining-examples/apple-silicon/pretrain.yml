@@ -12,10 +12,8 @@ datasets:
       data_cache_path: cache
       # Option 1: data loading using --data-path with single file
       data_path:
-        - data_text
-      split: 99.5,0.5,0
-      #   - data/lang=Matlab
-      # split: 98,1,1
+        - data/lang=Matlab
+      split: 98,1,1
       sequence_length: 2048
 
 tokenizer_args:
