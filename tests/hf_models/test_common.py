@@ -13,7 +13,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from lm_engine.hf_models import CommonConfig, GPTBaseConfig, export_to_huggingface, import_from_huggingface
 from lm_engine.utils import SafeTensorsWeightsManager
 
-from ..test_common import BaseTestCommons
+from ..test_common import BaseTestCommons, skip_test_if_device_unavailable
 
 
 _DEBUG = False
@@ -152,133 +152,6 @@ def from_config(self, config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
     return model
 
 
-class TestCommons(BaseTestCommons):
-    @staticmethod
-    def get_position_embedding_types() -> list[str]:
-        return ["learned_absolute", "rope"]
-
-    def skip_test_if_layernorm_kernel_unavailable(self, device: torch.device, dtype: torch.dtype) -> None:
-        # convert to str
-        if isinstance(device, torch.device):
-            device = device.type
-
-        if device == "cpu" and dtype == torch.float16:
-            self.skipTest("LayerNormKernelImpl not implemented for Half")
-
-    def model_conversion_test(
-        self,
-        lm_engine_config: CommonConfig,
-        model_type: str,
-        device: torch.device,
-        exact_match: bool = True,
-        compare_loss: bool = True,
-        logits_rtol_float32: float = 0,
-        logits_atol_float32: float = 3e-7,
-        logits_rtol_float16: float = 0,
-        logits_atol_float16: float = 3e-7,
-        logits_rtol_bfloat16: float = 0,
-        logits_atol_bfloat16: float = 3e-7,
-        loss_rtol_float32: float = 0,
-        loss_atol_float32: float = 1e-5,
-        loss_rtol_float16: float = 0,
-        loss_atol_float16: float = 1e-5,
-        loss_rtol_bfloat16: float = 0,
-        loss_atol_bfloat16: float = 1e-5,
-        weight_test_only: bool = False,
-        **kwargs,
-    ) -> None:
-        self.skip_test_if_device_unavailable(device)
-
-        lm_engine_model = self.from_config(lm_engine_config).to(device)
-        lm_engine_model.eval()
-
-        if _DEBUG:
-            print(lm_engine_model)
-
-        with tempfile.TemporaryDirectory() as tmp_path:
-            save_path = os.path.join(tmp_path, "save")
-            export_path = os.path.join(tmp_path, "export")
-            import_path = os.path.join(tmp_path, "import")
-
-            lm_engine_model.save_pretrained(save_path, safe_serialization=True)
-
-            export_to_huggingface(save_path, model_type, export_path)
-            import_from_huggingface(export_path, import_path, **kwargs)
-
-            assert self.compare_saved_models(save_path, import_path)
-
-            hf_model = AutoModelForCausalLM.from_pretrained(export_path).to(device)
-            hf_model.eval()
-
-        if weight_test_only:
-            return
-
-        input_ids, attention_mask, labels = self.get_dummy_inputs(device)
-
-        if _DEBUG:
-            print(hf_model)
-
-        hf_output = hf_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True)
-        hf_logits = hf_output.logits
-        hf_loss = hf_output.loss
-
-        lm_engine_output = lm_engine_model(
-            input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True
-        )
-        lm_engine_logits = lm_engine_output.logits
-        lm_engine_loss = lm_engine_output.loss
-
-        # we don't care about what happens on masked values (they don't match btw)
-        hf_logits[attention_mask == 0] = 0
-        lm_engine_logits[attention_mask == 0] = 0
-
-        self.assert_equal_tensors(
-            lm_engine_logits,
-            hf_logits,
-            exact_match,
-            rtol_float32=logits_rtol_float32,
-            atol_float32=logits_atol_float32,
-            rtol_float16=logits_rtol_float16,
-            atol_float16=logits_atol_float16,
-            rtol_bfloat16=logits_rtol_bfloat16,
-            atol_bfloat16=logits_atol_bfloat16,
-        )
-
-        if compare_loss:
-            self.assert_equal_tensors(
-                lm_engine_loss,
-                hf_loss,
-                exact_match,
-                rtol_float32=loss_rtol_float32,
-                atol_float32=loss_atol_float32,
-                rtol_float16=loss_rtol_float16,
-                atol_float16=loss_atol_float16,
-                rtol_bfloat16=loss_rtol_bfloat16,
-                atol_bfloat16=loss_atol_bfloat16,
-            )
-
-    @staticmethod
-    def compare_saved_models(path1: str, path2: str) -> bool:
-        config1 = json.load(open(os.path.join(path1, "config.json"), "r"))
-        config2 = json.load(open(os.path.join(path2, "config.json"), "r"))
-
-        if _DEBUG:
-            json.dump(config1, open("c1.json", "w"), indent=4)
-            json.dump(config2, open("c2.json", "w"), indent=4)
-
-        for key in ["architectures", "dtype"]:
-            config1.pop(key, None)
-            config2.pop(key, None)
-
-        if config1 == config2:
-            weights1 = SafeTensorsWeightsManager(path1)
-            weights2 = SafeTensorsWeightsManager(path2)
-
-            return weights1 == weights2
-
-        return False
-
-
 def assert_equal_tensors(
     x: torch.Tensor,
     y: torch.Tensor,
@@ -304,3 +177,130 @@ def assert_equal_tensors(
             assert_close(x, y, rtol=rtol_bfloat16, atol=atol_bfloat16)
         else:
             raise ValueError(f"unexpected dtype ({dtype})")
+
+
+def _compare_saved_models(path1: str, path2: str) -> bool:
+    config1 = json.load(open(os.path.join(path1, "config.json"), "r"))
+    config2 = json.load(open(os.path.join(path2, "config.json"), "r"))
+
+    if _DEBUG:
+        json.dump(config1, open("c1.json", "w"), indent=4)
+        json.dump(config2, open("c2.json", "w"), indent=4)
+
+    for key in ["architectures", "dtype"]:
+        config1.pop(key, None)
+        config2.pop(key, None)
+
+    if config1 == config2:
+        weights1 = SafeTensorsWeightsManager(path1)
+        weights2 = SafeTensorsWeightsManager(path2)
+
+        return weights1 == weights2
+
+    return False
+
+
+def model_conversion_test(
+    lm_engine_config: CommonConfig,
+    model_type: str,
+    device: torch.device,
+    exact_match: bool = True,
+    compare_loss: bool = True,
+    logits_rtol_float32: float = 0,
+    logits_atol_float32: float = 3e-7,
+    logits_rtol_float16: float = 0,
+    logits_atol_float16: float = 3e-7,
+    logits_rtol_bfloat16: float = 0,
+    logits_atol_bfloat16: float = 3e-7,
+    loss_rtol_float32: float = 0,
+    loss_atol_float32: float = 1e-5,
+    loss_rtol_float16: float = 0,
+    loss_atol_float16: float = 1e-5,
+    loss_rtol_bfloat16: float = 0,
+    loss_atol_bfloat16: float = 1e-5,
+    weight_test_only: bool = False,
+    **kwargs,
+) -> None:
+    skip_test_if_device_unavailable(device)
+
+    lm_engine_model = from_config(lm_engine_config).to(device)
+    lm_engine_model.eval()
+
+    if _DEBUG:
+        print(lm_engine_model)
+
+    with tempfile.TemporaryDirectory() as tmp_path:
+        save_path = os.path.join(tmp_path, "save")
+        export_path = os.path.join(tmp_path, "export")
+        import_path = os.path.join(tmp_path, "import")
+
+        lm_engine_model.save_pretrained(save_path, safe_serialization=True)
+
+        export_to_huggingface(save_path, model_type, export_path)
+        import_from_huggingface(export_path, import_path, **kwargs)
+
+        assert _compare_saved_models(save_path, import_path)
+
+        hf_model = AutoModelForCausalLM.from_pretrained(export_path).to(device)
+        hf_model.eval()
+
+    if weight_test_only:
+        return
+
+    input_ids, attention_mask, labels = get_dummy_inputs(device)
+
+    if _DEBUG:
+        print(hf_model)
+
+    hf_output = hf_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True)
+    hf_logits = hf_output.logits
+    hf_loss = hf_output.loss
+
+    lm_engine_output = lm_engine_model(
+        input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True
+    )
+    lm_engine_logits = lm_engine_output.logits
+    lm_engine_loss = lm_engine_output.loss
+
+    # we don't care about what happens on masked values (they don't match btw)
+    hf_logits[attention_mask == 0] = 0
+    lm_engine_logits[attention_mask == 0] = 0
+
+    assert_equal_tensors(
+        lm_engine_logits,
+        hf_logits,
+        exact_match,
+        rtol_float32=logits_rtol_float32,
+        atol_float32=logits_atol_float32,
+        rtol_float16=logits_rtol_float16,
+        atol_float16=logits_atol_float16,
+        rtol_bfloat16=logits_rtol_bfloat16,
+        atol_bfloat16=logits_atol_bfloat16,
+    )
+
+    if compare_loss:
+        assert_equal_tensors(
+            lm_engine_loss,
+            hf_loss,
+            exact_match,
+            rtol_float32=loss_rtol_float32,
+            atol_float32=loss_atol_float32,
+            rtol_float16=loss_rtol_float16,
+            atol_float16=loss_atol_float16,
+            rtol_bfloat16=loss_rtol_bfloat16,
+            atol_bfloat16=loss_atol_bfloat16,
+        )
+
+
+class TestCommons(BaseTestCommons):
+    @staticmethod
+    def get_position_embedding_types() -> list[str]:
+        return ["learned_absolute", "rope"]
+
+    def skip_test_if_layernorm_kernel_unavailable(self, device: torch.device, dtype: torch.dtype) -> None:
+        # convert to str
+        if isinstance(device, torch.device):
+            device = device.type
+
+        if device == "cpu" and dtype == torch.float16:
+            self.skipTest("LayerNormKernelImpl not implemented for Half")
