@@ -31,7 +31,7 @@ class TorchProfiler:
         self._step = 0
 
         self._profiler = None
-        if self.accelerator != Accelerator.tpu:
+        if self.accelerator not in (Accelerator.mps, Accelerator.tpu):
             self._profiler = torch.profiler.profile(
                 activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
                 schedule=torch.profiler.schedule(
@@ -54,12 +54,20 @@ class TorchProfiler:
             self._profiler.__exit__(exc_type, exc_val, exc_tb)
 
     def step(self) -> None:
-        if self.path is not None and self.accelerator == Accelerator.tpu:
+        if self.path is not None:
             self._step += 1
-            if self._step == self.start_step:
-                xla_start_trace(self.path)
-            elif self._step == self.end_step:
-                xla_stop_trace()
-                self.path = None
+
+            if self.accelerator in (Accelerator.mps, Accelerator.tpu):
+                if self._step == self.start_step:
+                    if self.accelerator == Accelerator.mps:
+                        torch.mps.profiler.start(mode="interval", wait_until_completed=False)
+                    else:
+                        xla_start_trace(self.path)
+                elif self._step == self.end_step:
+                    if self.accelerator == Accelerator.mps:
+                        torch.mps.profiler.stop()
+                    else:
+                        xla_stop_trace()
+                    self.path = None
         elif self._profiler is not None:
             self._profiler.step()
