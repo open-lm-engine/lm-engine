@@ -64,6 +64,63 @@ def get_dense_test_config(
     )
 
 
+def get_moe_test_config(
+    position_embedding_type: str,
+    num_layers: int = 8,
+    num_experts: int = 8,
+    num_experts_per_tok: int = 8,
+    add_bias: bool = False,
+    shared_n_inner: int | None = None,
+    activation_function: str = "gelu_pytorch_tanh",
+    normalization_function: str = "layernorm",
+    m_emb: float = None,
+    m_width: float = None,
+    m_residual: float = None,
+    attention_multiplier: float = None,
+    num_attention_heads: int = 4,
+    shared_expert_gating: bool = False,
+    normalized_topk: bool = True,
+) -> GPTBaseConfig:
+    num_key_value_heads = 2
+
+    sequence_mixer = {
+        "sequence_mixer_type": "softmax_attention",
+        "add_bias": add_bias,
+        "num_attention_heads": num_attention_heads,
+        "num_key_value_heads": num_key_value_heads,
+        "attention_multiplier": attention_multiplier,
+    }
+
+    return GPTBaseConfig(
+        vocab_size=2048,
+        max_position_embeddings=1024,
+        hidden_size=32,
+        num_layers=num_layers,
+        position_embedding_type=position_embedding_type,
+        normalization_function=normalization_function,
+        tie_word_embeddings=False,
+        bos_token_id=0,
+        eos_token_id=1,
+        pad_token_id=2,
+        m_emb=m_emb,
+        m_width=m_width,
+        m_residual=m_residual,
+        sequence_mixer_blocks=[sequence_mixer for _ in range(num_layers)],
+        mlp_blocks=[
+            {
+                "mlp_type": "MoE",
+                "num_experts": num_experts,
+                "num_experts_per_tok": num_experts_per_tok,
+                "normalized_topk": normalized_topk,
+                "activation_function": activation_function,
+                "shared_intermediate_size": None if shared_n_inner is None else shared_n_inner,
+                "shared_expert_gating": shared_expert_gating,
+            }
+            for _ in range(num_layers)
+        ],
+    )
+
+
 def get_dummy_inputs(device: torch.device, return_list: bool = False) -> tuple[torch.Tensor | list[int]]:
     if return_list:
         # needed for flash attention
@@ -107,63 +164,6 @@ class TestCommons(BaseTestCommons):
 
         if device == "cpu" and dtype == torch.float16:
             self.skipTest("LayerNormKernelImpl not implemented for Half")
-
-    @staticmethod
-    def get_moe_test_config(
-        position_embedding_type: str,
-        num_layers: int = 8,
-        num_experts: int = 8,
-        num_experts_per_tok: int = 8,
-        add_bias: bool = False,
-        shared_n_inner: int | None = None,
-        activation_function: str = "gelu_pytorch_tanh",
-        normalization_function: str = "layernorm",
-        m_emb: float = None,
-        m_width: float = None,
-        m_residual: float = None,
-        attention_multiplier: float = None,
-        num_attention_heads: int = 4,
-        shared_expert_gating: bool = False,
-        normalized_topk: bool = True,
-    ) -> GPTBaseConfig:
-        num_key_value_heads = 2
-
-        sequence_mixer = {
-            "sequence_mixer_type": "softmax_attention",
-            "add_bias": add_bias,
-            "num_attention_heads": num_attention_heads,
-            "num_key_value_heads": num_key_value_heads,
-            "attention_multiplier": attention_multiplier,
-        }
-
-        return GPTBaseConfig(
-            vocab_size=2048,
-            max_position_embeddings=1024,
-            hidden_size=32,
-            num_layers=num_layers,
-            position_embedding_type=position_embedding_type,
-            normalization_function=normalization_function,
-            tie_word_embeddings=False,
-            bos_token_id=0,
-            eos_token_id=1,
-            pad_token_id=2,
-            m_emb=m_emb,
-            m_width=m_width,
-            m_residual=m_residual,
-            sequence_mixer_blocks=[sequence_mixer for _ in range(num_layers)],
-            mlp_blocks=[
-                {
-                    "mlp_type": "MoE",
-                    "num_experts": num_experts,
-                    "num_experts_per_tok": num_experts_per_tok,
-                    "normalized_topk": normalized_topk,
-                    "activation_function": activation_function,
-                    "shared_intermediate_size": None if shared_n_inner is None else shared_n_inner,
-                    "shared_expert_gating": shared_expert_gating,
-                }
-                for _ in range(num_layers)
-            ],
-        )
 
     def model_conversion_test(
         self,
@@ -278,29 +278,29 @@ class TestCommons(BaseTestCommons):
 
         return False
 
-    def assert_equal_tensors(
-        self,
-        x: torch.Tensor,
-        y: torch.Tensor,
-        exact_match: bool,
-        rtol_float32: float | None = None,
-        atol_float32: float | None = None,
-        rtol_float16: float | None = None,
-        atol_float16: float | None = None,
-        rtol_bfloat16: float | None = None,
-        atol_bfloat16: float | None = None,
-    ) -> None:
-        if exact_match:
-            assert x.equal(y)
-        else:
-            assert x.dtype == y.dtype
-            dtype = x.dtype
 
-            if dtype == torch.float32:
-                assert_close(x, y, rtol=rtol_float32, atol=atol_float32)
-            elif dtype == torch.float16:
-                assert_close(x, y, rtol=rtol_float16, atol=atol_float16)
-            elif dtype == torch.bfloat16:
-                assert_close(x, y, rtol=rtol_bfloat16, atol=atol_bfloat16)
-            else:
-                raise ValueError(f"unexpected dtype ({dtype})")
+def assert_equal_tensors(
+    x: torch.Tensor,
+    y: torch.Tensor,
+    exact_match: bool,
+    rtol_float32: float | None = None,
+    atol_float32: float | None = None,
+    rtol_float16: float | None = None,
+    atol_float16: float | None = None,
+    rtol_bfloat16: float | None = None,
+    atol_bfloat16: float | None = None,
+) -> None:
+    if exact_match:
+        assert x.equal(y)
+    else:
+        assert x.dtype == y.dtype
+        dtype = x.dtype
+
+        if dtype == torch.float32:
+            assert_close(x, y, rtol=rtol_float32, atol=atol_float32)
+        elif dtype == torch.float16:
+            assert_close(x, y, rtol=rtol_float16, atol=atol_float16)
+        elif dtype == torch.bfloat16:
+            assert_close(x, y, rtol=rtol_bfloat16, atol=atol_bfloat16)
+        else:
+            raise ValueError(f"unexpected dtype ({dtype})")
