@@ -9,7 +9,7 @@ from transformers import AutoTokenizer
 from lm_engine.data import BlendedDatasets, get_datasets_list
 from lm_engine.enums import DatasetSplit
 
-from .test_commons import TestCommons
+from .utils import TestCommons
 
 
 class BlendedDatasetsTest(TestCommons):

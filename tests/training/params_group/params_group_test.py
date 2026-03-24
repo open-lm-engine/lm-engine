@@ -15,7 +15,7 @@ from lm_engine.model_wrapper import get_model_container
 from lm_engine.optimization.params_group import get_param_groups_list
 from lm_engine.utils import ProcessGroupManager
 
-from ..test_commons import TestCommons
+from ..utils import TestCommons
 
 
 class ParamsGroupTest(TestCommons):

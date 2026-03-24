@@ -15,7 +15,7 @@ from lm_engine.data.megatron.indexed_dataset import (
     get_idx_path,
 )
 
-from .test_commons import TestCommons
+from .utils import TestCommons
 
 
 class MegatronDatasetTest(TestCommons):

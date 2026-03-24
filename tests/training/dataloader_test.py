@@ -15,7 +15,7 @@ from lm_engine.data import (
 )
 from lm_engine.enums import DatasetSplit
 
-from .test_commons import TestCommons
+from .utils import TestCommons
 
 
 class DataLoaderTest(TestCommons):
