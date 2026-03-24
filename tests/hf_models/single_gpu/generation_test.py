@@ -9,6 +9,9 @@ from ...test_common import skip_test_if_device_unavailable
 from ..test_common import from_config, get_dense_test_config, get_dummy_inputs, get_moe_test_config
 
 
+@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
+@pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
 def test_generation_works(device: torch.device, position_embedding_type: str, dtype: torch.dtype) -> None:
     skip_test_if_device_unavailable(device)
 

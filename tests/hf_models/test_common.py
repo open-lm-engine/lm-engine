@@ -135,7 +135,7 @@ def get_dummy_inputs(device: torch.device, return_list: bool = False) -> tuple[t
     return input_ids, attention_mask, labels
 
 
-def from_config(self, config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
+def from_config(config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
     use_padding_free_transformer = kwargs.pop("use_padding_free_transformer", False)
 
     model = AutoModelForCausalLM.from_config(
@@ -296,11 +296,3 @@ class TestCommons(BaseTestCommons):
     @staticmethod
     def get_position_embedding_types() -> list[str]:
         return ["learned_absolute", "rope"]
-
-    def skip_test_if_layernorm_kernel_unavailable(self, device: torch.device, dtype: torch.dtype) -> None:
-        # convert to str
-        if isinstance(device, torch.device):
-            device = device.type
-
-        if device == "cpu" and dtype == torch.float16:
-            self.skipTest("LayerNormKernelImpl not implemented for Half")
