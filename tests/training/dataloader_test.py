@@ -18,7 +18,7 @@ from lm_engine.enums import DatasetSplit
 from .utils import load_training_args_for_unit_tests
 
 
-def test_dataloader_has_correct_order(self) -> None:
+def test_dataloader_has_correct_order() -> None:
     args = load_training_args_for_unit_tests("data_config.yml")
     split = DatasetSplit.train
 
