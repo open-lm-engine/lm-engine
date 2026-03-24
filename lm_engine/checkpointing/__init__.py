@@ -128,7 +128,11 @@ def save_checkpoint(
                 "Therefore, the function will not save the optimizer",
             )
 
+    accelerator = Accelerator.get_accelerator()
+
     if args.save_args.async_checkpointing:
+        assert accelerator == Accelerator.cuda
+
         global _FUTURE
         _FUTURE = dcp.async_save(
             {
@@ -154,8 +158,6 @@ def save_checkpoint(
 
         _FUTURE.add_done_callback(_f)
     else:
-        accelerator = Accelerator.get_accelerator()
-
         if accelerator == Accelerator.cuda:
             dcp.save({"state": _ModelSaver(model_container)}, checkpoint_id=_get_model_path(save_path))
 
@@ -164,6 +166,13 @@ def save_checkpoint(
                     {"state": _OptimizerSaver(model_container, optimizer_container)},
                     checkpoint_id=_get_optimizer_path(save_path),
                 )
+        elif accelerator == Accelerator.mps:
+            torch.save({"state": _ModelSaver(model_container)}, f"{_get_model_path(save_path)}.pt")
+
+            torch.save(
+                {"state": _OptimizerSaver(model_container=None, optimizer_container=optimizer_container)},
+                f"{_get_optimizer_path(save_path)}.pt",
+            )
         elif accelerator == Accelerator.tpu:
             assert len(model_container) == 1
             assert len(optimizer_container) == 1

@@ -12,8 +12,10 @@ datasets:
       data_cache_path: cache
       # Option 1: data loading using --data-path with single file
       data_path:
-        - data/lang=Matlab
-      split: 98,1,1
+        - data_text
+      split: 99.5,0.5,0
+      #   - data/lang=Matlab
+      # split: 98,1,1
       sequence_length: 2048
 
 tokenizer_args:
@@ -58,7 +60,7 @@ tuning_args:
 
 save_args:
   save_path: checkpoints/softmax-attention
-  save_interval: 5000
+  save_interval: 50
 
 training_parameters:
   num_training_steps: 25000
