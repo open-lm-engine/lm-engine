@@ -41,7 +41,6 @@ from .kernels import is_kernel_allowed
 from .utils import (
     Accelerator,
     ProcessGroupManager,
-    get_current_device,
     get_module_class_from_name,
     is_torch_xla_available,
     is_torchao_available,
@@ -153,7 +152,7 @@ def wrap_model_container_for_distributed_training(
 
     if fsdp_algorithm is None:
         for i, model in enumerate(model_container):
-            model_container[i] = model.to(get_current_device())
+            model_container[i] = model.to(Accelerator.get_current_device())
 
         return model_container, None
 

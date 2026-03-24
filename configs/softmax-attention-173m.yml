@@ -9,10 +9,10 @@ datasets:
     data_sampling_ratio: 1
     class_args:
       eval_steps: 2
-      data_cache_path: /mnt/vast/proj/checkpoints/granite-4-models-carina/data-cache
+      data_cache_path: data-cache
       # Option 1: data loading using --data-path with single file
       data_path:
-        - /mnt/vast/proj/datasets/starcoder-tokenized-fineweb/fineweb-edu
+        - data_text
       split: 99.5,0.5,0
       # split: 1,0,0
       sequence_length: 4096
@@ -22,15 +22,11 @@ tokenizer_args:
 
 kernel_args:
   kernels:
-    - rmsnorm_cute
-    - rnn_cute
-    - gru_cute
     - scattermoe
     - mamba2_ssm
     - flash_attention_2
 
 model_args:
-  model_class: AutoModelForCausalLM
   pretrained_config:
     initializer_range: 0.1
     layer_norm_epsilon: 1e-05
@@ -41,7 +37,7 @@ model_args:
     m_width: 3
     m_emb: 12
     m_residual: 0.2840187787
-    num_layers: 24
+    num_layers: 2
     init_method: mup
     router_aux_loss_coef: 0.0001
     bos_token_id: 0
@@ -286,10 +282,10 @@ save_args:
 logging_args:
   log_interval: 10
   # torch_profiler_trace_path: tmp
-  experiments_tracker_name: wandb
-  wandb_args:
-    project: model-architectures
-    name: softmax-attention-173m
+  # experiments_tracker_name: wandb
+  # wandb_args:
+  #   project: model-architectures
+  #   name: softmax-attention-173m
 
 training_parameters:
   num_training_steps: 25000

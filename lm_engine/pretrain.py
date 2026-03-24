@@ -33,7 +33,6 @@ from .utils import (
     ProcessGroupManager,
     StepTracker,
     TorchProfiler,
-    get_device_string,
     init_distributed,
     is_torch_xla_available,
     is_torchao_available,
@@ -400,7 +399,7 @@ def train(
 
     # FIXME hardcoded to bf16
     forward_context = lambda: (
-        torch.autocast(get_device_string(), dtype=torch.bfloat16)
+        torch.autocast(Accelerator.get_device_type(), dtype=torch.bfloat16)
         if args.distributed_args.fsdp_algorithm is None
         else nullcontext
     )
