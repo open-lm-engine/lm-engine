@@ -14,10 +14,7 @@ from ..test_common import get_dense_test_config
 
 
 def _split_and_interleave(
-    c_attn_tensor: torch.Tensor,
-    num_heads: int,
-    num_key_value_heads: int,
-    head_dim: int,
+    c_attn_tensor: torch.Tensor, num_heads: int, num_key_value_heads: int, head_dim: int
 ) -> torch.Tensor:
     query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
         c_attn_tensor, num_heads, num_key_value_heads
