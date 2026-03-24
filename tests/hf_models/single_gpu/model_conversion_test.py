@@ -4,54 +4,55 @@
 
 import pytest
 import torch
-from parameterized import parameterized
 
 from lm_engine.hf_models.config import _Mamba2Args
 
-from ..test_common import TestCommons, get_dense_test_config, get_moe_test_config, model_conversion_test
+from ..test_common import get_dense_test_config, get_moe_test_config, model_conversion_test
 
 
-class ModelConversionTest(TestCommons):
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False], [True, False]))
-    def test_llama_model_conversion(self, device: torch.device, add_bias: bool, use_interleaved_weights: bool) -> None:
-        lm_engine_config = self.get_dense_test_config(
-            "rope", add_bias=add_bias, activation_function="swiglu", normalization_function="rmsnorm"
-        )
+@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
+@pytest.mark.parametrize("add_bias", [False, True])
+@pytest.mark.parametrize("use_interleaved_weights", [False, True])
+def test_llama_model_conversion(device: torch.device, add_bias: bool, use_interleaved_weights: bool) -> None:
+    lm_engine_config = get_dense_test_config(
+        "rope", add_bias=add_bias, activation_function="swiglu", normalization_function="rmsnorm"
+    )
 
-        for block in lm_engine_config.mlp_blocks:
-            block.use_interleaved_weights = use_interleaved_weights
+    for block in lm_engine_config.mlp_blocks:
+        block.use_interleaved_weights = use_interleaved_weights
 
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config,
-            model_type="llama",
-            device=device,
-            exact_match=False,
-            use_interleaved_weights=use_interleaved_weights,
-        )
+    model_conversion_test(
+        lm_engine_config=lm_engine_config,
+        model_type="llama",
+        device=device,
+        exact_match=False,
+        use_interleaved_weights=use_interleaved_weights,
+    )
 
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False], [True, False]))
-    def test_granite_model_conversion(
-        self, device: torch.device, add_bias: bool, use_interleaved_weights: bool
-    ) -> None:
-        lm_engine_config = self.get_dense_test_config(
-            "rope",
-            add_bias=add_bias,
-            activation_function="swiglu",
-            normalization_function="rmsnorm",
-            m_emb=2,
-            m_width=2,
-        )
 
-        for block in lm_engine_config.mlp_blocks:
-            block.use_interleaved_weights = use_interleaved_weights
+@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
+@pytest.mark.parametrize("add_bias", [False, True])
+@pytest.mark.parametrize("use_interleaved_weights", [False, True])
+def test_granite_model_conversion(device: torch.device, add_bias: bool, use_interleaved_weights: bool) -> None:
+    lm_engine_config = get_dense_test_config(
+        "rope",
+        add_bias=add_bias,
+        activation_function="swiglu",
+        normalization_function="rmsnorm",
+        m_emb=2,
+        m_width=2,
+    )
 
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config,
-            model_type="granite",
-            device=device,
-            exact_match=False,
-            use_interleaved_weights=use_interleaved_weights,
-        )
+    for block in lm_engine_config.mlp_blocks:
+        block.use_interleaved_weights = use_interleaved_weights
+
+    model_conversion_test(
+        lm_engine_config=lm_engine_config,
+        model_type="granite",
+        device=device,
+        exact_match=False,
+        use_interleaved_weights=use_interleaved_weights,
+    )
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
