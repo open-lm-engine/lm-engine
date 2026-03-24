@@ -7,7 +7,6 @@ import tempfile
 
 import pytest
 import torch
-from parameterized import parameterized
 
 from ....utils import skip_test_if_device_unavailable, slow_test
 
