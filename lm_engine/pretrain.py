@@ -397,11 +397,6 @@ def train(
 
     forward_context = nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
-    # forward_context = lambda: (
-    #     torch.autocast(Accelerator.get_device_type(), dtype=torch.bfloat16)
-    #     if args.distributed_args.fsdp_algorithm is None
-    #     else nullcontext
-    # )
 
     torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
     torch_profiler.__enter__()
