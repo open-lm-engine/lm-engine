@@ -9,8 +9,13 @@ from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import set_seed
 
-from ...test_common import skip_test_if_device_unavailable
-from ...utils import assert_equal_tensors, from_config, get_dummy_inputs, get_moe_test_config
+from ...utils import (
+    assert_equal_tensors,
+    from_config,
+    get_dummy_inputs,
+    get_moe_test_config,
+    skip_test_if_device_unavailable,
+)
 
 
 SEED = 1234
