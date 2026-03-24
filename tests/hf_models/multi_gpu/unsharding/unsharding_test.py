@@ -8,7 +8,7 @@ import tempfile
 import torch
 from parameterized import parameterized
 
-from ...test_common import TestCommons
+from ...utils import TestCommons
 
 
 class UnshardingTest(TestCommons):

@@ -15,7 +15,7 @@ from lm_engine.utils import (
     torch_dtype_to_string,
 )
 
-from ...test_common import TestCommons
+from ...utils import TestCommons
 
 
 class TensorParallelTest(TestCommons):

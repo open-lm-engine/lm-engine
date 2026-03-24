@@ -7,7 +7,7 @@ import torch
 
 from lm_engine.hf_models.config import _Mamba2Args
 
-from ..test_common import get_dense_test_config, get_moe_test_config, model_conversion_test
+from ..utils import get_dense_test_config, get_moe_test_config, model_conversion_test
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])

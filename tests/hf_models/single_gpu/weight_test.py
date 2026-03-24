@@ -10,7 +10,7 @@ from lm_engine.hf_models.modeling_utils import (
     split_query_key_value_tensor_for_attention,
 )
 
-from ..test_common import get_dense_test_config
+from ..utils import get_dense_test_config
 
 
 def _split_and_interleave(
