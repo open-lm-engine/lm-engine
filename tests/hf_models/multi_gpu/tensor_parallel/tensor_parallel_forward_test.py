@@ -19,7 +19,9 @@ from ....utils import skip_test_if_device_unavailable, slow_test
 
 
 @pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
-@pytest.mark.parametrize("attention_implementation", ["sdpa", "flash_attention_2", "flash_attention_3"])
+@pytest.mark.parametrize(
+    "attention_implementation", ["sdpa", "flash_attention_2", "flash_attention_3", "flash_attention_4"]
+)
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
 @pytest.mark.parametrize("use_padding_free_transformer", [False, True])
 @pytest.mark.parametrize("sequence_parallel", [False, True])
