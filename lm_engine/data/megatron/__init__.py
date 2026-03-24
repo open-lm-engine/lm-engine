@@ -86,7 +86,9 @@ def get_megatron_gpt_dataloaders(
                 rank=ProcessGroupManager.get_data_parallel_rank(),
             ),
             multiprocessing_context="fork" if accelerator == Accelerator.tpu else None,
-            num_workers=0 if accelerator == Accelerator.trainium else class_args.get("num_workers", 2),
+            num_workers=(
+                0 if accelerator in [Accelerator.mps, Accelerator.trainium] else class_args.get("num_workers", 2)
+            ),
             pin_memory=accelerator not in [Accelerator.mps, Accelerator.trainium],
         )
 
