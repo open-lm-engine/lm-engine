@@ -130,7 +130,7 @@ class ProcessGroupManager:
 
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
         _MESH = init_device_mesh(
-            "cpu" if accelerator == Accelerator.tpu else Accelerator.get_device_type(),
+            "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
