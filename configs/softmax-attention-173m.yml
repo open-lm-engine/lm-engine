@@ -10,12 +10,13 @@ datasets:
     class_args:
       eval_steps: 2
       data_cache_path: data-cache
+      num_workers: 0
       # Option 1: data loading using --data-path with single file
       data_path:
         - data_text
       split: 99.5,0.5,0
       # split: 1,0,0
-      sequence_length: 4096
+      sequence_length: 512
 
 tokenizer_args:
   tokenizer_name: ibm-granite/granite-3b-code-base
@@ -24,7 +25,6 @@ kernel_args:
   kernels:
     - scattermoe
     - mamba2_ssm
-    - flash_attention_2
 
 model_args:
   pretrained_config:
@@ -290,7 +290,7 @@ logging_args:
 training_parameters:
   num_training_steps: 25000
   eval_interval: 2500
-  micro_batch_size: 48
+  micro_batch_size: 1
   gradient_accumulation_steps: 3
   eval_during_training: true
 
@@ -324,3 +324,4 @@ mixed_precision_args:
 distributed_args:
   stage: 0
   torch_compile: true
+  fsdp_algorithm: null
