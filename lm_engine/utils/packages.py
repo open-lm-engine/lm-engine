@@ -2,41 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-import logging
-from importlib.metadata import distributions
-
 import torch
-
-from .logger import log_rank_0, warn_rank_0
-from .parallel import run_rank_n
-
-
-try:
-    import flash_attn
-
-    _IS_FLASH_ATTENTION_2_AVAILABLE = True
-except ImportError:
-    _IS_FLASH_ATTENTION_2_AVAILABLE = False
-
-    warn_rank_0("Flash Attention 2 is not installed")
-
-
-def is_flash_attention_2_available() -> bool:
-    return _IS_FLASH_ATTENTION_2_AVAILABLE
-
-
-try:
-    import flash_attn_3_cuda
-
-    _IS_FLASH_ATTENTION_3_AVAILABLE = True
-except ImportError:
-    _IS_FLASH_ATTENTION_3_AVAILABLE = False
-
-    warn_rank_0("Flash Attention 3 is not installed")
-
-
-def is_flash_attention_3_available() -> bool:
-    return _IS_FLASH_ATTENTION_3_AVAILABLE
 
 
 try:
@@ -46,25 +12,21 @@ try:
 except ImportError:
     _IS_AIM_AVAILABLE = False
 
-    warn_rank_0("aim is not installed")
-
 
 def is_aim_available() -> bool:
     return _IS_AIM_AVAILABLE
 
 
 try:
-    import wandb
+    import causal_conv1d
 
-    _IS_WANDB_AVAILABLE = True
+    _IS_CAUSAL_CONV1D_AVAILABLE = True
 except ImportError:
-    _IS_WANDB_AVAILABLE = False
-
-    warn_rank_0("wandb is not installed")
+    _IS_CAUSAL_CONV1D_AVAILABLE = False
 
 
-def is_wandb_available() -> bool:
-    return _IS_WANDB_AVAILABLE
+def is_causal_conv1d_available() -> bool:
+    return _IS_CAUSAL_CONV1D_AVAILABLE
 
 
 try:
@@ -74,76 +36,117 @@ try:
 except ImportError:
     _IS_COLORLOG_AVAILABLE = False
 
-    warn_rank_0("colorlog is not installed")
-
 
 def is_colorlog_available() -> bool:
     return _IS_COLORLOG_AVAILABLE
 
 
 try:
-    import triton
+    import fla
 
-    _IS_TRITON_AVAILABLE = True
+    _IS_FLA_AVAILABLE = True
 except ImportError:
-    _IS_TRITON_AVAILABLE = False
-
-    warn_rank_0("OpenAI triton is not installed")
+    _IS_FLA_AVAILABLE = False
 
 
-def is_triton_available() -> bool:
-    return _IS_TRITON_AVAILABLE
+def is_fla_available() -> bool:
+    return _IS_FLA_AVAILABLE
 
 
 try:
-    if torch.cuda.is_available():
-        import cute_kernels
+    import flash_attn
 
-        _IS_CUTE_KERNELS_AVAILABLE = True
-    else:
-        _IS_CUTE_KERNELS_AVAILABLE = False
+    _IS_FLASH_ATTENTION_2_AVAILABLE = True
 except ImportError:
-    _IS_CUTE_KERNELS_AVAILABLE = False
-
-    warn_rank_0("cute-kernels is not installed, install from https://github.com/mayank31398/cute-kernels")
+    _IS_FLASH_ATTENTION_2_AVAILABLE = False
 
 
-def is_cute_kernels_available() -> bool:
-    return _IS_CUTE_KERNELS_AVAILABLE
+def is_flash_attention_2_available() -> bool:
+    return _IS_FLASH_ATTENTION_2_AVAILABLE
 
 
 try:
-    if torch.cuda.is_available():
-        import causal_conv1d
+    from flash_attn_interface import flash_attn_func
 
-        _IS_CAUSAL_CONV1D_AVAILABLE = True
-    else:
-        _IS_CAUSAL_CONV1D_AVAILABLE = False
+    _IS_FLASH_ATTENTION_3_AVAILABLE = True
 except ImportError:
-    _IS_CAUSAL_CONV1D_AVAILABLE = False
-
-    warn_rank_0("causal-conv1d is not installed")
+    _IS_FLASH_ATTENTION_3_AVAILABLE = False
 
 
-def is_causal_conv1d_available() -> bool:
-    return _IS_CAUSAL_CONV1D_AVAILABLE
+def is_flash_attention_3_available() -> bool:
+    return _IS_FLASH_ATTENTION_3_AVAILABLE
 
 
 try:
-    if torch.cuda.is_available():
-        import mamba_ssm
+    from flash_attn.cute import flash_attn_func
 
-        _IS_MAMBA_2_SSM_AVAILABLE = True
-    else:
-        _IS_MAMBA_2_SSM_AVAILABLE = False
+    _IS_FLASH_ATTENTION_4_AVAILABLE = True
+except ImportError:
+    _IS_FLASH_ATTENTION_4_AVAILABLE = False
+
+
+def is_flash_attention_4_available() -> bool:
+    return _IS_FLASH_ATTENTION_4_AVAILABLE
+
+
+try:
+    import mamba_ssm
+
+    _IS_MAMBA_2_SSM_AVAILABLE = True
 except ImportError:
     _IS_MAMBA_2_SSM_AVAILABLE = False
-
-    warn_rank_0("mamba-ssm is not installed")
 
 
 def is_mamba_2_ssm_available() -> bool:
     return _IS_MAMBA_2_SSM_AVAILABLE
+
+
+try:
+    import multistorageclient
+
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = True
+except ImportError:
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = False
+
+
+def is_multi_storage_client_available() -> bool:
+    return _IS_MULTI_STORAGE_CLIENT_AVAILABLE
+
+
+try:
+    import ray
+
+    _IS_RAY_AVAILABLE = True
+except ImportError:
+    _IS_RAY_AVAILABLE = False
+
+
+def is_ray_available() -> bool:
+    return _IS_RAY_AVAILABLE
+
+
+try:
+    import sonicmoe
+
+    _IS_SONIC_MOE_AVAILABLE = True
+except ImportError:
+    _IS_SONIC_MOE_AVAILABLE = False
+
+
+def is_sonicmoe_available() -> bool:
+    return _IS_SONIC_MOE_AVAILABLE
+
+
+try:
+    import torch_xla
+
+    _IS_TORCH_XLA_AVAILABLE = True
+except ImportError:
+    _IS_TORCH_XLA_AVAILABLE = False
+
+
+def is_torch_xla_available() -> bool:
+    return _IS_TORCH_XLA_AVAILABLE
 
 
 try:
@@ -153,27 +156,57 @@ try:
 except ImportError:
     _IS_TORCHAO_AVAILABLE = False
 
-    warn_rank_0("torchao is not installed")
-
 
 def is_torchao_available() -> bool:
     return _IS_TORCHAO_AVAILABLE
 
 
 try:
-    import stickbreaking_attention
+    import torch_neuronx
 
-    _IS_STICKBREAKING_AVAILABLE = True
+    _IS_TORCH_NEURONX_AVAILABLE = True
 except ImportError:
-    _IS_STICKBREAKING_AVAILABLE = False
-
-    warn_rank_0(
-        "stickbreaking-attention is not available, install from https://github.com/shawntan/stickbreaking-attention"
-    )
+    _IS_TORCH_NEURONX_AVAILABLE = False
 
 
-def is_stickbreaking_available():
-    return _IS_STICKBREAKING_AVAILABLE
+def is_torch_neuronx_available() -> bool:
+    return _IS_TORCH_NEURONX_AVAILABLE
+
+
+try:
+    import triton
+
+    _IS_TRITON_AVAILABLE = True
+except ImportError:
+    _IS_TRITON_AVAILABLE = False
+
+
+def is_triton_available() -> bool:
+    return _IS_TRITON_AVAILABLE
+
+
+try:
+    import wandb
+
+    _IS_WANDB_AVAILABLE = True
+except ImportError:
+    _IS_WANDB_AVAILABLE = False
+
+
+def is_wandb_available() -> bool:
+    return _IS_WANDB_AVAILABLE
+
+
+try:
+    import xma
+
+    _IS_XMA_AVAILABLE = True
+except:
+    _IS_XMA_AVAILABLE = False
+
+
+def is_xma_available() -> bool:
+    return _IS_XMA_AVAILABLE
 
 
 try:
@@ -183,18 +216,6 @@ try:
 except ImportError:
     _IS_ZSTANDARD_AVAILABLE = False
 
-    warn_rank_0("zstandard is not available")
 
-
-def is_zstandard_available():
-    return _IS_STICKBREAKING_AVAILABLE
-
-
-@run_rank_n
-def log_environment() -> None:
-    packages = sorted(["{}=={}".format(d.metadata["Name"], d.version) for d in distributions()])
-
-    log_rank_0(logging.INFO, "------------------------ packages ------------------------")
-    for package in packages:
-        log_rank_0(logging.INFO, package)
-    log_rank_0(logging.INFO, "-------------------- end of packages ---------------------")
+def is_zstandard_available() -> bool:
+    return _IS_ZSTANDARD_AVAILABLE

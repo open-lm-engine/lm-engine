@@ -2,8 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-"""Logic is copied from transformers.models.llama.modeling_utils with slight modifications"""
-
 from __future__ import annotations
 
 import math
@@ -11,14 +9,11 @@ import math
 import torch
 import torch.nn as nn
 
+from ...parameter import mark_parameter_as_initialized
+
 
 class RoPE(nn.Module):
-    def __init__(
-        self,
-        head_dim: int,
-        max_position_embeddings: int = 2048,
-        base: int = 10000,
-    ) -> RoPE:
+    def __init__(self, head_dim: int, max_position_embeddings: int = 2048, base: int = 10000) -> RoPE:
         super().__init__()
 
         self.head_dim = head_dim
@@ -40,6 +35,9 @@ class RoPE(nn.Module):
     def reset_parameters(self) -> None:
         self._set_cos_sin_cache(seq_len=self.max_position_embeddings, dtype=torch.float32)
 
+        mark_parameter_as_initialized(self.cos_cached)
+        mark_parameter_as_initialized(self.sin_cached)
+
     @torch.no_grad()
     def _set_cos_sin_cache(self, seq_len: int, dtype: torch.dtype) -> None:
         self.max_seq_len_cached = seq_len
@@ -58,7 +56,7 @@ class RoPE(nn.Module):
         self.register_buffer("sin_cached", (emb.sin() * self.mscale).to(device=device, dtype=dtype), persistent=False)
 
     def _get_inv_freq(self) -> torch.Tensor:
-        return 1.0 / (self.base ** (torch.arange(0, self.head_dim, 2, dtype=torch.float32) / self.head_dim))
+        return 1.0 / (self.base ** (torch.arange(0, self.head_dim, 2, dtype=torch.float32) * (1 / self.head_dim)))
 
 
 class YaRNScaledRoPE(RoPE):
@@ -92,7 +90,7 @@ class YaRNScaledRoPE(RoPE):
         self.reset_parameters()
 
     def _get_inv_freq(self) -> torch.Tensor:
-        pos_freqs = self.base ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim)
+        pos_freqs = self.base ** (torch.arange(0, self.head_dim, 2).float() * (1 / self.head_dim))
         inv_freq_extrapolation = 1.0 / pos_freqs
         inv_freq_interpolation = 1.0 / (self.scale * pos_freqs)
 

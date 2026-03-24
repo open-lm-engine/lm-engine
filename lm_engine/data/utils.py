@@ -9,6 +9,7 @@ import torch
 
 from ..enums import LossMask
 from ..hf_models import convert_padding_free_lists_to_tensors
+from ..utils import Accelerator
 
 
 def collate_fn(
@@ -19,7 +20,7 @@ def collate_fn(
     use_padding_free_transformer: bool,
     labels_mask_value: int = -100,
     pad_to_multiple_of: int = 1,
-    device: torch.device = None,
+    device: torch.device | None = None,
 ) -> dict:
     """prepares the batch with padding to pass into the forward function of the HuggingFace model
 
@@ -36,7 +37,7 @@ def collate_fn(
     # labels is None when outputs is None
     labels = None
 
-    device = torch.cuda.current_device() if device is None else device
+    device = Accelerator.get_current_device() if device is None else device
 
     if use_padding_free_transformer:
         input_ids = inputs

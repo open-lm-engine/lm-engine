@@ -20,13 +20,10 @@ tokenizer_args:
   tokenizer_name: bigcode/starcoder
 
 model_args:
-  model_class: AutoModelForCausalLM
   model_name: ibm/PowerLM-3b
   efficient_initialization: false
-  use_padding_free_transformer: false
 
 teacher_args:
-  model_class: AutoModelForCausalLM
   model_name: ibm/PowerLM-3b
   dtype: bf16
   kl_divergence_method: forward

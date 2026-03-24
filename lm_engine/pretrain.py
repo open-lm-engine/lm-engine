@@ -12,11 +12,9 @@ from git import Repo
 from torch.distributed.pipelining.schedules import _PipelineSchedule
 from torch.distributed.tensor.parallel import loss_parallel
 from torch.utils.data import DataLoader
-from transformers import set_seed
 
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
-from .communication import Communication
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
 from .data import ResumableDataLoader, get_next_batch, get_pretraining_dataloaders
 from .distributed import wrap_model_container_for_distributed_training
@@ -26,19 +24,30 @@ from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
 from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
-from .train_utils import all_reduce_metrics_tracker, get_model_tflops, get_torch_profiler, track_metrics
+from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import (
+    Accelerator,
+    Communication,
     ExperimentsTracker,
     MetricsTrackingDict,
     ProcessGroupManager,
     StepTracker,
+    TorchProfiler,
     get_device_string,
     init_distributed,
+    is_torch_xla_available,
     is_torchao_available,
+    log_environment,
     log_rank_0,
+    set_seed,
     setup_tf32,
 )
 
+
+if is_torch_xla_available():
+    from torch_xla import launch as xla_launch
+    from torch_xla import step as xla_step
+    from torch_xla import sync as xla_sync
 
 if is_torchao_available():
     from .distributed import FP8Manager
@@ -77,7 +86,7 @@ def train_step_with_pipeline_parallel(
 
     if ProcessGroupManager.is_tensor_parallel_first_rank():
         batch = batch["text"]
-        batch = batch.to(torch.cuda.current_device())
+        batch = batch.to(Accelerator.get_current_device())
 
     if ProcessGroupManager.is_tensor_parallel_enabled():
         batch = broadcast_tensor_parallel_input(batch, (StepTracker.get_local_batch_size(), sequence_length + 1))
@@ -190,7 +199,6 @@ def train_step_without_pipeline_parallel(
             model.set_requires_gradient_sync(False)
 
     metrics_tracker = MetricsTrackingDict({})
-    grad_norm = None
     optimizer_container.zero_grad()
 
     gradient_accumulation_steps = StepTracker.get_gradient_accumulation_steps()
@@ -204,55 +212,59 @@ def train_step_without_pipeline_parallel(
     else:
         batches = None
 
-    with no_sync():
-        for step in range(gradient_accumulation_steps - 1):
-            batch = get_next_batch(train_dataloader) if batches is None else batches[step]
-            with forward_context():
-                loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
+    accelerator = Accelerator.get_accelerator()
 
-            # compute gradients
-            with backward_context():
-                loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
-                loss_micro_step.backward()
+    with (xla_step if accelerator == Accelerator.tpu else nullcontext)():
+        with no_sync():
+            for step in range(gradient_accumulation_steps - 1):
+                with forward_context():
+                    batch = get_next_batch(train_dataloader) if batches is None else batches[step]
+                    loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
 
-            with torch.inference_mode():
-                metrics_tracker = metrics_tracker + loss_micro_step_dict
+                with backward_context():
+                    loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
+                    loss_micro_step.backward()
 
-    if fsdp_algorithm == 2:
-        model.set_requires_gradient_sync(True)
+                with torch.inference_mode():
+                    metrics_tracker = metrics_tracker + loss_micro_step_dict
 
-    batch = get_next_batch(train_dataloader) if batches is None else batches[-1]
-    with forward_context():
-        loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
+        if fsdp_algorithm == 2:
+            model.set_requires_gradient_sync(True)
 
-    # compute gradients
-    with backward_context():
-        loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
-        loss_micro_step.backward()
+        with forward_context():
+            batch = get_next_batch(train_dataloader) if batches is None else batches[-1]
+            loss_micro_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
 
-    with torch.inference_mode():
-        metrics_tracker = metrics_tracker + loss_micro_step_dict
+        with backward_context():
+            loss_micro_step: torch.Tensor = loss_micro_step_dict["loss"] / gradient_accumulation_steps
+            loss_micro_step.backward()
 
-    if gradient_clipping is not None:
-        if fsdp_algorithm == 1:
+        with torch.inference_mode():
+            metrics_tracker = metrics_tracker + loss_micro_step_dict
+
+        if gradient_clipping is None:
+            grad_norm = None
+        elif fsdp_algorithm == 1:
             grad_norm = model.clip_grad_norm_(gradient_clipping)
         else:
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
 
-    if is_torchao_available():
-        FP8Manager.sync_float8_amax_and_scale_history([model])
+        if is_torchao_available():
+            FP8Manager.sync_float8_amax_and_scale_history([model])
 
-    optimizer_container.step()
-    lr_scheduler_container.step()
+        optimizer_container.step()
+        lr_scheduler_container.step()
+
+    if accelerator == Accelerator.tpu:
+        xla_sync()
 
     if is_torchao_available():
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp([model])
 
     with torch.inference_mode():
         metrics_tracker = metrics_tracker / gradient_accumulation_steps
-
         metrics_tracker["grad_norm"] = (
-            torch.zeros((1,), device=torch.cuda.current_device(), dtype=torch.float32)
+            torch.zeros((), device=Accelerator.get_current_device(), dtype=torch.float32)
             if grad_norm is None
             else grad_norm
         )
@@ -267,6 +279,7 @@ def train_step_without_pipeline_parallel(
 
 def track_val_metrics(
     global_step: int,
+    global_step_in_tokens: int,
     experiments_tracker: ExperimentsTracker,
     metrics_tracker: MetricsTrackingDict,
     group_name: str | None = None,
@@ -276,17 +289,21 @@ def track_val_metrics(
 
     Args:
         global_step (int): global step during training
+        global_step_in_tokens (int): global step during training in number of tokens
         experiments_tracker (ExperimentsTracker): experiments tracker
         metrics_tracker (MetricsTrackingDict): metrics tracker
         group_name (str | None): group name for the validation / test set
         context (str): context
     """
 
-    message = f"step = {global_step}"
+    message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
     if group_name is not None:
         message += f", group_name = {group_name}"
 
     for key in metrics_tracker:
+        if key == "tokens":
+            continue
+
         message += f", {context}-{key} = {metrics_tracker[key]:.4f}"
 
     log_rank_0(logging.INFO, message)
@@ -348,15 +365,19 @@ def train(
     global_batch_size = StepTracker.get_global_batch_size()
     tokens_per_batch = global_batch_size * sequence_length
 
+    global_step = starting_iteration
+    global_step_in_tokens = global_step * tokens_per_batch
+
     if eval_during_training:
         eval_steps = args.datasets[0].class_args.get("eval_steps")
         evaluate(
-            val_dataloaders,
-            model_container,
-            starting_iteration,
-            experiments_tracker,
-            eval_steps,
-            group_names,
+            val_dataloaders=val_dataloaders,
+            model_container=model_container,
+            global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
+            experiments_tracker=experiments_tracker,
+            eval_steps=eval_steps,
+            group_names=group_names,
             lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
             context="val",
         )
@@ -365,7 +386,7 @@ def train(
     if not is_pipeline_parallel_enabled:
         assert len(model_container) == 1
 
-    # model flops per GPU
+    # model flops per accelerator
     model_flops = (
         get_model_tflops(
             config=model_container[0].config,
@@ -384,20 +405,17 @@ def train(
         else nullcontext
     )
 
-    backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
-    torch_profiler = get_torch_profiler(args.logging_args.torch_profiler_trace_path)
-
-    if torch_profiler is not None:
-        torch_profiler.__enter__()
+    torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
+    torch_profiler.__enter__()
 
     start_time = time.perf_counter()
     steps_since_start_time = 0
     metrics_tracker = MetricsTrackingDict({})
 
-    global_step = starting_iteration
     while global_step < num_training_steps:
         global_step += 1
         steps_since_start_time += 1
+        global_step_in_tokens += tokens_per_batch
 
         if is_pipeline_parallel_enabled:
             loss_step_dict = train_step_with_pipeline_parallel(
@@ -424,9 +442,7 @@ def train(
             )
 
         metrics_tracker = metrics_tracker + loss_step_dict
-
-        if torch_profiler is not None:
-            torch_profiler.step()
+        torch_profiler.step()
 
         if global_step % log_interval == 0:
             metrics_tracker = metrics_tracker / log_interval
@@ -441,9 +457,11 @@ def train(
 
             metrics_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
             metrics_tracker["step_time (sec)"] = step_time
+            metrics_tracker["tokens"] = global_step_in_tokens
 
             track_metrics(
                 global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
                 metrics_tracker=metrics_tracker,
                 context="train",
@@ -455,12 +473,13 @@ def train(
 
         if eval_during_training and (global_step % eval_interval == 0 or global_step == num_training_steps):
             evaluate(
-                val_dataloaders,
-                model_container,
-                global_step,
-                experiments_tracker,
-                eval_steps,
-                group_names,
+                val_dataloaders=val_dataloaders,
+                model_container=model_container,
+                global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
+                experiments_tracker=experiments_tracker,
+                eval_steps=eval_steps,
+                group_names=group_names,
                 lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
                 context="val",
             )
@@ -485,20 +504,19 @@ def train(
 
     if eval_during_training:
         evaluate(
-            test_dataloaders,
-            model_container,
-            global_step,
-            experiments_tracker,
-            eval_steps,
-            group_names,
+            val_dataloaders=test_dataloaders,
+            model_container=model_container,
+            global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
+            experiments_tracker=experiments_tracker,
+            eval_steps=eval_steps,
+            group_names=group_names,
             lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
             context="test",
         )
 
     ensure_last_checkpoint_is_saved()
-
-    if torch_profiler is not None:
-        torch_profiler.__exit__(None, None, None)
+    torch_profiler.__exit__(None, None, None)
 
 
 @torch.no_grad()
@@ -506,6 +524,7 @@ def evaluate(
     val_dataloaders: list[DataLoader],
     model_container: ModelContainer,
     global_step: int,
+    global_step_in_tokens: int,
     experiments_tracker: ExperimentsTracker,
     eval_steps: int,
     group_names: list[str],
@@ -518,6 +537,7 @@ def evaluate(
         val_dataloaders (list[DataLoader]): list of validation dataloaders
         model_container (ModelContainer): container of models
         global_step (int): global step during training
+        global_step_in_tokens (int): global step during training in number of tokens
         experiments_tracker (ExperimentsTracker): metrics tracker
         eval_steps (int): number of steps to run eval for
         group_names (list[str]): names of the datasets in validation/test group
@@ -565,9 +585,11 @@ def evaluate(
             metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
 
         metrics_tracker = all_reduce_metrics_tracker(metrics_tracker)
+        metrics_tracker["tokens"] = global_step_in_tokens
 
         track_val_metrics(
             global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
             experiments_tracker=experiments_tracker,
             metrics_tracker=metrics_tracker,
             group_name=group_name,
@@ -607,6 +629,9 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         timeout_minutes=args.distributed_args.timeout_minutes,
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
     )
+
+    args.log_args()
+    log_environment()
 
     StepTracker(
         micro_batch_size=args.training_parameters.micro_batch_size,
@@ -651,7 +676,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     log_model_optimizer_container(model_container, optimizer_container)
 
     starting_iteration = 0
-    metadata = None
+    metadata = {}
     experiments_tracker_state_dict = None
     if args.load_args is not None:
         starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
@@ -659,11 +684,11 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
         # metadata field contains the dataloader state so we need to reset it here
-        if not args.load_args.load_dataloader_state and metadata is not None:
+        if not args.load_args.load_dataloader_state:
             metadata["consumed_samples"] = 0
 
     train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
-        args, model_container[0].tokenizer, 0 if metadata is None else metadata["consumed_samples"]
+        args, model_container[0].tokenizer, metadata.get("consumed_samples", 0)
     )
 
     experiments_tracker = ExperimentsTracker(
@@ -673,7 +698,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         checkpoint_metadata=experiments_tracker_state_dict,
     )
     # track all hyperparams in args
-    experiments_tracker.log_args(args)
+    experiments_tracker.log_args(args, **model_container[0].calculate_num_parameters(return_dict=True))
 
     # main training loop
     with disable_generation_cache(), enable_kernels(args.kernel_args.kernels):
@@ -691,5 +716,14 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
 
-if __name__ == "__main__":
+def xla_main(*args):
     main()
+
+
+if __name__ == "__main__":
+    accelerator = Accelerator.get_accelerator()
+
+    if accelerator == Accelerator.tpu:
+        xla_launch(xla_main)
+    else:
+        main()

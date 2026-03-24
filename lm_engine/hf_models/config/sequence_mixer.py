@@ -13,59 +13,41 @@ class _SoftmaxAttentionArgs(BaseArgs):
     num_key_value_heads: int = 1
     softmax_dropout: float = 0
     dropout: float = 0
-    add_bias: bool = True
+    add_bias: bool = False
     attention_multiplier: float | None = None
+    attention_gate: bool = False
+    sliding_window: int | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "softmax_attention"
 
 
-class _MultiHeadLatentAttentionArgs(BaseArgs):
-    sequence_mixer_type: str = "multihead_latent_attention"
-    num_attention_heads: int | None = None
-    softmax_dropout: float = 0
-    dropout: float = 0
-    add_bias: bool = True
-    attention_multiplier: float | None = None
-    query_compression_size: int | None = None
-    key_value_compression_size: int | None = None
-    num_attention_heads: int | None = None
-    head_dim: int | None = None
-    normalization_function: str = "layernorm"
+class _SoftPlusDecayArgs(BaseArgs):
+    A_init_min: float = 0
+    A_init_max: float = 16
+    dt_init_min: float = 0.001
+    dt_init_max: float = 0.1
+    dt_init_floor: float = 1e-4
 
     def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "multihead_latent_attention"
-        assert self.num_attention_heads is not None
-        assert self.query_compression_size is not None
-        assert self.key_value_compression_size is not None
-        assert self.num_attention_heads is not None
-        assert self.head_dim is not None
+        assert self.A_init_min >= 0
+        assert self.A_init_min <= self.A_init_max
+        assert self.dt_init_min <= self.dt_init_max
 
 
-class _StickbreakingAttentionArgs(BaseArgs):
-    sequence_mixer_type: str = "stickbreaking_attention"
-    num_attention_heads: int = 12
-    num_key_value_heads: int = 1
-    dropout: float = 0
-    add_bias: bool = True
-    attention_multiplier: float | None = None
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "stickbreaking_attention"
-
-
-class _Mamba2Args(BaseArgs):
+class _Mamba2Args(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "mamba2"
     state_size: int = 128
     intermediate_size: int
     num_heads: int = 128
     conv_kernel_size: int = 4
     time_step_limit: tuple[float, float] = (0, float("inf"))
-    add_bias: bool = True
+    add_bias: bool = False
     use_conv_bias: bool = True
     activation_function: str = "silu"
     num_groups: int = 8
     chunk_size: int = 256
+    normalization_function: str | None = "rmsnorm"
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "mamba2"
@@ -73,22 +55,62 @@ class _Mamba2Args(BaseArgs):
 
 class _GRUArgs(BaseArgs):
     sequence_mixer_type: str = "gru"
-    state_size: int = 2048
-    num_heads: int = 128
-    add_bias: bool = True
+    state_head_dim: int
+    num_input_heads: int
+    num_forget_input_heads: int
+    num_reset_input_heads: int
+    num_weight_heads: int
+    num_forget_weight_heads: int
+    num_reset_weight_heads: int
+    add_bias: bool = False
     normalization_function: str | None = None
     gradient_clipping: float | None = None
-    scaling_factor: float = 1
+    kernel_size: int | None = None
+    activation_function: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gru"
 
 
-class _RNNArgs(_GRUArgs):
+class _RNNArgs(BaseArgs):
     sequence_mixer_type: str = "rnn"
+    state_head_dim: int
+    num_input_heads: int
+    num_weight_heads: int
+    add_bias: bool = False
+    normalization_function: str | None = None
+    gradient_clipping: float | None = None
+    kernel_size: int | None = None
+    activation_function: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rnn"
+
+
+class _M2RNNArgs(BaseArgs):
+    sequence_mixer_type: str = "m2rnn"
+    k_head_dim: int = 16
+    v_head_dim: int = 16
+    num_q_heads: int = 128
+    num_k_heads: int = 128
+    num_v_heads: int = 128
+    num_f_heads: int = 128
+    num_g_heads: int = 128
+    num_weight_heads: int = 128
+    use_residual: bool = True
+    kernel_size: int | None = None
+    activation_function: str | None = None
+    add_bias: bool = False
+    gradient_clipping: float | None = None
+    normalization_function: str | None = None
+    A_init_min: float = 0
+    A_init_max: float = 16
+    dt_init_min: float = 1e-3
+    dt_init_max: float = 0.1
+    dt_init_floor: float = 1e-4
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "m2rnn"
 
 
 class _CausalConvolution(BaseArgs):
@@ -102,3 +124,18 @@ class _CausalConvolution(BaseArgs):
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "causal_convolution"
+
+
+class _GatedDeltaNetArgs(_SoftPlusDecayArgs):
+    sequence_mixer_type: str = "gated_deltanet"
+    k_head_dim: int
+    v_head_dim: int
+    num_k_heads: int
+    num_v_heads: int
+    use_gate: bool
+    attention_multiplier: float | None = None
+    allow_neg_eigval: bool
+    kernel_size: int
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.sequence_mixer_type == "gated_deltanet"

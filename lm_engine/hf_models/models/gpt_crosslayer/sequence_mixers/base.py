@@ -13,7 +13,13 @@ import torch.nn.functional as F
 from .....enums import Kernel
 from .....kernels import is_kernel_allowed
 from .....utils import divide_if_divisible
-from ....modeling_utils import ParameterizedLinear, apply_rotary_pos_emb, flash_attention, get_normalization_function
+from ....modeling_utils import (
+    Dropout,
+    ParameterizedLinear,
+    apply_rotary_pos_emb,
+    flash_attention,
+    get_normalization_function,
+)
 
 
 class CrossLayerAttention(nn.Module):
@@ -64,8 +70,8 @@ class CrossLayerAttention(nn.Module):
         )
 
         self.softmax_dropout_p = softmax_dropout
-        self.softmax_dropout = nn.Identity() if softmax_dropout == 0 else nn.Dropout(softmax_dropout)
-        self.dropout = nn.Identity() if dropout == 0 else nn.Dropout(dropout)
+        self.softmax_dropout = Dropout(softmax_dropout)
+        self.dropout = Dropout(dropout)
 
         assert (
             self.num_key_value_heads is not None
@@ -97,9 +103,9 @@ class CrossLayerAttention(nn.Module):
                     query = apply_rotary_pos_emb(query, rope_cos_sin)
 
                 hidden_states = flash_attention(
-                    query=query,
-                    key=key,
-                    value=value,
+                    q=query,
+                    k=key,
+                    v=value,
                     attention_mask=attention_mask,
                     cu_seqlens=cu_seqlens,
                     max_seqlen=max_seqlen,
@@ -125,9 +131,9 @@ class CrossLayerAttention(nn.Module):
                     query = query.transpose(1, 2)
 
                 hidden_states = flash_attention(
-                    query=query,
-                    key=key,
-                    value=value,
+                    q=query,
+                    k=key,
+                    v=value,
                     attention_mask=attention_mask,
                     cu_seqlens=cu_seqlens,
                     max_seqlen=max_seqlen,

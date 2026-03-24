@@ -5,20 +5,16 @@
 import argparse
 import os
 
-import torch
-import torch.distributed
-
 from lm_engine.arguments import TrainingArgs, UnshardingArgs
 from lm_engine.checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_and_unshard, save_checkpoint
 from lm_engine.distributed import wrap_model_container_for_distributed_training
 from lm_engine.model_wrapper import get_model_container
-from lm_engine.utils import ProcessGroupManager, load_yaml
+from lm_engine.utils import Communication, ProcessGroupManager, load_yaml
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--train-config", type=str)
 parser.add_argument("--unshard-config", type=str)
-parser.add_argument("--attention-head-type", type=str)
 parser.add_argument("--activation-function", type=str)
 parser.add_argument("--tmp-path", type=str)
 parser.add_argument("--zero-stage", type=int)
@@ -29,12 +25,7 @@ args = parser.parse_args()
 train_config = TrainingArgs(**load_yaml(args.train_config))
 unshard_config = UnshardingArgs(**load_yaml(args.unshard_config))
 
-if args.attention_head_type == "mha":
-    num_key_value_heads = train_config.model_args.pretrained_config["sequence_mixer_blocks"][0]["num_attention_heads"]
-elif args.attention_head_type == "mqa":
-    num_key_value_heads = 1
-else:
-    num_key_value_heads = 8
+num_key_value_heads = 8
 
 # set zero stage
 train_config.distributed_args.stage = args.zero_stage
@@ -70,7 +61,7 @@ if global_rank == 0:
 
         train_config.distributed_args.num_pipeline_stages = original_num_stages
 
-torch.distributed.barrier()
+Communication.barrier()
 
 # modify args to load the saved single_rank checkpoint
 train_config.model_args.pretrained_config = None
@@ -97,16 +88,20 @@ save_checkpoint(
     train_dataloader=None,
     experiments_tracker=None,
     iteration=iteration,
-    metadata=None,
 )
 
 ensure_last_checkpoint_is_saved()
 
-torch.distributed.barrier()
-
-_, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config)
+Communication.barrier()
 
 if global_rank == 0:
+    with (
+        ProcessGroupManager.set_dummy_tensor_parallel_world_size(1),
+        ProcessGroupManager.set_dummy_tensor_parallel_rank(0),
+        ProcessGroupManager.set_dummy_pipeline_parallel_world_size(1),
+        ProcessGroupManager.set_dummy_pipeline_parallel_rank(0),
+    ):
+        _, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config)
     original_state_dict = model_container[0].state_dict()
 
     assert consolidated_state_dict.keys() == original_state_dict.keys()

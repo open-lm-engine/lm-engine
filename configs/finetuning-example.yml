@@ -21,11 +21,9 @@ datasets:
 
 model_args:
   model_name: ibm-granite/granite-3b-code-base
-  model_class: AutoModelForCausalLM
   # padding free transformer needs a gpt_base model.
   # To convert granite models to this class and convert back after training,
   # take a look at the readme of this repo
-  use_padding_free_transformer: false
 
 random_args:
   # for replication of experiment (however, flash attention is non-deterministic so replication generally won't work)
@@ -39,10 +37,10 @@ save_args:
   save_interval: 5000
 
 training_parameters:
-  # we will use 2 GPUs so our total samples seen during training is:
+  # we will use 2 accelerators so our total samples seen during training is:
   # num_training_steps * micro_batch_size * gradient_accumulation_steps * data_parallel_size
   # = 20000 (1 epoch since the dataset we are using here has 20k samples exactly)
-  # note: data_parallel_size = num_GPUs
+  # note: data_parallel_size = num_accelerators
   num_training_steps: 5000
   eval_during_training: false
   micro_batch_size: 2
@@ -71,6 +69,6 @@ mixed_precision_args:
   dtype: bf16
 
 distributed_args:
-  # use ZeRO-3 for model sharding, saves most memory but needs more communication. this is fine since we are doing training on 2 GPUs and they are connected via NVLink
+  # use ZeRO-3 for model sharding, saves most memory but needs more communication. this is fine since we are doing training on 2 accelerators and they are connected via NVLink
   stage: 3
   torch_compile: true

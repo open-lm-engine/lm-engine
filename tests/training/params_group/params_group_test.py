@@ -5,55 +5,66 @@
 import json
 import os
 
+import pytest
 import torch
-from parameterized import parameterized
 
-from lm_engine.distributed import _get_parameter_marker_maps, _set_parameter_marker_maps
+from lm_engine.distributed import wrap_model_container_for_distributed_training
 from lm_engine.enums import ParamsGroupMethod
+from lm_engine.hf_models import get_parameter_marker_maps, set_parameter_marker_maps
 from lm_engine.model_wrapper import get_model_container
 from lm_engine.optimization.params_group import get_param_groups_list
 from lm_engine.utils import ProcessGroupManager
 
-from ..test_commons import TestCommons
+from ..utils import load_training_args_for_unit_tests
 
 
-class ParamsGroupTest(TestCommons):
-    @parameterized.expand(
-        TestCommons.make_args_matrix([False, True], [("mup.json", ParamsGroupMethod.mup), ("normal.json", None)])
-    )
-    def test_mup_group(self, use_fsdp: bool, filename_method: tuple[str, ParamsGroupMethod | None]) -> None:
-        expected_groups_filename, params_group_method = filename_method
-        args = TestCommons.load_training_args_for_unit_tests("params_group/training_config.yml")
+@pytest.mark.parametrize("use_fsdp", [False, True])
+@pytest.mark.parametrize("use_torch_compile", [False, True])
+@pytest.mark.parametrize("efficient_initialization", [False, True])
+@pytest.mark.parametrize("filename_method", [("mup.json", ParamsGroupMethod.mup), ("normal.json", None)])
+def test_params_group(
+    use_fsdp: bool,
+    use_torch_compile: bool,
+    efficient_initialization: bool,
+    filename_method: tuple[str, ParamsGroupMethod | None],
+) -> None:
+    expected_groups_filename, params_group_method = filename_method
 
-        with (
-            torch.device("meta"),
-            ProcessGroupManager.set_dummy_tensor_parallel_world_size(1),
-            ProcessGroupManager.set_dummy_tensor_parallel_rank(0),
-            ProcessGroupManager.set_dummy_pipeline_parallel_world_size(1),
-            ProcessGroupManager.set_dummy_pipeline_parallel_rank(0),
-        ):
-            model_container = get_model_container(args, efficient_initialization=False, keep_in_fp32=False)
+    args = load_training_args_for_unit_tests("params_group/training_config.yml")
+    args.distributed_args.torch_compile = use_torch_compile
+    args.model_args.efficient_initialization = efficient_initialization
 
-            if use_fsdp:
-                marker_maps = _get_parameter_marker_maps(model_container)
-                model_container = [torch.compile(model) for model in model_container]
-                _set_parameter_marker_maps(model_container, marker_maps)
+    if not ProcessGroupManager.is_initialized():
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "29500"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["RANK"] = "0"
 
-        params_groups = get_param_groups_list(model_container, args.optimizer_args.class_args, params_group_method)[0]
+        ProcessGroupManager()
 
-        expected_group = json.load(
-            open(os.path.join(os.path.dirname(__file__), "groups", expected_groups_filename), "r")
-        )
+    model_container = get_model_container(args, efficient_initialization=efficient_initialization, keep_in_fp32=True)
 
-        stripped_resultant_group = params_groups.get_param_names()
+    if use_fsdp:
+        model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
+    elif use_torch_compile:
+        marker_maps = get_parameter_marker_maps(model_container)
+        model_container = [torch.compile(model) for model in model_container]
+        set_parameter_marker_maps(model_container, marker_maps, _trim_prefix="_orig_mod.")
 
-        if use_fsdp:
-            tmp = stripped_resultant_group
-            stripped_resultant_group = {}
+    params_groups = get_param_groups_list(model_container, args.optimizer_args.class_args, params_group_method)[0]
 
-            for group_name in tmp:
-                stripped_resultant_group[group_name] = [
-                    param_name.split("_orig_mod.")[-1] for param_name in tmp[group_name]
-                ]
+    expected_group = json.load(open(os.path.join(os.path.dirname(__file__), "groups", expected_groups_filename), "r"))
 
-        assert expected_group == stripped_resultant_group
+    tmp = params_groups.get_param_names()
+
+    if use_fsdp or use_torch_compile:
+        stripped_resultant_group = {}
+
+        for group_name in tmp:
+            stripped_resultant_group[group_name] = [
+                param_name.split("_orig_mod.")[-1] for param_name in tmp[group_name]
+            ]
+    else:
+        stripped_resultant_group = tmp
+
+    assert expected_group == stripped_resultant_group

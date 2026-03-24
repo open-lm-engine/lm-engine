@@ -8,75 +8,99 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_cute_kernels_available
+from ....utils import divide_if_divisible, is_xma_available
 from ...cache import GenerationCache
-from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ...parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_no_weight_decay,
+)
+from ..activations import clip_gradients, get_activation_function, is_glu, tanh
+from ..convolution import ParameterizedConv1d
 from ..linear import ParameterizedLinear
+from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
+from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
-if is_cute_kernels_available():
-    from cute_kernels import KernelBackend
-    from cute_kernels.modules.rnn import rnn_cute
+if is_xma_available():
+    from xma.layers.rnn import rnn
 
 
 class RNN(nn.Module):
     def __init__(
         self,
         input_size: int,
-        state_size: int,
+        state_head_dim: int,
         output_size: int,
-        num_heads: int,
+        num_input_heads: int,
+        num_weight_heads: int,
+        kernel_size: int | None,
+        activation_function: str | None,
         add_bias: bool,
         gradient_clipping: float | None,
         initializer_range: float,
         m_width: float,
         init_method: str,
         normalization_function: str | None,
-        scaling_factor: float | None,
         num_layers: int,
         layer_idx: int,
         use_padding_free_transformer: bool,
     ) -> RNN:
         super().__init__()
 
-        self.input_size = input_size
-        self.state_size = state_size
-        self.output_size = output_size
-        self.num_heads = num_heads
+        self.num_input_heads = num_input_heads
+        self.num_weight_heads = num_weight_heads
+        self.num_heads = max(num_input_heads, num_weight_heads)
+
+        divide_if_divisible(self.num_heads, self.num_input_heads)
+        divide_if_divisible(self.num_heads, self.num_weight_heads)
+
         self.gradient_clipping = gradient_clipping
+
+        self.state_head_dim = state_head_dim
+        self.state_size = self.num_heads * self.state_head_dim
+        self.kernel_size = kernel_size
+        self.activation_string = activation_function
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
-        self.state_head_dim = divide_if_divisible(self.state_size, self.num_heads, "")
-        self.is_gated_normalization = normalization_function == "silu_gated_rmsnorm"
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
+        self.x_shape = self.num_input_heads * self.state_head_dim
+        self.g_shape = self.num_heads * self.state_head_dim
+
+        std = _get_std_for_linear(initializer_range, init_method, m_width)
         self.state_weight_std = std
 
-        self.input_projection = ParameterizedLinear(
-            self.input_size,
-            self.state_size + (self.state_size if self.is_gated_normalization else 0),
-            bias=add_bias,
-            std=std,
-        )
+        self.input_projection = ParameterizedLinear(input_size, self.x_shape + self.g_shape, bias=add_bias, std=std)
 
+        if kernel_size is not None:
+            assert not is_glu(self.activation_string)
+
+            self.conv1d = ParameterizedConv1d(
+                in_channels=self.state_size,
+                out_channels=self.state_size,
+                kernel_size=kernel_size,
+                bias=add_bias,
+                padding=kernel_size - 1,
+                groups=self.state_size,
+                std=std,
+            )
+
+            mark_parameter_as_mup_learning_rate(self.conv1d.weight)
+
+        self.activation_function = get_activation_function(self.activation_string)
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
-        std = initializer_range / math.sqrt(2 * num_layers)
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-        self.output_projection = ParameterizedLinear(self.state_size, self.output_size, bias=False, std=std)
+        self.output_projection = ParameterizedLinear(
+            self.state_size, output_size, bias=False, std=std / math.sqrt(2 * num_layers)
+        )
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
-
-        self.scaling_factor = scaling_factor
-        self.reset_parameters()
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)
@@ -84,9 +108,11 @@ class RNN(nn.Module):
 
         mark_parameter_as_no_weight_decay(self.state_weight)
 
+        self.reset_parameters()
+
     def forward(
         self,
-        input: torch.Tensor,
+        x: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -99,59 +125,128 @@ class RNN(nn.Module):
             assert cu_seqlens is None
             assert max_seqlen is None
 
-            batch_size, sequence_length = input.size()[:2]
+            B, S = x.size()[:2]
 
             if attention_mask is not None:
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                input = pack_sequence(inputs=input, cu_seqlens=cu_seqlens)
+                x = pack_sequence(inputs=x, cu_seqlens=cu_seqlens)
 
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
+        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
 
-        input = self.input_projection(input)
+        x = self.input_projection(x)
+        x, g = x.split((self.x_shape, self.g_shape), dim=-1)
 
-        if self.is_gated_normalization:
-            input, gate = input.chunk(2, dim=-1)
-
-        input = input.view(*input.size()[:-1], self.num_heads, self.state_head_dim)
-
-        weight = self.state_weight
-
-        if self.scaling_factor != 1:
-            input = input * self.scaling_factor
-            weight = weight * self.scaling_factor
-
-        input = rnn_cute(
-            input=input,
-            weight=weight,
-            input_state=input_state,
-            gradient_clipping=self.gradient_clipping,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-            kernel_backend=KernelBackend.triton if is_kernel_allowed(Kernel.rnn_cute) else KernelBackend.torch,
-        )
-
-        if not self.use_padding_free_transformer and attention_mask is not None:
-            input = unpack_sequence(
-                inputs=input, cu_seqlens=cu_seqlens, output_shape=(batch_size, sequence_length, *input.size()[1:])
+        if self.kernel_size is None:
+            x = self.activation_function(x)
+        else:
+            x, c = causal_convolution(
+                hidden_states=x,
+                input_state=c,
+                attention_mask=attention_mask,
+                conv1d_weight=self.conv1d.weight,
+                conv1d_bias=self.conv1d.bias,
+                conv1d_num_groups=self.state_size,
+                return_cache_state=cache_params is not None,
+                activation_string=self.activation_string,
+                conv1d_padding=self.kernel_size - 1,
+                conv1d_stride=1,
             )
 
-        if cache_params is not None:
-            cache_params.update(state=input[:, -1], num_tokens_added=input.size(1), layer_idx=self.layer_idx)
+        x = x.view(*x.size()[:-1], -1, self.state_head_dim)
 
-        input = input.view(*input.size()[:-2], -1)
-
-        if self.is_gated_normalization:
-            input = self.norm(input, gate)
+        if is_kernel_allowed(Kernel.rnn):
+            x, h = rnn(
+                input=x,
+                weight=self.state_weight,
+                input_state=h,
+                gradient_clipping=self.gradient_clipping,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
         else:
-            input = self.norm(input)
+            x, h = self._torch_forward(
+                x=x, h0=h, gradient_clipping=self.gradient_clipping, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+            )
 
-        input = self.output_projection(input)
+        if not self.use_padding_free_transformer and attention_mask is not None:
+            x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
-        return input
+        if cache_params is not None:
+            cache_params.update(conv_state=c, ssm_state=h, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
+
+        x = x.flatten(-2, -1)
+        x = x * F.silu(g)
+        x = self.norm(x)
+        x = self.output_projection(x)
+
+        return x
+
+    def _torch_forward(
+        self,
+        x: torch.Tensor,
+        h0: torch.Tensor | None,
+        gradient_clipping: float | None,
+        cu_seqlens: torch.Tensor | None,
+        max_seqlen: int | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        W = self.state_weight
+
+        Nx = x.size(-2)
+        Nw = W.size(0)
+        N = max(Nx, Nw)
+
+        y_shape = list(x.size())
+        y_shape[-2] = N
+        y = torch.empty(y_shape, device=x.device, dtype=x.dtype)
+
+        if cu_seqlens is None:
+            B, S, _, H = x.size()
+        else:
+            B = cu_seqlens.size(0) - 1
+            S = max_seqlen
+            H = x.size(-1)
+
+        Gx = N // Nx
+        Gw = N // Nw
+
+        x = x.repeat_interleave(Gx, dim=-2)
+        W = W.repeat_interleave(Gw, dim=0)[None, ...]
+
+        if h0 is None:
+            h0 = torch.zeros(B, N, H, device=x.device, dtype=x.dtype)
+
+        if cu_seqlens is not None:
+            h0 = h0.clone()
+            start = cu_seqlens[:-1]
+            end = cu_seqlens[1:]
+
+        for s in range(S):
+            if cu_seqlens is None:
+                h = h0[..., None, :] @ W + x[:, s, :, None, :]
+            else:
+                offset = start + s
+                unfinished = offset < end
+                offset_unfinished = offset[unfinished]
+
+                h = h0[unfinished, :, None, :] @ W + x[offset_unfinished, :, None, :]
+
+            h = tanh(h)
+            h = h.squeeze(-2)
+            h = clip_gradients(h, gradient_clipping)
+
+            if cu_seqlens is None:
+                y[:, s] = h
+                h0 = h
+            else:
+                y[offset_unfinished] = h
+                h0[unfinished] = h
+
+        return y, h0
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.state_weight, std=self.state_weight_std)
+        mark_parameter_as_initialized(self.state_weight)
 
     def extra_repr(self) -> str:
         return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"

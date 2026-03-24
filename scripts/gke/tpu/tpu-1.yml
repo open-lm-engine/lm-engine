@@ -1,0 +1,35 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mayank-job
+spec:
+  template:
+    metadata:
+      annotations:
+        gke-gcsfuse/volumes: "true"
+        gke-tpu-runtime: v2-alpha-tpuv6e
+    spec:
+      serviceAccountName: gcs-access
+      nodeSelector:
+        topology.kubernetes.io/zone: asia-northeast1-b
+        cloud.google.com/gke-tpu-accelerator: tpu-v6e-slice
+        cloud.google.com/gke-tpu-topology: 1x1
+      containers:
+      - name: mayank-job
+        image: ghcr.io/open-lm-engine/tpu:latest
+        command: ["sleep", "infinity"]
+        resources:
+          requests:
+            cpu: 44
+            memory: 176Gi
+            google.com/tpu: 1
+          limits:
+            cpu: 44
+            memory: 176Gi
+            google.com/tpu: 1
+      restartPolicy: Never
+  backoffLimit: 0

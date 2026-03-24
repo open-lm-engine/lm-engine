@@ -14,9 +14,14 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available, is_mamba_2_ssm_available
 from ...cache import GenerationCache
-from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
+from ...parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_no_weight_decay,
+)
 from ..activations import get_activation_function
 from ..convolution import ParameterizedConv1d
+from ..decay_gate import SoftplusDecayGate
 from ..linear import ParameterizedLinear
 from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
@@ -108,7 +113,13 @@ class Mamba2(nn.Module):
         layer_norm_epsilon: float,
         initializer_range: float,
         m_width: float,
+        A_init_min: float,
+        A_init_max: float,
+        dt_init_min: float,
+        dt_init_max: float,
+        dt_init_floor: float,
         init_method: str,
+        normalization_function: str | None,
         num_layers: int,
         layer_idx: int,
     ) -> Mamba2:
@@ -154,33 +165,34 @@ class Mamba2(nn.Module):
             std=std,
         )
 
-        # selective projection used to make dt, B and C input dependant
+        self.decay_gate = SoftplusDecayGate(
+            hidden_size=None,
+            output_size=self.num_heads,
+            std=None,
+            has_projection=False,
+            A_init_min=A_init_min,
+            A_init_max=A_init_max,
+            dt_init_min=dt_init_min,
+            dt_init_max=dt_init_max,
+            dt_init_floor=dt_init_floor,
+        )
 
-        # time step projection (discretization)
-        # instantiate once and copy inv_dt in init_weights of PretrainedModel
-        # Initialize log dt bias
-        self.dt_bias = nn.Parameter(torch.ones(self.num_heads))
-
-        # S4D real initialization. These are not discretized!
-        # The core is to load them, compute the discrete states, then write the updated state. Keeps the memory bounded
-        A = torch.arange(1, self.num_heads + 1)
-        self.A_log = nn.Parameter(torch.log(A))
-        self.norm = get_normalization_function("silu_gated_rmsnorm", self.intermediate_size, eps=layer_norm_epsilon)
-        self.D = nn.Parameter(torch.ones(self.num_heads))
+        self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
 
         self.out_proj = ParameterizedLinear(
             self.intermediate_size, self.hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
         )
 
-        mark_parameter_as_no_weight_decay(self.dt_bias)
-        mark_parameter_as_no_weight_decay(self.A_log)
+        self.D = nn.Parameter(torch.empty(self.num_heads))
         mark_parameter_as_no_weight_decay(self.D)
 
-        mark_parameter_as_mup_learning_rate(self.A_log)
+        mark_parameter_as_mup_learning_rate(self.decay_gate.A_log)
         mark_parameter_as_mup_learning_rate(self.D)
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
         mark_parameter_as_mup_learning_rate(self.in_proj.weight)
         mark_parameter_as_mup_learning_rate(self.out_proj.weight)
+
+        self.reset_parameters()
 
     def forward(
         self,
@@ -262,7 +274,15 @@ class Mamba2(nn.Module):
         )
 
         # 3. SSM transformation
-        A = -torch.exp(self.A_log.float())  # [num_heads]
+        A = -torch.exp(self.decay_gate.A_log.float())
+
+        # hidden_states -> B, S, N, head_dim
+        # A -> num_heads
+        # B -> B, S, ssm_state_size
+        # C -> B, S, ssm_state_size
+        # dt -> (B, S, N)
+        # ssm_state -> (B, N, head_dim, ssm_state_size)
+
         if use_precomputed_states:
             # We need to guarantee that anything regarding the cache is on the same device
             cache_device = ssm_state.device
@@ -270,40 +290,48 @@ class Mamba2(nn.Module):
             # Note: there is no need to pad parameter matrices here, as there is just one new token
             # for batched generation
             dt = dt[:, 0, :][:, None, ...]
+            # dt -> (B, 1, N)
             dt = dt.transpose(1, 2).expand(batch_size, dt.shape[-1], self.head_dim)
-            # [num_heads] -> [num_heads, head_dim]
-            dt_bias = self.dt_bias[..., None].expand(self.dt_bias.shape[0], self.head_dim)
+            # dt -> (B, N, head_dim)
+            dt_bias = self.decay_gate.dt_bias[..., None].expand(self.decay_gate.dt_bias.shape[0], self.head_dim)
 
             dt = F.softplus(dt + dt_bias.to(dt.dtype))
             dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
+            # dt -> (B, N, head_dim)
             A = A[..., None, None].expand(self.num_heads, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
-            # [bsz, num_heads, head_dim, state_size]
+            # A -> (N, head_dim, ssm_state_size)
             dA = (torch.exp(dt[..., None] * A)).to(device=cache_device)
+            # A -> (N, head_dim, ssm_state_size)
+            # dA -> (B, N, head_dim, ssm_state_size)
 
             # Discretize B
             # [bsz, n_groups * state_size] -> [bsz, n_groups, 1, state_size] ->
             # -> [bsz, n_groups, group to head repetition factor, state_size] -> [bsz, num_heads, state_size]
-            B = B.reshape(batch_size, self.n_groups, -1)[..., None, :]
-            B = B.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, B.shape[-1]).contiguous()
-            B = B.reshape(batch_size, -1, B.shape[-1])
-            # [bsz, num_heads, head_dim, state_size]
+            # NOTE: S = 1 actually here
+            B, C = [i.reshape(batch_size, self.n_groups, -1)[..., None, :] for i in (B, C)]
+            # B, C -> (B, G, 1, ssm_state_size)
+            B, C = [
+                i.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, i.shape[-1]).contiguous()
+                for i in (B, C)
+            ]
+            # B, C -> (B, G, N / G, ssm_state_size)
+            B, C = [i.reshape(batch_size, -1, i.shape[-1]) for i in (B, C)]
+            # B, C -> (B, N, ssm_state_size)
+
+            # (B, N, head_dim, 1) * (B, N, 1, ssm_state_size)
+            # B is same as k and is shared across heads and dt is used to expand it
             dB = dt[..., None] * B[..., None, :]
+            # dB -> (B, N, head_dim, ssm_state_size)
 
             # Discretize x into dB
-            # [bsz, intermediate_size] -> [bsz, num_heads, head_dim]
             hidden_states = hidden_states.reshape(batch_size, -1, self.head_dim)
+            # hidden_states -> (B, N, head_dim)
             dBx = (dB * hidden_states[..., None]).to(device=cache_device)
+            # dBx -> (B, N, head_dim, ssm_state_size)
 
             # State calculation
             ssm_state = ssm_state * dA + dBx
             cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
-
-            # Subsequent output
-            # [bsz, n_groups * state_size] -> [bsz, num_heads, state_size]
-            C = C.reshape(batch_size, self.n_groups, -1)[..., None, :]
-            C = C.expand(batch_size, self.n_groups, self.num_heads // self.n_groups, C.shape[-1]).contiguous()
-            C = C.reshape(batch_size, -1, C.shape[-1])
-            # [bsz, num_heads, head_dim]
 
             ssm_state = ssm_state.to(device=C.device, dtype=C.dtype)  # Shape: [b, h, d, n]
             # Reshape ssm_states to merge the first two dimensions
@@ -323,7 +351,7 @@ class Mamba2(nn.Module):
             y = y.reshape(batch_size, -1)[:, None, ...]
         else:
             # begin ssd naive implementation without einsums
-            dt = nn.functional.softplus(dt + self.dt_bias)
+            dt = F.softplus(dt + self.decay_gate.dt_bias)
             dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
             hidden_states = hidden_states.reshape(batch_size, seq_len, -1, self.head_dim).float()
             B = B.reshape(batch_size, seq_len, -1, self.ssm_state_size).float()
@@ -402,7 +430,8 @@ class Mamba2(nn.Module):
             if cache_params is not None:
                 cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
 
-        scan_output = self.norm(y, gate)
+        scan_output = y * F.silu(gate)
+        scan_output = self.norm(scan_output)
 
         # end ssd naive
 
@@ -452,10 +481,10 @@ class Mamba2(nn.Module):
             )
 
             # 3. SSM transformation
-            A = -torch.exp(self.A_log.float())  # (nheads,)
+            A = -torch.exp(self.decay_gate.A_log.float())  # (nheads,)
             A = A[:, None, ...][:, :, None].expand(-1, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
             dt = dt[:, :, None].expand(-1, -1, self.head_dim)
-            dt_bias = self.dt_bias[:, None, ...].expand(-1, self.head_dim)
+            dt_bias = self.decay_gate.dt_bias[:, None, ...].expand(-1, self.head_dim)
             D = self.D[:, None, ...].expand(-1, self.head_dim)
             B = B.view(batch_size, self.n_groups, B.shape[1] // self.n_groups)
             C = C.view(batch_size, self.n_groups, C.shape[1] // self.n_groups)
@@ -473,13 +502,14 @@ class Mamba2(nn.Module):
                 dt_softplus=True,
             )
             hidden_states = hidden_states.view(batch_size, self.num_heads * self.head_dim)
-            hidden_states = self.norm(hidden_states, gate)
+            hidden_states = hidden_states * F.silu(gate)
+            hidden_states = self.norm(hidden_states)
 
             # 4. Final linear projection
             out = self.out_proj(hidden_states)[:, None, ...]
         # Fused calculations or step by step if no initialized cache is found
         else:
-            A = -torch.exp(self.A_log.float())  # (num_heads) or (intermediate_size, state_size)
+            A = -torch.exp(self.decay_gate.A_log.float())  # (num_heads) or (intermediate_size, state_size)
             dt_limit_kwargs = {} if self.time_step_limit == (0.0, float("inf")) else {"dt_limit": self.time_step_limit}
 
             # 2-4. Fused kernel for conv1d, SSM, and the final projection
@@ -488,7 +518,7 @@ class Mamba2(nn.Module):
                     projected_states,
                     self.conv1d.weight.squeeze(1),
                     self.conv1d.bias,
-                    self.dt_bias,
+                    self.decay_gate.dt_bias,
                     A,
                     D=self.D,
                     chunk_size=self.chunk_size,
@@ -552,7 +582,7 @@ class Mamba2(nn.Module):
                     z=None,
                     seq_idx=None,
                     return_final_states=True,
-                    dt_bias=self.dt_bias,
+                    dt_bias=self.decay_gate.dt_bias,
                     dt_softplus=True,
                     **dt_limit_kwargs,
                 )
@@ -563,7 +593,8 @@ class Mamba2(nn.Module):
 
                 scan_output = scan_output.view(batch_size, seq_len, -1)
                 # Multiply "gate" branch and apply extra normalization layer
-                scan_output = self.norm(scan_output, gate)
+                scan_output = scan_output * F.silu(gate)
+                scan_output = self.norm(scan_output)
 
                 # 4. Final linear projection
                 out = self.out_proj(scan_output)
@@ -572,6 +603,5 @@ class Mamba2(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        A = torch.arange(1, self.num_heads + 1)
-        self.A_log.data = torch.log(A)
         nn.init.ones_(self.D)
+        mark_parameter_as_initialized(self.D)

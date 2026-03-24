@@ -13,22 +13,12 @@ from .base import BaseDataset, BlendedDatasets
 from .dataloader import ResumableDataLoader
 from .debug import DebugDataset
 from .huggingface import HuggingFaceDataset
-from .ibm import get_ibm_dataloaders
-from .instruction_tuning import AlpacaDataset, DollyDataset, SlimOrcaDataset
 from .megatron import get_megatron_gpt_dataloaders
 from .sampler import BlendedDistributedSampler
-from .sst2 import SST2Dataset
 from .utils import collate_fn, custom_iterator, get_next_batch
 
 
-_DATASETS_LIST = {
-    "AlpacaDataset": AlpacaDataset,
-    "DebugDataset": DebugDataset,
-    "DollyDataset": DollyDataset,
-    "HuggingFaceDataset": HuggingFaceDataset,
-    "SlimOrcaDataset": SlimOrcaDataset,
-    "SST2Dataset": SST2Dataset,
-}
+_DATASETS_LIST = {"DebugDataset": DebugDataset, "HuggingFaceDataset": HuggingFaceDataset}
 
 
 def get_datasets_list(
@@ -157,8 +147,8 @@ def get_pretraining_dataloaders(
 ) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
     if args.datasets[0].class_name == "MegatronDataset":
         dataloaders = get_megatron_gpt_dataloaders(args, tokenizer, consumed_samples=consumed_samples)
-    elif args.datasets[0].class_name == "IBMDataset":
-        dataloaders = get_ibm_dataloaders(args, tokenizer)
+    else:
+        raise ValueError(f"unexpected dataloader class ({args.datasets[0].class_name})")
 
     return dataloaders
 

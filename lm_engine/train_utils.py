@@ -6,12 +6,18 @@ import logging
 
 import torch
 from torch.distributed import ReduceOp
-from transformers import AutoConfig
 
 from .enums import GradientCheckpointingMethod
 from .hf_models import CommonConfig, is_custom_model
 from .hf_models.modeling_utils import is_glu
-from .utils import ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager, divide_if_divisible, log_metrics
+from .utils import (
+    Accelerator,
+    ExperimentsTracker,
+    MetricsTrackingDict,
+    ProcessGroupManager,
+    divide_if_divisible,
+    log_metrics,
+)
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
@@ -24,8 +30,14 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
     # tensor = torch.stack(tensor) / ProcessGroupManager.get_data_parallel_world_size()
     # tensor = tensor.cpu()
     # gloo op doesn't support averaging so we do sum and divide by world size above
-    torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
-    tensor = tensor.tolist()
+
+    accelerator = Accelerator.get_accelerator()
+
+    if accelerator == Accelerator.tpu:
+        torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
+        tensor = tensor * (1 / ProcessGroupManager.get_data_parallel_world_size())
+    else:
+        torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
 
     for i, key in enumerate(metrics_tracker):
         metrics_tracker[key] = tensor[i]
@@ -34,12 +46,17 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
 
 
 def track_metrics(
-    global_step: int, experiments_tracker: ExperimentsTracker, metrics_tracker: MetricsTrackingDict, context: str
+    global_step: int,
+    global_step_in_tokens: int,
+    experiments_tracker: ExperimentsTracker,
+    metrics_tracker: MetricsTrackingDict,
+    context: str,
 ) -> None:
     """tracks metrics like training loss, learning rate etc
 
     Args:
         global_step (int): global step during training
+        global_step_in_tokens (int): global step during training in number of tokens
         experiments_tracker (ExperimentsTracker): metrics tracker
         metrics_tracker (float): metrics tracker
         context (str): experiment context
@@ -48,30 +65,17 @@ def track_metrics(
     # experiments tracker
     experiments_tracker.track(metrics_tracker.get_dict(), step=global_step, context=context)
 
-    message = f"step = {global_step}"
+    message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
     for key in metrics_tracker:
+        if key == "tokens":
+            continue
+
         if key == "learning_rate":
             message += f", {key} = {metrics_tracker[key]:.4e}"
         else:
             message += f", {context}-{key} = {metrics_tracker[key]:.4f}"
 
     log_metrics(logging.INFO, message)
-
-
-def get_torch_profiler(torch_profiler_trace_path: str) -> torch.profiler.profile:
-    torch_profiler = None
-    if torch_profiler_trace_path is not None:
-        torch_profiler = torch.profiler.profile(
-            activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-            schedule=torch.profiler.schedule(
-                wait=5 if ProcessGroupManager.get_global_rank() == 0 else 150000, warmup=5, active=1, repeat=1
-            ),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler(torch_profiler_trace_path),
-            record_shapes=True,
-            profile_memory=True,
-        )
-
-    return torch_profiler
 
 
 def _get_linear_flops(m: int, k: int, n: int, gradient_checkpointing: bool = False) -> int:
@@ -85,14 +89,17 @@ def _get_linear_flops(m: int, k: int, n: int, gradient_checkpointing: bool = Fal
     return total_flops
 
 
-def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int) -> int:
-    attention_forward_flops = 2 * batch_size * sequence_length * (sequence_length + 1) * hidden_size
+def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int, window_size: int | None) -> float:
+    if window_size is None:
+        window_size = sequence_length
+
+    attention_forward_flops = 2 * batch_size * sequence_length * window_size * hidden_size
     attention_backward_flops = 5 * attention_forward_flops / 2
     return attention_forward_flops + attention_backward_flops
 
 
 def get_model_tflops(
-    config: AutoConfig | CommonConfig,
+    config: CommonConfig,
     batch_size: int,
     sequence_length: int,
     gradient_checkpointing_method: GradientCheckpointingMethod | None,
@@ -132,7 +139,7 @@ def get_model_tflops(
             sequence_mixer_flops += _get_linear_flops(
                 b * s, block.out_channels, h, gradient_checkpointing=gradient_checkpointing_enabled
             )
-        elif sequence_mixer_type in ["softmax_attention", "stickbreaking_attention"]:
+        elif sequence_mixer_type == "softmax_attention":
             # QKV projection FLOPs
             sequence_mixer_flops = _get_linear_flops(
                 b * s,
@@ -145,21 +152,7 @@ def get_model_tflops(
                 b * s, h, h, gradient_checkpointing=gradient_checkpointing_enabled
             )
 
-            sequence_mixer_flops += _get_attention_flops(b, s, h)
-        elif sequence_mixer_type == "multihead_latent_attention":
-            # QKV down and up projection FLOPs
-            sequence_mixer_flops = 2 * _get_linear_flops(
-                b * s,
-                h,
-                block.query_compression_size + 2 * block.key_value_compression_size,
-                gradient_checkpointing=gradient_checkpointing_enabled,
-            )
-            # output projection FLOPs
-            sequence_mixer_flops += _get_linear_flops(
-                b * s, h, h, gradient_checkpointing=gradient_checkpointing_enabled
-            )
-
-            sequence_mixer_flops += _get_attention_flops(b, s, h)
+            sequence_mixer_flops += _get_attention_flops(b, s, h, block.sliding_window)
         elif sequence_mixer_type == "mamba2":
             # NOTE taken from NexaAI's fork (might be incorrect)
             # Mamba2 FLOP calculation based on its specific architecture
@@ -172,27 +165,51 @@ def get_model_tflops(
             sequence_mixer_flops = projection_flops + ssm_flops
             sequence_mixer_flops *= 2
         elif sequence_mixer_type == "rnn":
+            num_heads = max(block.num_input_heads, block.num_weight_heads)
             # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, block.state_size)
+            sequence_mixer_flops = _get_linear_flops(
+                b * s, h, (block.num_input_heads + num_heads) * block.state_head_dim
+            )
             # output projection FLOPs
-            sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
-
-            head_dim = block.state_size / block.num_heads
+            sequence_mixer_flops += _get_linear_flops(b * s, block.state_head_dim * num_heads, h)
 
             # sigmoid(Wh + x)
-            sequence_mixer_flops += s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
+            sequence_mixer_flops += (
+                s
+                * num_heads
+                * (_get_linear_flops(b, block.state_head_dim, block.state_head_dim) + b * block.state_head_dim)
+            )
         elif sequence_mixer_type == "gru":
-            # input projection FLOPs
-            sequence_mixer_flops = _get_linear_flops(b * s, h, 3 * block.state_size)
-            # output projection FLOPs
-            sequence_mixer_flops += _get_linear_flops(b * s, block.state_size, h)
+            num_heads = max(
+                block.num_input_heads,
+                block.num_forget_input_heads,
+                block.num_reset_input_heads,
+                block.num_weight_heads,
+                block.num_forget_weight_heads,
+                block.num_reset_weight_heads,
+            )
 
-            head_dim = block.state_size / block.num_heads
+            # input projection FLOPs
+            sequence_mixer_flops = _get_linear_flops(
+                b * s,
+                h,
+                (block.num_input_heads + block.num_forget_input_heads + block.num_reset_input_heads + num_heads)
+                * block.state_head_dim,
+            )
+            # output projection FLOPs
+            sequence_mixer_flops += _get_linear_flops(b * s, block.state_head_dim * num_heads, h)
 
             # sigmoid(Wh + x)
-            sequence_mixer_flops += 3 * s * block.num_heads * (_get_linear_flops(b, head_dim, head_dim) + b * head_dim)
+            sequence_mixer_flops += (
+                3
+                * s
+                * num_heads
+                * (_get_linear_flops(b, block.state_head_dim, block.state_head_dim) + b * block.state_head_dim)
+            )
+        elif sequence_mixer_type == "gated_deltanet":
+            return 0
         else:
-            raise NotImplementedError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
+            return 0
 
         total_flops += sequence_mixer_flops
 

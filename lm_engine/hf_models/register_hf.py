@@ -7,14 +7,12 @@ from transformers import AutoConfig, AutoModel, AutoModelForCausalLM
 from .models import (
     GPTBaseConfig,
     GPTBaseForCausalLM,
-    GPTBaseForCausalLM_TP,
     GPTBaseModel,
     GPTCrossLayerConfig,
     GPTCrossLayerForCausalLM,
     GPTCrossLayerModel,
     LadderResidualConfig,
     LadderResidualForCausalLM,
-    LadderResidualForCausalLM_TP,
     LadderResidualModel,
     PaLMConfig,
     PaLMForCausalLM,
@@ -47,16 +45,3 @@ def register_model_classes() -> None:
 
 def is_custom_model(model_type: str) -> bool:
     return model_type in _CUSTOM_MODEL_TYPES
-
-
-_MODEL_PARALLEL_CLASS_MAPPING = {
-    GPTBaseConfig.model_type: GPTBaseForCausalLM_TP,
-    LadderResidualConfig.model_type: LadderResidualForCausalLM_TP,
-}
-
-
-def get_model_parallel_class(model_type: str) -> AutoModelForCausalLM:
-    if model_type in _MODEL_PARALLEL_CLASS_MAPPING:
-        return _MODEL_PARALLEL_CLASS_MAPPING[model_type]
-
-    raise ValueError(f"model parallelism is not supported with `model_type` ({model_type})")

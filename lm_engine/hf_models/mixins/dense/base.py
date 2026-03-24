@@ -6,24 +6,20 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from transformers import PreTrainedModel
+from transformers import GenerationConfig, PreTrainedModel
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
+from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
-from ...modeling_utils import ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
+from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
 from ...utils import convert_padding_free_lists_to_tensors, is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
 
 
 class PreTrainedModelMixin(PreTrainedModel):
-    """
-    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
-    models.
-    """
-
     config_class = None
     layer_class = Block
     base_model_prefix = "transformer"
@@ -34,16 +30,24 @@ class PreTrainedModelMixin(PreTrainedModel):
     def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
         super().__init__(config, *args, **kwargs)
 
+        self.sequence_parallel = kwargs.get("sequence_parallel", False)
+        self.num_pipeline_stages = kwargs.get("num_pipeline_stages", 1)
+        self.pipeline_stage_id = kwargs.get("pipeline_stage_id", 0)
+
+        self.is_first_stage = self.pipeline_stage_id == 0
+        self.is_last_stage = self.pipeline_stage_id == self.num_pipeline_stages - 1
+        self.is_pipeline_parallel_enabled = self.num_pipeline_stages > 1
+
         assert self.config_class is not None
+        self.generation_config = GenerationConfig.from_model_config(self.config)
 
         self.use_padding_free_transformer = kwargs.get("use_padding_free_transformer", False)
         self._tied_word_embeddings = config.tie_word_embeddings
 
         self._has_mamba2 = any([block.sequence_mixer_type == "mamba2" for block in self.config.sequence_mixer_blocks])
 
-    def _init_weights(self, module: nn.Module) -> None:
-        if hasattr(module, "reset_parameters"):
-            module.reset_parameters()
+        if self.is_pipeline_parallel_enabled and self._tied_word_embeddings:
+            raise NotImplementedError()
 
     # FIXME typing
     def prepare_inputs_for_model(
@@ -69,7 +73,10 @@ class PreTrainedModelMixin(PreTrainedModel):
                 assert attention_mask is None, error_message.format(variable="attention_mask")
 
                 input_ids, position_ids, labels, cu_seqlens, max_seqlen = convert_padding_free_lists_to_tensors(
-                    input_ids=input_ids, position_ids=position_ids, labels=labels, device=torch.cuda.current_device()
+                    input_ids=input_ids,
+                    position_ids=position_ids,
+                    labels=labels,
+                    device=Accelerator.get_current_device(),
                 )
             else:
                 assert (
@@ -94,40 +101,60 @@ class BaseModelMixin(PreTrainedModelMixin):
 
     def _init_model(self, config: CommonConfig, **kwargs) -> None:
         self.embed_dim = config.hidden_size
+        self.max_position_embeddings = config.max_position_embeddings
+        self.rope_dim = config.rope_dim
         self.m_emb = config.m_emb
         self.initializer_range = config.initializer_range
+
+        self.layers_per_stage = divide_if_divisible(
+            config.num_layers, self.num_pipeline_stages, "layers should be divisible by num_pipeline_stages"
+        )
+
+        self.layer_start_id = self.layers_per_stage * self.pipeline_stage_id
+        self.layer_end_id = self.layers_per_stage * (self.pipeline_stage_id + 1)
+
         self.sequence_mixer_block_types = [
             config.sequence_mixer_blocks[i].sequence_mixer_type for i in range(config.num_layers)
         ]
 
-        self.wte = ParameterizedEmbedding(config.vocab_size, self.embed_dim, std=self.initializer_range)
+        if self.is_first_stage:
+            self.wte = ParameterizedEmbedding(
+                config.vocab_size,
+                self.embed_dim,
+                std=self.initializer_range,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+            )
 
-        self.embedding_dropout = (
-            nn.Identity() if config.embedding_dropout == 0 else nn.Dropout(config.embedding_dropout)
-        )
-        self.h = nn.ModuleList(
-            [
-                self.layer_class(config, use_padding_free_transformer=self.use_padding_free_transformer, layer_idx=i)
-                for i in range(config.num_layers)
-            ]
-        )
-        self.ln_f = get_normalization_function(
-            config.normalization_function, self.embed_dim, eps=config.layer_norm_epsilon
+            self.embedding_dropout = Dropout(
+                config.embedding_dropout,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+            )
+
+        self.h = nn.ModuleDict(
+            {
+                str(i): self.layer_class(
+                    config,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    sequence_parallel=self.sequence_parallel,
+                    layer_idx=i,
+                )
+                for i in range(self.layer_start_id, self.layer_end_id)
+            }
         )
 
-        self.rope_dim = config.rope_dim
+        if self.is_last_stage:
+            self.ln_f = get_normalization_function(
+                config.normalization_function,
+                self.embed_dim,
+                eps=config.layer_norm_epsilon,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+            )
 
         self.position_embedding_type = config.position_embedding_type
         self._setup_positional_encoding()
-
-        # Initialize weights and apply final processing
-        self.post_init()
-
-    def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.wte
-
-    def set_input_embeddings(self, new_embeddings: ParameterizedEmbedding) -> None:
-        self.wte = new_embeddings
 
     def forward(
         self,
@@ -139,31 +166,46 @@ class BaseModelMixin(PreTrainedModelMixin):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> BaseModelOutputWithPast:
-        (
-            use_cache,
-            hidden_states,
-            causal_mask,
-            position_ids,
-            rope_cos_sin,
-            past_key_values,
-        ) = self._prepare_a_bunch_of_stuff(
-            input_ids=input_ids,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            position_ids=position_ids,
-            use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-        )
+        if self.is_first_stage:
+            (
+                use_cache,
+                hidden_states,
+                causal_mask,
+                position_ids,
+                rope_cos_sin,
+                past_key_values,
+            ) = self._prepare_a_bunch_of_stuff(
+                input_ids=input_ids,
+                past_key_values=past_key_values,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                use_cache=use_cache,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
+        else:
+            assert past_key_values is None
+            assert attention_mask is None
 
-        # ==========================================================================================
-        # padding_free:
-        #     attention_mask -> None
-        # flash:
-        #     attention_mask -> (batch_size, key_length)
-        # else:
-        #     attention_mask -> (batch_size, 1, query_length, key_length)
-        # ==========================================================================================
+            hidden_states = input_ids
+            past_length = 0
+
+            if self.use_padding_free_transformer:
+                key_length = max_seqlen
+                # query length will change if past_key_values is not None
+                query_length = key_length - past_length
+            else:
+                key_length = (
+                    hidden_states.size(1) * ProcessGroupManager.get_tensor_parallel_world_size()
+                    if self.sequence_parallel
+                    else hidden_states.size(1)
+                )
+                query_length = key_length - past_length
+
+            position_ids = torch.arange(past_length, key_length, dtype=torch.long, device=hidden_states.device)
+            position_ids = position_ids.unsqueeze(0).view(-1, query_length)
+
+            rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
         if is_generation_cache_enabled():
             past_key_values = (
@@ -173,12 +215,15 @@ class BaseModelMixin(PreTrainedModelMixin):
         mamba_mask = None
         mamba_mask_computed = False
 
-        for sequence_mixer_type, block in zip(self.sequence_mixer_block_types, self.h):
-            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
+        for layer_idx in range(self.layer_start_id, self.layer_end_id):
+            sequence_mixer_type = self.sequence_mixer_block_types[layer_idx]
+            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru", "m2rnn", "gated_deltanet"]
 
             if is_linear_layer and not mamba_mask_computed:
                 mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)
                 mamba_mask_computed = True
+
+            block = self.h[str(layer_idx)]
 
             hidden_states = block(
                 hidden_states,
@@ -189,7 +234,8 @@ class BaseModelMixin(PreTrainedModelMixin):
                 max_seqlen=max_seqlen,
             )
 
-        hidden_states = self.ln_f(hidden_states)
+        if self.is_last_stage:
+            hidden_states = self.ln_f(hidden_states)
 
         return BaseModelOutputWithPast(last_hidden_state=hidden_states, past_key_values=past_key_values)
 
@@ -227,10 +273,6 @@ class BaseModelMixin(PreTrainedModelMixin):
     ) -> torch.Tensor:
         past_length = key_length - query_length
 
-        # ==========================================================================================
-        # attention_mask -> (batch_size, key_length)
-        # ==========================================================================================
-
         if query_length > 1:
             # (query_length, key_length)
             causal_mask = torch.empty((query_length, key_length), dtype=torch.bool, device=device)
@@ -258,15 +300,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 # (batch_size, query_length, key_length)
                 causal_mask = attention_mask.unsqueeze(1).to(dtype=torch.bool, device=device)
 
-        # ==========================================================================================
-        # attention_mask -> (batch_size, query_length, key_length)
-        # ==========================================================================================
-
         causal_mask = causal_mask.unsqueeze(1)
-
-        # ==========================================================================================
-        # attention_mask -> (batch_size, 1, query_length, key_length)
-        # ==========================================================================================
 
         return causal_mask
 
@@ -312,17 +346,6 @@ class BaseModelMixin(PreTrainedModelMixin):
                 "inputs"
             )
 
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> None or (batch_size, key_length)
-        # ==========================================================================================
-
         past_length = None
         query_length = None
         key_length = None
@@ -338,34 +361,9 @@ class BaseModelMixin(PreTrainedModelMixin):
                 attention_mask, past_length, query_length, key_length, input_ids.device
             )
 
-        # ==========================================================================================
-        # padding_free:
-        #     input_ids -> (total_q)
-        #     attention_mask -> None
-        #     position_ids -> (total_q)
-        # else:
-        #     input_ids -> (batch_size, query_length)
-        #     attention_mask -> None or (batch_size, key_length)
-        #     position_ids -> (batch_size, query_length)
-        # ==========================================================================================
-
         hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
 
-        # ==========================================================================================
-        # padding_free:
-        #     hidden_states -> (total_q, num_heads * head_dim)
-        # else:
-        #     hidden_states -> (batch_size, query_length, num_heads * head_dim)
-        # ==========================================================================================
-
         rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
-
-        # ==========================================================================================
-        # padding_free:
-        #     rope_cos_sin -> 2 * (max_seqlen, head_dim)
-        # else:
-        #     rope_cos_sin -> 2 * (key_length, head_dim)
-        # ==========================================================================================
 
         attention_mask = self._get_maybe_causal_mask(
             attention_mask, batch_size, query_length, key_length, hidden_states.dtype, input_ids.device
@@ -384,13 +382,18 @@ class BaseModelMixin(PreTrainedModelMixin):
         max_position_embeddings = self.config.max_position_embeddings
 
         if self.position_embedding_type == "learned_absolute":
-            self.wpe = ParameterizedEmbedding(max_position_embeddings, self.embed_dim, std=self.initializer_range)
+            if self.is_first_stage:
+                self.wpe = ParameterizedEmbedding(
+                    max_position_embeddings,
+                    self.embed_dim,
+                    std=self.initializer_range,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    sequence_parallel=self.sequence_parallel,
+                )
         elif self.position_embedding_type == "rope":
             if self.config.rope_scaling is None:
                 self.rope = RoPE(
-                    self.rope_dim,
-                    max_position_embeddings=max_position_embeddings,
-                    base=self.config.rope_theta,
+                    self.rope_dim, max_position_embeddings=max_position_embeddings, base=self.config.rope_theta
                 )
             else:
                 self.rope = YaRNScaledRoPE(

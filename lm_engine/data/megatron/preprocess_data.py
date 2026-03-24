@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import gzip
+import io
 import json
-import multiprocessing
-import tempfile
 from typing import Iterator
 
 import pyarrow as pa
@@ -14,7 +14,7 @@ from transformers import AutoTokenizer
 
 from ...tokenizers import TOKENIZER_TYPE, get_tokenizer
 from ...utils import is_zstandard_available
-from .indexed_dataset import DType, MMapIndexedDatasetBuilder
+from .indexed_dataset import DType, MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
 
 
 if is_zstandard_available():
@@ -50,11 +50,29 @@ class Encoder:
         return ids
 
     def encode(self, json_line) -> dict:
-        data = json.loads(json_line)
-        return self._encode_data(data)
+        """Safely encode a JSONL text line.
+
+        If the line cannot be parsed as JSON or does not contain the expected
+        keys, we return an **empty dictionary** so that the downstream loop
+        silently skips the document instead of raising and aborting the entire
+        preprocessing run. This provides resilience against occasional
+        corrupted records that sometimes appear in large-scale datasets.
+        """
+
+        try:
+            data = json.loads(json_line)
+            return self._encode_data(data)
+        except (json.JSONDecodeError, KeyError, TypeError):
+            # Corrupted JSON or missing fields – skip this line.
+            return {}
 
     def encode_jsonl_zstd(self, bytes_obj) -> dict:
-        json_str = bytes_obj.decode("utf-8")
+        try:
+            json_str = bytes_obj.decode("utf-8")
+        except UnicodeDecodeError:
+            # Skip if the bytes cannot be decoded.
+            return {}
+
         return self.encode(json_str)
 
     def encode_hf(self, sample) -> dict:
@@ -71,44 +89,71 @@ def convert_file(
     tokenizer: TOKENIZER_TYPE | str,
     input_file: str,
     output_prefix: str,
-    workers: int,
-    chunk_size: int,
     subset: str | None = None,
     json_keys: list[str] = ["text"],
     append_eos_token: bool = True,
-) -> None:
+) -> int:
     encoder = Encoder(tokenizer, json_keys, append_eos_token)
-    pool = multiprocessing.Pool(workers)
 
     if input_file.endswith(".jsonl"):
         assert subset is None, f"jsonl doesn't support a subset"
-        encoded_docs = pool.imap(encoder.encode, open(input_file, "r", encoding="utf-8"), chunk_size)
+        encoded_docs = map(encoder.encode, open(input_file, "r", encoding="utf-8"))
     elif input_file.endswith(".jsonl.zst"):
-        assert subset is None, f"zst jsonl doesn't support a subset"
+        assert subset is None, "zst jsonl doesn't support a subset"
 
-        dctx = ZstdDecompressor()
-        outfile = tempfile.TemporaryFile(suffix=input_file.rstrip(".zstd"))
-        with open(input_file, "rb") as infile:
-            dctx.copy_stream(infile, outfile)
-        outfile.seek(0)
+        # Use a generator to stream lines and ensure the file is closed properly
+        def zstd_iterator(path):
+            with open(path, "rb") as compressed:
+                dctx = ZstdDecompressor()
+                with dctx.stream_reader(compressed) as reader:
+                    # Use a large buffer (64MB) to ensure efficient reading of very long lines
+                    buffered = io.BufferedReader(reader, buffer_size=64 * 1024 * 1024)
+                    for line in buffered:
+                        yield line
 
-        encoded_docs = pool.imap(encoder.encode_jsonl_zstd, outfile, chunk_size)
+        encoded_docs = map(encoder.encode_jsonl_zstd, zstd_iterator(input_file))
+    elif input_file.endswith(".json.gz"):
+        assert subset is None, "json.gz doesn't support a subset"
+        encoded_docs = map(encoder.encode, gzip.open(input_file, "rt", encoding="utf-8"))
+    elif input_file.endswith(".parquet"):
+        import pyarrow.parquet as pq
+
+        parquet_file = pq.ParquetFile(input_file)
+
+        def parquet_iterator():
+            for batch in parquet_file.iter_batches(columns=json_keys, batch_size=10000):
+                # to_pylist() is much faster than to_pandas() + row iteration
+                for row in batch.to_pylist():
+                    yield row
+
+        encoded_docs = map(encoder.encode_hf, parquet_iterator())
     elif input_file.endswith(".arrow"):
         assert subset is None, f"arrow doesn't support a subset"
-        encoded_docs = pool.imap(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file), chunk_size)
+        encoded_docs = map(encoder.convert_fms_arrow_to_megatron, ArrowIterator(input_file))
     else:
         ds = load_dataset(input_file, use_auth_token=True, streaming=True, split="train", data_dir=subset)
-        encoded_docs = pool.imap(encoder.encode_hf, ds, chunk_size)
+        encoded_docs = map(encoder.encode_hf, ds)
 
     builders = {
-        key: MMapIndexedDatasetBuilder(f"{output_prefix}_{key}.bin", dtype=DType.optimal_dtype(tokenizer.vocab_size))
+        key: MMapIndexedDatasetBuilder(
+            get_bin_path(f"{output_prefix}_{key}"), dtype=DType.optimal_dtype(tokenizer.vocab_size)
+        )
         for key in json_keys
     }
 
+    skipped = 0
+
     for item in encoded_docs:
+        # When the encoder fails to parse a line, it returns an empty dict. Count & skip.
+        if not item:
+            skipped += 1
+            continue
+
         for key, document in item.items():
             builders[key].add_item(torch.IntTensor(document))
             builders[key].end_document()
 
     for key in json_keys:
-        builders[key].finalize(f"{output_prefix}_{key}.idx")
+        builders[key].finalize(get_idx_path(f"{output_prefix}_{key}"))
+
+    return skipped

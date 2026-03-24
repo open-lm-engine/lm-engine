@@ -1,0 +1,10 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+profiles:
+  mayank-data:
+    storage_provider:
+      type: gcs
+      options:
+        base_path: mayank-data

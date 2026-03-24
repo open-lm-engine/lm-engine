@@ -2,42 +2,30 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import time
+from collections import OrderedDict
 
 import numpy as np
+import torch
 
 from ...tokenizers import TOKENIZER_TYPE
 from ...utils import log_rank_0
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
-from .megatron_dataset import MegatronDataset
 from .utils import Split, build_sample_idx
 
 
-FIM_PREFIX = "<fim_prefix>"
-FIM_MIDDLE = "<fim_middle>"
-FIM_SUFFIX = "<fim_suffix>"
-FIM_PAD = "<fim_pad>"
+_FIM_PREFIX = "<fim_prefix>"
+_FIM_MIDDLE = "<fim_middle>"
+_FIM_SUFFIX = "<fim_suffix>"
+_FIM_PAD = "<fim_pad>"
 
 
-class GPTDataset(MegatronDataset):
-    """The base GPT dataset
-
-    Args:
-        indexed_dataset (MMapIndexedDataset): The MMapIndexedDataset around which to build the
-        MegatronDataset
-
-        indexed_indices (np.ndarray): The set of the documents indices to expose
-
-        num_samples (int): The number of samples to draw from the indexed dataset
-
-        index_split (Split): The indexed_indices Split
-
-        config (GPTDatasetConfig): The GPT-specific container for all config sourced parameters
-    """
-
+class GPTDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         indexed_dataset: MMapIndexedDataset,
@@ -47,89 +35,55 @@ class GPTDataset(MegatronDataset):
         tokenizer: TOKENIZER_TYPE,
         config: GPTDatasetConfig,
         caching_allowed: bool,
+        random_seed: int,
     ) -> GPTDataset:
-        super().__init__(indexed_dataset, indexed_indices, num_samples, index_split, config, caching_allowed)
+        assert indexed_indices.size > 0
+        assert num_samples > 0
+        assert self.is_multimodal() == indexed_dataset.multimodal
+        assert isinstance(config, GPTDatasetConfig)
 
+        self.indexed_dataset = indexed_dataset
+        self.indexed_indices = indexed_indices
+        self.num_samples = num_samples
+        self.index_split = index_split
+        self.config = config
+        self.random_seed = random_seed
+
+        self.caching_allowed = caching_allowed
         self.tokenizer = tokenizer
-
         self.fim_rate = config.fim_rate
         self.fim_spm_rate = config.fim_spm_rate
-        self.np_rng = np.random.RandomState(seed=config.random_seed)  # rng state for FIM
+        self.np_rng = np.random.RandomState(self.random_seed)  # rng state for FIM
+
+        self.unique_identifiers = OrderedDict()
+        self.unique_identifiers["class"] = type(self).__name__
+        self.unique_identifiers["path_prefix"] = self.indexed_dataset.path_prefix
+        self.unique_identifiers["num_samples"] = self.num_samples
+        self.unique_identifiers["index_split"] = self.index_split.name
+        self.unique_identifiers["name"] = self.config.name
+        self.unique_identifiers["split"] = self.config.split
+        self.unique_identifiers["random_seed"] = self.random_seed
+        self.unique_identifiers["sequence_length"] = self.config.sequence_length
+
+        self.unique_description = json.dumps(self.unique_identifiers, indent=4)
+        self.unique_description_hash = hashlib.md5(self.unique_description.encode("utf-8")).hexdigest()
 
         if self.fim_rate != 0:
             assert self.fim_rate <= 1 and self.fim_rate >= 0, "FIM rate must be a probability 0 <= rate <= 1"
 
             self.suffix_tok_id, self.prefix_tok_id, self.middle_tok_id, self.pad_tok_id = (
-                self.tokenizer.convert_tokens_to_ids(tok) for tok in [FIM_SUFFIX, FIM_PREFIX, FIM_MIDDLE, FIM_PAD]
+                self.tokenizer.convert_tokens_to_ids(tok) for tok in [_FIM_SUFFIX, _FIM_PREFIX, _FIM_MIDDLE, _FIM_PAD]
             )
 
             self.eos_token_id = self.tokenizer.eos_token_id
             assert self.eos_token_id is not None
 
-    def _finalize(self) -> None:
-        """Abstract method implementation
-
-        Load or build/cache the document, sample, and shuffle indices
-        """
-        assert isinstance(self.config, GPTDatasetConfig)
-
-        (
-            self.document_index,
-            self.sample_index,
-            self.shuffle_index,
-        ) = self._build_document_sample_shuffle_indices()
+        self.document_index, self.sample_index, self.shuffle_index = self._build_document_sample_shuffle_indices()
 
     def __len__(self) -> int:
-        """Abstract method implementation
-
-        Returns:
-            int: The length of the dataset
-        """
         return self.sample_index.shape[0] - 1
 
     def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
-        """Abstract method implementation
-
-        Args:
-            idx (int): The index into the dataset
-
-        Returns:
-            Dict[str, np.ndarray]: The text ids and (optionally) the document ids wrapped in a
-            dictionary
-        """
-        text, document_ids = self._query_document_sample_shuffle_indices(idx)
-        if getattr(self.config, "return_document_ids"):
-            return {"text": text, "document_ids": document_ids}
-        else:
-            return {"text": text}
-
-    @staticmethod
-    def is_multimodal() -> bool:
-        """Abstract method implementation
-
-        Returns:
-            bool: False
-        """
-        return False
-
-    @staticmethod
-    def is_split_by_sequence() -> bool:
-        """Abstract method implementation
-
-        Returns:
-            bool: True
-        """
-        return True
-
-    def _query_document_sample_shuffle_indices(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
-        """Get the text (token ids) and document ids for a given index
-
-        Args:
-            idx (int): The index into the dataset
-
-        Returns:
-            tuple[np.ndarray, np.ndarray]: The text ids and document ids
-        """
         # Do the shuffle mapping
         idx = self.shuffle_index[idx]
 
@@ -239,7 +193,17 @@ class GPTDataset(MegatronDataset):
 
             assert sample.shape[0] == sample_len
 
-        return sample, np.array(document_ids, dtype=np.int64)
+        document_ids = np.array(document_ids, dtype=np.int64)
+
+        return {"text": sample}
+
+    @staticmethod
+    def is_multimodal() -> bool:
+        return False
+
+    @staticmethod
+    def is_split_by_sequence() -> bool:
+        return True
 
     def _build_document_sample_shuffle_indices(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Build the document index, the sample index, and the shuffle index
@@ -263,33 +227,26 @@ class GPTDataset(MegatronDataset):
         TODO: Explain the 80% threshold
         """
 
-        path_to_cache = getattr(self.config, "path_to_cache")
+        path_to_cache = self.config.path_to_cache
         if path_to_cache is None:
             path_to_cache = os.path.join(self.indexed_dataset.path_prefix, "cache", f"{type(self).__name__}_indices")
 
-        get_path_to = lambda suffix: os.path.join(
-            path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}"
-        )
-        path_to_description = get_path_to("description.txt")
-        path_to_document_index = get_path_to("document_index.npy")
-        path_to_sample_index = get_path_to("sample_index.npy")
-        path_to_shuffle_index = get_path_to("shuffle_index.npy")
+        def _get_path_to(suffix: str) -> str:
+            return os.path.join(path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}")
+
+        path_to_description = _get_path_to("description.txt")
+        path_to_document_index = _get_path_to("document_index.npy")
+        path_to_sample_index = _get_path_to("sample_index.npy")
+        path_to_shuffle_index = _get_path_to("shuffle_index.npy")
         cache_hit = all(
             map(
                 os.path.isfile,
-                [
-                    path_to_description,
-                    path_to_document_index,
-                    path_to_sample_index,
-                    path_to_shuffle_index,
-                ],
+                [path_to_description, path_to_document_index, path_to_sample_index, path_to_shuffle_index],
             )
         )
 
-        num_tokens_per_epoch = _get_num_tokens_per_epoch(self.indexed_dataset, self.indexed_indices)
-
-        sequence_length = getattr(self.config, "sequence_length")
-
+        num_tokens_per_epoch = np.sum(self.indexed_dataset.sequence_lengths[self.indexed_indices])
+        sequence_length = self.config.sequence_length
         num_epochs = _get_num_epochs(num_tokens_per_epoch, sequence_length, self.num_samples)
 
         log_rank_0(logging.INFO, f"> Tokens per epoch: {num_tokens_per_epoch}")
@@ -322,7 +279,7 @@ class GPTDataset(MegatronDataset):
 
             log_rank_0(logging.DEBUG, f"> separate_final_epoch: {separate_final_epoch}")
 
-            numpy_random_state = np.random.RandomState(self.config.random_seed)
+            numpy_random_state = np.random.RandomState(self.random_seed)
 
             os.makedirs(path_to_cache, exist_ok=True)
 
@@ -399,20 +356,6 @@ class GPTDataset(MegatronDataset):
         log_rank_0(logging.INFO, f"> total number of epochs: {num_epochs}")
 
         return document_index, sample_index, shuffle_index
-
-
-def _get_num_tokens_per_epoch(indexed_dataset: MMapIndexedDataset, indices: np.ndarray) -> int:
-    """Calculate the number of tokens in a single epoch
-
-    Args:
-        indexed_dataset (MMapIndexedDataset): The underlying MMapIndexedDataset
-
-        indices (np.ndarray): The subset of indices into the underlying MMapIndexedDataset
-
-    Returns:
-        int: The number of tokens in a single epoch
-    """
-    return np.sum(indexed_dataset.sequence_lengths[indices])
 
 
 def _get_num_epochs(num_tokens_per_epoch: int, seq_length: int, num_samples: int) -> int:

@@ -1,6 +1,6 @@
-[submodule "cute-kernels"]
-	path = cute-kernels
-	url = https://github.com/mayank31398/cute-kernels/
 [submodule "copyright"]
 	path = copyright
 	url = https://github.com/mayank31398/copyright
+[submodule "accelerated-model-architectures"]
+	path = accelerated-model-architectures
+	url = https://github.com/open-lm-engine/accelerated-model-architectures
