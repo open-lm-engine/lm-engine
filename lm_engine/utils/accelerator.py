@@ -96,10 +96,14 @@ class Accelerator(Enum):
 
         if accelerator in [Accelerator.cuda, Accelerator.rocm]:
             state = torch.cuda.get_rng_state()
+        elif accelerator == Accelerator.mps:
+            state = torch.mps.get_rng_state()
         elif accelerator == Accelerator.tpu:
             state = xla_get_rng_state()
         elif accelerator == Accelerator.trainium:
             state = torch.neuron.get_rng_state()
+        elif accelerator == Accelerator.cpu:
+            state = torch.get_rng_state()
         else:
             raise ValueError(f"unexpected device ({accelerator})")
 
@@ -111,10 +115,14 @@ class Accelerator(Enum):
 
         if accelerator in [Accelerator.cuda, Accelerator.rocm]:
             state = torch.cuda.set_rng_state(state)
+        elif accelerator == Accelerator.mps:
+            state = torch.mps.set_rng_state(state)
         elif accelerator == Accelerator.tpu:
             state = xla_set_rng_state(state)
         elif accelerator == Accelerator.trainium:
             state = torch.neuron.set_rng_state(state)
+        elif accelerator == Accelerator.cpu:
+            state = torch.set_rng_state(state)
         else:
             raise ValueError(f"unexpected device ({accelerator})")
 
