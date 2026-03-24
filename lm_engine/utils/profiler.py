@@ -56,7 +56,6 @@ class TorchProfiler:
     def step(self) -> None:
         if self.path is not None and self.accelerator == Accelerator.tpu:
             self._step += 1
-
             if self._step == self.start_step:
                 xla_start_trace(self.path)
             elif self._step == self.end_step:
