@@ -167,12 +167,11 @@ def save_checkpoint(
                     checkpoint_id=_get_optimizer_path(save_path),
                 )
         elif accelerator == Accelerator.mps:
-            torch.save({"state": _ModelSaver(model_container)}, f"{_get_model_path(save_path)}.pt")
+            assert len(model_container) == 1
+            assert len(optimizer_container) == 1
 
-            torch.save(
-                {"state": _OptimizerSaver(model_container=None, optimizer_container=optimizer_container)},
-                f"{_get_optimizer_path(save_path)}.pt",
-            )
+            torch.save({"state": model_container[0].state_dict()}, f"{_get_model_path(save_path)}.pt")
+            torch.save({"state": optimizer_container[0].state_dict()}, f"{_get_optimizer_path(save_path)}.pt")
         elif accelerator == Accelerator.tpu:
             assert len(model_container) == 1
             assert len(optimizer_container) == 1
@@ -273,6 +272,12 @@ def load_checkpoint_for_training(
                 saver.load_state_dict(state_dict["state"])
 
         del saver, state_dict
+    elif accelerator == Accelerator.mps:
+        assert len(model_container) == 1
+        assert len(optimizer_container) == 1
+
+        model_container[0].load_state_dict(torch.load(f"{_get_model_path(load_path)}.pt")["state"])
+        optimizer_container[0].load_state_dict(torch.load(f"{_get_optimizer_path(load_path)}.pt")["state"])
     elif accelerator == Accelerator.tpu:
         assert len(model_container) == 1
         assert len(optimizer_container) == 1
