@@ -57,7 +57,7 @@ enable_kernels([Kernel.scattermoe]).__enter__()
 
 if is_tp_first_rank:
     with ProcessGroupManager.set_dummy_tensor_parallel_world_size(1):
-        model = from_config(None, config)
+        model = from_config(config)
 
     model.save_pretrained(args.tmp_path, safe_serialization=True)
 
