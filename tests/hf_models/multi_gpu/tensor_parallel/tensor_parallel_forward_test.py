@@ -5,8 +5,8 @@
 import subprocess
 import tempfile
 
+import pytest
 import torch
-from parameterized import parameterized
 
 from lm_engine.utils import (
     is_flash_attention_2_available,
@@ -15,75 +15,63 @@ from lm_engine.utils import (
     torch_dtype_to_string,
 )
 
-from ...test_common import TestCommons
+from ....utils import skip_test_if_device_unavailable, slow_test
 
 
-class TensorParallelTest(TestCommons):
-    @parameterized.expand(
-        TestCommons.make_args_matrix(
-            TestCommons.get_position_embedding_types(),
-            ["sdpa", "flash_attention_2", "flash_attention_3"],
-            TestCommons.get_dtypes(),
-            [False, True],
-            [False, True],
-        )
-    )
-    @TestCommons.slow_test
-    def test_tensor_parallel_forward(
-        self,
-        position_embedding_type: str,
-        attention_implementation: str,
-        dtype: torch.dtype,
-        use_padding_free_transformer: bool,
-        sequence_parallel: bool,
-    ) -> None:
-        self.skip_test_if_device_unavailable(torch.device("cuda"))
+@pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
+@pytest.mark.parametrize(
+    "attention_implementation", ["sdpa", "flash_attention_2", "flash_attention_3", "flash_attention_4"]
+)
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+@pytest.mark.parametrize("use_padding_free_transformer", [False, True])
+@pytest.mark.parametrize("sequence_parallel", [False, True])
+@slow_test
+def test_tensor_parallel_forward(
+    position_embedding_type: str,
+    attention_implementation: str,
+    dtype: torch.dtype,
+    use_padding_free_transformer: bool,
+    sequence_parallel: bool,
+) -> None:
+    skip_test_if_device_unavailable(torch.device("cuda"))
 
-        if (attention_implementation, dtype) not in [
-            ("sdpa", torch.float32),
-            ("flash_attention_2", torch.float16),
-            ("flash_attention_3", torch.float16),
-            ("flash_attention_4", torch.float16),
-        ]:
-            self.skipTest("skipping test since running all takes too long")
+    if (attention_implementation, dtype) not in [("sdpa", torch.float32)] + [
+        (f"flash_attention_{i}", torch.float16) for i in range(2, 5)
+    ]:
+        pytest.skip("skipping test since running all takes too long")
 
-        if attention_implementation == "flash_attention_2" and not is_flash_attention_2_available():
-            self.skipTest("skipping test because flash attention 2 is unavailable")
-        elif attention_implementation == "flash_attention_3" and not is_flash_attention_3_available():
-            self.skipTest("skipping test because flash attention 3 is unavailable")
-        elif attention_implementation == "flash_attention_4" and not is_flash_attention_4_available():
-            self.skipTest("skipping test because flash attention 4 is unavailable")
+    for i, func in zip(
+        range(2, 5), [is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available]
+    ):
+        if attention_implementation == f"flash_attention_{i}" and not func():
+            pytest.skip(f"skipping test because flash attention {i} is unavailable")
 
-        if use_padding_free_transformer and attention_implementation not in [
-            "flash_attention_2",
-            "flash_attention_3",
-            "flash_attention_4",
-        ]:
-            self.skipTest("skipping test since flash attention is needed for padding free transformer")
+    if use_padding_free_transformer and attention_implementation not in [f"flash_attention_{i}" for i in range(2, 5)]:
+        pytest.skip("skipping test since flash attention is needed for padding free transformer")
 
-        gpus_per_node = torch.cuda.device_count()
+    gpus_per_node = torch.cuda.device_count()
 
-        with tempfile.TemporaryDirectory() as tmp_path:
-            command = [
-                "torchrun",
-                "--nproc_per_node",
-                str(gpus_per_node),
-                "-m",
-                "tests.hf_models.multi_gpu.tensor_parallel.tensor_parallel_forward",
-                "--position-embedding-type",
-                position_embedding_type,
-                "--dtype",
-                torch_dtype_to_string(dtype),
-                "--attention-implementation",
-                attention_implementation,
-                "--tmp-path",
-                tmp_path,
-            ]
+    with tempfile.TemporaryDirectory() as tmp_path:
+        command = [
+            "torchrun",
+            "--nproc_per_node",
+            str(gpus_per_node),
+            "-m",
+            "tests.hf_models.multi_gpu.tensor_parallel.tensor_parallel_forward",
+            "--position-embedding-type",
+            position_embedding_type,
+            "--dtype",
+            torch_dtype_to_string(dtype),
+            "--attention-implementation",
+            attention_implementation,
+            "--tmp-path",
+            tmp_path,
+        ]
 
-            if use_padding_free_transformer:
-                command.append("--use-padding-free-transformer")
+        if use_padding_free_transformer:
+            command.append("--use-padding-free-transformer")
 
-            if sequence_parallel:
-                command.append("--sequence-parallel")
+        if sequence_parallel:
+            command.append("--sequence-parallel")
 
-            subprocess.run(command, check=True)
+        subprocess.run(command, check=True)

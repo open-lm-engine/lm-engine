@@ -182,13 +182,17 @@ def train_step_without_pipeline_parallel(
     assert len(model_container) == 1
     model = model_container[0]
 
-    fsdp_algorithm = 2 if hasattr(model, "set_requires_gradient_sync") else 1
+    fsdp_algorithm = None
+    if hasattr(model, "set_requires_gradient_sync"):
+        fsdp_algorithm = 2
+    elif hasattr(model, "no_sync"):
+        fsdp_algorithm = 1
 
     no_sync = nullcontext
     if not sync_every_gradient_accumulation_step:
         if fsdp_algorithm == 1:
             no_sync = model.no_sync
-        else:
+        elif fsdp_algorithm == 2:
             model.set_requires_gradient_sync(False)
 
     metrics_tracker = MetricsTrackingDict({})

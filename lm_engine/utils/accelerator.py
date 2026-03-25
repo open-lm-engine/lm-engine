@@ -25,6 +25,7 @@ _IS_ROCM_AVAILABLE = torch.version.hip is not None
 class Accelerator(Enum):
     cpu = "cpu"
     cuda = "cuda"
+    mps = "mps"
     rocm = "rocm"
     tpu = "tpu"
     trainium = "trainium"
@@ -34,6 +35,8 @@ class Accelerator(Enum):
     def get_accelerator() -> Accelerator:
         if torch.cuda.is_available():
             accelerator = Accelerator.rocm if _IS_ROCM_AVAILABLE else Accelerator.cuda
+        elif torch.mps.is_available():
+            accelerator = Accelerator.mps
         elif is_torch_xla_available():
             accelerator = Accelerator.tpu
         elif is_torch_neuronx_available():
@@ -49,6 +52,8 @@ class Accelerator(Enum):
 
         if accelerator in [Accelerator.cuda, Accelerator.rocm]:
             device = torch.cuda.current_device()
+        elif accelerator == Accelerator.mps:
+            device = "mps"
         elif accelerator == Accelerator.tpu:
             device = xla_device()
         elif accelerator == Accelerator.trainium:
@@ -65,6 +70,8 @@ class Accelerator(Enum):
 
         if accelerator in [Accelerator.cuda, Accelerator.rocm]:
             device = "cuda"
+        elif accelerator == Accelerator.mps:
+            device = "mps"
         elif accelerator == Accelerator.tpu:
             device = "xla"
         elif accelerator == Accelerator.trainium:
@@ -89,10 +96,14 @@ class Accelerator(Enum):
 
         if accelerator in [Accelerator.cuda, Accelerator.rocm]:
             state = torch.cuda.get_rng_state()
+        elif accelerator == Accelerator.mps:
+            state = torch.mps.get_rng_state()
         elif accelerator == Accelerator.tpu:
             state = xla_get_rng_state()
         elif accelerator == Accelerator.trainium:
             state = torch.neuron.get_rng_state()
+        elif accelerator == Accelerator.cpu:
+            state = torch.get_rng_state()
         else:
             raise ValueError(f"unexpected device ({accelerator})")
 
@@ -104,10 +115,14 @@ class Accelerator(Enum):
 
         if accelerator in [Accelerator.cuda, Accelerator.rocm]:
             state = torch.cuda.set_rng_state(state)
+        elif accelerator == Accelerator.mps:
+            state = torch.mps.set_rng_state(state)
         elif accelerator == Accelerator.tpu:
             state = xla_set_rng_state(state)
         elif accelerator == Accelerator.trainium:
             state = torch.neuron.set_rng_state(state)
+        elif accelerator == Accelerator.cpu:
+            state = torch.set_rng_state(state)
         else:
             raise ValueError(f"unexpected device ({accelerator})")
 
