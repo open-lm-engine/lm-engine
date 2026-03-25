@@ -15,7 +15,13 @@ from torch.distributed._tensor.placement_types import Partial, Replicate, Shard
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import ProcessGroupManager, divide_if_divisible, is_sonicmoe_available, is_xma_available
+from ....utils import (
+    ProcessGroupManager,
+    divide_if_divisible,
+    is_sonicmoe_available,
+    is_triton_available,
+    is_xma_available,
+)
 from ...loss import add_aux_loss
 from ...parameter import (
     mark_parameter_as_initialized,
@@ -31,7 +37,9 @@ from .mlp import _get_std_for_linear
 
 if is_xma_available():
     from xma import continuous_count
-    from xma.layers.moe import down_projection_experts, up_projection_experts
+
+    if is_triton_available():
+        from xma.layers.moe import down_projection_experts, up_projection_experts
 
 
 if is_sonicmoe_available():
