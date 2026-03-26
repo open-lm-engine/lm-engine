@@ -22,11 +22,7 @@ SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | RNN | Gated
 
 
 def get_sequence_mixer(
-    config: CommonConfig,
-    causal: bool,
-    use_padding_free_transformer: bool,
-    sequence_parallel: bool,
-    layer_idx: int,
+    config: CommonConfig, causal: bool, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
 ) -> SEQUENCE_MIXER_TYPE:
     block = config.sequence_mixer_blocks[layer_idx]
     sequence_mixer_type = block.sequence_mixer_type
