@@ -86,7 +86,7 @@ class Attention(DTensorModule):
         m_width: float,
         num_layers: int,
         causal: bool,
-        layer_idx: int | None = None,
+        layer_idx: int,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> Attention:
