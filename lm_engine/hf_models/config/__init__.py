@@ -100,7 +100,7 @@ class CommonConfig(PretrainedConfig):
         self.use_depth_scaled_init = use_depth_scaled_init
 
         # check if enums are valid
-        assert init_method in ["normal", "mup", "mup_fan_in"]
+        assert init_method in ["normal", "mup", "fan_in"]
         assert embedding_init_method in ["normal", "fan_in"]
         assert position_embedding_type in ["rope", "learned_absolute", "nope"]
 

@@ -90,8 +90,8 @@ def get_normal_group_with_names(model: ModelWrapper, optimizer_class_args: dict)
 def get_mup_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -> list[_ParamsGroup]:
     assert model.config.init_method in (
         "mup",
-        "mup_fan_in",
-    ), "params_group_method='mup' requires init_method to be 'mup' or 'mup_fan_in'"
+        "fan_in",
+    ), "params_group_method='mup' requires init_method to be 'mup' or 'fan_in'"
 
     if model.has_teacher_model():
         log_rank_0(logging.WARN, "found a teacher model in the ModelWrapper")

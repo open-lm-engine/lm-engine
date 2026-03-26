@@ -17,7 +17,7 @@ def _get_std_for_linear(
 ) -> float:
     if init_method == "mup":
         std = initializer_range / math.sqrt(m_width)
-    elif init_method == "mup_fan_in":
+    elif init_method == "fan_in":
         std = 1 / math.sqrt(fan_in)
     elif init_method == "normal":
         std = initializer_range
