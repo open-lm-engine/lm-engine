@@ -142,15 +142,6 @@ class Mamba2(nn.Module):
 
         self.time_step_limit = time_step_limit
 
-        up_std = _get_std_for_linear(
-            initializer_range=initializer_range,
-            init_method=init_method,
-            m_width=m_width,
-            fan_in=self.hidden_size,
-            num_layers=num_layers,
-            use_depth_scaled_init=False,
-        )
-
         # 1D convolutional layer
         self.conv_dim = self.intermediate_size + 2 * self.n_groups * self.ssm_state_size
         self.conv1d = ParameterizedConv1d(
@@ -165,7 +156,17 @@ class Mamba2(nn.Module):
 
         # projection of the input hidden states
         self.in_proj = ParameterizedLinear(
-            self.hidden_size, self.intermediate_size + self.conv_dim + self.num_heads, bias=add_bias, std=up_std
+            self.hidden_size,
+            self.intermediate_size + self.conv_dim + self.num_heads,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.hidden_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         self.decay_gate = SoftplusDecayGate(
