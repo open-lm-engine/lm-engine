@@ -329,26 +329,34 @@ class MoE(DTensorModule):
         self.activation_function_string = activation_function
         self.act = get_activation_function(activation_function)
 
-        down_std = _get_std_for_linear(
-            initializer_range=initializer_range,
-            init_method=init_method,
-            m_width=m_width,
-            fan_in=self.intermediate_size,
-            num_layers=num_layers,
-            use_depth_scaled_init=use_depth_scaled_init,
-        )
-
         self.c_proj = RowParallelExperts(
             num_experts=num_experts,
             in_features=self.intermediate_size,
             out_features=self.hidden_size,
             add_bias=add_bias,
-            std=down_std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.intermediate_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         if self.shared_intermediate_size is not None:
             self.c_proj_shared = SharedExpertsRowParallelLinear(
-                in_features=self.shared_intermediate_size, out_features=self.hidden_size, bias=add_bias, std=down_std
+                in_features=self.shared_intermediate_size,
+                out_features=self.hidden_size,
+                bias=add_bias,
+                std=_get_std_for_linear(
+                    initializer_range=initializer_range,
+                    init_method=init_method,
+                    m_width=m_width,
+                    fan_in=self.shared_intermediate_size,
+                    num_layers=num_layers,
+                    use_depth_scaled_init=use_depth_scaled_init,
+                ),
             )
 
         self.dropout = Dropout(dropout)
