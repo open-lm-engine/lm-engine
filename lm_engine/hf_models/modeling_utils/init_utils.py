@@ -11,9 +11,9 @@ def _get_std_for_linear(
     initializer_range: float,
     init_method: str,
     m_width: float | None,
-    fan_in: int | None = None,
-    num_layers: int | None = None,
-    use_depth_scaled_init: bool = True,
+    fan_in: int | None,
+    num_layers: int | None,
+    use_depth_scaled_init: bool,
 ) -> float:
     if init_method == "mup":
         std = initializer_range / math.sqrt(m_width)

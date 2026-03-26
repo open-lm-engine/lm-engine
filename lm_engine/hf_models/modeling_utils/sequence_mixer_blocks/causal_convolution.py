@@ -190,7 +190,14 @@ class CausalConvolution(nn.Module):
             bias=add_bias,
             padding=kernel_size - 1,
             groups=num_groups,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=kernel_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         self.activation_function = get_activation_function(self.activation_string)

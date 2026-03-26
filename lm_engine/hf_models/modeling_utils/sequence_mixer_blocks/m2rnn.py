@@ -140,7 +140,14 @@ class M2RNN(nn.Module):
                 bias=add_bias,
                 padding=kernel_size - 1,
                 groups=self.conv_dim,
-                std=std,
+                std=_get_std_for_linear(
+                    initializer_range=initializer_range,
+                    init_method=init_method,
+                    m_width=m_width,
+                    fan_in=kernel_size,
+                    num_layers=num_layers,
+                    use_depth_scaled_init=False,
+                ),
             )
 
             mark_parameter_as_mup_learning_rate(self.conv1d.weight)

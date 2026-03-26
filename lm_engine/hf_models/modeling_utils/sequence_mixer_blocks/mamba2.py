@@ -151,7 +151,14 @@ class Mamba2(nn.Module):
             kernel_size=self.conv_kernel_size,
             groups=self.conv_dim,
             padding=self.conv_kernel_size - 1,
-            std=up_std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.conv_kernel_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         # projection of the input hidden states
