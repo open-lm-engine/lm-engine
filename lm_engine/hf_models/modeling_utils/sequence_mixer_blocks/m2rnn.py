@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -65,6 +63,7 @@ class M2RNN(nn.Module):
         dt_init_floor: float,
         num_layers: int,
         layer_idx: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
     ) -> m2rnn:
         super().__init__()
@@ -103,10 +102,18 @@ class M2RNN(nn.Module):
 
         self.conv_dim = self.q_shape + self.k_shape + self.v_shape
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
-
         self.input_projection = ParameterizedLinear(
-            self.input_size, self.conv_dim + self.num_f_heads + self.g_shape, bias=add_bias, std=std
+            self.input_size,
+            self.conv_dim + self.num_f_heads + self.g_shape,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.input_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         self.decay_gate = SoftplusDecayGate(
@@ -144,7 +151,17 @@ class M2RNN(nn.Module):
 
         self.state_weight = nn.Parameter(torch.empty(self.num_weight_heads, self.v_head_dim, self.v_head_dim))
         self.output_projection = ParameterizedLinear(
-            self.g_shape, self.output_size, bias=False, std=std / math.sqrt(2 * num_layers)
+            self.g_shape,
+            self.output_size,
+            bias=False,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.g_shape,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         self.g_norm = get_normalization_function(normalization_function, self.num_heads * self.v_head_dim)

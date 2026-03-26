@@ -44,6 +44,7 @@ def get_sequence_mixer(
             init_method=config.init_method,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "gru":
@@ -68,6 +69,7 @@ def get_sequence_mixer(
             normalization_function=block.normalization_function,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "rnn":
@@ -88,6 +90,7 @@ def get_sequence_mixer(
             normalization_function=block.normalization_function,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "m2rnn":
@@ -118,6 +121,7 @@ def get_sequence_mixer(
             dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "mamba2":
@@ -146,6 +150,7 @@ def get_sequence_mixer(
             dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
         )
     elif sequence_mixer_type == "gated_deltanet":
         assert not is_tp_enabled
@@ -170,6 +175,7 @@ def get_sequence_mixer(
             dt_init_max=block.dt_init_max,
             dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "softmax_attention":
@@ -190,6 +196,7 @@ def get_sequence_mixer(
             num_layers=config.num_layers,
             causal=causal,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )

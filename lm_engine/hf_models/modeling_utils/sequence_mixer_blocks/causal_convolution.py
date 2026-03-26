@@ -162,7 +162,7 @@ class CausalConvolution(nn.Module):
         self.layer_idx = layer_idx
         self.activation_string = activation_function
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
+        std = _get_std_for_linear(initializer_range, init_method)
         self.input_projection = ParameterizedLinear(hidden_size, in_channels, bias=add_bias, std=std)
 
         divide_if_divisible(in_channels, num_groups, "")

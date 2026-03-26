@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -51,6 +49,7 @@ class GatedDeltaNet(nn.Module):
         dt_init_max: float,
         dt_init_floor: float,
         num_layers: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
     ) -> GatedDeltaNet:
         super().__init__()
@@ -78,11 +77,19 @@ class GatedDeltaNet(nn.Module):
 
         divide_if_divisible(self.num_v_heads, self.num_k_heads)
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
-        self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=std)
+        up_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=hidden_size,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
+        )
+
+        self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=up_std)
 
         self.ab_proj = ParameterizedLinear(
-            hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False, std=std
+            hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False, std=up_std
         )
 
         self.decay_gate = SoftplusDecayGate(
@@ -110,7 +117,19 @@ class GatedDeltaNet(nn.Module):
         self.activation_string = "silu"
 
         self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
-        self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False, std=std / math.sqrt(2 * num_layers))
+        self.o_proj = ParameterizedLinear(
+            self.value_dim,
+            hidden_size,
+            bias=False,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.value_dim,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
+        )
 
     def forward(
         self,

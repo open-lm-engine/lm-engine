@@ -14,6 +14,7 @@ from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
+from ...modeling_utils.init_utils import _get_std_for_embedding
 from ...utils import convert_padding_free_lists_to_tensors, is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
@@ -121,7 +122,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             self.wte = ParameterizedEmbedding(
                 config.vocab_size,
                 self.embed_dim,
-                std=self.initializer_range,
+                std=_get_std_for_embedding(self.initializer_range, config.embedding_init_method, self.embed_dim),
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 sequence_parallel=self.sequence_parallel,
             )
