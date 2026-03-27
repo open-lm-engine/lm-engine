@@ -123,9 +123,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 config.vocab_size,
                 self.embed_dim,
                 std=_get_std_for_embedding(
-                    initializer_range=self.initializer_range,
-                    embedding_init_method=config.embedding_init_method,
-                    embed_dim=self.embed_dim,
+                    initializer_range=self.initializer_range, init_method=config.init_method, embed_dim=self.embed_dim
                 ),
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 sequence_parallel=self.sequence_parallel,
