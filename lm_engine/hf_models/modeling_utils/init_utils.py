@@ -30,12 +30,12 @@ def _get_std_for_linear(
     return std
 
 
-def _get_std_for_embedding(initializer_range: float, init_method: str, embed_dim: int) -> float:
-    if init_method == "fan_in":
+def _get_std_for_embedding(initializer_range: float, embedding_init_method: str, embed_dim: int) -> float:
+    if embedding_init_method == "fan_in":
         std = 1 / math.sqrt(embed_dim)
-    elif init_method in ["normal", "mup"]:
+    elif embedding_init_method == "normal":
         std = initializer_range
     else:
-        raise ValueError(f"unexpected init_method ({init_method})")
+        raise ValueError(f"unexpected embedding_init_method ({embedding_init_method})")
 
     return std
