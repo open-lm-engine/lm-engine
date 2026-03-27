@@ -4,14 +4,13 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
+from ..init_utils import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
 
 
@@ -28,12 +27,11 @@ class MLP(nn.Module):
         initializer_range: float,
         m_width: float,
         num_layers: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> MLP:
         super().__init__()
-
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
 
         self.is_glu = is_glu(activation_function)
         self.use_interleaved_weights = use_interleaved_weights
@@ -42,7 +40,14 @@ class MLP(nn.Module):
             hidden_size,
             2 * intermediate_size if self.is_glu else intermediate_size,
             bias=add_bias,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=hidden_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
@@ -53,7 +58,14 @@ class MLP(nn.Module):
             intermediate_size,
             hidden_size,
             bias=add_bias,
-            std=std / math.sqrt(2 * num_layers),
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=intermediate_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
@@ -71,16 +83,6 @@ class MLP(nn.Module):
         x = self.c_proj(x)
         x = self.dropout(x)
         return x
-
-
-def _get_std_for_linear(initializer_range: float, init_method: str, m_width: float | None) -> float:
-    std = initializer_range
-    if init_method == "mup":
-        std /= math.sqrt(m_width)
-    elif init_method != "normal":
-        raise ValueError(f"unexpected init_method ({init_method})")
-
-    return std
 
 
 def interleave_up_gate_tensor_for_mlp(

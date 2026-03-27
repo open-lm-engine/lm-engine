@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -50,6 +48,7 @@ class RNN(nn.Module):
         normalization_function: str | None,
         num_layers: int,
         layer_idx: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
     ) -> RNN:
         super().__init__()
@@ -73,10 +72,28 @@ class RNN(nn.Module):
         self.x_shape = self.num_input_heads * self.state_head_dim
         self.g_shape = self.num_heads * self.state_head_dim
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
-        self.state_weight_std = std
+        self.state_weight_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=self.state_head_dim,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
+        )
 
-        self.input_projection = ParameterizedLinear(input_size, self.x_shape + self.g_shape, bias=add_bias, std=std)
+        self.input_projection = ParameterizedLinear(
+            input_size,
+            self.x_shape + self.g_shape,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=input_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
+        )
 
         if kernel_size is not None:
             assert not is_glu(self.activation_string)
@@ -88,7 +105,14 @@ class RNN(nn.Module):
                 bias=add_bias,
                 padding=kernel_size - 1,
                 groups=self.state_size,
-                std=std,
+                std=_get_std_for_linear(
+                    initializer_range=initializer_range,
+                    init_method=init_method,
+                    m_width=m_width,
+                    fan_in=kernel_size,
+                    num_layers=num_layers,
+                    use_depth_scaled_init=False,
+                ),
             )
 
             mark_parameter_as_mup_learning_rate(self.conv1d.weight)
@@ -97,7 +121,17 @@ class RNN(nn.Module):
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
         self.output_projection = ParameterizedLinear(
-            self.state_size, output_size, bias=False, std=std / math.sqrt(2 * num_layers)
+            self.state_size,
+            output_size,
+            bias=False,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.state_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         self.norm = get_normalization_function(normalization_function, self.state_size)

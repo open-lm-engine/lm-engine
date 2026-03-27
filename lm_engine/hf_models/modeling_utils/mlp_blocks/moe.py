@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -275,6 +273,7 @@ class MoE(DTensorModule):
         initializer_range: float,
         m_width: float,
         num_layers: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
         sequence_parallel: bool = False,
     ) -> MoE:
@@ -291,15 +290,22 @@ class MoE(DTensorModule):
         self.use_interleaved_weights_for_shared_experts = use_interleaved_weights_for_shared_experts
         self.use_interleaved_weights = use_interleaved_weights
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
+        up_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=self.hidden_size,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
+        )
 
-        self.gate = ReplicatedLinear(in_features=self.hidden_size, out_features=num_experts, bias=False, std=std)
+        self.gate = ReplicatedLinear(in_features=self.hidden_size, out_features=num_experts, bias=False, std=up_std)
 
         if self.shared_expert_gating:
             assert shared_intermediate_size is not None
 
             self.shared_expert_gate = ParameterizedLinear(
-                in_features=self.hidden_size, out_features=1, bias=False, std=std
+                in_features=self.hidden_size, out_features=1, bias=False, std=up_std
             )
 
         self.is_glu = is_glu(activation_function)
@@ -309,7 +315,7 @@ class MoE(DTensorModule):
             in_features=self.hidden_size,
             out_features=2 * self.intermediate_size if self.is_glu else self.intermediate_size,
             add_bias=add_bias,
-            std=std,
+            std=up_std,
         )
 
         if self.shared_intermediate_size is not None:
@@ -317,20 +323,25 @@ class MoE(DTensorModule):
                 in_features=self.hidden_size,
                 out_features=2 * self.shared_intermediate_size if self.is_glu else self.shared_intermediate_size,
                 bias=add_bias,
-                std=std,
+                std=up_std,
             )
 
         self.activation_function_string = activation_function
         self.act = get_activation_function(activation_function)
-
-        std /= math.sqrt(2 * num_layers)
 
         self.c_proj = RowParallelExperts(
             num_experts=num_experts,
             in_features=self.intermediate_size,
             out_features=self.hidden_size,
             add_bias=add_bias,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.intermediate_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         if self.shared_intermediate_size is not None:
@@ -338,7 +349,14 @@ class MoE(DTensorModule):
                 in_features=self.shared_intermediate_size,
                 out_features=self.hidden_size,
                 bias=add_bias,
-                std=std,
+                std=_get_std_for_linear(
+                    initializer_range=initializer_range,
+                    init_method=init_method,
+                    m_width=m_width,
+                    fan_in=self.shared_intermediate_size,
+                    num_layers=num_layers,
+                    use_depth_scaled_init=use_depth_scaled_init,
+                ),
             )
 
         self.dropout = Dropout(dropout)
