@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -122,6 +120,7 @@ class Mamba2(nn.Module):
         normalization_function: str | None,
         num_layers: int,
         layer_idx: int,
+        use_depth_scaled_init: bool,
     ) -> Mamba2:
         super().__init__()
 
@@ -143,8 +142,6 @@ class Mamba2(nn.Module):
 
         self.time_step_limit = time_step_limit
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
-
         # 1D convolutional layer
         self.conv_dim = self.intermediate_size + 2 * self.n_groups * self.ssm_state_size
         self.conv1d = ParameterizedConv1d(
@@ -154,7 +151,14 @@ class Mamba2(nn.Module):
             kernel_size=self.conv_kernel_size,
             groups=self.conv_dim,
             padding=self.conv_kernel_size - 1,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.conv_kernel_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         # projection of the input hidden states
@@ -162,7 +166,14 @@ class Mamba2(nn.Module):
             self.hidden_size,
             self.intermediate_size + self.conv_dim + self.num_heads,
             bias=add_bias,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.hidden_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         self.decay_gate = SoftplusDecayGate(
@@ -180,7 +191,17 @@ class Mamba2(nn.Module):
         self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
 
         self.out_proj = ParameterizedLinear(
-            self.intermediate_size, self.hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
+            self.intermediate_size,
+            self.hidden_size,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.intermediate_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         self.D = nn.Parameter(torch.empty(self.num_heads))

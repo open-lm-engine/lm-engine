@@ -47,6 +47,7 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
 }
 
 _MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
+_ALL_INIT_METHODS = ["normal", "mup", "fan_in"]
 
 
 class CommonConfig(PretrainedConfig):
@@ -71,6 +72,8 @@ class CommonConfig(PretrainedConfig):
         m_width: float | None = None,
         m_residual: float | None = None,
         init_method: str = "normal",
+        embedding_init_method: str = "normal",
+        use_depth_scaled_init: bool = False,
         sequence_mixer_blocks: list[dict] = None,
         mlp_blocks: list[dict] = None,
         router_aux_loss_coef: float = 0.001,
@@ -94,9 +97,12 @@ class CommonConfig(PretrainedConfig):
         self.m_width = m_width
         self.m_residual = m_residual
         self.init_method = init_method
+        self.embedding_init_method = embedding_init_method
+        self.use_depth_scaled_init = use_depth_scaled_init
 
         # check if enums are valid
-        assert init_method in ["normal", "mup"]
+        assert init_method in _ALL_INIT_METHODS
+        assert embedding_init_method in _ALL_INIT_METHODS
         assert position_embedding_type in ["rope", "learned_absolute", "nope"]
 
         self.sequence_mixer_blocks = sequence_mixer_blocks
