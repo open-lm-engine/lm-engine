@@ -15,8 +15,8 @@ from ....utils import divide_if_divisible, is_fla_available
 from ...cache import GenerationCache
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
+from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
-from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
