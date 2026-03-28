@@ -73,7 +73,7 @@ class CommonConfig(PretrainedConfig):
         m_residual: float | None = None,
         init_method: str = "normal",
         embedding_init_method: str = "normal",
-        use_depth_scaled_init: bool = False,
+        use_depth_scaled_init: bool = True,
         sequence_mixer_blocks: list[dict] = None,
         mlp_blocks: list[dict] = None,
         router_aux_loss_coef: float = 0.001,
