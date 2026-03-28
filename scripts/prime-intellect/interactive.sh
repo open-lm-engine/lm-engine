@@ -3,5 +3,5 @@ salloc -N 1 \
   --ntasks-per-node=1 \
   --cpus-per-task=96 \
   --mem=1000G \
-  -t 24:00:00 \
+  -t 04:00:00
   srun --pty bash
