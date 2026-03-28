@@ -20,8 +20,8 @@ from ...parameter import (
 from ..activations import get_activation_function
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
+from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
-from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
 from .causal_convolution import _apply_mask_to_padding_states
 
