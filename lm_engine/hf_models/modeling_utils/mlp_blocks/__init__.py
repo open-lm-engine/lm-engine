@@ -3,7 +3,7 @@
 # **************************************************
 
 from ...config import CommonConfig
-from .delta import DeltaMLP
+from .delta_mlp import DeltaMLP
 from .mlp import MLP, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_for_mlp
 from .moe import MoE, ParameterizedExperts
 
@@ -67,6 +67,8 @@ def get_mlp_block(
             dt_init_min=block.dt_init_min,
             dt_init_max=block.dt_init_max,
             dt_init_floor=block.dt_init_floor,
+            value_scale=block.value_scale,
+            use_v_silu=block.use_v_silu,
         )
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")

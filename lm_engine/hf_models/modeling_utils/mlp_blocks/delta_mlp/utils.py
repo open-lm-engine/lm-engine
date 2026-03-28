@@ -9,7 +9,7 @@ import warnings
 import torch
 from einops import reduce, repeat
 
-from ....utils import is_fla_available
+from .....utils import is_fla_available
 
 
 def maybe_broadcast(

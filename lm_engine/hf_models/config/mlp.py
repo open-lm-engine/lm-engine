@@ -51,6 +51,8 @@ class _DeltaMLPArgs(_MLPArgs, _SoftPlusDecayArgs):
     use_zero_init_k: bool
     allow_neg_eigval: bool
     kernel_size: int
+    value_scale: float | None = None
+    use_v_silu: bool = True
 
     def model_post_init(self, __context: object) -> None:
         assert self.mlp_type == "DeltaMLP"

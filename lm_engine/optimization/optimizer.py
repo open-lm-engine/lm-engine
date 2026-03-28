@@ -19,6 +19,7 @@ from torch.optim.sgd import SGD as TorchSGD
 
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from ..enums import ParamsGroupMethod
+from .hyperball import HyperballAdamW
 from .params_group import get_param_groups_list
 
 
@@ -36,6 +37,7 @@ _OPTIMIZER_CLASSES = {
     "TorchRMSprop": TorchRMSprop,
     "TorchRprop": TorchRprop,
     "TorchSGD": TorchSGD,
+    "HyperballAdamW": HyperballAdamW,
 }
 
 

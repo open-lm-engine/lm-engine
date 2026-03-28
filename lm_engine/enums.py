@@ -7,6 +7,7 @@ from enum import Enum
 
 class ParamsGroupMethod(Enum):
     mup = "mup"
+    hyperball = "hyperball"
 
 
 class GradientCheckpointingMethod(Enum):

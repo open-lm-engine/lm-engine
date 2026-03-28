@@ -14,15 +14,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, reduce, repeat
 
-from ....utils import divide_if_divisible, is_fla_available
-from ...cache import GenerationCache
-from ..activations import get_activation_function
-from ..convolution import ParameterizedConv1d
-from ..decay_gate import SoftplusDecayGate
-from ..linear import ParameterizedLinear
-from ..normalization import get_normalization_function
-from ..sequence_mixer_blocks.causal_convolution import causal_convolution
-from ..sequence_mixer_blocks.utils import (
+from .....utils import divide_if_divisible, is_fla_available
+from ....cache import GenerationCache
+from ....parameter import mark_parameter_as_mup_learning_rate
+from ...activations import get_activation_function
+from ...convolution import ParameterizedConv1d
+from ...decay_gate import SoftplusDecayGate
+from ...init_utils import _get_std_for_linear
+from ...linear import LowRankLinear, ParameterizedLinear
+from ...normalization import get_normalization_function
+from ...sequence_mixer_blocks.causal_convolution import causal_convolution
+from ...sequence_mixer_blocks.utils import (
     compute_cu_seqlens_and_max_seqlen_from_attention_mask,
     pack_sequence,
     unpack_sequence,
@@ -30,34 +32,7 @@ from ..sequence_mixer_blocks.utils import (
 
 
 if is_fla_available():
-    from .delta_utils import chunk_delta_rule
-
-
-class LowRankLinear(nn.Module):
-    def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        num_ranks: int,
-        bias: bool = True,
-        std: float | None = None,
-    ) -> None:
-        super().__init__()
-        self.u_proj = ParameterizedLinear(
-            in_features,
-            num_ranks,
-            bias=bias,
-            std=std,
-        )
-        self.v_proj = ParameterizedLinear(
-            num_ranks,
-            out_features,
-            bias=bias,
-            std=std,
-        )
-
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return self.v_proj(self.u_proj(input))
+    from .utils import chunk_delta_rule
 
 
 class DeltaMLP(nn.Module):
@@ -95,8 +70,11 @@ class DeltaMLP(nn.Module):
         dt_init_max: float,
         dt_init_floor: float,
         num_layers: int,
-        use_padding_free_transformer: bool,
-        sequence_parallel: bool,
+        use_depth_scaled_init: bool,
+        value_scale: float | None,
+        use_v_silu: bool,
+        use_padding_free_transformer: bool = False,
+        sequence_parallel: bool = False,
     ) -> None:
         super().__init__()
 
@@ -105,17 +83,20 @@ class DeltaMLP(nn.Module):
         self.intermediate_size = intermediate_size
         self.activation_function = activation_function
         self.add_bias = add_bias
-        self.dropout = dropout
         self.use_interleaved_weights = use_interleaved_weights
         self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
+
         assert not add_bias
-        assert dropout == 0.0
+        assert dropout == 0
         assert activation_function in ("silu", "swiglu")
         assert not use_interleaved_weights
         assert not use_padding_free_transformer
         assert not sequence_parallel
         assert not (use_input_gate and use_output_gate)
+
+        self.value_scale = 1 / math.sqrt(self.key_dim) if value_scale is None else value_scale
+        self.use_v_silu = use_v_silu
 
         self.use_v_proj = use_v_proj
         self.use_q_l2norm = use_q_l2norm
@@ -128,7 +109,6 @@ class DeltaMLP(nn.Module):
         self.use_output_gate = use_output_gate and use_output_norm
         self.use_output_norm = use_output_norm
         self.conv_size = conv_size
-
         self.num_ranks = num_ranks
         self.num_heads = num_heads
         self.num_k_heads = self.num_heads
@@ -150,43 +130,57 @@ class DeltaMLP(nn.Module):
         else:
             divide_if_divisible(self.num_k_heads, self.num_v_heads)
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
+        up_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=hidden_size,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
+        )
 
         kv_size = self.key_dim + self.value_dim
         bg_size = self.num_b_heads + (self.value_dim if self.use_output_gate else 0)
-        self.act = get_activation_function(self.activation_function if not use_input_gate else "swiglu")
+        self.act = get_activation_function("swiglu" if use_input_gate else self.activation_function)
+        self.kv_act = get_activation_function(self.activation_function)
+
         self.q_proj = ParameterizedLinear(
-            hidden_size,
-            self.key_dim if not use_input_gate else self.key_dim * 2,
-            bias=False,
-            std=std,
+            hidden_size, self.key_dim if not use_input_gate else self.key_dim * 2, bias=False, std=up_std
         )
+
+        num_ranks_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=num_ranks,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
+        )
+
         self.k_proj = LowRankLinear(
             hidden_size,
             self.key_dim,
             num_ranks=num_ranks,
             bias=False,
-            std=std if not use_zero_init_k else 0.0,
+            std_num_ranks=0 if use_zero_init_k else up_std,
+            std_high_rank=num_ranks_std,
         )
+
         if self.use_v_proj:
             self.v_proj = LowRankLinear(
                 hidden_size,
                 self.value_dim,
                 num_ranks=num_ranks,
                 bias=False,
-                std=std,
+                std_num_ranks=up_std,
+                std_high_rank=num_ranks_std,
             )
         else:
             assert self.num_v_heads == 1
             assert self.value_dim == self.hidden_size
-        self.bg_proj = ParameterizedLinear(
-            hidden_size,
-            bg_size,
-            bias=False,
-            std=std,
-        )
+
+        self.bg_proj = ParameterizedLinear(hidden_size, bg_size, bias=False, std=up_std)
+
         if self.use_decay_beta:
             self.decay_gate = SoftplusDecayGate(
                 hidden_size=None,
@@ -199,13 +193,21 @@ class DeltaMLP(nn.Module):
                 dt_init_max=dt_init_max,
                 dt_init_floor=dt_init_floor,
             )
+
         self.initial_state = ParameterizedLinear(
-            self.key_dim,  # [H, K]
-            self.v_head_dim,  # [V]
+            self.key_dim,
+            self.v_head_dim,
             bias=False,
-            # mirroring MLP's down projection
-            std=std / math.sqrt(2 * num_layers),
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.key_dim,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
+
         if self.use_shortconv:
             self.kv_conv1d = ParameterizedConv1d(
                 in_channels=kv_size,
@@ -214,7 +216,14 @@ class DeltaMLP(nn.Module):
                 padding=conv_size - 1,
                 groups=kv_size,
                 bias=False,
-                std=std,  # TODO
+                std=_get_std_for_linear(
+                    initializer_range=initializer_range,
+                    init_method=init_method,
+                    m_width=m_width,
+                    fan_in=conv_size,
+                    num_layers=num_layers,
+                    use_depth_scaled_init=False,
+                ),
             )
 
         if self.use_output_norm:
@@ -224,6 +233,16 @@ class DeltaMLP(nn.Module):
                 self.v_head_dim * (self.num_heads if self.use_head_norm else 1),
                 eps=norm_eps,
             )
+
+        mark_parameter_as_mup_learning_rate(self.q_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.k_proj.u_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.k_proj.v_proj.weight)
+        if self.use_v_proj:
+            mark_parameter_as_mup_learning_rate(self.v_proj.u_proj.weight)
+            mark_parameter_as_mup_learning_rate(self.v_proj.v_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.bg_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.initial_state.weight)
+        mark_parameter_as_mup_learning_rate(self.kv_conv1d.weight)
 
     def forward(
         self,
@@ -266,10 +285,7 @@ class DeltaMLP(nn.Module):
 
         q = self.q_proj(hidden_states)
         k = self.k_proj(hidden_states)
-        if self.use_v_proj:
-            v = self.v_proj(hidden_states)
-        else:
-            v = hidden_states
+        v = self.v_proj(hidden_states) if self.use_v_proj else hidden_states
         bg = self.bg_proj(hidden_states)
 
         q = self.act(q, is_interleaved=self.use_interleaved_weights) if self.use_input_gate else self.act(q)
@@ -277,8 +293,8 @@ class DeltaMLP(nn.Module):
         if self.use_mlp_stream:
             o_mlp = self.initial_state(q)
 
-        kv = torch.cat([k, v], dim=-1)
         if self.use_shortconv:
+            kv = torch.cat([k, v], dim=-1)
             kv, conv_state = causal_convolution(
                 hidden_states=kv,
                 input_state=conv_state,
@@ -287,13 +303,27 @@ class DeltaMLP(nn.Module):
                 conv1d_bias=self.kv_conv1d.bias,
                 conv1d_num_groups=kv.size(-1),
                 return_cache_state=cache_params is not None,
-                activation_string=self.activation_function,
+                activation_string=self.activation_function if self.use_v_silu else None,
                 conv1d_padding=self.conv_size - 1,
                 conv1d_stride=1,
             )
+
+            k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
+
+            if not self.use_v_silu:
+                k = self.kv_act(k)
+        elif self.use_v_silu:
+            kv = self.kv_act(kv)
+            k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
         else:
-            kv = self.act(kv)
-        k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
+            k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
+            k = self.kv_act(k)
+
+        # NOTE this is for an external tracer and not used during training
+        if getattr(self, "_capture_kv_post_conv", False):
+            self._last_kv_post_conv = torch.cat([k, v], dim=-1).detach()
+
+        v = v * self.value_scale
 
         if self.use_output_gate:
             b, gate = bg.split((self.num_b_heads, self.value_dim), dim=-1)
@@ -316,6 +346,10 @@ class DeltaMLP(nn.Module):
         if self.allow_neg_eigval:
             beta = beta * 2.0
 
+        # NOTE this is for an external tracer and not used during training
+        if getattr(self, "_capture_beta", False):
+            self._last_beta = beta.detach()
+
         if attention_mask is not None:
             cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
             q, k, v, beta = pack_sequence(inputs=(q, k, v, beta), cu_seqlens=cu_seqlens)
@@ -327,13 +361,17 @@ class DeltaMLP(nn.Module):
                 v=v,
                 beta=beta,
                 initial_state=recurrent_state,
-                output_final_state=use_cache,
+                output_final_state=use_cache or getattr(self, "_capture_recurrent_state", False),
                 cu_seqlens=cu_seqlens,
                 use_q_l2norm_in_kernel=self.use_q_l2norm,
                 use_k_l2norm_in_kernel=True,
             )
         else:
             raise NotImplementedError(f"Not supported mode `{mode}`.")
+
+        # NOTE this is for an external tracer and not used during training
+        if getattr(self, "_capture_recurrent_state", False):
+            self._last_recurrent_state = recurrent_state.detach()
 
         if attention_mask is not None:
             o = unpack_sequence(
