@@ -12,6 +12,7 @@ from .attention import (
 from .causal_convolution import CausalConvolution
 from .gated_deltanet import GatedDeltaNet
 from .gru import GRU
+from .m2rnn import M2RNN
 from .mamba2 import Mamba2
 from .rnn import RNN
 from .utils import flash_attention
@@ -21,11 +22,7 @@ SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | RNN | Gated
 
 
 def get_sequence_mixer(
-    config: CommonConfig,
-    causal: bool,
-    use_padding_free_transformer: bool,
-    sequence_parallel: bool,
-    layer_idx: int,
+    config: CommonConfig, causal: bool, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
 ) -> SEQUENCE_MIXER_TYPE:
     block = config.sequence_mixer_blocks[layer_idx]
     sequence_mixer_type = block.sequence_mixer_type
@@ -47,6 +44,7 @@ def get_sequence_mixer(
             init_method=config.init_method,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "gru":
@@ -71,6 +69,7 @@ def get_sequence_mixer(
             normalization_function=block.normalization_function,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "rnn":
@@ -91,6 +90,38 @@ def get_sequence_mixer(
             normalization_function=block.normalization_function,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
+            use_padding_free_transformer=use_padding_free_transformer,
+        )
+    elif sequence_mixer_type == "m2rnn":
+        return M2RNN(
+            input_size=config.hidden_size,
+            k_head_dim=block.k_head_dim,
+            v_head_dim=block.v_head_dim,
+            output_size=config.hidden_size,
+            num_q_heads=block.num_q_heads,
+            num_k_heads=block.num_k_heads,
+            num_v_heads=block.num_v_heads,
+            num_f_heads=block.num_f_heads,
+            num_g_heads=block.num_g_heads,
+            num_weight_heads=block.num_weight_heads,
+            use_residual=block.use_residual,
+            kernel_size=block.kernel_size,
+            activation_function=block.activation_function,
+            add_bias=block.add_bias,
+            gradient_clipping=block.gradient_clipping,
+            initializer_range=config.initializer_range,
+            m_width=config.m_width,
+            init_method=config.init_method,
+            normalization_function=block.normalization_function,
+            A_init_min=block.A_init_min,
+            A_init_max=block.A_init_max,
+            dt_init_min=block.dt_init_min,
+            dt_init_max=block.dt_init_max,
+            dt_init_floor=block.dt_init_floor,
+            num_layers=config.num_layers,
+            layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "mamba2":
@@ -119,6 +150,7 @@ def get_sequence_mixer(
             dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
         )
     elif sequence_mixer_type == "gated_deltanet":
         assert not is_tp_enabled
@@ -143,6 +175,7 @@ def get_sequence_mixer(
             dt_init_max=block.dt_init_max,
             dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "softmax_attention":
@@ -163,6 +196,7 @@ def get_sequence_mixer(
             num_layers=config.num_layers,
             causal=causal,
             layer_idx=layer_idx,
+            use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )

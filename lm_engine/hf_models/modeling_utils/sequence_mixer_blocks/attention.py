@@ -17,6 +17,7 @@ from ...parameter import mark_parameter_as_mup_learning_rate
 from ..chunk import contiguous_split
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
+from ..init_utils import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
@@ -85,7 +86,8 @@ class Attention(DTensorModule):
         m_width: float,
         num_layers: int,
         causal: bool,
-        layer_idx: int | None = None,
+        layer_idx: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> Attention:
@@ -129,30 +131,36 @@ class Attention(DTensorModule):
             f"`num_key_value_heads` ({self.global_num_key_value_heads}) must be divisible by `tensor_parallel_world_size` ({self.tp_world_size})",
         )
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-
         self.c_attn = ColumnParallelLinear(
             self.global_hidden_size,
             self.global_hidden_size
             + 2 * self.global_num_key_value_heads * self.head_dim
             + (self.global_hidden_size if self.attention_gate else 0),
             bias=self.add_bias,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.global_hidden_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
-
-        std = initializer_range / math.sqrt(2 * num_layers)
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
 
         self.c_proj = RowParallelLinear(
             self.global_hidden_size,
             self.global_hidden_size,
             bias=self.add_bias,
-            std=std / math.sqrt(2 * num_layers),
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.global_hidden_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )

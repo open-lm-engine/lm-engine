@@ -13,21 +13,12 @@ from .base import BaseDataset, BlendedDatasets
 from .dataloader import ResumableDataLoader
 from .debug import DebugDataset
 from .huggingface import HuggingFaceDataset
-from .instruction_tuning import AlpacaDataset, DollyDataset, SlimOrcaDataset
 from .megatron import get_megatron_gpt_dataloaders
 from .sampler import BlendedDistributedSampler
-from .sst2 import SST2Dataset
 from .utils import collate_fn, custom_iterator, get_next_batch
 
 
-_DATASETS_LIST = {
-    "AlpacaDataset": AlpacaDataset,
-    "DebugDataset": DebugDataset,
-    "DollyDataset": DollyDataset,
-    "HuggingFaceDataset": HuggingFaceDataset,
-    "SlimOrcaDataset": SlimOrcaDataset,
-    "SST2Dataset": SST2Dataset,
-}
+_DATASETS_LIST = {"DebugDataset": DebugDataset, "HuggingFaceDataset": HuggingFaceDataset}
 
 
 def get_datasets_list(

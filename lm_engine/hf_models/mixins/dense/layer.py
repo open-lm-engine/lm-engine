@@ -114,16 +114,7 @@ class Block(nn.Module):
             )
         elif self.sequence_mixer_type in ["causal_convolution", "mamba2"]:
             x = self.sequence_mixer(x, cache_params=past_key_values, attention_mask=attention_mask)
-        elif self.sequence_mixer_type in ["gru", "rnn"]:
-            x = self.sequence_mixer(
-                x,
-                cache_params=past_key_values,
-                attention_mask=attention_mask,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
-        elif self.sequence_mixer_type == "gated_deltanet":
-            # GatedDeltaNet returns (output, attentions, past_key_values)
+        elif self.sequence_mixer_type in ["gru", "rnn", "m2rnn", "gated_deltanet"]:
             x = self.sequence_mixer(
                 x,
                 cache_params=past_key_values,

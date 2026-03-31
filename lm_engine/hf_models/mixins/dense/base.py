@@ -14,6 +14,7 @@ from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
+from ...modeling_utils.init_utils import _get_std_for_embedding
 from ...utils import convert_padding_free_lists_to_tensors, is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
@@ -121,7 +122,11 @@ class BaseModelMixin(PreTrainedModelMixin):
             self.wte = ParameterizedEmbedding(
                 config.vocab_size,
                 self.embed_dim,
-                std=self.initializer_range,
+                std=_get_std_for_embedding(
+                    initializer_range=self.initializer_range,
+                    init_method=config.embedding_init_method,
+                    embed_dim=self.embed_dim,
+                ),
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 sequence_parallel=self.sequence_parallel,
             )
@@ -217,7 +222,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         for layer_idx in range(self.layer_start_id, self.layer_end_id):
             sequence_mixer_type = self.sequence_mixer_block_types[layer_idx]
-            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
+            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru", "m2rnn", "gated_deltanet"]
 
             if is_linear_layer and not mamba_mask_computed:
                 mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)

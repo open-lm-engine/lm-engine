@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,8 +15,8 @@ from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
 from ..convolution import ParameterizedConv1d
+from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
-from ..mlp_blocks.mlp import _get_std_for_linear
 
 
 if is_causal_conv1d_available():
@@ -111,7 +109,7 @@ def causal_convolution(
             )
 
             # removes padding on the right side of the sequence
-            hidden_states = hidden_states[..., : -(kernel_size - 1)]
+            hidden_states = hidden_states[..., : 1 - kernel_size]
             hidden_states = hidden_states.transpose(-1, -2)
         else:
             assert sequence_length == 1
@@ -120,6 +118,7 @@ def causal_convolution(
             input_state[..., -1] = hidden_states[:, 0]
 
             hidden_states = (input_state * conv1d_weight.squeeze(1)).sum(dim=-1)
+            hidden_states = hidden_states[:, None, :]
             if conv1d_bias is not None:
                 hidden_states = hidden_states + conv1d_bias
 
@@ -147,6 +146,7 @@ class CausalConvolution(nn.Module):
         init_method: str,
         num_layers: int,
         layer_idx: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
     ) -> CausalConvolution:
         super().__init__()
@@ -161,8 +161,19 @@ class CausalConvolution(nn.Module):
         self.layer_idx = layer_idx
         self.activation_string = activation_function
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
-        self.input_projection = ParameterizedLinear(hidden_size, in_channels, bias=add_bias, std=std)
+        self.input_projection = ParameterizedLinear(
+            hidden_size,
+            in_channels,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=hidden_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
+        )
 
         divide_if_divisible(in_channels, num_groups, "")
         divide_if_divisible(out_channels, num_groups, "")
@@ -179,13 +190,30 @@ class CausalConvolution(nn.Module):
             bias=add_bias,
             padding=kernel_size - 1,
             groups=num_groups,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=kernel_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         self.activation_function = get_activation_function(self.activation_string)
 
         self.output_projection = ParameterizedLinear(
-            intermediate_size, hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
+            intermediate_size,
+            hidden_size,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=intermediate_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         self.casual_conv1d_compatible = self.num_groups == self.in_channels == self.out_channels
