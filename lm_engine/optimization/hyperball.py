@@ -5,6 +5,7 @@
 from typing import Callable
 
 import torch
+from torch.distributed.tensor import DTensor
 from torch.optim import Optimizer
 
 
@@ -69,7 +70,11 @@ class HyperballAdamW(Optimizer):
                 state["step"] = 0
                 state["exp_avg"] = torch.zeros_like(p)
                 state["exp_avg_sq"] = torch.zeros_like(p)
-                state["R"] = p.norm().item()
+                # do the communication for R ahead of time to prevent it on every timestep
+                R = p.norm()
+                if isinstance(R, DTensor):
+                    R = R.full_tensor()
+                state["R"] = R
 
             exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
             state["step"] += 1
