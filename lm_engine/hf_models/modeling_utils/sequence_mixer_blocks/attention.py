@@ -207,11 +207,11 @@ class Attention(DTensorModule):
             input_shape = (T, self.num_key_value_heads, -1)
             output_shape = (T, -1, self.head_dim)
         else:
-            batch_size, query_length = x.size()[:-1]
-            query_length *= self.tp_world_size if self.sequence_parallel else 1
+            B, S = x.size()[:-1]
+            S *= self.tp_world_size if self.sequence_parallel else 1
 
-            input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
-            output_shape = (batch_size, query_length, -1, self.head_dim)
+            input_shape = (B, S, self.num_key_value_heads, -1)
+            output_shape = (B, S, -1, self.head_dim)
 
         x = self.c_attn(x)
         x = x.view(*input_shape)
@@ -297,7 +297,6 @@ class Attention(DTensorModule):
                     enable_gqa=True,
                 )
 
-            batch_size = x.shape[0]
             x = x.transpose(1, 2)
 
         if self.attention_gate:
