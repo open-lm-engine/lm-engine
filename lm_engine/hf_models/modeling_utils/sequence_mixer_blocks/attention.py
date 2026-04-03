@@ -78,6 +78,7 @@ class Attention(DTensorModule):
         sliding_window: int | None,
         position_embedding_type: str,
         attention_gate: bool,
+        exclusive_self_attention: bool,
         add_bias: bool,
         softmax_dropout: float,
         dropout: float,
@@ -100,6 +101,7 @@ class Attention(DTensorModule):
         self.add_bias = add_bias
         self.sliding_window = sliding_window
         self.attention_gate = attention_gate
+        self.exclusive_self_attention = exclusive_self_attention
 
         self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
@@ -242,6 +244,9 @@ class Attention(DTensorModule):
         if past_key_values is not None:
             k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
 
+        if self.exclusive_self_attention:
+            v_normalized = F.normalize(v, dim=-1)
+
         if use_flash_attention:
             assert accelerator == Accelerator.cuda
 
@@ -298,6 +303,9 @@ class Attention(DTensorModule):
                 )
 
             x = x.transpose(1, 2)
+
+        if self.exclusive_self_attention:
+            x = x - (x * v).sum(dim=-1, keepdim=True) * v_normalized
 
         if self.attention_gate:
             x = x * F.sigmoid(g)
