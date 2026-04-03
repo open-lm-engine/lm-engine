@@ -22,7 +22,7 @@ from ...loss import (
     get_aux_loss,
     is_aux_loss_zero,
 )
-from ...modeling_utils import DTensorModule, LMHead
+from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
 from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
 from ..modeling_outputs import (
     BaseModelOutputWithPast,
@@ -58,6 +58,19 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 )
 
             self.m_width = config.m_width
+
+    def get_input_embeddings(self) -> ParameterizedEmbedding:
+        return self.transformer.wte
+
+    def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
+        self.transformer.wte = value
+
+    def get_output_embeddings(self) -> ParameterizedLinear:
+        return self.transformer.wte if self._tied_word_embeddings else self.lm_head
+
+    def set_output_embeddings(self, new_embeddings: ParameterizedLinear) -> None:
+        if not self._tied_word_embeddings:
+            self.lm_head = new_embeddings
 
     def forward(
         self,
