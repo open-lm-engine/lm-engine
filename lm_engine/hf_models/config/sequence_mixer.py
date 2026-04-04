@@ -7,8 +7,8 @@ from typing import Any
 from ...utils import BaseArgs
 
 
-_ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD = "1 / sqrt(head_dim)"
-_ATTENTION_MULTIPLIER_INVERSE_METHOD = "1 / head_dim"
+ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD = "1 / sqrt(head_dim)"
+ATTENTION_MULTIPLIER_INVERSE_METHOD = "1 / head_dim"
 
 
 class _SoftmaxAttentionArgs(BaseArgs):
@@ -19,20 +19,20 @@ class _SoftmaxAttentionArgs(BaseArgs):
     dropout: float = 0
     add_bias: bool = False
     attention_multiplier: float | None = None
-    attention_multiplier_method: str | None = _ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
+    attention_multiplier_method: str | None = ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
     attention_gate: bool = False
     sliding_window: int | None = None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.attention_multiplier_method in [
-            _ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
-            _ATTENTION_MULTIPLIER_INVERSE_METHOD,
+            ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
+            ATTENTION_MULTIPLIER_INVERSE_METHOD,
             None,
         ]
 
         if self.attention_multiplier_method in [
-            _ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
-            _ATTENTION_MULTIPLIER_INVERSE_METHOD,
+            ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
+            ATTENTION_MULTIPLIER_INVERSE_METHOD,
         ]:
             assert self.attention_multiplier is None
         else:

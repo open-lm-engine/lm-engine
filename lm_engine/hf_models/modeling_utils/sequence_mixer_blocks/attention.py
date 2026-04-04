@@ -13,7 +13,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
-from ...config.sequence_mixer import _ATTENTION_MULTIPLIER_INVERSE_METHOD, _ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
+from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..chunk import contiguous_split
 from ..dropout import Dropout
@@ -125,10 +125,9 @@ class Attention(DTensorModule):
         if self.attention_multiplier_method is not None:
             assert self.attention_multiplier is None
 
-        if self.attention_multiplier_method == _ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD:
-            if Accelerator.get_accelerator() == Accelerator.tpu:
-                self.attention_multiplier = 1 / math.sqrt(self.head_dim)
-        elif self.attention_multiplier_method == _ATTENTION_MULTIPLIER_INVERSE_METHOD:
+        if self.attention_multiplier_method == ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD:
+            self.attention_multiplier = 1 / math.sqrt(self.head_dim)
+        elif self.attention_multiplier_method == ATTENTION_MULTIPLIER_INVERSE_METHOD:
             self.attention_multiplier = 1 / self.head_dim
 
         self.num_groups = divide_if_divisible(
