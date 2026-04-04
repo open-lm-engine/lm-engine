@@ -233,6 +233,10 @@ class Attention(DTensorModule):
 
         q = q.reshape(*output_shape)
 
+        if self.exclusive_self_attention:
+            v_xsa = v
+            v_normalized = F.normalize(v, dim=-1)
+
         if not self.use_padding_free_transformer:
             q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
             if self.attention_gate:
@@ -243,9 +247,6 @@ class Attention(DTensorModule):
 
         if past_key_values is not None:
             k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
-
-        if self.exclusive_self_attention:
-            v_normalized = F.normalize(v, dim=-1)
 
         if use_flash_attention:
             assert accelerator == Accelerator.cuda
@@ -305,7 +306,7 @@ class Attention(DTensorModule):
             x = x.transpose(1, 2)
 
         if self.exclusive_self_attention:
-            x = x - (x * v).sum(dim=-1, keepdim=True) * v_normalized
+            x = x - (x * v_xsa).sum(dim=-1, keepdim=True) * v_normalized
 
         if self.attention_gate:
             x = x * F.sigmoid(g)
