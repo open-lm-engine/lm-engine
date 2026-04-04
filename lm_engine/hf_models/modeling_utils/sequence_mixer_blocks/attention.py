@@ -235,7 +235,6 @@ class Attention(DTensorModule):
 
         if self.exclusive_self_attention:
             v_xsa = v
-            v_normalized = F.normalize(v, dim=-1)
 
         if not self.use_padding_free_transformer:
             q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
@@ -306,7 +305,8 @@ class Attention(DTensorModule):
             x = x.transpose(1, 2)
 
         if self.exclusive_self_attention:
-            x = x - (x * v_xsa).sum(dim=-1, keepdim=True) * v_normalized
+            proj_scalar = (x * v_xsa).sum(dim=-1, keepdim=True) / (v_xsa * v_xsa).sum(dim=-1, keepdim=True)
+            x = x - proj_scalar * v_xsa
 
         if self.attention_gate:
             x = x * F.sigmoid(g)
