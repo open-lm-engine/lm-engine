@@ -21,6 +21,7 @@ class _SoftmaxAttentionArgs(BaseArgs):
     attention_multiplier: float | None = None
     attention_multiplier_method: str | None = ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
     attention_gate: bool = False
+    exclusive_self_attention: bool = False
     sliding_window: int | None = None
 
     def model_post_init(self, __context: Any) -> None:

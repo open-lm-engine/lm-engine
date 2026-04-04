@@ -54,7 +54,7 @@ def is_fla_available() -> bool:
 
 
 try:
-    import flash_attn
+    from flash_attn import flash_attn_func
 
     _IS_FLASH_ATTENTION_2_AVAILABLE = True
 except ImportError:
