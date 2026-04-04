@@ -16,6 +16,7 @@ class _SoftmaxAttentionArgs(BaseArgs):
     add_bias: bool = False
     attention_multiplier: float | None = None
     attention_gate: bool = False
+    exclusive_self_attention: bool = False
     sliding_window: int | None = None
 
     def model_post_init(self, __context: Any) -> None:
