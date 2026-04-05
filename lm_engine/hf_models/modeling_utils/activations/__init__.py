@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from .base import get_base_activation
 from .glu import get_glu_activation, is_glu
-from .utils import clip_gradients, sigmoid, tanh
+from .utils import clip_gradients, sigmoid, silu, tanh
 
 
 def get_activation_function(name: str | None) -> nn.Module:
