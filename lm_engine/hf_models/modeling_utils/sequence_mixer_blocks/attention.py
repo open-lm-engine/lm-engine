@@ -318,5 +318,7 @@ class Attention(DTensorModule):
 
     def _compute_xsa_output(self, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         v = v.float()
+        if v.size(-2) != x.size(-2):
+            v = v.repeat_interleave(x.size(-2) // v.size(-2), dim=-2)
         proj_scalar = (x * v).sum(dim=-1, keepdim=True) / (v * v).sum(dim=-1, keepdim=True)
         return (x - proj_scalar * v).type_as(x)
