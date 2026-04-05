@@ -76,6 +76,7 @@ class Attention(DTensorModule):
         hidden_size: int,
         num_attention_heads: int,
         num_key_value_heads: int,
+        head_dim: int | None,
         attention_multiplier: float | None,
         attention_multiplier_method: str | None,
         sliding_window: int | None,
@@ -119,7 +120,7 @@ class Attention(DTensorModule):
             self.global_num_heads, self.tp_world_size, "num_heads must be divisible by TP world size"
         )
 
-        self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "")
+        self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "") if head_dim is None else head_dim
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
         self.attention_multiplier_method = attention_multiplier_method
