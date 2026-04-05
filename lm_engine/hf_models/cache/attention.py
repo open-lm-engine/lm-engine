@@ -19,7 +19,7 @@ class _SoftmaxAttentionCache:
         return self.key_cache, self.value_cache
 
     def update(
-        self, key_states: torch.Tensor, value_states: torch.Tensor | None = None, sequence_length_dimension: int = -2
+        self, key_states: torch.Tensor, value_states: torch.Tensor | None = None, sequence_length_dimension: int = 1
     ) -> tuple[torch.Tensor]:
         self.seen_tokens += key_states.size(sequence_length_dimension)
 

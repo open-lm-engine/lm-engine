@@ -26,7 +26,7 @@ from ...parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ..activations import get_activation_function, is_glu
+from ..activations import get_activation_function, is_glu, sigmoid
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
 from ..linear import ColumnParallelLinear, ParameterizedLinear, ReplicatedLinear, RowParallelLinear
@@ -530,7 +530,7 @@ class MoE(DTensorModule):
         x = self.c_proj_shared(x)
 
         if g is not None:
-            x = x * F.sigmoid(g)
+            x = x * sigmoid(g)
 
         return x
 

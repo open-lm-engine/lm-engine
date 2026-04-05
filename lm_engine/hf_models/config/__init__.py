@@ -116,11 +116,14 @@ class CommonConfig(PretrainedConfig):
                 == "softmax_attention"
             ), "specify rope_dim"
 
-            self.rope_dim = divide_if_divisible(
-                self.hidden_size,
-                self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
-                "",
-            )
+            self.rope_dim = self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "head_dim")
+
+            if self.rope_dim is None:
+                self.rope_dim = divide_if_divisible(
+                    self.hidden_size,
+                    self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
+                    "",
+                )
 
         self.mlp_blocks = mlp_blocks
         self._set_mlp_blocks()

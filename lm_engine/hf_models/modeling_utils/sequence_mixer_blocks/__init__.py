@@ -183,6 +183,7 @@ def get_sequence_mixer(
             hidden_size=config.hidden_size,
             num_attention_heads=block.num_attention_heads,
             num_key_value_heads=block.num_key_value_heads,
+            head_dim=block.head_dim,
             attention_multiplier=block.attention_multiplier,
             attention_multiplier_method=block.attention_multiplier_method,
             sliding_window=block.sliding_window,

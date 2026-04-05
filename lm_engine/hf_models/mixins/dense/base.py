@@ -264,8 +264,8 @@ class BaseModelMixin(PreTrainedModelMixin):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         if self.position_embedding_type == "rope":
             cos, sin = self.rope(key_length, dtype=dtype)
-            cos = cos[position_ids].unsqueeze(1)
-            sin = sin[position_ids].unsqueeze(1)
+            cos = cos[position_ids]
+            sin = sin[position_ids]
             return cos, sin
 
     def _prepare_causal_attention_mask(

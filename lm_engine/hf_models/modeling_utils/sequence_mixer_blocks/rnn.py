@@ -17,7 +17,7 @@ from ...parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ..activations import clip_gradients, get_activation_function, is_glu, tanh
+from ..activations import clip_gradients, get_activation_function, is_glu, silu, tanh
 from ..convolution import ParameterizedConv1d
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
@@ -209,7 +209,7 @@ class RNN(nn.Module):
             cache_params.update(conv_state=c, ssm_state=h, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
 
         x = x.flatten(-2, -1)
-        x = x * F.silu(g)
+        x = x * silu(g)
         x = self.norm(x)
         x = self.output_projection(x)
 

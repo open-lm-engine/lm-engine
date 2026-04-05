@@ -17,7 +17,7 @@ from ...parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ..activations import get_activation_function
+from ..activations import get_activation_function, silu
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
 from ..init_utils import _get_std_for_linear
@@ -451,7 +451,7 @@ class Mamba2(nn.Module):
             if cache_params is not None:
                 cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
 
-        scan_output = y * F.silu(gate)
+        scan_output = y * silu(gate)
         scan_output = self.norm(scan_output)
 
         # end ssd naive
@@ -523,7 +523,7 @@ class Mamba2(nn.Module):
                 dt_softplus=True,
             )
             hidden_states = hidden_states.view(batch_size, self.num_heads * self.head_dim)
-            hidden_states = hidden_states * F.silu(gate)
+            hidden_states = hidden_states * silu(gate)
             hidden_states = self.norm(hidden_states)
 
             # 4. Final linear projection
@@ -614,7 +614,7 @@ class Mamba2(nn.Module):
 
                 scan_output = scan_output.view(batch_size, seq_len, -1)
                 # Multiply "gate" branch and apply extra normalization layer
-                scan_output = scan_output * F.silu(gate)
+                scan_output = scan_output * silu(gate)
                 scan_output = self.norm(scan_output)
 
                 # 4. Final linear projection
