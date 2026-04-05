@@ -13,8 +13,8 @@ ATTENTION_MULTIPLIER_INVERSE_METHOD = "1 / head_dim"
 
 class _SoftmaxAttentionArgs(BaseArgs):
     sequence_mixer_type: str = "softmax_attention"
-    num_attention_heads: int = 12
-    num_key_value_heads: int = 1
+    num_attention_heads: int
+    num_key_value_heads: int
     head_dim: int | None = None
     softmax_dropout: float = 0
     dropout: float = 0
@@ -46,7 +46,7 @@ class _SoftmaxAttentionArgs(BaseArgs):
 class _SoftPlusDecayArgs(BaseArgs):
     A_init_min: float = 0
     A_init_max: float = 16
-    dt_init_min: float = 0.001
+    dt_init_min: float = 1e-3
     dt_init_max: float = 0.1
     dt_init_floor: float = 1e-4
 
@@ -108,27 +108,22 @@ class _RNNArgs(BaseArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
-class _M2RNNArgs(BaseArgs):
+class _M2RNNArgs(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "m2rnn"
-    k_head_dim: int = 16
-    v_head_dim: int = 16
-    num_q_heads: int = 128
-    num_k_heads: int = 128
-    num_v_heads: int = 128
-    num_f_heads: int = 128
-    num_g_heads: int = 128
-    num_weight_heads: int = 128
+    k_head_dim: int
+    v_head_dim: int
+    num_q_heads: int
+    num_k_heads: int
+    num_v_heads: int
+    num_f_heads: int
+    num_g_heads: int
+    num_weight_heads: int
     use_residual: bool = True
     kernel_size: int | None = None
     activation_function: str | None = None
     add_bias: bool = False
     gradient_clipping: float | None = None
     normalization_function: str | None = None
-    A_init_min: float = 0
-    A_init_max: float = 16
-    dt_init_min: float = 1e-3
-    dt_init_max: float = 0.1
-    dt_init_floor: float = 1e-4
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "m2rnn"
