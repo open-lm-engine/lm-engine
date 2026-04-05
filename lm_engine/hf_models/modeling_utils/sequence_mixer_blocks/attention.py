@@ -279,10 +279,9 @@ class Attention(DTensorModule):
         else:
             assert self.sliding_window is None
 
-            if not self.use_padding_free_transformer:
-                q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
-                if self.attention_gate:
-                    g = g.transpose(1, 2)
+            q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
+            if self.attention_gate:
+                g = g.transpose(1, 2)
 
             if accelerator == Accelerator.tpu:
                 assert attention_mask is None
