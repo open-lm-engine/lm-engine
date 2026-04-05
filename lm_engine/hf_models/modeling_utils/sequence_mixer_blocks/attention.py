@@ -149,7 +149,7 @@ class Attention(DTensorModule):
         self.c_attn = ColumnParallelLinear(
             self.global_hidden_size,
             (self.global_num_heads + 2 * self.global_num_key_value_heads) * self.head_dim
-            + (self.global_num_heads * self.head_dim if self.attention_gate else 0),
+            + ((self.global_num_heads * self.head_dim) if self.attention_gate else 0),
             bias=self.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
