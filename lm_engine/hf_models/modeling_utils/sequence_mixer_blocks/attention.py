@@ -13,6 +13,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
+from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..chunk import contiguous_split
 from ..dropout import Dropout
@@ -74,10 +75,12 @@ class Attention(DTensorModule):
         hidden_size: int,
         num_attention_heads: int,
         num_key_value_heads: int,
-        attention_multiplier: float,
+        attention_multiplier: float | None,
+        attention_multiplier_method: str | None,
         sliding_window: int | None,
         position_embedding_type: str,
         attention_gate: bool,
+        exclusive_self_attention: bool,
         add_bias: bool,
         softmax_dropout: float,
         dropout: float,
@@ -100,6 +103,7 @@ class Attention(DTensorModule):
         self.add_bias = add_bias
         self.sliding_window = sliding_window
         self.attention_gate = attention_gate
+        self.exclusive_self_attention = exclusive_self_attention
 
         self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
@@ -117,7 +121,16 @@ class Attention(DTensorModule):
         self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "")
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
+        self.attention_multiplier_method = attention_multiplier_method
         self.layer_idx = layer_idx
+
+        if self.attention_multiplier_method is not None:
+            assert self.attention_multiplier is None
+
+        if self.attention_multiplier_method == ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD:
+            self.attention_multiplier = 1 / math.sqrt(self.head_dim)
+        elif self.attention_multiplier_method == ATTENTION_MULTIPLIER_INVERSE_METHOD:
+            self.attention_multiplier = 1 / self.head_dim
 
         self.num_groups = divide_if_divisible(
             self.global_num_heads,
@@ -207,11 +220,11 @@ class Attention(DTensorModule):
             input_shape = (T, self.num_key_value_heads, -1)
             output_shape = (T, -1, self.head_dim)
         else:
-            batch_size, query_length = x.size()[:-1]
-            query_length *= self.tp_world_size if self.sequence_parallel else 1
+            B, S = x.size()[:-1]
+            S *= self.tp_world_size if self.sequence_parallel else 1
 
-            input_shape = (batch_size, query_length, self.num_key_value_heads, -1)
-            output_shape = (batch_size, query_length, -1, self.head_dim)
+            input_shape = (B, S, self.num_key_value_heads, -1)
+            output_shape = (B, S, -1, self.head_dim)
 
         x = self.c_attn(x)
         x = x.view(*input_shape)
@@ -230,6 +243,9 @@ class Attention(DTensorModule):
             )
 
         q = q.reshape(*output_shape)
+
+        if self.exclusive_self_attention:
+            v_xsa = v
 
         if not self.use_padding_free_transformer:
             q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
@@ -279,11 +295,7 @@ class Attention(DTensorModule):
                     k,
                     v,
                     causal=self.causal if attention_mask is None else False,
-                    sm_scale=(
-                        1 / math.sqrt(self.head_dim)
-                        if self.attention_multiplier is None
-                        else self.attention_multiplier
-                    ),
+                    sm_scale=self.attention_multiplier,
                 )
             else:
                 x = F.scaled_dot_product_attention(
@@ -297,8 +309,11 @@ class Attention(DTensorModule):
                     enable_gqa=True,
                 )
 
-            batch_size = x.shape[0]
             x = x.transpose(1, 2)
+
+        if self.exclusive_self_attention:
+            proj_scalar = (x * v_xsa).sum(dim=-1, keepdim=True) / (v_xsa * v_xsa).sum(dim=-1, keepdim=True)
+            x = x - proj_scalar * v_xsa
 
         if self.attention_gate:
             x = x * F.sigmoid(g)
