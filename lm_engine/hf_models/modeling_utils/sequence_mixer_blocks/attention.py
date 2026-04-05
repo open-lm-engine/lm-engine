@@ -15,6 +15,7 @@ from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
 from ...parameter import mark_parameter_as_mup_learning_rate
+from ..activations import sigmoid
 from ..chunk import contiguous_split
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
@@ -315,7 +316,7 @@ class Attention(DTensorModule):
             x = self._compute_xsa_output(x=x, v=v_xsa)
 
         if self.attention_gate:
-            x = x * F.sigmoid(g)
+            x = x * sigmoid(g)
 
         x = x.flatten(-2, -1)
         x = self.c_proj(x)
