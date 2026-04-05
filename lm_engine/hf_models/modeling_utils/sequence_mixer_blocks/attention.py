@@ -294,7 +294,7 @@ class Attention(DTensorModule):
                     q,
                     k,
                     v,
-                    causal=self.causal if attention_mask is None else False,
+                    causal=self.causal,
                     sm_scale=self.attention_multiplier,
                 )
             else:
