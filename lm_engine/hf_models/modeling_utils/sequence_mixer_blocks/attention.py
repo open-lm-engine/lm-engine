@@ -148,9 +148,8 @@ class Attention(DTensorModule):
 
         self.c_attn = ColumnParallelLinear(
             self.global_hidden_size,
-            self.global_hidden_size
-            + 2 * self.global_num_key_value_heads * self.head_dim
-            + (self.global_hidden_size if self.attention_gate else 0),
+            (self.global_num_heads + 2 * self.global_num_key_value_heads) * self.head_dim
+            + (self.global_num_heads * self.head_dim if self.attention_gate else 0),
             bias=self.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
@@ -164,15 +163,17 @@ class Attention(DTensorModule):
             sequence_parallel=sequence_parallel,
         )
 
+        c_proj_fan_in = self.global_num_heads * self.head_dim
+
         self.c_proj = RowParallelLinear(
-            self.global_hidden_size,
+            c_proj_fan_in,
             self.global_hidden_size,
             bias=self.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
                 m_width=m_width,
-                fan_in=self.global_hidden_size,
+                fan_in=c_proj_fan_in,
                 num_layers=num_layers,
                 use_depth_scaled_init=use_depth_scaled_init,
             ),
