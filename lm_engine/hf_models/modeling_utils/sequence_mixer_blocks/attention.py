@@ -319,5 +319,4 @@ class Attention(DTensorModule):
     def _compute_xsa_output(self, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         v = v.float()
         proj_scalar = (x * v).sum(dim=-1, keepdim=True) / (v * v).sum(dim=-1, keepdim=True)
-        x = (x - proj_scalar * v).type_as(x)
-        return x
+        return (x - proj_scalar * v).type_as(x)
