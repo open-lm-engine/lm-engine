@@ -13,6 +13,7 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
+from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..chunk import contiguous_split
 from ..dropout import Dropout
@@ -74,7 +75,8 @@ class Attention(DTensorModule):
         hidden_size: int,
         num_attention_heads: int,
         num_key_value_heads: int,
-        attention_multiplier: float,
+        attention_multiplier: float | None,
+        attention_multiplier_method: str | None,
         sliding_window: int | None,
         position_embedding_type: str,
         attention_gate: bool,
@@ -119,7 +121,16 @@ class Attention(DTensorModule):
         self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "")
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
+        self.attention_multiplier_method = attention_multiplier_method
         self.layer_idx = layer_idx
+
+        if self.attention_multiplier_method is not None:
+            assert self.attention_multiplier is None
+
+        if self.attention_multiplier_method == ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD:
+            self.attention_multiplier = 1 / math.sqrt(self.head_dim)
+        elif self.attention_multiplier_method == ATTENTION_MULTIPLIER_INVERSE_METHOD:
+            self.attention_multiplier = 1 / self.head_dim
 
         self.num_groups = divide_if_divisible(
             self.global_num_heads,
@@ -284,11 +295,7 @@ class Attention(DTensorModule):
                     k,
                     v,
                     causal=self.causal if attention_mask is None else False,
-                    sm_scale=(
-                        1 / math.sqrt(self.head_dim)
-                        if self.attention_multiplier is None
-                        else self.attention_multiplier
-                    ),
+                    sm_scale=self.attention_multiplier,
                 )
             else:
                 x = F.scaled_dot_product_attention(
