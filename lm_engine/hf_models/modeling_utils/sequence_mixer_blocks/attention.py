@@ -279,26 +279,22 @@ class Attention(DTensorModule):
         else:
             assert self.sliding_window is None
 
-            q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
-            if self.attention_gate:
-                g = g.transpose(1, 2)
-
             if accelerator == Accelerator.tpu:
                 assert attention_mask is None
                 assert self.softmax_dropout_p == 0
 
                 x = flash_attention_tpu(
-                    q,
-                    k,
-                    v,
+                    q.transpose(1, 2),
+                    k.transpose(1, 2),
+                    v.transpose(1, 2),
                     causal=self.causal,
                     sm_scale=self.attention_multiplier,
                 )
             else:
                 x = F.scaled_dot_product_attention(
-                    query=q,
-                    key=k,
-                    value=v,
+                    query=q.transpose(1, 2),
+                    key=k.transpose(1, 2),
+                    value=v.transpose(1, 2),
                     attn_mask=attention_mask,
                     dropout_p=self.softmax_dropout_p if self.training else 0,
                     is_causal=self.causal if attention_mask is None else False,
