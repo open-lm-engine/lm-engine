@@ -250,11 +250,6 @@ class Attention(DTensorModule):
         if self.exclusive_self_attention:
             v_xsa = v
 
-        if not self.use_padding_free_transformer:
-            q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
-            if self.attention_gate:
-                g = g.transpose(1, 2)
-
         if self.position_embedding_type == "rope":
             q, k = [apply_rotary_pos_emb(i, cos_sin=rope_cos_sin) for i in (q, k)]
 
@@ -263,11 +258,6 @@ class Attention(DTensorModule):
 
         if use_flash_attention:
             assert accelerator == Accelerator.cuda
-
-            if not self.use_padding_free_transformer:
-                q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
-                if self.attention_gate:
-                    g = g.transpose(1, 2)
 
             q, k, v = [wait_for_ACT(i, wait_in_forward=True, wait_in_backward=False) for i in (q, k, v)]
 
@@ -288,6 +278,11 @@ class Attention(DTensorModule):
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             assert self.sliding_window is None
+
+            if not self.use_padding_free_transformer:
+                q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
+                if self.attention_gate:
+                    g = g.transpose(1, 2)
 
             if accelerator == Accelerator.tpu:
                 assert attention_mask is None
