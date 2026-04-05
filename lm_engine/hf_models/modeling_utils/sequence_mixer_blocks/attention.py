@@ -305,8 +305,7 @@ class Attention(DTensorModule):
             x = x.transpose(1, 2)
 
         if self.exclusive_self_attention:
-            proj_scalar = (x * v_xsa).sum(dim=-1, keepdim=True) / (v_xsa * v_xsa).sum(dim=-1, keepdim=True)
-            x = x - proj_scalar * v_xsa
+            x = self._compute_xsa_output(x=x, v=v_xsa)
 
         if self.attention_gate:
             x = x * F.sigmoid(g)
@@ -315,4 +314,10 @@ class Attention(DTensorModule):
         x = self.c_proj(x)
         x = self.dropout(x)
 
+        return x
+
+    def _compute_xsa_output(self, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        v = v.float()
+        proj_scalar = (x * v).sum(dim=-1, keepdim=True) / (v * v).sum(dim=-1, keepdim=True)
+        x = (x - proj_scalar * v).type_as(x)
         return x
