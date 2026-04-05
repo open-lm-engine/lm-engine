@@ -15,6 +15,7 @@ from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
 from ...parameter import mark_parameter_as_mup_learning_rate
+from ..activations import sigmoid
 from ..chunk import contiguous_split
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
@@ -75,6 +76,7 @@ class Attention(DTensorModule):
         hidden_size: int,
         num_attention_heads: int,
         num_key_value_heads: int,
+        head_dim: int | None,
         attention_multiplier: float | None,
         attention_multiplier_method: str | None,
         sliding_window: int | None,
@@ -118,7 +120,7 @@ class Attention(DTensorModule):
             self.global_num_heads, self.tp_world_size, "num_heads must be divisible by TP world size"
         )
 
-        self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "")
+        self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "") if head_dim is None else head_dim
         self.position_embedding_type = position_embedding_type
         self.attention_multiplier = attention_multiplier
         self.attention_multiplier_method = attention_multiplier_method
@@ -146,9 +148,8 @@ class Attention(DTensorModule):
 
         self.c_attn = ColumnParallelLinear(
             self.global_hidden_size,
-            self.global_hidden_size
-            + 2 * self.global_num_key_value_heads * self.head_dim
-            + (self.global_hidden_size if self.attention_gate else 0),
+            (self.global_num_heads + 2 * self.global_num_key_value_heads) * self.head_dim
+            + ((self.global_num_heads * self.head_dim) if self.attention_gate else 0),
             bias=self.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
@@ -162,15 +163,17 @@ class Attention(DTensorModule):
             sequence_parallel=sequence_parallel,
         )
 
+        c_proj_fan_in = self.global_num_heads * self.head_dim
+
         self.c_proj = RowParallelLinear(
-            self.global_hidden_size,
+            c_proj_fan_in,
             self.global_hidden_size,
             bias=self.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
                 m_width=m_width,
-                fan_in=self.global_hidden_size,
+                fan_in=c_proj_fan_in,
                 num_layers=num_layers,
                 use_depth_scaled_init=use_depth_scaled_init,
             ),
@@ -247,11 +250,6 @@ class Attention(DTensorModule):
         if self.exclusive_self_attention:
             v_xsa = v
 
-        if not self.use_padding_free_transformer:
-            q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
-            if self.attention_gate:
-                g = g.transpose(1, 2)
-
         if self.position_embedding_type == "rope":
             q, k = [apply_rotary_pos_emb(i, cos_sin=rope_cos_sin) for i in (q, k)]
 
@@ -260,11 +258,6 @@ class Attention(DTensorModule):
 
         if use_flash_attention:
             assert accelerator == Accelerator.cuda
-
-            if not self.use_padding_free_transformer:
-                q, k, v = [i.transpose(1, 2) for i in (q, k, v)]
-                if self.attention_gate:
-                    g = g.transpose(1, 2)
 
             q, k, v = [wait_for_ACT(i, wait_in_forward=True, wait_in_backward=False) for i in (q, k, v)]
 
@@ -291,17 +284,17 @@ class Attention(DTensorModule):
                 assert self.softmax_dropout_p == 0
 
                 x = flash_attention_tpu(
-                    q,
-                    k,
-                    v,
-                    causal=self.causal if attention_mask is None else False,
+                    q.transpose(1, 2),
+                    k.transpose(1, 2),
+                    v.transpose(1, 2),
+                    causal=self.causal,
                     sm_scale=self.attention_multiplier,
                 )
             else:
                 x = F.scaled_dot_product_attention(
-                    query=q,
-                    key=k,
-                    value=v,
+                    query=q.transpose(1, 2),
+                    key=k.transpose(1, 2),
+                    value=v.transpose(1, 2),
                     attn_mask=attention_mask,
                     dropout_p=self.softmax_dropout_p if self.training else 0,
                     is_causal=self.causal if attention_mask is None else False,
@@ -312,14 +305,22 @@ class Attention(DTensorModule):
             x = x.transpose(1, 2)
 
         if self.exclusive_self_attention:
-            proj_scalar = (x * v_xsa).sum(dim=-1, keepdim=True) / (v_xsa * v_xsa).sum(dim=-1, keepdim=True)
-            x = x - proj_scalar * v_xsa
+            x = self._compute_xsa_output(x=x, v=v_xsa)
 
         if self.attention_gate:
-            x = x * F.sigmoid(g)
+            x = x * sigmoid(g)
 
         x = x.flatten(-2, -1)
         x = self.c_proj(x)
         x = self.dropout(x)
 
         return x
+
+    def _compute_xsa_output(self, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        if v.size(-2) != x.size(-2):
+            v = v.repeat_interleave(x.size(-2) // v.size(-2), dim=-2)
+
+        v = v.float()
+        proj_scalar = (x * v).sum(dim=-1, keepdim=True) / (v * v).sum(dim=-1, keepdim=True)
+
+        return (x - proj_scalar * v).type_as(x)

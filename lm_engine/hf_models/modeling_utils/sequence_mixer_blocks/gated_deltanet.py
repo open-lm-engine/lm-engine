@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from ....utils import divide_if_divisible, is_fla_available
 from ...cache import GenerationCache
+from ..activations import silu
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
 from ..init_utils import _get_std_for_linear
@@ -245,7 +245,7 @@ class GatedDeltaNet(nn.Module):
 
         if self.use_gate:
             g = gate.view(*gate.size()[:-1], -1, self.v_head_dim)
-            o = o * F.silu(g)
+            o = o * silu(g)
 
         o = self.o_norm(o)
         o = o.flatten(-2, -1)

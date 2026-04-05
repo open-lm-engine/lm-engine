@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributed._tensor.api import DTensor
 from torch.distributed._tensor.placement_types import Replicate
 
@@ -20,7 +19,7 @@ from ...parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ..activations import clip_gradients, is_glu, tanh
+from ..activations import clip_gradients, is_glu, silu, tanh
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
 from ..init_utils import _get_std_for_linear
@@ -259,7 +258,7 @@ class M2RNN(nn.Module):
 
         x = x.flatten(-2, -1)
         g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)
-        x = x * F.silu(g)
+        x = x * silu(g)
         x = self.g_norm(x)
 
         x = self.output_projection(x)
