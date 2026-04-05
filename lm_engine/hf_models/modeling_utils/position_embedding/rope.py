@@ -111,6 +111,9 @@ def apply_rotary_pos_emb(x: torch.Tensor, cos_sin: tuple[torch.Tensor, torch.Ten
     head_dim = x.size(-1)
     rope_dim = cos.size(-1)
 
+    cos = cos[..., None, :]
+    sin = sin[..., None, :]
+
     if head_dim == rope_dim:
         x = (x * cos) + (_rotate_half(x) * sin)
     elif rope_dim < head_dim:
