@@ -22,9 +22,6 @@ class ParameterizedConv1d(nn.Conv1d):
         dilation: int = 1,
         groups: int = 1,
         bias: bool = True,
-        padding_mode: str = "zeros",  # TODO: refine this type
-        device=None,
-        dtype=None,
         std: float | None = None,
     ) -> ParameterizedConv1d:
         self.std = std
@@ -37,9 +34,6 @@ class ParameterizedConv1d(nn.Conv1d):
             dilation=dilation,
             groups=groups,
             bias=bias,
-            padding_mode=padding_mode,
-            device=device,
-            dtype=dtype,
         )
 
         mark_parameter_as_no_weight_decay(self.bias)
