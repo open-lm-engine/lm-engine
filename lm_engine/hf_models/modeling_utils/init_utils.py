@@ -30,6 +30,19 @@ def _get_std_for_linear(
     return std
 
 
+def _get_std_for_convolution(
+    initializer_range: float, init_method: str, fan_in: int | None, num_layers: int | None
+) -> float:
+    return _get_std_for_linear(
+        initializer_range=initializer_range,
+        init_method=init_method,
+        m_width=fan_in,
+        fan_in=fan_in,
+        num_layers=num_layers,
+        use_depth_scaled_init=False,
+    )
+
+
 def _get_std_for_embedding(initializer_range: float, init_method: str, embed_dim: int) -> float:
     if init_method == "fan_in":
         std = 1 / math.sqrt(embed_dim)

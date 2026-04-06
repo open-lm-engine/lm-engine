@@ -20,7 +20,7 @@ from ...parameter import (
 from ..activations import get_activation_function, silu
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
-from ..init_utils import _get_std_for_linear
+from ..init_utils import _get_std_for_convolution, _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import _apply_mask_to_padding_states
@@ -151,13 +151,11 @@ class Mamba2(nn.Module):
             kernel_size=self.conv_kernel_size,
             groups=self.conv_dim,
             padding=self.conv_kernel_size - 1,
-            std=_get_std_for_linear(
+            std=_get_std_for_convolution(
                 initializer_range=initializer_range,
                 init_method=init_method,
-                m_width=m_width,
                 fan_in=self.conv_kernel_size,
                 num_layers=num_layers,
-                use_depth_scaled_init=False,
             ),
         )
 

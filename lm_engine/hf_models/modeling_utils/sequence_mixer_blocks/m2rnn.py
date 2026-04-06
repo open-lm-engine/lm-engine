@@ -22,7 +22,7 @@ from ...parameter import (
 from ..activations import clip_gradients, is_glu, silu, tanh
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
-from ..init_utils import _get_std_for_linear
+from ..init_utils import _get_std_for_convolution, _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
@@ -139,13 +139,11 @@ class M2RNN(nn.Module):
                 bias=add_bias,
                 padding=kernel_size - 1,
                 groups=self.conv_dim,
-                std=_get_std_for_linear(
+                std=_get_std_for_convolution(
                     initializer_range=initializer_range,
                     init_method=init_method,
-                    m_width=m_width,
                     fan_in=kernel_size,
                     num_layers=num_layers,
-                    use_depth_scaled_init=False,
                 ),
             )
 

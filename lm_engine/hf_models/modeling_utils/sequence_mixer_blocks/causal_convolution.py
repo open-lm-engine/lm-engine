@@ -15,7 +15,7 @@ from ...cache import GenerationCache
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
 from ..convolution import ParameterizedConv1d
-from ..init_utils import _get_std_for_linear
+from ..init_utils import _get_std_for_convolution, _get_std_for_linear
 from ..linear import ParameterizedLinear
 
 
@@ -190,13 +190,8 @@ class CausalConvolution(nn.Module):
             bias=add_bias,
             padding=kernel_size - 1,
             groups=num_groups,
-            std=_get_std_for_linear(
-                initializer_range=initializer_range,
-                init_method=init_method,
-                m_width=m_width,
-                fan_in=kernel_size,
-                num_layers=num_layers,
-                use_depth_scaled_init=False,
+            std=_get_std_for_convolution(
+                initializer_range=initializer_range, init_method=init_method, fan_in=kernel_size, num_layers=num_layers
             ),
         )
 
