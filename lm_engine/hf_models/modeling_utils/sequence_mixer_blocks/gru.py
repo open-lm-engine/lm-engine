@@ -128,10 +128,7 @@ class GRU(nn.Module):
                 padding=kernel_size - 1,
                 groups=self.state_size,
                 std=_get_std_for_convolution(
-                    initializer_range=initializer_range,
-                    init_method=init_method,
-                    fan_in=kernel_size,
-                    num_layers=num_layers,
+                    initializer_range=initializer_range, init_method=init_method, fan_in=kernel_size
                 ),
             )
 

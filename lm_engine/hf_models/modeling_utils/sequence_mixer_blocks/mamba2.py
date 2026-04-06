@@ -152,10 +152,7 @@ class Mamba2(nn.Module):
             groups=self.conv_dim,
             padding=self.conv_kernel_size - 1,
             std=_get_std_for_convolution(
-                initializer_range=initializer_range,
-                init_method=init_method,
-                fan_in=self.conv_kernel_size,
-                num_layers=num_layers,
+                initializer_range=initializer_range, init_method=init_method, fan_in=self.conv_kernel_size
             ),
         )
 

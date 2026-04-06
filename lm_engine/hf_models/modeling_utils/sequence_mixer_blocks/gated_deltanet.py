@@ -113,7 +113,7 @@ class GatedDeltaNet(nn.Module):
             groups=2 * self.key_dim + self.value_dim,
             bias=False,
             std=_get_std_for_convolution(
-                initializer_range=initializer_range, init_method=init_method, fan_in=conv_size, num_layers=num_layers
+                initializer_range=initializer_range, init_method=init_method, fan_in=conv_size
             ),
         )
         self.activation_string = "silu"
