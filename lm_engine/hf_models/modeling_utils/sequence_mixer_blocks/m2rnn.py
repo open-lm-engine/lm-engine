@@ -234,16 +234,7 @@ class M2RNN(nn.Module):
                 max_seqlen=max_seqlen,
             )
         else:
-            x, h = self._torch_forward(
-                q=q,
-                k=k,
-                v=v,
-                xf=f,
-                h0=h,
-                gradient_clipping=self.gradient_clipping,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
+            x, h = self._torch_forward(q=q, k=k, v=v, xf=f, h0=h, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
 
         if self.use_residual:
             x = x + v * self.D
@@ -270,7 +261,6 @@ class M2RNN(nn.Module):
         v: torch.Tensor,
         xf: torch.Tensor,
         h0: torch.Tensor | None,
-        gradient_clipping: float | None,
         cu_seqlens: torch.Tensor | None,
         max_seqlen: int | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -342,7 +332,7 @@ class M2RNN(nn.Module):
             else:
                 h = f * h0[unfinished] + (1 - f) * h
 
-            h = clip_gradients(h, gradient_clipping)
+            h = clip_gradients(h, self.gradient_clipping)
 
             if cu_seqlens is None:
                 y[:, s] = h

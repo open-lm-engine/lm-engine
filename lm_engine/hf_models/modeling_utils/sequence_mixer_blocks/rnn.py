@@ -198,9 +198,7 @@ class RNN(nn.Module):
                 max_seqlen=max_seqlen,
             )
         else:
-            x, h = self._torch_forward(
-                x=x, h0=h, gradient_clipping=self.gradient_clipping, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
-            )
+            x, h = self._torch_forward(x=x, h0=h, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
 
         if not self.use_padding_free_transformer and attention_mask is not None:
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
@@ -216,12 +214,7 @@ class RNN(nn.Module):
         return x
 
     def _torch_forward(
-        self,
-        x: torch.Tensor,
-        h0: torch.Tensor | None,
-        gradient_clipping: float | None,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: int | None,
+        self, x: torch.Tensor, h0: torch.Tensor | None, cu_seqlens: torch.Tensor | None, max_seqlen: int | None
     ) -> tuple[torch.Tensor, torch.Tensor]:
         W = self.state_weight
 
@@ -266,7 +259,7 @@ class RNN(nn.Module):
 
             h = tanh(h)
             h = h.squeeze(-2)
-            h = clip_gradients(h, gradient_clipping)
+            h = clip_gradients(h, self.gradient_clipping)
 
             if cu_seqlens is None:
                 y[:, s] = h
