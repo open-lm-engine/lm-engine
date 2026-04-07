@@ -29,7 +29,7 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 
 
 if is_xma_available():
-    from xma.layers.rnn import rnn
+    from xma import rnn
 
 
 class RNN(nn.Module):
