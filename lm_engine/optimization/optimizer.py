@@ -3,19 +3,19 @@
 # **************************************************
 
 import torch.nn as nn
-from torch.optim import Optimizer
-from torch.optim.adadelta import Adadelta as TorchAdadelta
-from torch.optim.adagrad import Adagrad as TorchAdagrad
-from torch.optim.adam import Adam as TorchAdam
-from torch.optim.adamax import Adamax as TorchAdamax
-from torch.optim.adamw import AdamW as TorchAdamW
-from torch.optim.asgd import ASGD as TorchASGD
-from torch.optim.lbfgs import LBFGS as TorchLBFGS
-from torch.optim.nadam import NAdam as TorchNAdam
-from torch.optim.radam import RAdam as TorchRAdam
-from torch.optim.rmsprop import RMSprop as TorchRMSprop
-from torch.optim.rprop import Rprop as TorchRprop
-from torch.optim.sgd import SGD as TorchSGD
+from torch.optim import ASGD as TorchASGD
+from torch.optim import LBFGS as TorchLBFGS
+from torch.optim import SGD as TorchSGD
+from torch.optim import Adadelta as TorchAdadelta
+from torch.optim import Adagrad as TorchAdagrad
+from torch.optim import Adam as TorchAdam
+from torch.optim import Adamax as TorchAdamax
+from torch.optim import AdamW as TorchAdamW
+from torch.optim import Muon as TorchMuon
+from torch.optim import NAdam as TorchNAdam
+from torch.optim import RAdam as TorchRAdam
+from torch.optim import RMSprop as TorchRMSprop
+from torch.optim import Rprop as TorchRprop
 
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from ..enums import ParamsGroupMethod
@@ -31,6 +31,7 @@ _OPTIMIZER_CLASSES = {
     "TorchAdamW": TorchAdamW,
     "TorchASGD": TorchASGD,
     "TorchLBFGS": TorchLBFGS,
+    "TorchMuon": TorchMuon,
     "TorchNAdam": TorchNAdam,
     "TorchRAdam": TorchRAdam,
     "TorchRMSprop": TorchRMSprop,
