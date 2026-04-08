@@ -9,7 +9,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 
-from ...parameter import mark_parameter_as_mup_learning_rate, register_optimizer_split_function
+from ...parameter import mark_parameter_as_mup_learning_rate, set_optimizer_split_function
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..init_utils import _get_std_for_linear
@@ -79,7 +79,7 @@ class MLP(nn.Module):
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
-        register_optimizer_split_function(
+        set_optimizer_split_function(
             self.c_fc.weight, partial(split_up_gate_tensor_for_mlp, is_interleaved=self.num_heads)
         )
 

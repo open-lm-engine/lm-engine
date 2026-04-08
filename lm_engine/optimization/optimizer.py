@@ -19,6 +19,7 @@ from torch.optim import Rprop as TorchRprop
 
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from ..enums import ParamsGroupMethod
+from ..hf_models import get_optimizer_split_function
 from .params_group import get_param_groups_list
 
 
@@ -72,6 +73,8 @@ def get_optimizer_container(
     if use_optimizer_with_backward_hook:
         for model, params_groups in zip(model_container, params_groups_list):
             for param_name, param in model.named_parameters():
+                assert get_optimizer_split_function(param) is None
+
                 for group in params_groups.params_groups:
                     if param_name in group.parameter_name_map:
                         param._optimizer = optimizer_class(

@@ -81,8 +81,12 @@ def set_parameter_marker_maps(
                 setattr(parameter, marker, value)
 
 
-def register_optimizer_split_function(parameter: nn.Parameter, function: Callable) -> None:
+def set_optimizer_split_function(parameter: nn.Parameter, function: Callable) -> None:
     if parameter is not None:
         parameter._optimizer_split_function = function
 
     return parameter
+
+
+def get_optimizer_split_function(parameter: nn.Parameter) -> Callable | None:
+    return getattr(parameter, "_optimizer_split_function", None)

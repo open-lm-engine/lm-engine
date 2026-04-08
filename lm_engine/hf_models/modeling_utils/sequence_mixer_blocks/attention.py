@@ -15,7 +15,7 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache
 from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
-from ...parameter import mark_parameter_as_mup_learning_rate, register_optimizer_split_function
+from ...parameter import mark_parameter_as_mup_learning_rate, set_optimizer_split_function
 from ..activations import sigmoid
 from ..chunk import contiguous_split
 from ..dropout import Dropout
@@ -199,7 +199,7 @@ class Attention(DTensorModule):
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
-        register_optimizer_split_function(
+        set_optimizer_split_function(
             self.c_proj.weight,
             partial(
                 split_query_key_value_tensor_for_attention,
