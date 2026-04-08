@@ -95,11 +95,16 @@ def get_optimizer_container(
 
         optimizer_list = BackwardHookOptimizerContainer([None] * len(model_container))
     else:
-        optimizer_list = OptimizerContainer(
-            [
-                optimizer_class(params_groups.to_torch_compatible_params_groups(), **optimizer_class_args)
-                for params_groups in params_groups_list
-            ]
-        )
+        optimizer_list_entries = []
+        for model, params_groups in zip(model_container, params_groups_list):
+            torch_params_groups = params_groups.to_torch_compatible_params_groups()
+            for group in torch_params_groups:
+                split_params = []
+                for param in group["params"]:
+                    split_fn = get_optimizer_split_function(param)
+                    split_params.extend(split_fn(param) if split_fn is not None else [param])
+                group["params"] = split_params
+            optimizer_list_entries.append(optimizer_class(torch_params_groups, **optimizer_class_args))
+        optimizer_list = OptimizerContainer(optimizer_list_entries)
 
     return optimizer_list
