@@ -75,7 +75,6 @@ class _MuonWithAdamW(Optimizer):
             groups.extend(self.adamw.param_groups)
         return groups
 
-    @torch.compile(mode="reduce-overhead")
     def step(self) -> None:
         if self.muon is not None:
             self.muon.step()
