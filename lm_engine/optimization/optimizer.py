@@ -13,6 +13,7 @@ from torch.optim import Adamax as TorchAdamax
 from torch.optim import AdamW as TorchAdamW
 from torch.optim import Muon as TorchMuon
 from torch.optim import NAdam as TorchNAdam
+from torch.optim import Optimizer
 from torch.optim import RAdam as TorchRAdam
 from torch.optim import RMSprop as TorchRMSprop
 from torch.optim import Rprop as TorchRprop
@@ -54,7 +55,7 @@ def _is_muon_adamw_param(param_name: str, param: nn.Parameter) -> bool:
     return any(name in param_name for name in _MUON_ADAMW_PARAM_NAMES)
 
 
-class _MuonWithAdamW:
+class _MuonWithAdamW(Optimizer):
     """Wraps a Muon optimizer and an AdamW optimizer into a single optimizer-like object.
 
     Muon handles 2D+ weight matrices; AdamW handles embeddings, lm_head, and 1D params.
