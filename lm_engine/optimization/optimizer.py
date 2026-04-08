@@ -2,6 +2,7 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import torch
 import torch.nn as nn
 from torch.optim import ASGD as TorchASGD
 from torch.optim import LBFGS as TorchLBFGS
@@ -74,6 +75,7 @@ class _MuonWithAdamW(Optimizer):
             groups.extend(self.adamw.param_groups)
         return groups
 
+    @torch.compile(fullgraph=True, mode="reduce_overhead")
     def step(self) -> None:
         if self.muon is not None:
             self.muon.step()
