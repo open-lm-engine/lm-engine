@@ -172,10 +172,12 @@ def get_optimizer_container(
                 if adamw_params:
                     adamw_groups.append({"params": adamw_params, **group.params_group_kwargs})
 
-            muon = TorchMuon(muon_groups, **optimizer_class_args) if muon_groups else None
-            adamw = TorchAdamW(adamw_groups, **adamw_args) if adamw_groups else None
-
-            optimizer_list_entries.append(_MuonWithAdamW(muon, adamw))
+            optimizer_list_entries.append(
+                _MuonWithAdamW(
+                    muon=TorchMuon(muon_groups, **optimizer_class_args) if muon_groups else None,
+                    adamw=TorchAdamW(adamw_groups, **adamw_args) if adamw_groups else None,
+                )
+            )
 
         optimizer_list = OptimizerContainer(optimizer_list_entries)
     else:
