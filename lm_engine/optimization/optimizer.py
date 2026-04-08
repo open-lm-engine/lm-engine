@@ -2,7 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-import torch
 import torch.nn as nn
 from torch.optim import ASGD as TorchASGD
 from torch.optim import LBFGS as TorchLBFGS
