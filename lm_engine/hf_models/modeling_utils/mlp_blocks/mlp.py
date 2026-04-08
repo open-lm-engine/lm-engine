@@ -80,7 +80,7 @@ class MLP(nn.Module):
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
         set_optimizer_split_function(
-            self.c_fc.weight, partial(split_up_gate_tensor_for_mlp, is_interleaved=self.num_heads)
+            self.c_fc.weight, partial(split_up_gate_tensor_for_mlp, is_interleaved=self.use_interleaved_weights)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
