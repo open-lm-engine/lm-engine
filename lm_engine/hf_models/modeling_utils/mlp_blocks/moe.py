@@ -33,7 +33,7 @@ from ..linear import ColumnParallelLinear, ParameterizedLinear, ReplicatedLinear
 from .mlp import _get_std_for_linear
 
 
-if is_xma_available():
+if is_xma_available() and is_triton_available():
     from xma import continuous_count
 
     if is_triton_available():
