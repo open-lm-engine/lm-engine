@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -27,9 +29,11 @@ class LayerNorm(nn.LayerNorm, DTensorModule):
         self,
         normalized_shape: int,
         eps: float = 1e-6,
+        initialization_function: Callable | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> LayerNorm:
+        self.initialization_function = initialization_function
         super().__init__(normalized_shape, eps=eps)
 
         if self.is_tp_enabled:
@@ -55,8 +59,13 @@ class LayerNorm(nn.LayerNorm, DTensorModule):
 
         return x
 
+    @torch.no_grad()
     def reset_parameters(self) -> None:
-        super().reset_parameters()
+        if self.initialization_function is None:
+            super().reset_parameters()
+        else:
+            self.initialization_function(self.weight, self.bias)
+
         mark_parameter_as_initialized(self.weight)
         mark_parameter_as_initialized(self.bias)
 
@@ -66,9 +75,11 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
         self,
         normalized_shape: int,
         eps: float = 1e-6,
+        initialization_function: Callable | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> RMSNorm:
+        self.initialization_function = initialization_function
         super().__init__(normalized_shape, eps=eps)
 
         if self.is_tp_enabled:
@@ -103,8 +114,13 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
 
         return x
 
+    @torch.no_grad()
     def reset_parameters(self) -> None:
-        super().reset_parameters()
+        if self.initialization_function is None:
+            super().reset_parameters()
+        else:
+            self.initialization_function(self.weight)
+
         mark_parameter_as_initialized(self.weight)
 
 
