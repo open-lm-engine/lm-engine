@@ -189,6 +189,7 @@ def get_normalization_function(
     if normalization_function in _NORMALIZATION_FUNCTIONS:
         if normalization_function == "p_norm":
             assert p is not None
+            assert initialization_function is None
             normalization = _NORMALIZATION_FUNCTIONS[normalization_function](**kwargs, p=p)
         else:
             assert p is None
