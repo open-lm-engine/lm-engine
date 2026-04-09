@@ -172,6 +172,7 @@ def get_normalization_function(
     normalized_shape: int,
     eps: float = 1e-5,
     p: int | None = None,
+    initialization_function: Callable | None = None,
     use_padding_free_transformer: bool = False,
     sequence_parallel: bool = False,
 ) -> LayerNorm | RMSNorm | PNorm:
@@ -191,7 +192,9 @@ def get_normalization_function(
             normalization = _NORMALIZATION_FUNCTIONS[normalization_function](**kwargs, p=p)
         else:
             assert p is None
-            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](**kwargs)
+            normalization = _NORMALIZATION_FUNCTIONS[normalization_function](
+                **kwargs, initialization_function=initialization_function
+            )
     else:
         raise ValueError(f"unexpected `normalization_function` {normalization_function}")
 
