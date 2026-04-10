@@ -79,8 +79,8 @@ class GPTCrossLayerBlock(nn.Module):
             if cache_params is not None:
                 key, value = cache_params.update(
                     states=(
-                        GenerationState(state=key, num_tokens_added=None, method=LinearCache),
-                        GenerationState(state=value, num_tokens_added=None, method=LinearCache),
+                        GenerationState(state=key, method=LinearCache),
+                        GenerationState(state=value, method=LinearCache),
                     ),
                     layer_idx=self.layer_idx,
                 )

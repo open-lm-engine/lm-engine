@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_xma_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
@@ -165,7 +165,11 @@ class RNN(nn.Module):
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
                 x = pack_sequence(inputs=x, cu_seqlens=cu_seqlens)
 
-        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
 
         x = self.input_projection(x)
         x, g = x.split((self.x_shape, self.g_shape), dim=-1)
@@ -206,7 +210,13 @@ class RNN(nn.Module):
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         if cache_params is not None:
-            cache_params.update(conv_state=c, ssm_state=h, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
+            c, h = cache_params.update(
+                states=(
+                    GenerationState(state=c, method=ConstantCache, kwargs={"num_tokens_added": x.size(1)}),
+                    GenerationState(state=h, method=ConstantCache, kwargs={"num_tokens_added": x.size(1)}),
+                ),
+                layer_idx=self.layer_idx,
+            )
 
         x = x.flatten(-2, -1)
         x = x * silu(g)
