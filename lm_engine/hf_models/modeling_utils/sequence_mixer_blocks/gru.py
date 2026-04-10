@@ -194,7 +194,11 @@ class GRU(nn.Module):
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
                 x = pack_sequence(inputs=x, cu_seqlens=cu_seqlens)
 
-        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
 
         x = self.input_projection(x)
         x, xf, xr, g = x.split((self.x_shape, self.xf_shape, self.xr_shape, self.g_shape), dim=-1)
