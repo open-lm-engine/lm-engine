@@ -213,9 +213,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
         if is_generation_cache_enabled():
-            past_key_values = (
-                GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
-            )
+            past_key_values = GenerationCache() if use_cache and past_key_values is None else past_key_values
 
         mamba_mask = None
         mamba_mask_computed = False

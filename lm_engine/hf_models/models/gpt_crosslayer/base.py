@@ -50,7 +50,7 @@ class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
             max_seqlen=max_seqlen,
         )
 
-        past_key_values = GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
+        past_key_values = GenerationCache() if use_cache and past_key_values is None else past_key_values
 
         key = None
         value = None
