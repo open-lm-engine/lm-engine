@@ -53,11 +53,11 @@ class GenerationCache:
 
         return output_state
 
-    # TODO remove this function
     def get_cache(self, layer_idx: int) -> CACHE_TYPE:
-        return self.cache[layer_idx].get_cache()
+        return tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
     def get_seq_length(self, layer_idx: int = 0) -> int:
+
         return self.cache[layer_idx].get_seq_length()
 
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:
