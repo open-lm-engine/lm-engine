@@ -57,5 +57,6 @@ class GenerationCache:
         return self.cache[layer_idx].get_seq_length()
 
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:
-        for cache in self.cache:
-            cache.reorder_cache(beam_idx)
+        for layer_cache in self.cache:
+            for cache in layer_cache:
+                cache.reorder_cache(beam_idx)
