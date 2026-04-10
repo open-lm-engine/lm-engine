@@ -19,7 +19,6 @@ CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
 @dataclass
 class GenerationState:
     state: torch.Tensor
-    num_tokens_added: int
     method: ConstantCache | LinearCache
     kwargs: dict = field(default_factory=dict)
 
@@ -43,18 +42,14 @@ class GenerationCache:
             layer_cache = []
             for state in states:
                 layer_cache.append(state.method())
-                output_state.append(
-                    layer_cache[-1].update(state=state.state, num_tokens_added=state.num_tokens_added, **state.kwargs)
-                )
+                output_state.append(layer_cache[-1].update(state=state.state, **state.kwargs))
 
             self.cache[layer_idx] = tuple(layer_cache)
         else:
             layer_cache = self.cache[layer_idx]
             for state, cache in zip(states, layer_cache):
                 assert type(cache) == state.method
-                output_state.append(
-                    cache.update(state=state.state, num_tokens_added=state.num_tokens_added, **state.kwargs)
-                )
+                output_state.append(cache.update(state=state.state, **state.kwargs))
 
         return output_state
 
