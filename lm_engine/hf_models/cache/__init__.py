@@ -57,6 +57,9 @@ class GenerationCache:
         return tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
     def get_seq_length(self, layer_idx: int = 0) -> int:
+        if len(self.cache) == 0:
+            return 0
+
         lenghts = [cache.get_seq_length() for cache in self.cache[layer_idx]]
         match = [i == lenghts[0] for i in lenghts]
         assert all(match)
