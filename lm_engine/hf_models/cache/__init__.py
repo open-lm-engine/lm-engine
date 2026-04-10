@@ -39,16 +39,17 @@ class GenerationCache:
         output_state = []
 
         if len(self.cache) == layer_idx:
-            cache = []
+            layer_cache = []
             for state in states:
-                cache.append(state.method())
+                layer_cache.append(state.method())
                 output_state.append(
-                    cache[-1].update(state=state.state, num_tokens_added=state.num_tokens_added, **state.kwargs)
+                    layer_cache[-1].update(state=state.state, num_tokens_added=state.num_tokens_added, **state.kwargs)
                 )
 
-            self.cache[layer_idx] = tuple(cache)
+            self.cache[layer_idx] = tuple(layer_cache)
         else:
-            for state, cache in zip(states, self.cache[layer_idx]):
+            layer_cache = self.cache[layer_idx]
+            for state, cache in zip(states, layer_cache):
                 assert type(cache) == state.method
                 output_state.append(
                     cache.update(state=state.state, num_tokens_added=state.num_tokens_added, **state.kwargs)
