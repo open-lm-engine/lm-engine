@@ -29,11 +29,8 @@ CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
 
 
 class GenerationCache:
-    def __init__(self, config: CommonConfig, **kwargs) -> GenerationCache:
-        self.cache: list[_SoftmaxAttentionCache] = [
-            _CACHE_CLASSES[config.sequence_mixer_blocks[i].sequence_mixer_type](config, i, **kwargs)
-            for i in range(config.num_layers)
-        ]
+    def __init__(self) -> GenerationCache:
+        self.cache = []
 
     def __getitem__(self, layer_idx: int) -> CACHE_TYPE:
         return self.cache[layer_idx].get_cache()
