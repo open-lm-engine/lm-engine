@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterable
 
 import torch
@@ -21,7 +21,7 @@ class GenerationState:
     state: torch.Tensor
     num_tokens_added: int
     method: ConstantCache | LinearCache
-    kwargs: dict = {}
+    kwargs: dict = field(default_factory=dict)
 
 
 class GenerationCache:
