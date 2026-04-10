@@ -10,7 +10,7 @@ from ..config import CommonConfig
 
 
 class _LinearCache:
-    def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> _LinearCache:
+    def __init__(self) -> _LinearCache:
         self.seen_tokens = 0
         self.cache: torch.Tensor | None = None
 

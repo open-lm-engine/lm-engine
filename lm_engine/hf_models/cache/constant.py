@@ -11,7 +11,7 @@ from .linear import _LinearCache
 
 
 class _ConstantCache(_LinearCache):
-    def __init__(self, config: CommonConfig, layer_idx: int, **kwargs) -> _ConstantCache:
+    def __init__(self) -> _ConstantCache:
         self.seen_tokens = 0
         self.cache: torch.Tensor | None = None
 
