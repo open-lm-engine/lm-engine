@@ -146,8 +146,13 @@ class GatedDeltaNet(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
         use_cache = cache_params is not None
+
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
 
         qkv = self.qkv_proj(hidden_states)
 
