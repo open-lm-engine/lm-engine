@@ -209,7 +209,7 @@ class RNN(nn.Module):
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         if cache_params is not None:
-            c, h = cache_params.update(
+            cache_params.update(
                 states=(
                     GenerationState(state=c, method=ConstantCache, kwargs={"num_tokens_added": x.size(1)}),
                     GenerationState(state=h, method=ConstantCache, kwargs={"num_tokens_added": x.size(1)}),
