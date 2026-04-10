@@ -53,11 +53,14 @@ class GenerationCache:
 
         return output_state
 
-    def get_cache(self, layer_idx: int) -> CACHE_TYPE:
+    def get_cache(self, layer_idx: int, empty_value: tuple[None]) -> CACHE_TYPE:
+        if len(self.cache) == layer_idx:
+            return empty_value
+
         return tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
     def get_seq_length(self, layer_idx: int = 0) -> int:
-        if len(self.cache) == 0:
+        if len(self.cache) == layer_idx:
             return 0
 
         lenghts = [cache.get_seq_length() for cache in self.cache[layer_idx]]
