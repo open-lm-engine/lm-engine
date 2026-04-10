@@ -10,7 +10,7 @@ import torch.nn as nn
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_xma_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
@@ -249,7 +249,13 @@ class GRU(nn.Module):
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         if cache_params is not None:
-            cache_params.update(conv_state=c, ssm_state=h, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
+            cache_params.update(
+                states=(
+                    GenerationState(state=c, num_tokens_added=x.size(1), method=ConstantCache),
+                    GenerationState(state=h, num_tokens_added=x.size(1), method=ConstantCache),
+                ),
+                layer_idx=self.layer_idx,
+            )
 
         x = x.flatten(-2, -1)
         x = x * silu(g)
