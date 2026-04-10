@@ -246,7 +246,11 @@ class Mamba2(nn.Module):
             [self.intermediate_size, self.conv_dim, self.num_heads], dim=-1
         )
 
-        conv_state, ssm_state = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
+        conv_state, ssm_state = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
         use_precomputed_states = (
             cache_params is not None and seq_len == 1 and conv_state is not None and ssm_state is not None
         )
