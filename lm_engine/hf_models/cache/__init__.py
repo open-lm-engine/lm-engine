@@ -8,22 +8,6 @@ from typing import Iterable
 
 import torch
 
-from ..config import CommonConfig
-from .attention import _SoftmaxAttentionCache
-from .mamba2 import _Mamba2Cache
-from .rnn import _RNNCache
-
-
-_CACHE_CLASSES = {
-    "causal_convolution": _RNNCache,
-    "gated_deltanet": _Mamba2Cache,
-    "gru": _Mamba2Cache,
-    "m2rnn": _Mamba2Cache,
-    "mamba2": _Mamba2Cache,
-    "multihead_latent_attention": _SoftmaxAttentionCache,
-    "rnn": _Mamba2Cache,
-    "softmax_attention": _SoftmaxAttentionCache,
-}
 
 CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
 
