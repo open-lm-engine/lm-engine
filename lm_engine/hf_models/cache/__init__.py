@@ -57,8 +57,11 @@ class GenerationCache:
         return tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
     def get_seq_length(self, layer_idx: int = 0) -> int:
+        lenghts = [cache.get_seq_length() for cache in self.cache[layer_idx]]
+        match = [i == lenghts[0] for i in lenghts]
+        assert all(match)
 
-        return self.cache[layer_idx].get_seq_length()
+        return lenghts[0]
 
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:
         for layer_cache in self.cache:
