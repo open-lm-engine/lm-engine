@@ -4,17 +4,29 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Iterable
 
 import torch
+
+from .constant import _ConstantCache
+from .linear import _LinearCache
 
 
 CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
 
 
+@dataclass
+class GenerationState:
+    state: torch.Tensor
+    num_tokens_added: int
+    method: _ConstantCache | _LinearCache
+    kwargs: dict = {}
+
+
 class GenerationCache:
     def __init__(self) -> GenerationCache:
-        self.cache = []
+        self.cache: list[tuple[_ConstantCache | _LinearCache]] = []
 
     def __getitem__(self, layer_idx: int) -> CACHE_TYPE:
         return self.cache[layer_idx].get_cache()
@@ -23,8 +35,18 @@ class GenerationCache:
         for layer_idx in range(len(self)):
             yield self.cache[layer_idx].get_cache()
 
-    def update(self, *, layer_idx: int, **kwargs) -> CACHE_TYPE:
-        return self.cache[layer_idx].update(**kwargs)
+    def update(self, states: tuple[GenerationState], layer_idx: int) -> CACHE_TYPE:
+        output_state = []
+
+        if len(self.cache) == layer_idx:
+            self.cache[layer_idx] = ...
+        else:
+            for state, cache in zip(states, self.cache[layer_idx]):
+                output_state.append(
+                    cache.update(state=state.state, num_tokens_added=state.num_tokens_added, **state.kwargs)
+                )
+
+        return output_state
 
     # TODO remove this function
     def get_cache(self, layer_idx: int) -> CACHE_TYPE:
