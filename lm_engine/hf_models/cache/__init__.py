@@ -9,8 +9,8 @@ from typing import Iterable
 
 import torch
 
-from .constant import _ConstantCache
-from .linear import _LinearCache
+from .constant import ConstantCache
+from .linear import LinearCache
 
 
 CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
@@ -20,13 +20,13 @@ CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
 class GenerationState:
     state: torch.Tensor
     num_tokens_added: int
-    method: _ConstantCache | _LinearCache
+    method: ConstantCache | LinearCache
     kwargs: dict = {}
 
 
 class GenerationCache:
     def __init__(self) -> GenerationCache:
-        self.cache: list[tuple[_ConstantCache | _LinearCache]] = []
+        self.cache: list[tuple[ConstantCache | LinearCache]] = []
 
     def __getitem__(self, layer_idx: int) -> CACHE_TYPE:
         return self.cache[layer_idx].get_cache()
@@ -42,6 +42,7 @@ class GenerationCache:
             self.cache[layer_idx] = ...
         else:
             for state, cache in zip(states, self.cache[layer_idx]):
+                assert type(cache) == state.method
                 output_state.append(
                     cache.update(state=state.state, num_tokens_added=state.num_tokens_added, **state.kwargs)
                 )

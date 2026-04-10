@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import torch
 
-from .linear import _LinearCache
+from .linear import LinearCache
 
 
-class _ConstantCache(_LinearCache):
-    def __init__(self) -> _ConstantCache:
+class ConstantCache(LinearCache):
+    def __init__(self) -> ConstantCache:
         self.seen_tokens = 0
         self.cache: torch.Tensor | None = None
 

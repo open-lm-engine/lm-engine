@@ -7,8 +7,8 @@ from __future__ import annotations
 import torch
 
 
-class _LinearCache:
-    def __init__(self) -> _LinearCache:
+class LinearCache:
+    def __init__(self) -> LinearCache:
         self.seen_tokens = 0
         self.cache: torch.Tensor | None = None
 
