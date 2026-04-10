@@ -10,7 +10,7 @@ import torch.nn as nn
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible
-from ...cache import GenerationCache
+from ...cache import GenerationCache, GenerationState, LinearCache
 from ...modeling_utils import apply_rotary_pos_emb, get_mlp_block, get_normalization_function
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer
@@ -77,7 +77,13 @@ class GPTCrossLayerBlock(nn.Module):
                 key = apply_rotary_pos_emb(key, rope_cos_sin)
 
             if cache_params is not None:
-                key, value = cache_params.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
+                key, value = cache_params.update(
+                    states=(
+                        GenerationState(state=key, num_tokens_added=None, method=LinearCache),
+                        GenerationState(state=value, num_tokens_added=None, method=LinearCache),
+                    ),
+                    layer_idx=self.layer_idx,
+                )
 
             if is_kernel_allowed(Kernel.flash_attention_3) or is_kernel_allowed(Kernel.flash_attention_2):
                 if not self.use_padding_free_transformer:
