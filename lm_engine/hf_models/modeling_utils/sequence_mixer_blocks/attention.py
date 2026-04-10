@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
-from ...cache import GenerationCache
+from ...cache import GenerationCache, GenerationState, LinearCache
 from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import sigmoid
@@ -254,7 +254,13 @@ class Attention(DTensorModule):
             q, k = [apply_rotary_pos_emb(i, cos_sin=rope_cos_sin) for i in (q, k)]
 
         if cache_params is not None:
-            k, v = cache_params.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
+            k, v = cache_params.update(
+                states=(
+                    GenerationState(state=k, num_tokens_added=None, method=LinearCache),
+                    GenerationState(state=v, num_tokens_added=None, method=LinearCache),
+                ),
+                layer_idx=self.layer_idx,
+            )
 
         if use_flash_attention:
             assert accelerator == Accelerator.cuda

@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
 from ..convolution import ParameterizedConv1d
@@ -252,7 +252,10 @@ class CausalConvolution(nn.Module):
         )
 
         if cache_params is not None:
-            cache_params.update(state=input_state, num_tokens_added=sequence_length, layer_idx=self.layer_idx)
+            cache_params.update(
+                state=GenerationState(state=input_state, num_tokens_added=sequence_length, method=ConstantCache),
+                layer_idx=self.layer_idx,
+            )
 
         hidden_states = self.output_projection(hidden_states)
 

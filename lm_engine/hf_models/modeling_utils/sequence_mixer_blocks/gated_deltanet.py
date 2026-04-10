@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 from ....utils import divide_if_divisible, is_fla_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ..activations import silu
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
@@ -240,7 +240,11 @@ class GatedDeltaNet(nn.Module):
 
         if cache_params is not None:
             cache_params.update(
-                conv_state=c, ssm_state=h, num_tokens_added=hidden_states.size(1), layer_idx=self.layer_idx
+                state=(
+                    GenerationState(state=c, num_tokens_added=hidden_states.size(1), method=ConstantCache),
+                    GenerationState(state=h, num_tokens_added=hidden_states.size(1), method=ConstantCache),
+                ),
+                layer_idx=self.layer_idx,
             )
 
         if self.use_gate:
