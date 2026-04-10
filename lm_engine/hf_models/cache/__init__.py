@@ -44,7 +44,7 @@ class GenerationCache:
                 layer_cache.append(state.method())
                 output_state.append(layer_cache[-1].update(state=state.state, **state.kwargs))
 
-            self.cache[layer_idx] = tuple(layer_cache)
+            self.cache.append(tuple(layer_cache))
         else:
             layer_cache = self.cache[layer_idx]
             for state, cache in zip(states, layer_cache):

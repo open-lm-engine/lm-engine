@@ -256,8 +256,8 @@ class Attention(DTensorModule):
         if cache_params is not None:
             k, v = cache_params.update(
                 states=(
-                    GenerationState(state=k, num_tokens_added=None, method=LinearCache),
-                    GenerationState(state=v, num_tokens_added=None, method=LinearCache),
+                    GenerationState(state=k, method=LinearCache),
+                    GenerationState(state=v, method=LinearCache),
                 ),
                 layer_idx=self.layer_idx,
             )
