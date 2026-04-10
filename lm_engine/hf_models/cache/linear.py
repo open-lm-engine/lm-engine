@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import torch
 
-from ..config import CommonConfig
-
 
 class _LinearCache:
     def __init__(self) -> _LinearCache:
