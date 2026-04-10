@@ -39,7 +39,14 @@ class GenerationCache:
         output_state = []
 
         if len(self.cache) == layer_idx:
-            self.cache[layer_idx] = ...
+            cache = []
+            for state in states:
+                cache.append(state.method())
+                output_state.append(
+                    cache[-1].update(state=state.state, num_tokens_added=state.num_tokens_added, **state.kwargs)
+                )
+
+            self.cache[layer_idx] = tuple(cache)
         else:
             for state, cache in zip(states, self.cache[layer_idx]):
                 assert type(cache) == state.method
