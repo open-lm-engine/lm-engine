@@ -53,7 +53,7 @@ class GenerationCache:
 
         return output_state
 
-    def get_cache(self, layer_idx: int, empty_value: tuple[None]) -> CACHE_TYPE:
+    def get_cache(self, layer_idx: int, empty_value: tuple[None] | None) -> CACHE_TYPE:
         if len(self.cache) == layer_idx:
             return empty_value
 
