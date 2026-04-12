@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,17 +11,17 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available, is_mamba_2_ssm_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ..activations import get_activation_function
+from ..activations import get_activation_function, silu
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
+from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
-from ..mlp_blocks.mlp import _get_std_for_linear
 from ..normalization import get_normalization_function
 from .causal_convolution import _apply_mask_to_padding_states
 
@@ -122,6 +120,7 @@ class Mamba2(nn.Module):
         normalization_function: str | None,
         num_layers: int,
         layer_idx: int,
+        use_depth_scaled_init: bool,
     ) -> Mamba2:
         super().__init__()
 
@@ -143,8 +142,6 @@ class Mamba2(nn.Module):
 
         self.time_step_limit = time_step_limit
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
-
         # 1D convolutional layer
         self.conv_dim = self.intermediate_size + 2 * self.n_groups * self.ssm_state_size
         self.conv1d = ParameterizedConv1d(
@@ -154,7 +151,14 @@ class Mamba2(nn.Module):
             kernel_size=self.conv_kernel_size,
             groups=self.conv_dim,
             padding=self.conv_kernel_size - 1,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.conv_kernel_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         # projection of the input hidden states
@@ -162,7 +166,14 @@ class Mamba2(nn.Module):
             self.hidden_size,
             self.intermediate_size + self.conv_dim + self.num_heads,
             bias=add_bias,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.hidden_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         self.decay_gate = SoftplusDecayGate(
@@ -180,7 +191,17 @@ class Mamba2(nn.Module):
         self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
 
         self.out_proj = ParameterizedLinear(
-            self.intermediate_size, self.hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
+            self.intermediate_size,
+            self.hidden_size,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.intermediate_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         self.D = nn.Parameter(torch.empty(self.num_heads))
@@ -225,7 +246,12 @@ class Mamba2(nn.Module):
             [self.intermediate_size, self.conv_dim, self.num_heads], dim=-1
         )
 
-        conv_state, ssm_state = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
+        conv_state, ssm_state = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
+
         use_precomputed_states = (
             cache_params is not None and seq_len == 1 and conv_state is not None and ssm_state is not None
         )
@@ -234,7 +260,6 @@ class Mamba2(nn.Module):
         if use_precomputed_states:
             conv_state = conv_state.roll(shifts=-1, dims=-1)
             conv_state[:, :, -1] = hidden_states_B_C[:, 0, :].to(conv_state.device)
-            cache_params.update(conv_state=conv_state, layer_idx=self.layer_idx)
 
             # We need to guarantee that anything regarding the cache is on the same device
             conv_state = conv_state.to(device=self.conv1d.weight.device)
@@ -260,7 +285,6 @@ class Mamba2(nn.Module):
                 conv_state = F.pad(
                     hidden_states_B_C_transposed, (self.conv_kernel_size - hidden_states_B_C_transposed.shape[-1], 0)
                 )
-                cache_params.update(conv_state=conv_state, ssm_state=ssm_state, layer_idx=self.layer_idx)
 
             hidden_states_B_C = self.activation(
                 self.conv1d(hidden_states_B_C.transpose(1, 2))[..., :seq_len].transpose(1, 2)
@@ -331,7 +355,14 @@ class Mamba2(nn.Module):
 
             # State calculation
             ssm_state = ssm_state * dA + dBx
-            cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
+
+            cache_params.update(
+                states=(
+                    GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
+                    GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                ),
+                layer_idx=self.layer_idx,
+            )
 
             ssm_state = ssm_state.to(device=C.device, dtype=C.dtype)  # Shape: [b, h, d, n]
             # Reshape ssm_states to merge the first two dimensions
@@ -399,7 +430,9 @@ class Mamba2(nn.Module):
             # 3. Compute the inter-chunk SSM recurrence; produces correct SSM states at chunk boundaries
             # (middle term of factorization of off-diag blocks; A terms)
             if use_precomputed_states:
-                previous_states = cache_params.get_cache(self.layer_idx)[1][:, None, ...].to(device=states.device)
+                previous_states = cache_params.get_cache(self.layer_idx, empty_value=None)[1][:, None, ...].to(
+                    device=states.device
+                )
             else:
                 previous_states = torch.zeros_like(states[:, :1])
             states = torch.cat([previous_states, states], dim=1)
@@ -428,9 +461,15 @@ class Mamba2(nn.Module):
 
             # Init cache
             if cache_params is not None:
-                cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
+                cache_params.update(
+                    states=(
+                        GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
+                        GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                    ),
+                    layer_idx=self.layer_idx,
+                )
 
-        scan_output = y * F.silu(gate)
+        scan_output = y * silu(gate)
         scan_output = self.norm(scan_output)
 
         # end ssd naive
@@ -453,7 +492,12 @@ class Mamba2(nn.Module):
         batch_size, seq_len, _ = hidden_states.shape
         groups_time_state_size = self.n_groups * self.ssm_state_size
 
-        conv_state, ssm_state = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
+        conv_state, ssm_state = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
+
         use_precomputed_states = (
             cache_params is not None and seq_len == 1 and conv_state is not None and ssm_state is not None
         )
@@ -472,7 +516,6 @@ class Mamba2(nn.Module):
                 self.conv1d.bias,
                 self.activation_string,
             )
-            cache_params.update(conv_state=conv_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
 
             hidden_states, B, C = torch.split(
                 hidden_states_B_C,
@@ -501,8 +544,17 @@ class Mamba2(nn.Module):
                 dt_bias=dt_bias,
                 dt_softplus=True,
             )
+
+            cache_params.update(
+                states=(
+                    GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
+                    GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                ),
+                layer_idx=self.layer_idx,
+            )
+
             hidden_states = hidden_states.view(batch_size, self.num_heads * self.head_dim)
-            hidden_states = hidden_states * F.silu(gate)
+            hidden_states = hidden_states * silu(gate)
             hidden_states = self.norm(hidden_states)
 
             # 4. Final linear projection
@@ -551,7 +603,14 @@ class Mamba2(nn.Module):
                         hidden_states_B_C_transposed,
                         (self.conv_kernel_size - hidden_states_B_C_transposed.shape[-1], 0),
                     )
-                    cache_params.update(conv_state=conv_state, layer_idx=self.layer_idx)
+
+                    cache_params.update(
+                        states=(
+                            GenerationState(state=conv_state, method=ConstantCache),
+                            GenerationState(state=ssm_state, method=ConstantCache),
+                        ),
+                        layer_idx=self.layer_idx,
+                    )
 
                 hidden_states_B_C = causal_conv1d_fn(
                     x=hidden_states_B_C_transposed,
@@ -589,11 +648,17 @@ class Mamba2(nn.Module):
 
                 # Init cache
                 if cache_params is not None:
-                    cache_params.update(ssm_state=ssm_state, num_tokens_added=seq_len, layer_idx=self.layer_idx)
+                    cache_params.update(
+                        states=(
+                            GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
+                            GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                        ),
+                        layer_idx=self.layer_idx,
+                    )
 
                 scan_output = scan_output.view(batch_size, seq_len, -1)
                 # Multiply "gate" branch and apply extra normalization layer
-                scan_output = scan_output * F.silu(gate)
+                scan_output = scan_output * silu(gate)
                 scan_output = self.norm(scan_output)
 
                 # 4. Final linear projection

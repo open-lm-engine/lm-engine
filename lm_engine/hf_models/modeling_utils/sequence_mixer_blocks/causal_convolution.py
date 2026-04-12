@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,12 +11,12 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
 from ..convolution import ParameterizedConv1d
+from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
-from ..mlp_blocks.mlp import _get_std_for_linear
 
 
 if is_causal_conv1d_available():
@@ -111,7 +109,7 @@ def causal_convolution(
             )
 
             # removes padding on the right side of the sequence
-            hidden_states = hidden_states[..., : -(kernel_size - 1)]
+            hidden_states = hidden_states[..., : 1 - kernel_size]
             hidden_states = hidden_states.transpose(-1, -2)
         else:
             assert sequence_length == 1
@@ -120,6 +118,7 @@ def causal_convolution(
             input_state[..., -1] = hidden_states[:, 0]
 
             hidden_states = (input_state * conv1d_weight.squeeze(1)).sum(dim=-1)
+            hidden_states = hidden_states[:, None, :]
             if conv1d_bias is not None:
                 hidden_states = hidden_states + conv1d_bias
 
@@ -147,6 +146,7 @@ class CausalConvolution(nn.Module):
         init_method: str,
         num_layers: int,
         layer_idx: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
     ) -> CausalConvolution:
         super().__init__()
@@ -161,8 +161,19 @@ class CausalConvolution(nn.Module):
         self.layer_idx = layer_idx
         self.activation_string = activation_function
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
-        self.input_projection = ParameterizedLinear(hidden_size, in_channels, bias=add_bias, std=std)
+        self.input_projection = ParameterizedLinear(
+            hidden_size,
+            in_channels,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=hidden_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
+        )
 
         divide_if_divisible(in_channels, num_groups, "")
         divide_if_divisible(out_channels, num_groups, "")
@@ -179,13 +190,30 @@ class CausalConvolution(nn.Module):
             bias=add_bias,
             padding=kernel_size - 1,
             groups=num_groups,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=kernel_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
 
         self.activation_function = get_activation_function(self.activation_string)
 
         self.output_projection = ParameterizedLinear(
-            intermediate_size, hidden_size, bias=add_bias, std=std / math.sqrt(2 * num_layers)
+            intermediate_size,
+            hidden_size,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=intermediate_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         self.casual_conv1d_compatible = self.num_groups == self.in_channels == self.out_channels
@@ -200,18 +228,17 @@ class CausalConvolution(nn.Module):
         mark_parameter_as_no_weight_decay(self.output_projection.bias)
 
     def forward(
-        self,
-        hidden_states: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-        sequence_length = hidden_states.size(1)
+        input_state = (
+            None if cache_params is None else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=None)
+        )
 
-        hidden_states = self.input_projection(hidden_states)
+        S = x.size(1)
+        x = self.input_projection(x)
 
-        hidden_states, input_state = causal_convolution(
-            hidden_states=hidden_states,
+        x, input_state = causal_convolution(
+            hidden_states=x,
             input_state=input_state,
             attention_mask=attention_mask,
             conv1d_weight=self.conv1d.weight,
@@ -224,8 +251,11 @@ class CausalConvolution(nn.Module):
         )
 
         if cache_params is not None:
-            cache_params.update(state=input_state, num_tokens_added=sequence_length, layer_idx=self.layer_idx)
+            cache_params.update(
+                states=(GenerationState(state=input_state, method=ConstantCache, num_tokens_added=S),),
+                layer_idx=self.layer_idx,
+            )
 
-        hidden_states = self.output_projection(hidden_states)
+        x = self.output_projection(x)
 
-        return hidden_states
+        return x

@@ -12,15 +12,17 @@ from .....utils import is_flash_attention_2_available, is_flash_attention_3_avai
 from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
+if is_flash_attention_2_available():
+    from flash_attn import flash_attn_func as flash_attention_2
+    from flash_attn import flash_attn_varlen_func as flash_attention_2_varlen
+
+if is_flash_attention_3_available():
+    from flash_attn_interface import flash_attn_func as flash_attention_3
+    from flash_attn_interface import flash_attn_varlen_func as flash_attention_3_varlen
+
 if is_flash_attention_4_available():
     from flash_attn.cute import flash_attn_func as flash_attention_4
     from flash_attn.cute import flash_attn_varlen_func as flash_attention_4_varlen
-elif is_flash_attention_3_available():
-    from flash_attn_interface import flash_attn_func as flash_attention_3
-    from flash_attn_interface import flash_attn_varlen_func as flash_attention_3_varlen
-elif is_flash_attention_2_available():
-    from flash_attn import flash_attn_func as flash_attention_2
-    from flash_attn import flash_attn_varlen_func as flash_attention_2_varlen
 
 
 def unpad_input(
@@ -109,6 +111,10 @@ def flash_attention(
             window_size=window_size,
             softcap=softcap,
         )
+
+        if use_flash_attention_4:
+            assert isinstance(x, tuple)
+            x = x[0]
     elif attention_mask is None:
         x = _flash_attention_function(
             q=q,
@@ -119,6 +125,10 @@ def flash_attention(
             window_size=window_size,
             softcap=softcap,
         )
+
+        if use_flash_attention_4:
+            assert isinstance(x, tuple)
+            x = x[0]
     else:
         B, S, N, H = q.size()
 
@@ -137,6 +147,10 @@ def flash_attention(
             window_size=window_size,
             softcap=softcap,
         )
+
+        if use_flash_attention_4:
+            assert isinstance(x, tuple)
+            x = x[0]
 
         x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens_q, output_shape=(B, S, N, H))
 

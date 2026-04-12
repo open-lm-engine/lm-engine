@@ -15,7 +15,7 @@ from lm_engine.hf_models import GPTBaseConfig, fix_unsharded_state_dict, unshard
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import Communication, ProcessGroupManager
 
-from ...test_common import TestCommons
+from ....utils import from_config
 
 
 parser = argparse.ArgumentParser()
@@ -57,7 +57,7 @@ enable_kernels([Kernel.scattermoe]).__enter__()
 
 if is_tp_first_rank:
     with ProcessGroupManager.set_dummy_tensor_parallel_world_size(1):
-        model = TestCommons.from_config(None, config)
+        model = from_config(config)
 
     model.save_pretrained(args.tmp_path, safe_serialization=True)
 

@@ -4,52 +4,74 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Iterable
 
 import torch
 
-from ..config import CommonConfig
-from .attention import _SoftmaxAttentionCache
-from .mamba2 import _Mamba2Cache
-from .rnn import _RNNCache
+from .constant import ConstantCache
+from .linear import LinearCache
 
-
-_CACHE_CLASSES = {
-    "causal_convolution": _RNNCache,
-    "gru": _RNNCache,
-    "mamba2": _Mamba2Cache,
-    "multihead_latent_attention": _SoftmaxAttentionCache,
-    "rnn": _RNNCache,
-    "softmax_attention": _SoftmaxAttentionCache,
-}
 
 CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
 
 
+@dataclass
+class GenerationState:
+    state: torch.Tensor
+    method: ConstantCache | LinearCache
+    num_tokens_added: int | None = None
+
+
 class GenerationCache:
-    def __init__(self, config: CommonConfig, **kwargs) -> GenerationCache:
-        self.cache: list[_SoftmaxAttentionCache] = [
-            _CACHE_CLASSES[config.sequence_mixer_blocks[i].sequence_mixer_type](config, i, **kwargs)
-            for i in range(config.num_layers)
-        ]
+    def __init__(self) -> GenerationCache:
+        self.cache: list[tuple[ConstantCache | LinearCache]] = []
 
     def __getitem__(self, layer_idx: int) -> CACHE_TYPE:
-        return self.cache[layer_idx].get_cache()
+        return tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
     def __iter__(self) -> Iterable[CACHE_TYPE]:
         for layer_idx in range(len(self)):
-            yield self.cache[layer_idx].get_cache()
+            yield tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
-    def update(self, *, layer_idx: int, **kwargs) -> CACHE_TYPE:
-        return self.cache[layer_idx].update(**kwargs)
+    def update(self, states: tuple[GenerationState], layer_idx: int) -> list[torch.Tensor]:
+        assert isinstance(states, tuple)
 
-    # TODO remove this function
-    def get_cache(self, layer_idx: int) -> CACHE_TYPE:
-        return self.cache[layer_idx].get_cache()
+        if len(self.cache) == layer_idx:
+            self.cache.append(tuple(state.method() for state in states))
+
+        layer_cache = self.cache[layer_idx]
+        assert len(states) == len(layer_cache)
+
+        output_state = []
+        for state, cache in zip(states, layer_cache):
+            assert type(cache) == state.method
+
+            kwargs = {"state": state.state}
+            if state.num_tokens_added is not None:
+                kwargs["num_tokens_added"] = state.num_tokens_added
+
+            output_state.append(cache.update(**kwargs))
+
+        return output_state
+
+    def get_cache(self, layer_idx: int, empty_value: tuple[None] | None) -> CACHE_TYPE:
+        if len(self.cache) == layer_idx:
+            return empty_value
+
+        return tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
     def get_seq_length(self, layer_idx: int = 0) -> int:
-        return self.cache[layer_idx].get_seq_length()
+        if len(self.cache) == layer_idx:
+            return 0
+
+        lengths = [cache.get_seq_length() for cache in self.cache[layer_idx]]
+        match = [i == lengths[0] for i in lengths]
+        assert all(match)
+
+        return lengths[0]
 
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:
-        for cache in self.cache:
-            cache.reorder_cache(beam_idx)
+        for layer_cache in self.cache:
+            for cache in layer_cache:
+                cache.reorder_cache(beam_idx)

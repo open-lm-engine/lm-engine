@@ -60,7 +60,7 @@ class Block(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -71,7 +71,7 @@ class Block(nn.Module):
         x = self.ln_1(x)
         x = self._sequence_mixer_forward(
             x=x,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             rope_cos_sin=rope_cos_sin,
             cu_seqlens=cu_seqlens,
@@ -97,7 +97,7 @@ class Block(nn.Module):
     def _sequence_mixer_forward(
         self,
         x: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -106,27 +106,18 @@ class Block(nn.Module):
         if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
             x = self.sequence_mixer(
                 x,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 rope_cos_sin=rope_cos_sin,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
         elif self.sequence_mixer_type in ["causal_convolution", "mamba2"]:
-            x = self.sequence_mixer(x, cache_params=past_key_values, attention_mask=attention_mask)
-        elif self.sequence_mixer_type in ["gru", "rnn"]:
+            x = self.sequence_mixer(x, cache_params=cache_params, attention_mask=attention_mask)
+        elif self.sequence_mixer_type in ["gru", "rnn", "m2rnn", "gated_deltanet"]:
             x = self.sequence_mixer(
                 x,
-                cache_params=past_key_values,
-                attention_mask=attention_mask,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
-        elif self.sequence_mixer_type == "gated_deltanet":
-            # GatedDeltaNet returns (output, attentions, past_key_values)
-            x = self.sequence_mixer(
-                x,
-                cache_params=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,

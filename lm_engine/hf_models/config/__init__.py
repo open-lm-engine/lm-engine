@@ -15,6 +15,7 @@ from .sequence_mixer import (
     _CausalConvolution,
     _GatedDeltaNetArgs,
     _GRUArgs,
+    _M2RNNArgs,
     _Mamba2Args,
     _RNNArgs,
     _SoftmaxAttentionArgs,
@@ -38,6 +39,7 @@ def _hold_base_args(key: str) -> Callable:
 _SEQUENCE_MIXER_CONFIG_CLASSES = {
     "causal_convolution": _CausalConvolution,
     "gru": _GRUArgs,
+    "m2rnn": _M2RNNArgs,
     "mamba2": _Mamba2Args,
     "rnn": _RNNArgs,
     "softmax_attention": _SoftmaxAttentionArgs,
@@ -45,6 +47,7 @@ _SEQUENCE_MIXER_CONFIG_CLASSES = {
 }
 
 _MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
+_ALL_INIT_METHODS = ["normal", "mup", "fan_in"]
 
 
 class CommonConfig(PretrainedConfig):
@@ -69,6 +72,8 @@ class CommonConfig(PretrainedConfig):
         m_width: float | None = None,
         m_residual: float | None = None,
         init_method: str = "normal",
+        embedding_init_method: str = "normal",
+        use_depth_scaled_init: bool = True,
         sequence_mixer_blocks: list[dict] = None,
         mlp_blocks: list[dict] = None,
         router_aux_loss_coef: float = 0.001,
@@ -92,9 +97,12 @@ class CommonConfig(PretrainedConfig):
         self.m_width = m_width
         self.m_residual = m_residual
         self.init_method = init_method
+        self.embedding_init_method = embedding_init_method
+        self.use_depth_scaled_init = use_depth_scaled_init
 
         # check if enums are valid
-        assert init_method in ["normal", "mup"]
+        assert init_method in _ALL_INIT_METHODS
+        assert embedding_init_method in _ALL_INIT_METHODS
         assert position_embedding_type in ["rope", "learned_absolute", "nope"]
 
         self.sequence_mixer_blocks = sequence_mixer_blocks
@@ -108,11 +116,14 @@ class CommonConfig(PretrainedConfig):
                 == "softmax_attention"
             ), "specify rope_dim"
 
-            self.rope_dim = divide_if_divisible(
-                self.hidden_size,
-                self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
-                "",
-            )
+            self.rope_dim = self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "head_dim")
+
+            if self.rope_dim is None:
+                self.rope_dim = divide_if_divisible(
+                    self.hidden_size,
+                    self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
+                    "",
+                )
 
         self.mlp_blocks = mlp_blocks
         self._set_mlp_blocks()
@@ -172,7 +183,13 @@ class CommonConfig(PretrainedConfig):
             self.sequence_mixer_blocks = [{} for _ in range(self.num_layers)]
 
         sequence_mixer_blocks: list[
-            _CausalConvolution | _GRUArgs | _Mamba2Args | _RNNArgs | _SoftmaxAttentionArgs | _GatedDeltaNetArgs
+            _CausalConvolution
+            | _GRUArgs
+            | _Mamba2Args
+            | _RNNArgs
+            | _M2RNNArgs
+            | _SoftmaxAttentionArgs
+            | _GatedDeltaNetArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])
