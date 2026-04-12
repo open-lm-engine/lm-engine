@@ -73,7 +73,7 @@ class GenerationCache:
         if len(self.cache) == layer_idx:
             return 0
 
-        lenghts = [cache.get_seq_length() for cache in self.cache[layer_idx]]
+        lengths = [cache.get_seq_length() for cache in self.cache[layer_idx]]
         match = [i == lenghts[0] for i in lenghts]
         assert all(match)
 
