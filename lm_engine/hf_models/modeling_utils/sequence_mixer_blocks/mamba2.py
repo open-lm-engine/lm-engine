@@ -467,8 +467,12 @@ class Mamba2(nn.Module):
 
             # Init cache
             if cache_params is not None:
+            if cache_params is not None:
                 cache_params.update(
-                    states=(GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),),
+                    states=(
+                        GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
+                        GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                    ),
                     layer_idx=self.layer_idx,
                 )
 
