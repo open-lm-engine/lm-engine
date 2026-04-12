@@ -58,10 +58,11 @@ class GenerationCache:
             for state, cache in zip(states, layer_cache):
                 assert type(cache) == state.method
 
-                if state.num_tokens_added is None:
-                    output_state.append(cache.update(state=state.state))
-                else:
-                    output_state.append(cache.update(state=state.state, num_tokens_added=state.num_tokens_added))
+                kwargs = {"state": state.state}
+                if state.num_tokens_added is not None:
+                    kwargs["num_tokens_added"] = state.num_tokens_added
+
+                output_state.append(cache.update(**kwargs))
 
         return output_state
 
