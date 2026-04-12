@@ -255,7 +255,7 @@ class CausalConvolution(nn.Module):
 
         if cache_params is not None:
             cache_params.update(
-                states=(GenerationState(state=input_state, num_tokens_added=sequence_length, method=ConstantCache),),
+                states=(GenerationState(state=input_state, method=ConstantCache, num_tokens_added=sequence_length),),
                 layer_idx=self.layer_idx,
             )
 
