@@ -53,6 +53,8 @@ class GenerationCache:
             self.cache.append(tuple(layer_cache))
         else:
             layer_cache = self.cache[layer_idx]
+            assert len(states) == len(layer_cache)
+
             for state, cache in zip(states, layer_cache):
                 assert type(cache) == state.method
 
@@ -73,7 +75,7 @@ class GenerationCache:
         if len(self.cache) == layer_idx:
             return 0
 
-        lengths = [cache.get_seq_length() for cache in self.cache[layer_idx]]
+        [cache.get_seq_length() for cache in self.cache[layer_idx]]
         match = [i == lenghts[0] for i in lenghts]
         assert all(match)
 
