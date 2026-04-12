@@ -48,8 +48,8 @@ class LadderResidualModel(LadderResidualPreTrainedModel, BaseModelMixin):
         current_attention_out = None
         current_mlp_out = None
 
-        if is_generation_cache_enabled():
-            cache_params = GenerationCache() if use_cache and cache_params is None else cache_params
+        if is_generation_cache_enabled() and use_cache and cache_params is None:
+            cache_params = GenerationCache()
 
         for block in self.h:
             current_attention_out, current_mlp_out, hidden_states = block(
