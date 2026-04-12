@@ -12,7 +12,7 @@ class LinearCache:
         self.seen_tokens = 0
         self.cache: torch.Tensor | None = None
 
-    def get_cache(self) -> tuple[torch.Tensor | None]:
+    def get_cache(self) -> torch.Tensor | None:
         return self.cache
 
     def update(self, state: torch.Tensor, sequence_length_dimension: int = 1) -> torch.Tensor:
