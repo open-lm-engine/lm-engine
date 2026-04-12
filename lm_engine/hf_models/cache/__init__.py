@@ -19,8 +19,8 @@ CACHE_TYPE = torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None
 @dataclass
 class GenerationState:
     state: torch.Tensor
-    num_tokens_added: int | None = None
     method: ConstantCache | LinearCache
+    num_tokens_added: int | None = None
 
 
 class GenerationCache:
