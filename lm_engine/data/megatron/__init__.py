@@ -12,6 +12,9 @@ from .sampler import MegatronBatchSampler
 from .utils import compile_helpers
 
 
+_WEIRD_ACCELERATORS = [Accelerator.mps, Accelerator.trainium]
+
+
 def get_megatron_gpt_dataloaders(
     args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
 ) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
@@ -91,10 +94,8 @@ def get_megatron_gpt_dataloaders(
                     rank=ProcessGroupManager.get_data_parallel_rank(),
                 ),
                 multiprocessing_context="fork" if accelerator == Accelerator.tpu else None,
-                num_workers=(
-                    0 if accelerator in [Accelerator.mps, Accelerator.trainium] else class_args.get("num_workers", 2)
-                ),
-                pin_memory=accelerator not in [Accelerator.mps, Accelerator.trainium],
+                num_workers=(0 if accelerator in _WEIRD_ACCELERATORS else class_args.get("num_workers", 2)),
+                pin_memory=accelerator not in _WEIRD_ACCELERATORS,
             )
 
         return iter(dataloader)
