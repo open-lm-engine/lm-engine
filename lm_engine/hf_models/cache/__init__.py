@@ -28,7 +28,7 @@ class GenerationCache:
         self.cache: list[tuple[ConstantCache | LinearCache]] = []
 
     def __getitem__(self, layer_idx: int) -> CACHE_TYPE:
-        return self.cache[layer_idx].get_cache()
+        return tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
     def __iter__(self) -> Iterable[CACHE_TYPE]:
         for layer_idx in range(len(self)):
