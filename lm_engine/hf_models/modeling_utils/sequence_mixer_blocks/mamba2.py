@@ -251,6 +251,7 @@ class Mamba2(nn.Module):
             if cache_params is None
             else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
         )
+
         use_precomputed_states = (
             cache_params is not None and seq_len == 1 and conv_state is not None and ssm_state is not None
         )

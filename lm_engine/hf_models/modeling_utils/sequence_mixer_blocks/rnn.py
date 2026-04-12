@@ -211,8 +211,8 @@ class RNN(nn.Module):
         if cache_params is not None:
             cache_params.update(
                 states=(
-                    GenerationState(state=c, method=ConstantCache, kwargs={"num_tokens_added": x.size(1)}),
-                    GenerationState(state=h, method=ConstantCache, kwargs={"num_tokens_added": x.size(1)}),
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=x.size(1)),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=x.size(1)),
                 ),
                 layer_idx=self.layer_idx,
             )
