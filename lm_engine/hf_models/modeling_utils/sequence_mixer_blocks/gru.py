@@ -255,8 +255,8 @@ class GRU(nn.Module):
         if cache_params is not None:
             cache_params.update(
                 states=(
-                    GenerationState(state=c, num_tokens_added=x.size(1), method=ConstantCache),
-                    GenerationState(state=h, num_tokens_added=x.size(1), method=ConstantCache),
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=S),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=S),
                 ),
                 layer_idx=self.layer_idx,
             )
