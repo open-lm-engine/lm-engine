@@ -8,6 +8,7 @@ import torch
 
 from ...cache import GenerationCache
 from ...mixins import BaseModelMixin, BaseModelOutputWithPast, PreTrainedModelMixin
+from ...utils import is_generation_cache_enabled
 from .config import GPTCrossLayerConfig
 from .layer import GPTCrossLayerBlock
 
@@ -50,7 +51,8 @@ class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
             max_seqlen=max_seqlen,
         )
 
-        cache_params = GenerationCache() if use_cache and cache_params is None else cache_params
+        if is_generation_cache_enabled() and use_cache and cache_params is None:
+            cache_params = GenerationCache()
 
         key = None
         value = None
