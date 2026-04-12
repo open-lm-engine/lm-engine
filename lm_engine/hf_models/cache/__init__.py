@@ -35,9 +35,6 @@ class GenerationCache:
             yield self.cache[layer_idx].get_cache()
 
     def update(self, states: tuple[GenerationState], layer_idx: int) -> CACHE_TYPE:
-        if not isinstance(states, (tuple, list)):
-            states = (states,)
-
         assert isinstance(states, tuple)
         output_state = []
 
