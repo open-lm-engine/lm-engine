@@ -260,7 +260,6 @@ class Mamba2(nn.Module):
         if use_precomputed_states:
             conv_state = conv_state.roll(shifts=-1, dims=-1)
             conv_state[:, :, -1] = hidden_states_B_C[:, 0, :].to(conv_state.device)
-            cache_params.update(states=(GenerationState(), GenerationState()), layer_idx=self.layer_idx)
 
             # We need to guarantee that anything regarding the cache is on the same device
             conv_state = conv_state.to(device=self.conv1d.weight.device)
@@ -285,14 +284,6 @@ class Mamba2(nn.Module):
                 hidden_states_B_C_transposed = hidden_states_B_C.transpose(1, 2)
                 conv_state = F.pad(
                     hidden_states_B_C_transposed, (self.conv_kernel_size - hidden_states_B_C_transposed.shape[-1], 0)
-                )
-
-                cache_params.update(
-                    states=(
-                        GenerationState(state=conv_state, method=ConstantCache),
-                        GenerationState(state=ssm_state, method=ConstantCache),
-                    ),
-                    layer_idx=self.layer_idx,
                 )
 
             hidden_states_B_C = self.activation(
@@ -366,7 +357,10 @@ class Mamba2(nn.Module):
             ssm_state = ssm_state * dA + dBx
 
             cache_params.update(
-                states=(GenerationState(state=conv_state, method=ConstantCache),),
+                states=(
+                    GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
+                    GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                ),
                 layer_idx=self.layer_idx,
             )
 
@@ -467,7 +461,6 @@ class Mamba2(nn.Module):
 
             # Init cache
             if cache_params is not None:
-            if cache_params is not None:
                 cache_params.update(
                     states=(
                         GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
@@ -524,11 +517,6 @@ class Mamba2(nn.Module):
                 self.activation_string,
             )
 
-            cache_params.update(
-                states=GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
-                layer_idx=self.layer_idx,
-            )
-
             hidden_states, B, C = torch.split(
                 hidden_states_B_C,
                 [self.intermediate_size, groups_time_state_size, groups_time_state_size],
@@ -556,6 +544,15 @@ class Mamba2(nn.Module):
                 dt_bias=dt_bias,
                 dt_softplus=True,
             )
+
+            cache_params.update(
+                states=(
+                    GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
+                    GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                ),
+                layer_idx=self.layer_idx,
+            )
+
             hidden_states = hidden_states.view(batch_size, self.num_heads * self.head_dim)
             hidden_states = hidden_states * silu(gate)
             hidden_states = self.norm(hidden_states)

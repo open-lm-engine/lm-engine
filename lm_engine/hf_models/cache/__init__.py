@@ -32,7 +32,7 @@ class GenerationCache:
 
     def __iter__(self) -> Iterable[CACHE_TYPE]:
         for layer_idx in range(len(self)):
-            yield self.cache[layer_idx].get_cache()
+            yield tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
     def update(self, states: tuple[GenerationState], layer_idx: int) -> CACHE_TYPE:
         assert isinstance(states, tuple)
