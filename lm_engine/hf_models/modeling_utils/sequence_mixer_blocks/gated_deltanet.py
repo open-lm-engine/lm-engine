@@ -245,7 +245,7 @@ class GatedDeltaNet(nn.Module):
 
         if cache_params is not None:
             cache_params.update(
-                state=(
+                states=(
                     GenerationState(state=c, num_tokens_added=hidden_states.size(1), method=ConstantCache),
                     GenerationState(state=h, num_tokens_added=hidden_states.size(1), method=ConstantCache),
                 ),
