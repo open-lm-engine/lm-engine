@@ -36,33 +36,22 @@ class GenerationCache:
 
     def update(self, states: tuple[GenerationState], layer_idx: int) -> CACHE_TYPE:
         assert isinstance(states, tuple)
-        output_state = []
 
         if len(self.cache) == layer_idx:
-            layer_cache = []
-            for state in states:
-                layer_cache.append(state.method())
+            self.cache.append(tuple(state.method() for state in states))
 
-                if state.num_tokens_added is None:
-                    output_state.append(layer_cache[-1].update(state=state.state))
-                else:
-                    output_state.append(
-                        layer_cache[-1].update(state=state.state, num_tokens_added=state.num_tokens_added)
-                    )
+        layer_cache = self.cache[layer_idx]
+        assert len(states) == len(layer_cache)
 
-            self.cache.append(tuple(layer_cache))
-        else:
-            layer_cache = self.cache[layer_idx]
-            assert len(states) == len(layer_cache)
+        output_state = []
+        for state, cache in zip(states, layer_cache):
+            assert type(cache) == state.method
 
-            for state, cache in zip(states, layer_cache):
-                assert type(cache) == state.method
+            kwargs = {"state": state.state}
+            if state.num_tokens_added is not None:
+                kwargs["num_tokens_added"] = state.num_tokens_added
 
-                kwargs = {"state": state.state}
-                if state.num_tokens_added is not None:
-                    kwargs["num_tokens_added"] = state.num_tokens_added
-
-                output_state.append(cache.update(**kwargs))
+            output_state.append(cache.update(**kwargs))
 
         return output_state
 
