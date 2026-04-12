@@ -65,11 +65,11 @@ class GenerationCache:
         if len(self.cache) == layer_idx:
             return 0
 
-        [cache.get_seq_length() for cache in self.cache[layer_idx]]
-        match = [i == lenghts[0] for i in lenghts]
+        lengths = [cache.get_seq_length() for cache in self.cache[layer_idx]]
+        match = [i == lengths[0] for i in lengths]
         assert all(match)
 
-        return lenghts[0]
+        return lengths[0]
 
     def reorder_cache(self, beam_idx: torch.Tensor) -> None:
         for layer_cache in self.cache:
