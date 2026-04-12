@@ -34,7 +34,7 @@ class GenerationCache:
         for layer_idx in range(len(self)):
             yield tuple(cache.get_cache() for cache in self.cache[layer_idx])
 
-    def update(self, states: tuple[GenerationState], layer_idx: int) -> CACHE_TYPE:
+    def update(self, states: tuple[GenerationState], layer_idx: int) -> list[torch.Tensor]:
         assert isinstance(states, tuple)
 
         if len(self.cache) == layer_idx:
