@@ -3,7 +3,6 @@
 # **************************************************
 
 import torch.nn as nn
-from torch.optim import Optimizer
 from torch.optim.adadelta import Adadelta as TorchAdadelta
 from torch.optim.adagrad import Adagrad as TorchAdagrad
 from torch.optim.adam import Adam as TorchAdam
@@ -19,6 +18,7 @@ from torch.optim.sgd import SGD as TorchSGD
 
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from ..enums import ParamsGroupMethod
+from ..utils import is_xma_available
 from .params_group import get_param_groups_list
 
 
@@ -37,6 +37,11 @@ _OPTIMIZER_CLASSES = {
     "TorchRprop": TorchRprop,
     "TorchSGD": TorchSGD,
 }
+
+if is_xma_available():
+    from xma import SGD as XMASGD
+
+    _OPTIMIZER_CLASSES["XMASGD"] = XMASGD
 
 
 def get_optimizer_container(
