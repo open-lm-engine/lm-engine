@@ -565,6 +565,9 @@ def evaluate(
     model.eval()
 
     for group_name, val_dataloader in zip(group_names, val_dataloaders):
+        if val_dataloader is None:
+            continue
+
         metrics_tracker = MetricsTrackingDict({})
 
         for _ in range(eval_steps):
