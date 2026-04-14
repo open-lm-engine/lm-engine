@@ -523,7 +523,7 @@ def evaluate(
     group_names: list[str],
     lm_loss_multiplier: float,
     context: str,
-) -> float:
+) -> None:
     """main validation loop for the program
 
     Args:
@@ -536,9 +536,6 @@ def evaluate(
         group_names (list[str]): names of the datasets in validation/test group
         lm_loss_multiplier (float): lm loss multiplier
         context (str): context
-
-    Returns:
-        MetricsTrackingDict: metrics tracker
     """
 
     assert len(model_container) == 1
