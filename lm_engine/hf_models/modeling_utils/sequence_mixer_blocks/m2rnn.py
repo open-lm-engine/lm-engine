@@ -13,7 +13,7 @@ from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_xma_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
@@ -199,7 +199,11 @@ class M2RNN(nn.Module):
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
                 x = pack_sequence(inputs=x, cu_seqlens=cu_seqlens)
 
-        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
 
         x = self.input_projection(x)
         x, f, g = x.split((self.conv_dim, self.num_f_heads, self.g_shape), dim=-1)
@@ -254,7 +258,13 @@ class M2RNN(nn.Module):
             x = x + v * self.D
 
         if cache_params is not None:
-            cache_params.update(conv_state=c, ssm_state=h, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
+            cache_params.update(
+                states=(
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=S),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=S),
+                ),
+                layer_idx=self.layer_idx,
+            )
 
         x = x.flatten(-2, -1)
         g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)

@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
-from ...cache import GenerationCache
+from ...cache import GenerationCache, GenerationState, LinearCache
 from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
 from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import sigmoid
@@ -201,7 +201,7 @@ class Attention(DTensorModule):
     def forward(
         self,
         x: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -217,7 +217,7 @@ class Attention(DTensorModule):
 
         if self.use_padding_free_transformer:
             assert use_flash_attention
-            assert past_key_values is None
+            assert cache_params is None
 
             T = x.size(0) * (self.tp_world_size if self.sequence_parallel else 1)
             input_shape = (T, self.num_key_value_heads, -1)
@@ -253,8 +253,14 @@ class Attention(DTensorModule):
         if self.position_embedding_type == "rope":
             q, k = [apply_rotary_pos_emb(i, cos_sin=rope_cos_sin) for i in (q, k)]
 
-        if past_key_values is not None:
-            k, v = past_key_values.update(key_states=k, value_states=v, layer_idx=self.layer_idx)
+        if cache_params is not None:
+            k, v = cache_params.update(
+                states=(
+                    GenerationState(state=k, method=LinearCache),
+                    GenerationState(state=v, method=LinearCache),
+                ),
+                layer_idx=self.layer_idx,
+            )
 
         if use_flash_attention:
             assert accelerator == Accelerator.cuda

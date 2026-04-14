@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function, is_glu
 from ..convolution import ParameterizedConv1d
@@ -228,18 +228,17 @@ class CausalConvolution(nn.Module):
         mark_parameter_as_no_weight_decay(self.output_projection.bias)
 
     def forward(
-        self,
-        hidden_states: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
-        input_state = None if cache_params is None else cache_params.get_cache(self.layer_idx)
-        sequence_length = hidden_states.size(1)
+        input_state = (
+            None if cache_params is None else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=None)
+        )
 
-        hidden_states = self.input_projection(hidden_states)
+        S = x.size(1)
+        x = self.input_projection(x)
 
-        hidden_states, input_state = causal_convolution(
-            hidden_states=hidden_states,
+        x, input_state = causal_convolution(
+            hidden_states=x,
             input_state=input_state,
             attention_mask=attention_mask,
             conv1d_weight=self.conv1d.weight,
@@ -252,8 +251,11 @@ class CausalConvolution(nn.Module):
         )
 
         if cache_params is not None:
-            cache_params.update(state=input_state, num_tokens_added=sequence_length, layer_idx=self.layer_idx)
+            cache_params.update(
+                states=(GenerationState(state=input_state, method=ConstantCache, num_tokens_added=S),),
+                layer_idx=self.layer_idx,
+            )
 
-        hidden_states = self.output_projection(hidden_states)
+        x = self.output_projection(x)
 
-        return hidden_states
+        return x

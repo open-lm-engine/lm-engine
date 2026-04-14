@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 from ....utils import divide_if_divisible, is_fla_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ..activations import silu
 from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
@@ -146,8 +146,13 @@ class GatedDeltaNet(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
         use_cache = cache_params is not None
+
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
 
         qkv = self.qkv_proj(hidden_states)
 
@@ -240,7 +245,11 @@ class GatedDeltaNet(nn.Module):
 
         if cache_params is not None:
             cache_params.update(
-                conv_state=c, ssm_state=h, num_tokens_added=hidden_states.size(1), layer_idx=self.layer_idx
+                states=(
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=hidden_states.size(1)),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=hidden_states.size(1)),
+                ),
+                layer_idx=self.layer_idx,
             )
 
         if self.use_gate:
