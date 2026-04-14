@@ -88,7 +88,7 @@ class Block(nn.Module):
         x = self.ln_2(x)
         x = self._mlp_forward(
             x=x,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             rope_cos_sin=rope_cos_sin,
             cu_seqlens=cu_seqlens,
@@ -105,7 +105,7 @@ class Block(nn.Module):
     def _mlp_forward(
         self,
         x: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -116,7 +116,7 @@ class Block(nn.Module):
         elif self.mlp_type == "DeltaMLP":
             x = self.mlp_block(
                 x,
-                cache_params=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
