@@ -21,6 +21,7 @@ from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
 from ..init_utils import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
+from ..normalization import get_normalization_function
 from ..position_embedding import apply_rotary_pos_emb
 from .utils import flash_attention
 
@@ -81,6 +82,7 @@ class Attention(DTensorModule):
         attention_multiplier_method: str | None,
         sliding_window: int | None,
         position_embedding_type: str,
+        use_qk_norm: bool,
         attention_gate: bool,
         exclusive_self_attention: bool,
         add_bias: bool,
@@ -92,6 +94,7 @@ class Attention(DTensorModule):
         num_layers: int,
         causal: bool,
         layer_idx: int,
+        norm_eps: float,
         use_depth_scaled_init: bool,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
@@ -104,6 +107,7 @@ class Attention(DTensorModule):
         self.global_num_key_value_heads = num_key_value_heads
         self.add_bias = add_bias
         self.sliding_window = sliding_window
+        self.use_qk_norm = use_qk_norm
         self.attention_gate = attention_gate
         self.exclusive_self_attention = exclusive_self_attention
 
@@ -181,6 +185,10 @@ class Attention(DTensorModule):
             sequence_parallel=sequence_parallel,
         )
 
+        if self.use_qk_norm:
+            self.q_norm = get_normalization_function("rmsnorm", self.head_dim, eps=norm_eps)
+            self.k_norm = get_normalization_function("rmsnorm", self.head_dim, eps=norm_eps)
+
         self.softmax_dropout_p = softmax_dropout
 
         self.softmax_dropout = Dropout(
@@ -246,6 +254,10 @@ class Attention(DTensorModule):
             )
 
         q = q.reshape(*output_shape)
+
+        if self.use_qk_norm:
+            q = self.q_norm(q)
+            k = self.k_norm(k)
 
         if self.exclusive_self_attention:
             v_xsa = v
