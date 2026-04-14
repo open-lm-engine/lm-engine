@@ -24,6 +24,7 @@ class _SoftmaxAttentionArgs(BaseArgs):
     attention_gate: bool = False
     exclusive_self_attention: bool = False
     sliding_window: int | None = None
+    use_qk_norm: bool = False
 
     def model_post_init(self, __context: Any) -> None:
         assert self.attention_multiplier_method in [
