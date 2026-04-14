@@ -594,8 +594,6 @@ def evaluate(
 
     model.train()
 
-    return metrics_tracker
-
 
 def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> None:
     """main program"""
