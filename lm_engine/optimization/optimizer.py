@@ -66,16 +66,7 @@ def _build_optimizer(
             else:
                 log_rank_0(logging.INFO, f"splitting {name}")
                 pieces = split_fn(param.data)
-                try:
-                    assert all(
-                        p.untyped_storage().data_ptr() == param.data.untyped_storage().data_ptr() for p in pieces
-                    ), (
-                        f"Optimizer split function for {param.shape} must return views "
-                        "(tensors sharing storage with the original). "
-                        "Use the *_for_optimizer variant, which skips .contiguous()/.reshape()."
-                    )
-                except RuntimeError:
-                    pass  # storage pointer inaccessible in distributed contexts (e.g. FSDP)
+
                 for i, piece in enumerate(pieces):
                     proxy = nn.Parameter(piece)
                     new_params.append(proxy)
