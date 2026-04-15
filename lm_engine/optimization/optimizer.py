@@ -39,9 +39,6 @@ _OPTIMIZER_CLASSES = {
 }
 
 
-_SPLIT_FUNCTION_INCOMPATIBLE_OPTIMIZERS = ["TorchMuon"]
-
-
 def get_optimizer_container(
     optimizer_class_name: str,
     optimizer_class_args: dict,
@@ -74,8 +71,7 @@ def get_optimizer_container(
     if use_optimizer_with_backward_hook:
         for model, params_groups in zip(model_container, params_groups_list):
             for param_name, param in model.named_parameters():
-                if get_optimizer_split_function(param) is not None:
-                    assert optimizer_class not in _SPLIT_FUNCTION_INCOMPATIBLE_OPTIMIZERS
+                assert get_optimizer_split_function(param) is None
 
                 for group in params_groups.params_groups:
                     if param_name in group.parameter_name_map:
