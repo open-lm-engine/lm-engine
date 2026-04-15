@@ -42,8 +42,11 @@ _OPTIMIZER_CLASSES = {
 
 
 def _build_optimizer(
-    optimizer_class, torch_params_groups: list[dict], optimizer_class_args: dict
+    optimizer_class, torch_params_groups: list[dict], optimizer_class_args: dict, split_params_for_optimizer: bool
 ) -> SplitParamOptimizer | Optimizer:
+    if not split_params_for_optimizer:
+        return optimizer_class(torch_params_groups, **optimizer_class_args)
+
     proxy_grad_fns: dict[int, tuple] = {}
     split_params: set[nn.Parameter] = set()
     modified_groups = []
@@ -86,6 +89,7 @@ def get_optimizer_container(
     model_container: ModelContainer,
     params_group_method: ParamsGroupMethod,
     use_optimizer_with_backward_hook: bool,
+    split_params_for_optimizer: bool,
 ) -> OptimizerContainer:
     """setup list of optimizers for the model
 
@@ -95,6 +99,7 @@ def get_optimizer_container(
         model_container (ModelContainer): model container
         params_group_method (ParamsGroupMethod): the params grouping to use
         use_optimizer_with_backward_hook (bool): whether to use optimizer as a backward hook
+        split_params_for_optimizer (bool): whether to split params using model-defined split functions
 
     Returns:
         OptimizerContainer: optimizer container
@@ -136,6 +141,7 @@ def get_optimizer_container(
                     optimizer_class=optimizer_class,
                     torch_params_groups=params_groups.to_torch_compatible_params_groups(),
                     optimizer_class_args=optimizer_class_args,
+                    split_params_for_optimizer=split_params_for_optimizer,
                 )
                 for params_groups in params_groups_list
             ]
