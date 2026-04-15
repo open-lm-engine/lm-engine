@@ -12,7 +12,6 @@ from torch.optim import Adam as TorchAdam
 from torch.optim import Adamax as TorchAdamax
 from torch.optim import AdamW as TorchAdamW
 from torch.optim import NAdam as TorchNAdam
-from torch.optim import Optimizer
 from torch.optim import RAdam as TorchRAdam
 from torch.optim import RMSprop as TorchRMSprop
 from torch.optim import Rprop as TorchRprop
