@@ -64,7 +64,7 @@ def _build_optimizer(
             if split_fn is None:
                 new_params.append(param)
             else:
-                log_rank_0(logging.INFO, f"splitting {name}")
+                log_rank_0(logging.INFO, f"splitting {name} for optimizer")
                 pieces = split_fn(param.data)
 
                 for i, piece in enumerate(pieces):
