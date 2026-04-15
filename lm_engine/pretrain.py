@@ -523,7 +523,7 @@ def evaluate(
     group_names: list[str],
     lm_loss_multiplier: float,
     context: str,
-) -> float:
+) -> None:
     """main validation loop for the program
 
     Args:
@@ -536,9 +536,6 @@ def evaluate(
         group_names (list[str]): names of the datasets in validation/test group
         lm_loss_multiplier (float): lm loss multiplier
         context (str): context
-
-    Returns:
-        MetricsTrackingDict: metrics tracker
     """
 
     assert len(model_container) == 1
@@ -565,6 +562,9 @@ def evaluate(
     model.eval()
 
     for group_name, val_dataloader in zip(group_names, val_dataloaders):
+        if val_dataloader is None:
+            continue
+
         metrics_tracker = MetricsTrackingDict({})
 
         for _ in range(eval_steps):
@@ -590,8 +590,6 @@ def evaluate(
         )
 
     model.train()
-
-    return metrics_tracker
 
 
 def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> None:

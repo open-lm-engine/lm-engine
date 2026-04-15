@@ -190,6 +190,9 @@ class ExperimentsTracker:
                 state_dict = {
                     "id": wandb.run.id,
                     "name": wandb.run.name,
+                    "tags": wandb.run.tags,
+                    "group": wandb.run.group,
+                    "notes": wandb.run.notes,
                     "entity": wandb.run.entity,
                     "project": wandb.run.project,
                 }

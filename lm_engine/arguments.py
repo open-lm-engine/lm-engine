@@ -306,6 +306,12 @@ class WandBArgs(BaseArgs):
     name: str = None
     # run hash for the experiment
     entity: str | None = None
+    # wandb tags
+    tags: list[str] | None = None
+    # wandb group
+    group: str | None = None
+    # wandb notes
+    notes: str | None = None
 
     def model_post_init(self, __context: Any) -> None:
         _check_not_None([(self.project, "project"), (self.name, "name")])
