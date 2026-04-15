@@ -12,6 +12,7 @@ from torch.optim import Adam as TorchAdam
 from torch.optim import Adamax as TorchAdamax
 from torch.optim import AdamW as TorchAdamW
 from torch.optim import NAdam as TorchNAdam
+from torch.optim import Optimizer
 from torch.optim import RAdam as TorchRAdam
 from torch.optim import RMSprop as TorchRMSprop
 from torch.optim import Rprop as TorchRprop
@@ -20,6 +21,7 @@ from ..containers import BackwardHookOptimizerContainer, ModelContainer, Optimiz
 from ..enums import ParamsGroupMethod
 from ..hf_models import get_optimizer_split_function
 from .params_group import get_param_groups_list
+from .split_param_optimizer import SplitParamOptimizer
 
 
 # https://pytorch.org/docs/stable/optim.html
@@ -37,6 +39,45 @@ _OPTIMIZER_CLASSES = {
     "TorchRprop": TorchRprop,
     "TorchSGD": TorchSGD,
 }
+
+
+def _build_optimizer(
+    optimizer_class, torch_params_groups: list[dict], optimizer_class_args: dict
+) -> SplitParamOptimizer | Optimizer:
+    proxy_grad_fns: dict[int, tuple] = {}
+    split_params: set[nn.Parameter] = set()
+    modified_groups = []
+
+    for group in torch_params_groups:
+        group_kwargs = {k: v for k, v in group.items() if k != "params"}
+        new_params = []
+        for param in group["params"]:
+            split_fn = get_optimizer_split_function(param)
+            if split_fn is None:
+                new_params.append(param)
+            else:
+                pieces = split_fn(param.data)
+                assert all(
+                    p.untyped_storage().data_ptr() == param.data.untyped_storage().data_ptr() for p in pieces
+                ), (
+                    f"Optimizer split function for {param.shape} must return views "
+                    "(tensors sharing storage with the original). "
+                    "Use the *_for_optimizer variant, which skips .contiguous()/.reshape()."
+                )
+                for i, piece in enumerate(pieces):
+                    proxy = nn.Parameter(piece)
+                    new_params.append(proxy)
+                    proxy_grad_fns[id(proxy)] = (param, lambda g, fn=split_fn, idx=i: fn(g)[idx])
+                split_params.add(param)
+
+        modified_groups.append({"params": new_params, **group_kwargs})
+
+    inner = optimizer_class(modified_groups, **optimizer_class_args)
+
+    if split_params:
+        inner = SplitParamOptimizer(inner=inner, proxy_grad_fns=proxy_grad_fns, split_params=split_params)
+
+    return inner
 
 
 def get_optimizer_container(
@@ -89,19 +130,15 @@ def get_optimizer_container(
 
         optimizer_list = BackwardHookOptimizerContainer([None] * len(model_container))
     else:
-        optimizer_list_entries = []
-        for params_groups in params_groups_list:
-            torch_params_groups = params_groups.to_torch_compatible_params_groups()
-            for group in torch_params_groups:
-                split_params = []
-                for param in group["params"]:
-                    split_fn = get_optimizer_split_function(param)
-                    split_params.extend(split_fn(param) if split_fn is not None else [param])
-
-                group["params"] = split_params
-
-            optimizer_list_entries.append(optimizer_class(torch_params_groups, **optimizer_class_args))
-
-        optimizer_list = OptimizerContainer(optimizer_list_entries)
+        optimizer_list = OptimizerContainer(
+            [
+                _build_optimizer(
+                    optimizer_class=optimizer_class,
+                    torch_params_groups=params_groups.to_torch_compatible_params_groups(),
+                    optimizer_class_args=optimizer_class_args,
+                )
+                for params_groups in params_groups_list
+            ]
+        )
 
     return optimizer_list
