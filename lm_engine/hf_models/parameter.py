@@ -9,8 +9,8 @@ import torch.nn as nn
 
 _INIT_MARKER = "_is_initialized"
 _OPTIMIZER_SPLIT_FUNCTION = "_optimizer_split_function"
-_METADATA_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate"]
-_ALL_MARKERS = _METADATA_MARKERS + [_INIT_MARKER, _OPTIMIZER_SPLIT_FUNCTION]
+_METADATA_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate", _OPTIMIZER_SPLIT_FUNCTION]
+_ALL_MARKERS = _METADATA_MARKERS + [_INIT_MARKER]
 
 
 def mark_parameter_as_no_weight_decay(parameter: nn.Parameter | None) -> nn.Parameter | None:
@@ -92,4 +92,4 @@ def set_optimizer_split_function(parameter: nn.Parameter, function: Callable) ->
 
 
 def get_optimizer_split_function(parameter: nn.Parameter) -> Callable | None:
-    return getattr(parameter, "_optimizer_split_function", None)
+    return getattr(parameter, _OPTIMIZER_SPLIT_FUNCTION, None)
