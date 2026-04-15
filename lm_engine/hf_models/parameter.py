@@ -8,7 +8,7 @@ import torch.nn as nn
 
 
 _INIT_MARKER = "_is_initialized"
-_METADATA_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate"]
+_METADATA_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate", "_optimizer_split_function"]
 _ALL_MARKERS = _METADATA_MARKERS + [_INIT_MARKER]
 
 
