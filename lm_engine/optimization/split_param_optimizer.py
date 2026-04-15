@@ -60,3 +60,7 @@ class SplitParamOptimizer(Optimizer):
                 param.grad = None
             elif param.grad is not None:
                 param.grad.zero_()
+
+    def __repr__(self) -> str:
+        x = super().__repr__()
+        return f"{x}({self._inner})"
