@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch.optim import Optimizer
 
 
-class SplitParamOptimizer:
+class SplitParamOptimizer(Optimizer):
     def __init__(
         self,
         inner: Optimizer,
