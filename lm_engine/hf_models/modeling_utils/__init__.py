@@ -25,6 +25,5 @@ from .sequence_mixer_blocks import (
     get_sequence_mixer,
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,
-    split_query_key_value_tensor_for_attention_for_optimizer,
 )
 from .TP import tensor_parallel_split_safetensor_slice
