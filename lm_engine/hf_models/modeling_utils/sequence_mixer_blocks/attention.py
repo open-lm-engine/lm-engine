@@ -54,12 +54,27 @@ def interleave_query_key_value_tensor_for_attention(
     return torch.cat(interleaved)
 
 
-def split_query_key_value_tensor_for_attention(
+def _split_query_key_value_tensor_for_attention_for_optimizer(
     query_key_value_weight: torch.Tensor, num_heads: int, num_key_value_heads: int
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     query_heads_per_group = num_heads // num_key_value_heads
     query_key_value_weight = query_key_value_weight.view(num_key_value_heads, query_heads_per_group + 2, -1)
     query_weight, key_weight, value_weight = query_key_value_weight.split((query_heads_per_group, 1, 1), 1)
+    return query_weight, key_weight, value_weight
+
+
+def split_query_key_value_tensor_for_attention(
+    query_key_value_weight: torch.Tensor, num_heads: int, num_key_value_heads: int
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    original_shape = query_key_value_weight.shape
+    query_weight, key_weight, value_weight = _split_query_key_value_tensor_for_attention_for_optimizer(
+        query_key_value_weight=query_key_value_weight, num_heads=num_heads, num_key_value_heads=num_key_value_heads
+    )
+
+    query_weight = query_weight.reshape(-1, *original_shape[1:])
+    key_weight = key_weight.reshape(-1, *original_shape[1:])
+    value_weight = value_weight.reshape(-1, *original_shape[1:])
+
     return query_weight, key_weight, value_weight
 
 
@@ -194,7 +209,7 @@ class Attention(DTensorModule):
         set_optimizer_split_function(
             self.c_attn.weight,
             partial(
-                split_query_key_value_tensor_for_attention,
+                _split_query_key_value_tensor_for_attention_for_optimizer,
                 num_heads=self.num_heads,
                 num_key_value_heads=self.num_key_value_heads,
             ),
