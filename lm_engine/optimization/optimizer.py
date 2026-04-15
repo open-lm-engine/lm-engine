@@ -11,7 +11,6 @@ from torch.optim import Adagrad as TorchAdagrad
 from torch.optim import Adam as TorchAdam
 from torch.optim import Adamax as TorchAdamax
 from torch.optim import AdamW as TorchAdamW
-from torch.optim import Muon as TorchMuon
 from torch.optim import NAdam as TorchNAdam
 from torch.optim import Optimizer
 from torch.optim import RAdam as TorchRAdam
@@ -33,7 +32,6 @@ _OPTIMIZER_CLASSES = {
     "TorchAdamW": TorchAdamW,
     "TorchASGD": TorchASGD,
     "TorchLBFGS": TorchLBFGS,
-    "TorchMuon": TorchMuon,
     "TorchNAdam": TorchNAdam,
     "TorchRAdam": TorchRAdam,
     "TorchRMSprop": TorchRMSprop,
@@ -43,63 +41,6 @@ _OPTIMIZER_CLASSES = {
 
 
 _SPLIT_FUNCTION_INCOMPATIBLE_OPTIMIZERS = ["TorchMuon"]
-
-# Parameter name substrings that must use AdamW instead of Muon (embeddings and lm_head)
-_MUON_ADAMW_PARAM_NAMES = {"wte", "lm_head"}
-
-
-def _is_muon_adamw_param(param_name: str, param: nn.Parameter) -> bool:
-    """Returns True if this param should use AdamW when the main optimizer is Muon."""
-    if param.ndim == 1:
-        return True
-    return any(name in param_name for name in _MUON_ADAMW_PARAM_NAMES)
-
-
-class _MuonWithAdamW(Optimizer):
-    """Wraps a Muon optimizer and an AdamW optimizer into a single optimizer-like object.
-
-    Muon handles 2D+ weight matrices; AdamW handles embeddings, lm_head, and 1D params.
-    """
-
-    def __init__(self, muon: TorchMuon | None, adamw: TorchAdamW | None) -> None:
-        self.muon = muon
-        self.adamw = adamw
-
-    @property
-    def param_groups(self) -> list[dict]:
-        groups = []
-        if self.muon is not None:
-            groups.extend(self.muon.param_groups)
-        if self.adamw is not None:
-            groups.extend(self.adamw.param_groups)
-        return groups
-
-    def step(self) -> None:
-        if self.muon is not None:
-            self.muon.step()
-        if self.adamw is not None:
-            self.adamw.step()
-
-    def zero_grad(self) -> None:
-        if self.muon is not None:
-            self.muon.zero_grad()
-        if self.adamw is not None:
-            self.adamw.zero_grad()
-
-    def state_dict(self) -> dict:
-        return {
-            "muon": self.muon.state_dict() if self.muon is not None else None,
-            "adamw": self.adamw.state_dict() if self.adamw is not None else None,
-        }
-
-    def load_state_dict(self, state_dict: dict) -> None:
-        if self.muon is not None and state_dict["muon"] is not None:
-            self.muon.load_state_dict(state_dict["muon"])
-        if self.adamw is not None and state_dict["adamw"] is not None:
-            self.adamw.load_state_dict(state_dict["adamw"])
-
-    def __repr__(self) -> str:
-        return f"MuonWithAdamW(\n  muon={self.muon},\n  adamw={self.adamw}\n)"
 
 
 def get_optimizer_container(
@@ -152,34 +93,6 @@ def get_optimizer_container(
                         break
 
         optimizer_list = BackwardHookOptimizerContainer([None] * len(model_container))
-    elif optimizer_class_name == "TorchMuon":
-        adamw_args = {"lr": optimizer_class_args.get("lr", 1e-3)}
-        optimizer_list_entries = []
-        for params_groups in params_groups_list:
-            muon_groups = []
-            adamw_groups = []
-            for group in params_groups.params_groups:
-                muon_params = []
-                adamw_params = []
-                for param_name, param in group.parameter_name_map.items():
-                    if _is_muon_adamw_param(param_name, param):
-                        adamw_params.append(param)
-                    else:
-                        split_fn = get_optimizer_split_function(param)
-                        muon_params.extend(split_fn(param) if split_fn is not None else [param])
-                if muon_params:
-                    muon_groups.append({"params": muon_params, **group.params_group_kwargs})
-                if adamw_params:
-                    adamw_groups.append({"params": adamw_params, **group.params_group_kwargs})
-
-            optimizer_list_entries.append(
-                _MuonWithAdamW(
-                    muon=TorchMuon(muon_groups, **optimizer_class_args) if muon_groups else None,
-                    adamw=TorchAdamW(adamw_groups, **adamw_args) if adamw_groups else None,
-                )
-            )
-
-        optimizer_list = OptimizerContainer(optimizer_list_entries)
     else:
         optimizer_list_entries = []
         for params_groups in params_groups_list:
