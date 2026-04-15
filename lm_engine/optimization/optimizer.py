@@ -121,10 +121,10 @@ def get_optimizer_container(
     params_groups_list = get_param_groups_list(model_container, optimizer_class_args, params_group_method)
 
     if use_optimizer_with_backward_hook:
+        assert not split_params_for_optimizer
+
         for model, params_groups in zip(model_container, params_groups_list):
             for param_name, param in model.named_parameters():
-                assert get_optimizer_split_function(param) is None
-
                 for group in params_groups.params_groups:
                     if param_name in group.parameter_name_map:
                         param._optimizer = optimizer_class(
