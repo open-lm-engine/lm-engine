@@ -58,16 +58,8 @@ def split_query_key_value_tensor_for_attention(
     query_key_value_weight: torch.Tensor, num_heads: int, num_key_value_heads: int
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     query_heads_per_group = num_heads // num_key_value_heads
-    original_shape = query_key_value_weight.shape
-
-    query_key_value_weight = query_key_value_weight.view(num_key_value_heads, (query_heads_per_group + 2), -1)
-
+    query_key_value_weight = query_key_value_weight.view(num_key_value_heads, query_heads_per_group + 2, -1)
     query_weight, key_weight, value_weight = query_key_value_weight.split((query_heads_per_group, 1, 1), 1)
-
-    query_weight = query_weight.reshape(-1, *original_shape[1:])
-    key_weight = key_weight.reshape(-1, *original_shape[1:])
-    value_weight = value_weight.reshape(-1, *original_shape[1:])
-
     return query_weight, key_weight, value_weight
 
 
@@ -200,7 +192,7 @@ class Attention(DTensorModule):
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
         set_optimizer_split_function(
-            self.c_proj.weight,
+            self.c_attn.weight,
             partial(
                 split_query_key_value_tensor_for_attention,
                 num_heads=self.num_heads,
