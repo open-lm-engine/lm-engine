@@ -8,8 +8,9 @@ import torch.nn as nn
 
 
 _INIT_MARKER = "_is_initialized"
-_METADATA_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate", "_optimizer_split_function"]
-_ALL_MARKERS = _METADATA_MARKERS + [_INIT_MARKER]
+_OPTIMIZER_SPLIT_FUNCTION = "_optimizer_split_function"
+_METADATA_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate"]
+_ALL_MARKERS = _METADATA_MARKERS + [_INIT_MARKER, _OPTIMIZER_SPLIT_FUNCTION]
 
 
 def mark_parameter_as_no_weight_decay(parameter: nn.Parameter | None) -> nn.Parameter | None:
@@ -55,7 +56,9 @@ def get_parameter_marker_maps(model_container: list[nn.Module], extra_markers: l
         for param_name, param in model.named_parameters():
             marker_maps[-1][param_name] = {}
             for marker in _METADATA_MARKERS + extra_markers:
-                marker_maps[-1][param_name][marker] = getattr(param, marker, False)
+                marker_maps[-1][param_name][marker] = getattr(
+                    param, marker, None if marker == _OPTIMIZER_SPLIT_FUNCTION else False
+                )
 
     return marker_maps
 

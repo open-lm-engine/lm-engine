@@ -22,6 +22,7 @@ from .models import (
 )
 from .parameter import (
     _INIT_MARKER,
+    _OPTIMIZER_SPLIT_FUNCTION,
     get_optimizer_split_function,
     get_parameter_marker_maps,
     is_parameter_initialized,
