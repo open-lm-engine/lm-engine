@@ -63,4 +63,4 @@ class SplitParamOptimizer(Optimizer):
 
     def __repr__(self) -> str:
         x = super().__repr__()
-        return f"{x}({self._inner})"
+        return f"{self._inner.__class__.__name__}({x})"
