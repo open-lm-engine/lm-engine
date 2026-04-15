@@ -124,11 +124,11 @@ def split_up_gate_tensor_for_mlp(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     if is_interleaved:
         if dim == 0:
-            u = c_fc_weight[1::2].contiguous()
-            g = c_fc_weight[::2].contiguous()
+            u = c_fc_weight[1::2]
+            g = c_fc_weight[::2]
         elif dim == 1:
-            u = c_fc_weight[:, 1::2].contiguous()
-            g = c_fc_weight[:, ::2].contiguous()
+            u = c_fc_weight[:, 1::2]
+            g = c_fc_weight[:, ::2]
         else:
             raise ValueError
     else:
