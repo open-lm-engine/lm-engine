@@ -200,7 +200,7 @@ class Attention(DTensorModule):
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
         set_optimizer_split_function(
-            self.c_proj.weight,
+            self.c_attn.weight,
             partial(
                 split_query_key_value_tensor_for_attention,
                 num_heads=self.num_heads,
