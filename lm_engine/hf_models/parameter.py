@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from typing import Callable
+
 import torch.nn as nn
 
 
@@ -77,3 +79,14 @@ def set_parameter_marker_maps(
 
             for marker, value in _marker_map[param_name].items():
                 setattr(parameter, marker, value)
+
+
+def set_optimizer_split_function(parameter: nn.Parameter | None, function: Callable) -> nn.Parameter | None:
+    if parameter is not None:
+        parameter._optimizer_split_function = function
+
+    return parameter
+
+
+def get_optimizer_split_function(parameter: nn.Parameter) -> Callable | None:
+    return getattr(parameter, "_optimizer_split_function", None)
