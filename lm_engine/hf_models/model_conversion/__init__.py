@@ -8,40 +8,24 @@ from ...tokenizers import get_tokenizer
 from ...utils import SafeTensorsWeightsManager, download_repo
 from ..models import GPTBaseConfig
 from .granite import _export_granite_config, _import_granite_config
-from .granitemoe import _export_granitemoe_config, _import_granitemoe_config
 from .granitemoehybrid import (
     _export_granitemoehybrid_config,
     _export_granitemoehybrid_state_dict,
     _import_granitemoehybrid_config,
     _import_granitemoehybrid_state_dict,
 )
-from .granitemoeshared import (
-    _export_granitemoeshared_config,
-    _export_granitemoeshared_state_dict,
-    _import_granitemoeshared_config,
-    _import_granitemoeshared_state_dict,
-)
 from .llama import _export_llama_config, _export_llama_state_dict, _import_llama_config, _import_llama_state_dict
-from .qwen2_moe import (
-    _export_qwen2_moe_config,
-    _export_qwen2_moe_state_dict,
-    _import_qwen2_moe_config,
-    _import_qwen2_moe_state_dict,
-)
 
 
 _MODEL_IMPORT_FUNCTIONS = {
     "granite": (_import_granite_config, _import_llama_state_dict),
-    "granitemoe": (_import_granitemoe_config, _import_granitemoeshared_state_dict),
-    "granitemoeshared": (_import_granitemoeshared_config, _import_granitemoeshared_state_dict),
     "granitemoehybrid": (_import_granitemoehybrid_config, _import_granitemoehybrid_state_dict),
     "llama": (_import_llama_config, _import_llama_state_dict),
-    "qwen2_moe": (_import_qwen2_moe_config, _import_qwen2_moe_state_dict),
 }
 
 
 def import_from_huggingface(
-    pretrained_model_name_or_path: str, save_path: str | None = None
+    pretrained_model_name_or_path: str, save_path: str | None = None, **kwargs
 ) -> tuple[GPTBaseConfig, GenerationConfig, AutoTokenizer, dict]:
     original_config, tokenizer, downloaded_model_path = download_repo(pretrained_model_name_or_path)
     model_type = original_config.model_type
@@ -51,7 +35,7 @@ def import_from_huggingface(
 
     config_import_function, state_dict_import_function = _MODEL_IMPORT_FUNCTIONS[model_type]
 
-    config = config_import_function(original_config)
+    config = config_import_function(original_config, **kwargs)
 
     state_dict = state_dict_import_function(
         config=config, safetensors_weights_manager=SafeTensorsWeightsManager(downloaded_model_path)
@@ -73,11 +57,8 @@ def import_from_huggingface(
 
 _MODEL_EXPORT_FUNCTIONS = {
     "granite": (_export_granite_config, _export_llama_state_dict),
-    "granitemoe": (_export_granitemoe_config, _export_granitemoeshared_state_dict),
-    "granitemoeshared": (_export_granitemoeshared_config, _export_granitemoeshared_state_dict),
     "granitemoehybrid": (_export_granitemoehybrid_config, _export_granitemoehybrid_state_dict),
     "llama": (_export_llama_config, _export_llama_state_dict),
-    "qwen2_moe": (_export_qwen2_moe_config, _export_qwen2_moe_state_dict),
 }
 
 

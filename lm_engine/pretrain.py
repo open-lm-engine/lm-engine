@@ -182,13 +182,17 @@ def train_step_without_pipeline_parallel(
     assert len(model_container) == 1
     model = model_container[0]
 
-    fsdp_algorithm = 2 if hasattr(model, "set_requires_gradient_sync") else 1
+    fsdp_algorithm = None
+    if hasattr(model, "set_requires_gradient_sync"):
+        fsdp_algorithm = 2
+    elif hasattr(model, "no_sync"):
+        fsdp_algorithm = 1
 
     no_sync = nullcontext
     if not sync_every_gradient_accumulation_step:
         if fsdp_algorithm == 1:
             no_sync = model.no_sync
-        else:
+        elif fsdp_algorithm == 2:
             model.set_requires_gradient_sync(False)
 
     metrics_tracker = MetricsTrackingDict({})
@@ -272,6 +276,7 @@ def train_step_without_pipeline_parallel(
 
 def track_val_metrics(
     global_step: int,
+    global_step_in_tokens: int,
     experiments_tracker: ExperimentsTracker,
     metrics_tracker: MetricsTrackingDict,
     group_name: str | None = None,
@@ -281,17 +286,21 @@ def track_val_metrics(
 
     Args:
         global_step (int): global step during training
+        global_step_in_tokens (int): global step during training in number of tokens
         experiments_tracker (ExperimentsTracker): experiments tracker
         metrics_tracker (MetricsTrackingDict): metrics tracker
         group_name (str | None): group name for the validation / test set
         context (str): context
     """
 
-    message = f"step = {global_step}"
+    message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
     if group_name is not None:
         message += f", group_name = {group_name}"
 
     for key in metrics_tracker:
+        if key == "tokens":
+            continue
+
         message += f", {context}-{key} = {metrics_tracker[key]:.4f}"
 
     log_rank_0(logging.INFO, message)
@@ -353,15 +362,19 @@ def train(
     global_batch_size = StepTracker.get_global_batch_size()
     tokens_per_batch = global_batch_size * sequence_length
 
+    global_step = starting_iteration
+    global_step_in_tokens = global_step * tokens_per_batch
+
     if eval_during_training:
         eval_steps = args.datasets[0].class_args.get("eval_steps")
         evaluate(
-            val_dataloaders,
-            model_container,
-            starting_iteration,
-            experiments_tracker,
-            eval_steps,
-            group_names,
+            val_dataloaders=val_dataloaders,
+            model_container=model_container,
+            global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
+            experiments_tracker=experiments_tracker,
+            eval_steps=eval_steps,
+            group_names=group_names,
             lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
             context="val",
         )
@@ -392,10 +405,10 @@ def train(
     steps_since_start_time = 0
     metrics_tracker = MetricsTrackingDict({})
 
-    global_step = starting_iteration
     while global_step < num_training_steps:
         global_step += 1
         steps_since_start_time += 1
+        global_step_in_tokens += tokens_per_batch
 
         if is_pipeline_parallel_enabled:
             loss_step_dict = train_step_with_pipeline_parallel(
@@ -437,9 +450,11 @@ def train(
 
             metrics_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
             metrics_tracker["step_time (sec)"] = step_time
+            metrics_tracker["tokens"] = global_step_in_tokens
 
             track_metrics(
                 global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
                 metrics_tracker=metrics_tracker,
                 context="train",
@@ -451,12 +466,13 @@ def train(
 
         if eval_during_training and (global_step % eval_interval == 0 or global_step == num_training_steps):
             evaluate(
-                val_dataloaders,
-                model_container,
-                global_step,
-                experiments_tracker,
-                eval_steps,
-                group_names,
+                val_dataloaders=val_dataloaders,
+                model_container=model_container,
+                global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
+                experiments_tracker=experiments_tracker,
+                eval_steps=eval_steps,
+                group_names=group_names,
                 lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
                 context="val",
             )
@@ -481,12 +497,13 @@ def train(
 
     if eval_during_training:
         evaluate(
-            test_dataloaders,
-            model_container,
-            global_step,
-            experiments_tracker,
-            eval_steps,
-            group_names,
+            val_dataloaders=test_dataloaders,
+            model_container=model_container,
+            global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
+            experiments_tracker=experiments_tracker,
+            eval_steps=eval_steps,
+            group_names=group_names,
             lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
             context="test",
         )
@@ -500,26 +517,25 @@ def evaluate(
     val_dataloaders: list[DataLoader],
     model_container: ModelContainer,
     global_step: int,
+    global_step_in_tokens: int,
     experiments_tracker: ExperimentsTracker,
     eval_steps: int,
     group_names: list[str],
     lm_loss_multiplier: float,
     context: str,
-) -> float:
+) -> None:
     """main validation loop for the program
 
     Args:
         val_dataloaders (list[DataLoader]): list of validation dataloaders
         model_container (ModelContainer): container of models
         global_step (int): global step during training
+        global_step_in_tokens (int): global step during training in number of tokens
         experiments_tracker (ExperimentsTracker): metrics tracker
         eval_steps (int): number of steps to run eval for
         group_names (list[str]): names of the datasets in validation/test group
         lm_loss_multiplier (float): lm loss multiplier
         context (str): context
-
-    Returns:
-        MetricsTrackingDict: metrics tracker
     """
 
     assert len(model_container) == 1
@@ -546,6 +562,9 @@ def evaluate(
     model.eval()
 
     for group_name, val_dataloader in zip(group_names, val_dataloaders):
+        if val_dataloader is None:
+            continue
+
         metrics_tracker = MetricsTrackingDict({})
 
         for _ in range(eval_steps):
@@ -559,9 +578,11 @@ def evaluate(
             metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
 
         metrics_tracker = all_reduce_metrics_tracker(metrics_tracker)
+        metrics_tracker["tokens"] = global_step_in_tokens
 
         track_val_metrics(
             global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
             experiments_tracker=experiments_tracker,
             metrics_tracker=metrics_tracker,
             group_name=group_name,
@@ -569,8 +590,6 @@ def evaluate(
         )
 
     model.train()
-
-    return metrics_tracker
 
 
 def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> None:
@@ -670,7 +689,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         checkpoint_metadata=experiments_tracker_state_dict,
     )
     # track all hyperparams in args
-    experiments_tracker.log_args(args)
+    experiments_tracker.log_args(args, **model_container[0].calculate_num_parameters(return_dict=True))
 
     # main training loop
     with disable_generation_cache(), enable_kernels(args.kernel_args.kernels):

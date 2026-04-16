@@ -7,16 +7,15 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from ....utils import divide_if_divisible, is_fla_available
-from ...cache import GenerationCache
-from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
+from ...cache import ConstantCache, GenerationCache, GenerationState
+from ..activations import silu
 from ..convolution import ParameterizedConv1d
+from ..decay_gate import SoftplusDecayGate
+from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
@@ -44,7 +43,13 @@ class GatedDeltaNet(nn.Module):
         init_method: str,
         initializer_range: float,
         m_width: float | None,
+        A_init_min: float,
+        A_init_max: float,
+        dt_init_min: float,
+        dt_init_max: float,
+        dt_init_floor: float,
         num_layers: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
     ) -> GatedDeltaNet:
         super().__init__()
@@ -72,20 +77,32 @@ class GatedDeltaNet(nn.Module):
 
         divide_if_divisible(self.num_v_heads, self.num_k_heads)
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-        self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=std)
-
-        self.ab_proj = ParameterizedLinear(
-            hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False, std=std
+        up_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=hidden_size,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
         )
 
-        self.A_log = nn.Parameter(torch.empty(self.num_v_heads, dtype=torch.float32))
-        mark_parameter_as_no_weight_decay(self.A_log)
+        self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=up_std)
 
-        self.dt_bias = nn.Parameter(torch.empty(self.num_v_heads))
-        mark_parameter_as_no_weight_decay(self.dt_bias)
+        self.ab_proj = ParameterizedLinear(
+            hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False, std=up_std
+        )
+
+        self.decay_gate = SoftplusDecayGate(
+            hidden_size=None,
+            output_size=self.num_v_heads,
+            std=None,
+            has_projection=False,
+            A_init_min=A_init_min,
+            A_init_max=A_init_max,
+            dt_init_min=dt_init_min,
+            dt_init_max=dt_init_max,
+            dt_init_floor=dt_init_floor,
+        )
 
         self.conv_size = conv_size
         self.qkv_conv1d = ParameterizedConv1d(
@@ -95,18 +112,31 @@ class GatedDeltaNet(nn.Module):
             padding=conv_size - 1,
             groups=2 * self.key_dim + self.value_dim,
             bias=False,
-            std=std,  # TODO
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=conv_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
         )
         self.activation_string = "silu"
 
         self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
-
-        std = initializer_range / math.sqrt(2 * num_layers)
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-        self.o_proj = ParameterizedLinear(self.value_dim, hidden_size, bias=False, std=std)
-
-        self.reset_parameters()
+        self.o_proj = ParameterizedLinear(
+            self.value_dim,
+            hidden_size,
+            bias=False,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.value_dim,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
+        )
 
     def forward(
         self,
@@ -116,8 +146,13 @@ class GatedDeltaNet(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
         use_cache = cache_params is not None
+
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
 
         qkv = self.qkv_proj(hidden_states)
 
@@ -154,9 +189,9 @@ class GatedDeltaNet(nn.Module):
 
         beta = b.sigmoid()
         if self.allow_neg_eigval:
-            beta = beta * 2.0
+            beta = beta * 2
 
-        g = -self.A_log.float().exp() * F.softplus(a.float() + self.dt_bias)
+        g = self.decay_gate(x=a, final_exponential=False)
 
         if self.use_padding_free_transformer:
             assert cache_params is None
@@ -210,33 +245,19 @@ class GatedDeltaNet(nn.Module):
 
         if cache_params is not None:
             cache_params.update(
-                conv_state=c, ssm_state=h, num_tokens_added=hidden_states.size(1), layer_idx=self.layer_idx
+                states=(
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=hidden_states.size(1)),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=hidden_states.size(1)),
+                ),
+                layer_idx=self.layer_idx,
             )
 
         if self.use_gate:
             g = gate.view(*gate.size()[:-1], -1, self.v_head_dim)
-            o = o * F.silu(g)
+            o = o * silu(g)
 
         o = self.o_norm(o)
         o = o.flatten(-2, -1)
         o = self.o_proj(o)
 
         return o
-
-    def reset_parameters(self) -> None:
-        A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
-        self.A_log.copy_(torch.log(A))
-
-        # hard coded for now
-        dt_min = 0.001
-        dt_max = 0.1
-        dt_init_floor = 1e-4
-        dt = torch.exp(torch.rand(self.num_v_heads) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min))
-        dt = torch.clamp(dt, min=dt_init_floor)
-        # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
-        inv_dt = dt + torch.log(-torch.expm1(-dt))
-
-        self.dt_bias.copy_(inv_dt)
-
-        mark_parameter_as_initialized(self.A_log)
-        mark_parameter_as_initialized(self.dt_bias)

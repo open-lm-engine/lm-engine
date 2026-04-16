@@ -14,7 +14,7 @@ class LadderResidualBlock(Block):
         current_attention_out: torch.Tensor | None,
         current_mlp_out: torch.Tensor | None,
         residual: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -26,7 +26,7 @@ class LadderResidualBlock(Block):
         current_attention_out = self.ln_1(residual)
         current_attention_out = self._sequence_mixer_forward(
             current_attention_out,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             rope_cos_sin=rope_cos_sin,
             cu_seqlens=cu_seqlens,

@@ -7,19 +7,15 @@ import os
 
 import torch
 from torch.distributed._tensor.api import DTensor
+from transformers import AutoModelForCausalLM
 
 from lm_engine.dtensors import dtensor_to_tensor
 from lm_engine.enums import Kernel
-from lm_engine.hf_models import (
-    GPTBaseConfig,
-    fix_unsharded_state_dict,
-    get_model_parallel_class,
-    unshard_tensor_parallel_state_dicts,
-)
+from lm_engine.hf_models import GPTBaseConfig, fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import Communication, ProcessGroupManager
 
-from ...test_common import TestCommons
+from ....utils import from_config
 
 
 parser = argparse.ArgumentParser()
@@ -60,12 +56,14 @@ enable_kernels([Kernel.scattermoe]).__enter__()
 
 
 if is_tp_first_rank:
-    model = TestCommons.from_config(None, config)
+    with ProcessGroupManager.set_dummy_tensor_parallel_world_size(1):
+        model = from_config(config)
+
     model.save_pretrained(args.tmp_path, safe_serialization=True)
 
 Communication.barrier()
 
-model_tp = get_model_parallel_class(config.model_type).from_pretrained(args.tmp_path)
+model_tp = AutoModelForCausalLM.from_pretrained(args.tmp_path)
 tp_state_dict = model_tp.state_dict()
 
 

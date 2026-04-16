@@ -2,58 +2,72 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import pytest
 import torch
-from parameterized import parameterized
 
-from lm_engine.hf_models.config import _Mamba2Args, _MLPArgs
+from lm_engine.hf_models.config import _Mamba2Args
 
-from ..test_common import TestCommons
+from ...utils import get_dense_test_config, get_moe_test_config, model_conversion_test
 
 
-class ModelConversionTest(TestCommons):
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
-    def test_llama_model_conversion(self, device: torch.device, add_bias: bool) -> None:
-        lm_engine_config = self.get_dense_test_config(
-            "rope", add_bias=add_bias, activation_function="swiglu", normalization_function="rmsnorm"
-        )
+@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
+@pytest.mark.parametrize("add_bias", [False, True])
+@pytest.mark.parametrize("use_interleaved_weights", [False, True])
+def test_llama_model_conversion(device: torch.device, add_bias: bool, use_interleaved_weights: bool) -> None:
+    lm_engine_config = get_dense_test_config(
+        "rope", add_bias=add_bias, activation_function="swiglu", normalization_function="rmsnorm"
+    )
 
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config, model_type="llama", device=device, exact_match=False
-        )
+    for block in lm_engine_config.mlp_blocks:
+        block.use_interleaved_weights = use_interleaved_weights
 
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
-    def test_granite_model_conversion(self, device: torch.device, add_bias: bool) -> None:
-        lm_engine_config = self.get_dense_test_config(
-            "rope",
-            add_bias=add_bias,
-            activation_function="swiglu",
-            normalization_function="rmsnorm",
-            m_emb=2,
-            m_width=2,
-        )
+    model_conversion_test(
+        lm_engine_config=lm_engine_config,
+        model_type="llama",
+        device=device,
+        exact_match=False,
+        use_interleaved_weights=use_interleaved_weights,
+    )
 
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config, model_type="granite", device=device, exact_match=False
-        )
 
-    @parameterized.expand(TestCommons.get_all_devices())
-    def test_granitemoe_model_conversion(self, device: torch.device) -> None:
-        lm_engine_config = self.get_moe_test_config(
-            "rope", add_bias=False, activation_function="swiglu", normalization_function="rmsnorm", m_emb=2, m_width=2
-        )
+@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
+@pytest.mark.parametrize("add_bias", [False, True])
+@pytest.mark.parametrize("use_interleaved_weights", [False, True])
+def test_granite_model_conversion(device: torch.device, add_bias: bool, use_interleaved_weights: bool) -> None:
+    lm_engine_config = get_dense_test_config(
+        "rope",
+        add_bias=add_bias,
+        activation_function="swiglu",
+        normalization_function="rmsnorm",
+        m_emb=2,
+        m_width=2,
+    )
 
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config,
-            model_type="granitemoe",
-            device=device,
-            exact_match=False,
-            compare_loss=False,
-        )
+    for block in lm_engine_config.mlp_blocks:
+        block.use_interleaved_weights = use_interleaved_weights
 
-    @parameterized.expand(TestCommons.get_all_devices())
-    def test_granitemoeshared_model_conversion(self, device: torch.device) -> None:
-        lm_engine_config = self.get_moe_test_config(
-            "rope",
+    model_conversion_test(
+        lm_engine_config=lm_engine_config,
+        model_type="granite",
+        device=device,
+        exact_match=False,
+        use_interleaved_weights=use_interleaved_weights,
+    )
+
+
+@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
+@pytest.mark.parametrize("is_moe", [False, True])
+@pytest.mark.parametrize("use_interleaved_weights", [False, True])
+@pytest.mark.parametrize("use_interleaved_weights_for_shared_experts", [False, True])
+def test_granitemoehybrid_model_conversion(
+    device: torch.device,
+    is_moe: bool,
+    use_interleaved_weights: bool,
+    use_interleaved_weights_for_shared_experts: bool,
+) -> None:
+    if is_moe:
+        lm_engine_config = get_moe_test_config(
+            "nope",
             add_bias=False,
             shared_n_inner=64,
             activation_function="swiglu",
@@ -61,76 +75,32 @@ class ModelConversionTest(TestCommons):
             m_emb=2,
             m_width=2,
         )
-
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config,
-            model_type="granitemoeshared",
-            device=device,
-            exact_match=False,
-            compare_loss=False,
-        )
-
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [True, False]))
-    def test_granitemoehybrid_model_conversion(self, device: torch.device, is_moe: bool) -> None:
-        if is_moe:
-            lm_engine_config = self.get_moe_test_config(
-                "nope",
-                add_bias=False,
-                shared_n_inner=64,
-                activation_function="swiglu",
-                normalization_function="rmsnorm",
-                m_emb=2,
-                m_width=2,
-            )
-        else:
-            lm_engine_config = self.get_dense_test_config(
-                "nope",
-                add_bias=False,
-                activation_function="swiglu",
-                normalization_function="rmsnorm",
-                m_emb=2,
-                m_width=2,
-            )
-
-        for layer in range(lm_engine_config.num_layers):
-            if layer % 2 == 0:
-                lm_engine_config.sequence_mixer_blocks[layer] = _Mamba2Args(intermediate_size=256)
-
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config,
-            model_type="granitemoehybrid",
-            device=device,
-            exact_match=False,
-            compare_loss=False,
-            logits_atol_float32=2.5e-5,
-        )
-
-    @parameterized.expand(TestCommons.make_args_matrix(TestCommons.get_all_devices(), [False, True], [False, True]))
-    def test_qwen2_moe_model_conversion(self, device: torch.device, qkv_bias: bool, use_sliding_window: bool) -> None:
-        lm_engine_config = self.get_moe_test_config(
-            "rope",
-            qkv_bias=qkv_bias,
-            shared_n_inner=36,
+    else:
+        lm_engine_config = get_dense_test_config(
+            "nope",
+            add_bias=False,
             activation_function="swiglu",
             normalization_function="rmsnorm",
-            shared_expert_gating=True,
-            normalized_topk=False,
+            m_emb=2,
+            m_width=2,
         )
 
-        for layer_idx in [3, 6]:
-            mlp_block = lm_engine_config.mlp_blocks[layer_idx]
-            lm_engine_config.mlp_blocks[layer_idx] = _MLPArgs(
-                intermediate_size=mlp_block.intermediate_size, activation_function=mlp_block.activation_function
-            )
+    for layer in range(lm_engine_config.num_layers):
+        if layer % 2 == 0:
+            lm_engine_config.sequence_mixer_blocks[layer] = _Mamba2Args(intermediate_size=256)
 
-        if use_sliding_window:
-            for layer_idx in range(3, lm_engine_config.num_layers):
-                lm_engine_config.sequence_mixer_blocks[layer_idx].sliding_window = 4096
+    for block in lm_engine_config.mlp_blocks:
+        block.use_interleaved_weights = use_interleaved_weights
+        if block.mlp_type == "MoE":
+            block.use_interleaved_weights_for_shared_experts = use_interleaved_weights_for_shared_experts
 
-        self.model_conversion_test(
-            lm_engine_config=lm_engine_config,
-            model_type="qwen2_moe",
-            device=device,
-            exact_match=False,
-            weight_test_only=use_sliding_window,
-        )
+    model_conversion_test(
+        lm_engine_config=lm_engine_config,
+        model_type="granitemoehybrid",
+        device=device,
+        exact_match=False,
+        compare_loss=False,
+        logits_atol_float32=2.5e-5,
+        use_interleaved_weights=use_interleaved_weights,
+        use_interleaved_weights_for_shared_experts=use_interleaved_weights_for_shared_experts,
+    )

@@ -10,7 +10,7 @@ import torch.nn as nn
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible
-from ...cache import GenerationCache
+from ...cache import GenerationCache, GenerationState, LinearCache
 from ...modeling_utils import apply_rotary_pos_emb, get_mlp_block, get_normalization_function
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer
@@ -53,7 +53,10 @@ class GPTCrossLayerBlock(nn.Module):
             config.normalization_function, hidden_size, eps=config.layer_norm_epsilon
         )
         self.mlp_block = get_mlp_block(
-            config, use_padding_free_transformer=use_padding_free_transformer, layer_idx=layer_idx
+            config,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=False,
+            layer_idx=layer_idx,
         )
 
     def forward(
@@ -61,7 +64,7 @@ class GPTCrossLayerBlock(nn.Module):
         hidden_states: torch.Tensor,
         key: torch.Tensor,
         value: torch.Tensor,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         rope_cos_sin: torch.Tensor | None = None,
         cu_seqlens: torch.Tensor | None = None,
@@ -73,8 +76,14 @@ class GPTCrossLayerBlock(nn.Module):
             if self.position_embedding_type == "rope":
                 key = apply_rotary_pos_emb(key, rope_cos_sin)
 
-            if past_key_values is not None:
-                key, value = past_key_values.update(key_states=key, value_states=value, layer_idx=self.layer_idx)
+            if cache_params is not None:
+                key, value = cache_params.update(
+                    states=(
+                        GenerationState(state=key, method=LinearCache),
+                        GenerationState(state=value, method=LinearCache),
+                    ),
+                    layer_idx=self.layer_idx,
+                )
 
             if is_kernel_allowed(Kernel.flash_attention_3) or is_kernel_allowed(Kernel.flash_attention_2):
                 if not self.use_padding_free_transformer:

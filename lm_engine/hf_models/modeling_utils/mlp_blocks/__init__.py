@@ -7,7 +7,9 @@ from .mlp import MLP, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_fo
 from .moe import MoE, ParameterizedExperts
 
 
-def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, layer_idx: int) -> MLP | MoE:
+def get_mlp_block(
+    config: CommonConfig, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
+) -> MLP | MoE:
     block = config.mlp_blocks[layer_idx]
     mlp_type = block.mlp_type
 
@@ -17,10 +19,14 @@ def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, laye
         activation_function=block.activation_function,
         add_bias=block.add_bias,
         dropout=block.dropout,
+        use_interleaved_weights=block.use_interleaved_weights,
         init_method=config.init_method,
         initializer_range=config.initializer_range,
         m_width=config.m_width,
         num_layers=config.num_layers,
+        use_depth_scaled_init=config.use_depth_scaled_init,
+        use_padding_free_transformer=use_padding_free_transformer,
+        sequence_parallel=sequence_parallel,
     )
 
     if mlp_type == "MLP":
@@ -29,12 +35,11 @@ def get_mlp_block(config: CommonConfig, use_padding_free_transformer: bool, laye
         mlp = MoE(
             **kwargs,
             shared_intermediate_size=block.shared_intermediate_size,
-            use_interleaved_weights=block.use_interleaved_weights,
+            use_interleaved_weights_for_shared_experts=block.use_interleaved_weights_for_shared_experts,
             shared_expert_gating=block.shared_expert_gating,
             normalized_topk=block.normalized_topk,
             num_experts=block.num_experts,
             num_experts_per_tok=block.num_experts_per_tok,
-            use_padding_free_transformer=use_padding_free_transformer,
         )
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")

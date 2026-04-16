@@ -21,6 +21,9 @@ from .utils import (
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
+    if ProcessGroupManager.get_data_parallel_world_size() == 1:
+        return metrics_tracker
+
     tensor = [metrics_tracker[key] for key in metrics_tracker]
     tensor = torch.stack(tensor)
     # NOTE the cpu() call was to save memory but might not be needed anymore
@@ -43,12 +46,17 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
 
 
 def track_metrics(
-    global_step: int, experiments_tracker: ExperimentsTracker, metrics_tracker: MetricsTrackingDict, context: str
+    global_step: int,
+    global_step_in_tokens: int,
+    experiments_tracker: ExperimentsTracker,
+    metrics_tracker: MetricsTrackingDict,
+    context: str,
 ) -> None:
     """tracks metrics like training loss, learning rate etc
 
     Args:
         global_step (int): global step during training
+        global_step_in_tokens (int): global step during training in number of tokens
         experiments_tracker (ExperimentsTracker): metrics tracker
         metrics_tracker (float): metrics tracker
         context (str): experiment context
@@ -57,8 +65,11 @@ def track_metrics(
     # experiments tracker
     experiments_tracker.track(metrics_tracker.get_dict(), step=global_step, context=context)
 
-    message = f"step = {global_step}"
+    message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
     for key in metrics_tracker:
+        if key == "tokens":
+            continue
+
         if key == "learning_rate":
             message += f", {key} = {metrics_tracker[key]:.4e}"
         else:
@@ -78,8 +89,11 @@ def _get_linear_flops(m: int, k: int, n: int, gradient_checkpointing: bool = Fal
     return total_flops
 
 
-def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int) -> int:
-    attention_forward_flops = 2 * batch_size * sequence_length * (sequence_length + 1) * hidden_size
+def _get_attention_flops(batch_size: int, sequence_length: int, hidden_size: int, window_size: int | None) -> float:
+    if window_size is None:
+        window_size = sequence_length
+
+    attention_forward_flops = 2 * batch_size * sequence_length * window_size * hidden_size
     attention_backward_flops = 5 * attention_forward_flops / 2
     return attention_forward_flops + attention_backward_flops
 
@@ -138,21 +152,7 @@ def get_model_tflops(
                 b * s, h, h, gradient_checkpointing=gradient_checkpointing_enabled
             )
 
-            sequence_mixer_flops += _get_attention_flops(b, s, h)
-        elif sequence_mixer_type == "multihead_latent_attention":
-            # QKV down and up projection FLOPs
-            sequence_mixer_flops = 2 * _get_linear_flops(
-                b * s,
-                h,
-                block.query_compression_size + 2 * block.key_value_compression_size,
-                gradient_checkpointing=gradient_checkpointing_enabled,
-            )
-            # output projection FLOPs
-            sequence_mixer_flops += _get_linear_flops(
-                b * s, h, h, gradient_checkpointing=gradient_checkpointing_enabled
-            )
-
-            sequence_mixer_flops += _get_attention_flops(b, s, h)
+            sequence_mixer_flops += _get_attention_flops(b, s, h, block.sliding_window)
         elif sequence_mixer_type == "mamba2":
             # NOTE taken from NexaAI's fork (might be incorrect)
             # Mamba2 FLOP calculation based on its specific architecture
@@ -209,7 +209,7 @@ def get_model_tflops(
         elif sequence_mixer_type == "gated_deltanet":
             return 0
         else:
-            raise NotImplementedError(f"unexpected sequence_mixer_type ({sequence_mixer_type})")
+            return 0
 
         total_flops += sequence_mixer_flops
 

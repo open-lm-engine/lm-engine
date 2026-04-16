@@ -94,9 +94,14 @@ ensure_last_checkpoint_is_saved()
 
 Communication.barrier()
 
-_, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config)
-
 if global_rank == 0:
+    with (
+        ProcessGroupManager.set_dummy_tensor_parallel_world_size(1),
+        ProcessGroupManager.set_dummy_tensor_parallel_rank(0),
+        ProcessGroupManager.set_dummy_pipeline_parallel_world_size(1),
+        ProcessGroupManager.set_dummy_pipeline_parallel_rank(0),
+    ):
+        _, _, consolidated_state_dict = load_checkpoint_and_unshard(unshard_config)
     original_state_dict = model_container[0].state_dict()
 
     assert consolidated_state_dict.keys() == original_state_dict.keys()

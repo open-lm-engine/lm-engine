@@ -103,9 +103,9 @@ class CrossLayerAttention(nn.Module):
                     query = apply_rotary_pos_emb(query, rope_cos_sin)
 
                 hidden_states = flash_attention(
-                    query=query,
-                    key=key,
-                    value=value,
+                    q=query,
+                    k=key,
+                    v=value,
                     attention_mask=attention_mask,
                     cu_seqlens=cu_seqlens,
                     max_seqlen=max_seqlen,
@@ -131,9 +131,9 @@ class CrossLayerAttention(nn.Module):
                     query = query.transpose(1, 2)
 
                 hidden_states = flash_attention(
-                    query=query,
-                    key=key,
-                    value=value,
+                    q=query,
+                    k=key,
+                    v=value,
                     attention_mask=attention_mask,
                     cu_seqlens=cu_seqlens,
                     max_seqlen=max_seqlen,

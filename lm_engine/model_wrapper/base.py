@@ -12,7 +12,7 @@ import torch.nn as nn
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..enums import Kernel
-from ..hf_models import get_model_parallel_class, is_custom_model
+from ..hf_models import is_custom_model
 from ..kernels import is_kernel_allowed
 from ..tokenizers import get_tokenizer
 from ..utils import ProcessGroupManager, SafeTensorsWeightsManager, log_rank_0, string_to_torch_dtype
@@ -83,9 +83,6 @@ class ModelWrapper(nn.Module):
 
         if use_model_parallelism:
             self.tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
-            self.model_class = get_model_parallel_class(self.config.model_type)
-        else:
-            self.model_class = AutoModelForCausalLM
 
         if self.use_padding_free_transformer:
             assert self.is_custom_model, "padding free transformer is not supported with the specified model"
@@ -194,44 +191,55 @@ class ModelWrapper(nn.Module):
 
         with context:
             if self.model_name is None:
-                if self.is_pipeline_parallel_enabled or ProcessGroupManager.is_tensor_parallel_enabled():
-                    # avoid inferring the model class so use _from_config instead of from_config
-                    self.model = self.model_class._from_config(**model_kwargs, **kwargs)
-                else:
-                    self.model = self.model_class.from_config(**model_kwargs, **kwargs)
+                self.model = AutoModelForCausalLM.from_config(**model_kwargs, **kwargs)
             else:
-                self.model = self.model_class.from_pretrained(**model_kwargs, **kwargs)
+                self.model = AutoModelForCausalLM.from_pretrained(**model_kwargs, **kwargs)
 
-    def calculate_num_parameters(self) -> tuple[int, int]:
-        model_kwargs = self._get_model_kwargs()
+    def calculate_num_parameters(self, return_dict: bool = False) -> tuple[int, int] | dict[str, int]:
+        if hasattr(self, "_parameter_metadata"):
+            num_parameters = self._parameter_metadata["num_parameters"]
+            active_parameters = self._parameter_metadata["active_parameters"]
+        else:
+            model_kwargs = self._get_model_kwargs()
 
-        with torch.device("meta"):
-            if self.model_name is not None:
-                model_kwargs["config"] = AutoConfig.from_pretrained(model_kwargs.pop("pretrained_model_name_or_path"))
+            with (
+                torch.device("meta"),
+                ProcessGroupManager.set_dummy_tensor_parallel_world_size(1),
+                ProcessGroupManager.set_dummy_pipeline_parallel_world_size(1),
+            ):
+                if self.model_name is not None:
+                    model_kwargs["config"] = AutoConfig.from_pretrained(
+                        model_kwargs.pop("pretrained_model_name_or_path")
+                    )
 
-            model: nn.Module = AutoModelForCausalLM.from_config(**model_kwargs)
+                model: nn.Module = AutoModelForCausalLM.from_config(**model_kwargs)
 
-            num_parameters = 0
-            for param in model.parameters():
-                num_parameters += param.numel()
+                num_parameters = 0
+                for param in model.parameters():
+                    num_parameters += param.numel()
 
-            active_parameters = 0
+                active_parameters = 0
 
-            def _recurse_immediate_children_and_count_active_parameters(module: nn.Module) -> None:
-                nonlocal active_parameters
+                def _recurse_immediate_children_and_count_active_parameters(module: nn.Module) -> None:
+                    nonlocal active_parameters
 
-                for m in module.children():
-                    if hasattr(m, "get_num_active_parameters"):
-                        active_parameters += m.get_num_active_parameters()
-                    else:
-                        for parameter in m.parameters(recurse=False):
-                            active_parameters += parameter.numel()
+                    for m in module.children():
+                        if hasattr(m, "get_num_active_parameters"):
+                            active_parameters += m.get_num_active_parameters()
+                        else:
+                            for parameter in m.parameters(recurse=False):
+                                active_parameters += parameter.numel()
 
-                        _recurse_immediate_children_and_count_active_parameters(m)
+                            _recurse_immediate_children_and_count_active_parameters(m)
 
-            _recurse_immediate_children_and_count_active_parameters(model)
+                _recurse_immediate_children_and_count_active_parameters(model)
 
-            return num_parameters, active_parameters
+                self._parameter_metadata = {"num_parameters": num_parameters, "active_parameters": active_parameters}
+
+        if return_dict:
+            return self._parameter_metadata
+
+        return num_parameters, active_parameters
 
     def has_teacher_model(self) -> bool:
         return False
