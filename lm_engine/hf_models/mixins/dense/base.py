@@ -20,6 +20,11 @@ from .layer import Block
 
 
 class PreTrainedModelMixin(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
     config_class = None
     layer_class = Block
     base_model_prefix = "transformer"
@@ -186,7 +191,13 @@ class BaseModelMixin(PreTrainedModelMixin):
             if past_length > 0:
                 position_ids = position_ids[:, past_length:key_length:]
         else:
-            position_ids = torch.arange(past_length, key_length, dtype=torch.long, device=device)
+            position_ids = torch.arange(
+                past_length,
+                key_length,
+                dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.long,
+                device=device,
+            )
+
             position_ids = position_ids.unsqueeze(0).view(-1, query_length)
 
         return position_ids
