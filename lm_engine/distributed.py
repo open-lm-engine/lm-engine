@@ -32,6 +32,7 @@ from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
 from .hf_models import (
     _INIT_MARKER,
+    _OPTIMIZER_SPLIT_FUNCTION,
     CausalLMOutputWithPast,
     get_parameter_marker_maps,
     is_parameter_initialized,

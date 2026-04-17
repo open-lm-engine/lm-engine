@@ -175,6 +175,8 @@ class OptimizerArgs(BaseArgs):
     params_group_method: ParamsGroupMethod | None = None
     # backward hooked optimizer
     use_optimizer_with_backward_hook: bool = False
+    # whether to split params for the optimizer using model-defined split functions
+    split_params_for_optimizer: bool = False
     # class args for optimizer
     class_args: dict = {
         "lr": 1e-5,

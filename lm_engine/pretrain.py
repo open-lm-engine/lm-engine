@@ -646,6 +646,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         model_container=model_container,
         params_group_method=args.optimizer_args.params_group_method,
         use_optimizer_with_backward_hook=args.optimizer_args.use_optimizer_with_backward_hook,
+        split_params_for_optimizer=args.optimizer_args.split_params_for_optimizer,
     )
 
     lr_scheduler_container = get_scheduler_container(
