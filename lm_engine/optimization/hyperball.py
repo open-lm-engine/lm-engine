@@ -94,21 +94,38 @@ class HyperballAdamW(Optimizer):
             t = state["step"]
             R = state["R"]
 
-            self._update_moments(exp_avg=exp_avg, exp_avg_sq=exp_avg_sq, grad=p.grad, beta1=beta1, beta2=beta2)
+            self._hyperball_single_tensor_step(
+                p=p, exp_avg=exp_avg, exp_avg_sq=exp_avg_sq, lr=lr, beta1=beta1, beta2=beta2, t=t, R=R, eps=eps
+            )
 
-            # Bias-corrected Adam update direction
-            bc1 = 1 - beta1**t
-            bc2 = 1 - beta2**t
-            u_t = (exp_avg / bc1) / ((exp_avg_sq / bc2).sqrt_().add_(eps))
+    @torch.compile(fullgraph=True)
+    def _hyperball_single_tensor_step(
+        self,
+        p: torch.Tensor,
+        exp_avg: torch.Tensor,
+        exp_avg_sq: torch.Tensor,
+        lr: torch.Tensor | float,
+        beta1: torch.Tensor | float,
+        beta2: torch.Tensor | float,
+        t: torch.Tensor | float,
+        R: torch.Tensor,
+        eps: float,
+    ) -> None:
+        exp_avg.mul_(beta1).add_(p.grad, alpha=1 - beta1)
+        exp_avg_sq.mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
 
-            # Normalize update direction
-            u_norm = u_t.norm() + eps
-            u_hat = u_t / u_norm
+        bc1 = 1 - beta1**t
+        bc2 = 1 - beta2**t
+        u_t = (exp_avg / bc1) / ((exp_avg_sq / bc2).sqrt_().add_(eps))
 
-            # Step on the sphere surface, then project back
-            w_candidate = p - lr * R * u_hat
-            w_norm = w_candidate.norm() + eps
-            p.copy_(w_candidate.mul_(R / w_norm))
+        # Normalize update direction
+        u_norm = u_t.norm() + eps
+        u_hat = u_t / u_norm
+
+        # Step on the sphere surface, then project back
+        w_candidate = p - lr * R * u_hat
+        w_norm = w_candidate.norm() + eps
+        p.copy_(w_candidate.mul_(R / w_norm))
 
     def _adamw_step(self, group: dict) -> None:
         params_with_grad: list[torch.Tensor] = []
@@ -153,10 +170,3 @@ class HyperballAdamW(Optimizer):
             found_inf=getattr(self, "found_inf", None),
             decoupled_weight_decay=True,
         )
-
-    def _update_moments(
-        self, exp_avg: torch.Tensor, exp_avg_sq: torch.Tensor, grad: torch.Tensor, beta1: float, beta2: float
-    ) -> None:
-        # Adam moments
-        exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
-        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
