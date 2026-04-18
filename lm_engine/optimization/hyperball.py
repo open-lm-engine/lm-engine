@@ -89,18 +89,12 @@ class HyperballAdamW(Optimizer):
             u_t = (exp_avg / bc1) / ((exp_avg_sq / bc2).sqrt_().add_(eps))
 
             # Normalize update direction
-            u_norm = u_t.norm()
-            # TODO mayank fix this CPU side check
-            if u_norm == 0:
-                continue
+            u_norm = u_t.norm() + eps
             u_hat = u_t / u_norm
 
             # Step on the sphere surface, then project back
             w_candidate = p - lr * R * u_hat
-            w_norm = w_candidate.norm()
-            # TODO mayank fix this CPU side check
-            if w_norm == 0:
-                continue
+            w_norm = w_candidate.norm() + eps
             p.copy_(w_candidate.mul_(R / w_norm))
 
     def _adamw_step(self, group: dict) -> None:
