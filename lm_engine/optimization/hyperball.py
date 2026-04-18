@@ -6,7 +6,8 @@ from typing import Callable
 
 import torch
 from torch.distributed.tensor import DTensor
-from torch.optim import Optimizer
+from torch.optim import AdamW, Optimizer
+from torch.optim.adam import adam
 
 
 class HyperballAdamW(Optimizer):
@@ -36,7 +37,19 @@ class HyperballAdamW(Optimizer):
         eps: float = 1e-10,
         weight_decay: float = 0.1,
     ) -> None:
-        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, hyperball=False)
+        defaults = dict(
+            lr=lr,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            hyperball=False,
+            foreach=None,
+            capturable=False,
+            differentiable=False,
+            fused=None,
+            amsgrad=False,
+        )
+
         super().__init__(params, defaults)
 
     @torch.no_grad()
@@ -98,39 +111,48 @@ class HyperballAdamW(Optimizer):
             p.copy_(w_candidate.mul_(R / w_norm))
 
     def _adamw_step(self, group: dict) -> None:
+        params_with_grad: list[torch.Tensor] = []
+        grads: list[torch.Tensor] = []
+        exp_avgs: list[torch.Tensor] = []
+        exp_avg_sqs: list[torch.Tensor] = []
+        max_exp_avg_sqs: list[torch.Tensor] = []
+        state_steps: list[torch.Tensor] = []
         beta1, beta2 = group["betas"]
-        lr = group["lr"]
-        eps = group["eps"]
-        weight_decay = group["weight_decay"]
 
-        for p in group["params"]:
-            if p.grad is None:
-                continue
+        has_complex = AdamW._init_group(
+            self,
+            group,
+            params_with_grad,
+            grads,
+            exp_avgs,
+            exp_avg_sqs,
+            max_exp_avg_sqs,
+            state_steps,
+        )
 
-            state = self.state[p]
-
-            if len(state) == 0:
-                state["step"] = 0
-                state["exp_avg"] = torch.zeros_like(p)
-                state["exp_avg_sq"] = torch.zeros_like(p)
-
-            exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
-            state["step"] += 1
-            t = state["step"]
-
-            # Weight decay (decoupled)
-            if weight_decay != 0:
-                p.mul_(1 - lr * weight_decay)
-
-            self._update_moments(exp_avg=exp_avg, exp_avg_sq=exp_avg_sq, grad=p.grad, beta1=beta1, beta2=beta2)
-
-            # Bias-corrected update
-            bc1 = 1 - beta1**t
-            bc2 = 1 - beta2**t
-            step_size = lr / bc1
-            denom = (exp_avg_sq / bc2).sqrt_().add_(eps)
-
-            p.addcdiv_(exp_avg, denom, value=-step_size)
+        adam(
+            params_with_grad,
+            grads,
+            exp_avgs,
+            exp_avg_sqs,
+            max_exp_avg_sqs,
+            state_steps,
+            amsgrad=group["amsgrad"],
+            has_complex=has_complex,
+            beta1=beta1,
+            beta2=beta2,
+            lr=group["lr"],
+            weight_decay=group["weight_decay"],
+            eps=group["eps"],
+            maximize=False,
+            foreach=group["foreach"],
+            capturable=group["capturable"],
+            differentiable=group["differentiable"],
+            fused=group["fused"],
+            grad_scale=getattr(self, "grad_scale", None),
+            found_inf=getattr(self, "found_inf", None),
+            decoupled_weight_decay=True,
+        )
 
     def _update_moments(
         self, exp_avg: torch.Tensor, exp_avg_sq: torch.Tensor, grad: torch.Tensor, beta1: float, beta2: float
