@@ -134,7 +134,7 @@ class _M2RNNArgs(BaseArgs):
         assert self.sequence_mixer_type == "m2rnn"
 
 
-class _CausalConvolution(BaseArgs):
+class _CausalConvolutionArgs(BaseArgs):
     sequence_mixer_type: str = "causal_convolution"
     activation_function: str = "silu"
     in_channels: int
