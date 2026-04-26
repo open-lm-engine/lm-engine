@@ -141,7 +141,9 @@ def get_next_batch(x: Iterable | None) -> dict:
     if x is None:
         return None
 
-    if Accelerator.get_accelerator() == Accelerator.trainium:
-        x = {k: v.to(torch.int32) if v.dtype in [torch.int32, torch.int64] else v for k, v in x.items()}
+    batch = next(x)
 
-    return next(x)
+    if Accelerator.get_accelerator() == Accelerator.trainium:
+        batch = {k: v.to(torch.int32) if v.dtype in [torch.int32, torch.int64] else v for k, v in batch.items()}
+
+    return batch
