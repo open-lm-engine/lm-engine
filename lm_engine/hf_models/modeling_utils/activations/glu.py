@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from ....kernels import Kernel, is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, is_xma_available
+from ..chunk import contiguous_chunk
 from .base import get_base_activation
 
 
@@ -52,7 +53,9 @@ class GLUActivation(nn.Module):
                 u = x[..., 1::2]
                 g = x[..., ::2]
             else:
-                u, g = torch.chunk(x, 2, dim=-1)
+                u, g = (contiguous_chunk if Accelerator.get_accelerator() == Accelerator.trainium else torch.chunk)(
+                    x, 2, dim=-1
+                )
 
             x = u * self.base_activation(g)
 
