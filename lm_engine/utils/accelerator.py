@@ -130,7 +130,7 @@ class Accelerator(Enum):
         return state
 
     @staticmethod
-    def get_profiler_activity(self) -> ProfilerActivity:
+    def get_profiler_activity() -> ProfilerActivity:
         accelerator = Accelerator.get_accelerator()
 
         if accelerator == Accelerator.trainium:
