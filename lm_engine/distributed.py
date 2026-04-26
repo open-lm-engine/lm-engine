@@ -157,7 +157,7 @@ def wrap_model_container_for_distributed_training(
         for i, model in enumerate(model_container):
             model = model.to(Accelerator.get_current_device())
             if torch_compile:
-                model = torch.compile(model)
+                model = torch.compile(model, backend=Accelerator.get_torch_compile_backend())
 
             model_container[i] = model
 
