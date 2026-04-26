@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from ....kernels import Kernel, is_kernel_allowed, wait_for_ACT
-from ....utils import Accelerator, is_xma_available
+from ....utils import is_xma_available
 from .base import get_base_activation
 
 
