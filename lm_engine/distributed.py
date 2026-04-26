@@ -372,7 +372,7 @@ def wrap_model_container_for_distributed_training(
 
     if torch_compile:
         for i, model in enumerate(model_container):
-            model_container[i] = torch.compile(model)
+            model_container[i] = torch.compile(model, backend=Accelerator.get_torch_compile_backend())
 
     set_parameter_marker_maps(
         model_container,
