@@ -33,17 +33,6 @@ def _hold_base_args(key: str) -> Callable:
     return _holded_function
 
 
-_SEQUENCE_MIXER_CONFIG_CLASSES = {
-    "causal_convolution": _CausalConvolutionArgs,
-    "gru": _GRUArgs,
-    "m2rnn": _M2RNNArgs,
-    "mamba2": _Mamba2Args,
-    "rnn": _RNNArgs,
-    "softmax_attention": _SoftmaxAttentionArgs,
-    "gated_deltanet": _GatedDeltaNetArgs,
-}
-
-_MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
 _ALL_INIT_METHODS = ["normal", "mup", "fan_in"]
 
 
