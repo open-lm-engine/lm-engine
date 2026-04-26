@@ -206,12 +206,9 @@ class BaseModelMixin(PreTrainedModelMixin):
                 )
                 query_length = key_length - past_length
 
-            position_ids = torch.arange(
-                past_length,
-                key_length,
-                dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.long,
-                device=hidden_states.device,
-            )
+            dtype = torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.long
+
+            position_ids = torch.arange(past_length, key_length, dtype=dtype, device=hidden_states.device)
             position_ids = position_ids.unsqueeze(0).view(-1, query_length)
 
             rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
