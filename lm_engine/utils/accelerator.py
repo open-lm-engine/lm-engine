@@ -9,6 +9,7 @@ from functools import lru_cache
 from typing import Any
 
 import torch
+from torch.profiler import ProfilerActivity
 
 from .packages import is_torch_neuronx_available, is_torch_xla_available
 
@@ -127,3 +128,12 @@ class Accelerator(Enum):
             raise ValueError(f"unexpected device ({accelerator})")
 
         return state
+
+    @staticmethod
+    def get_profiler_activity(self) -> ProfilerActivity:
+        accelerator = Accelerator.get_accelerator()
+
+        if accelerator == Accelerator.trainium:
+            return ProfilerActivity.PrivateUse1
+
+        return ProfilerActivity.CUDA
