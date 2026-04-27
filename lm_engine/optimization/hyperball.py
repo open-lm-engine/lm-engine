@@ -2,12 +2,22 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from typing import Callable
 
 import torch
 from torch.distributed.tensor import DTensor
 from torch.optim import AdamW, Optimizer
 from torch.optim.adam import adam
+
+from ..enums import Kernel
+from ..kernels import is_kernel_allowed
+from ..utils import is_xma_available
+
+
+if is_xma_available():
+    from xma import hyperball_adam
 
 
 class HyperballAdamW(Optimizer):
@@ -36,18 +46,21 @@ class HyperballAdamW(Optimizer):
         betas: tuple[float, float] = (0.9, 0.95),
         eps: float = 1e-10,
         weight_decay: float = 0.1,
-    ) -> None:
+        hyperball: bool = False,
+        maximize: bool = False,
+    ) -> HyperballAdamW:
         defaults = dict(
             lr=lr,
             betas=betas,
             eps=eps,
             weight_decay=weight_decay,
-            hyperball=False,
+            hyperball=hyperball,
             foreach=None,
             capturable=False,
             differentiable=False,
             fused=None,
             amsgrad=False,
+            maximize=maximize,
         )
 
         super().__init__(params, defaults)
@@ -60,113 +73,142 @@ class HyperballAdamW(Optimizer):
                 loss = closure()
 
         for group in self.param_groups:
-            if group.get("hyperball", False):
-                self._hyperball_step(group)
+            beta1, beta2 = group["betas"]
+
+            if group["hyperball"]:
+                params = []
+                grads = []
+                exp_avgs = []
+                exp_avg_sqs = []
+                Rs = []
+                state_steps = []
+
+                self._init_hyperball_group(
+                    group=group,
+                    params=params,
+                    grads=grads,
+                    exp_avgs=exp_avgs,
+                    exp_avg_sqs=exp_avg_sqs,
+                    Rs=Rs,
+                    state_steps=state_steps,
+                )
+
+                if is_kernel_allowed(Kernel.hyperball_adam):
+                    hyperball_adam(
+                        params=params,
+                        grads=grads,
+                        exp_avgs=exp_avgs,
+                        exp_avg_sqs=exp_avg_sqs,
+                        Rs=Rs,
+                        lr=group["lr"],
+                        beta1=beta1,
+                        beta2=beta2,
+                        maximize=group["maximize"],
+                        foreach=group["foreach"],
+                        state_steps=state_steps,
+                        eps=group["eps"],
+                    )
+                else:
+                    eps = group["eps"]
+                    lr = group["lr"]
+                    if group["maximize"]:
+                        lr = -lr
+
+                    for i, (W, dW, exp_avg, exp_avg_sq, t, R) in enumerate(
+                        zip(params, grads, exp_avgs, exp_avg_sqs, state_steps, Rs)
+                    ):
+                        exp_avg.mul_(beta1).add_(dW, alpha=1 - beta1)
+                        exp_avg_sq.mul_(beta2).addcmul_(dW, dW, value=1 - beta2)
+
+                        bc1 = 1 / (1 - beta1**t)
+                        bc2 = 1 / (1 - beta2**t)
+                        u = exp_avg * bc1 / (exp_avg_sq * bc2).sqrt_().add_(eps)
+
+                        # Normalize update direction
+                        u /= u.norm() + eps
+
+                        # Step on the sphere surface, then project back
+                        u *= lr * R
+                        W -= u
+                        W /= W.norm() + eps
+                        W *= R
+
+                        state_steps[i] += 1
             else:
-                self._adamw_step(group)
+                params: list[torch.Tensor] = []
+                grads: list[torch.Tensor] = []
+                exp_avgs: list[torch.Tensor] = []
+                exp_avg_sqs: list[torch.Tensor] = []
+                max_exp_avg_sqs: list[torch.Tensor] = []
+                state_steps: list[torch.Tensor] = []
+
+                has_complex = AdamW._init_group(
+                    self,
+                    group=group,
+                    params_with_grad=params,
+                    grads=grads,
+                    exp_avgs=exp_avgs,
+                    exp_avg_sqs=exp_avg_sqs,
+                    max_exp_avg_sqs=max_exp_avg_sqs,
+                    state_steps=state_steps,
+                )
+
+                adam(
+                    params=params,
+                    grads=grads,
+                    exp_avgs=exp_avgs,
+                    exp_avg_sqs=exp_avg_sqs,
+                    max_exp_avg_sqs=max_exp_avg_sqs,
+                    state_steps=state_steps,
+                    amsgrad=group["amsgrad"],
+                    has_complex=has_complex,
+                    beta1=beta1,
+                    beta2=beta2,
+                    lr=group["lr"],
+                    weight_decay=group["weight_decay"],
+                    eps=group["eps"],
+                    maximize=group["maximize"],
+                    foreach=group["foreach"],
+                    capturable=group["capturable"],
+                    differentiable=group["differentiable"],
+                    fused=group["fused"],
+                    grad_scale=getattr(self, "grad_scale", None),
+                    found_inf=getattr(self, "found_inf", None),
+                    decoupled_weight_decay=True,
+                )
 
         return loss
 
-    def _hyperball_step(self, group: dict) -> None:
-        beta1, beta2 = group["betas"]
-        lr = group["lr"]
-        eps = group["eps"]
-
+    def _init_hyperball_group(
+        self,
+        group: dict,
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        exp_avgs: list[torch.Tensor],
+        exp_avg_sqs: list[torch.Tensor],
+        Rs: list[torch.Tensor],
+        state_steps: list[int],
+    ) -> None:
         for p in group["params"]:
             if p.grad is None:
                 continue
 
             state = self.state[p]
 
-            # initialize hyperball on the first step
             if len(state) == 0:
-                state["step"] = 0
+                state["step"] = 1
                 state["exp_avg"] = torch.zeros_like(p)
                 state["exp_avg_sq"] = torch.zeros_like(p)
+
                 # do the communication for R ahead of time to prevent it on every timestep
                 R = p.norm()
                 if isinstance(R, DTensor):
                     R = R.full_tensor()
                 state["R"] = R
 
-            exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
-            state["step"] += 1
-            t = state["step"]
-            R = state["R"]
-
-            self._hyperball_single_tensor_step(
-                p=p, exp_avg=exp_avg, exp_avg_sq=exp_avg_sq, lr=lr, beta1=beta1, beta2=beta2, t=t, R=R, eps=eps
-            )
-
-    @torch.compile(fullgraph=True)
-    def _hyperball_single_tensor_step(
-        self,
-        p: torch.Tensor,
-        exp_avg: torch.Tensor,
-        exp_avg_sq: torch.Tensor,
-        lr: torch.Tensor | float,
-        beta1: torch.Tensor | float,
-        beta2: torch.Tensor | float,
-        t: torch.Tensor | float,
-        R: torch.Tensor,
-        eps: float,
-    ) -> None:
-        exp_avg.mul_(beta1).add_(p.grad, alpha=1 - beta1)
-        exp_avg_sq.mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
-
-        bc1 = 1 - beta1**t
-        bc2 = 1 - beta2**t
-        u_t = (exp_avg / bc1) / ((exp_avg_sq / bc2).sqrt_().add_(eps))
-
-        # Normalize update direction
-        u_norm = u_t.norm() + eps
-        u_hat = u_t / u_norm
-
-        # Step on the sphere surface, then project back
-        w_candidate = p - lr * R * u_hat
-        w_norm = w_candidate.norm() + eps
-        p.copy_(w_candidate.mul_(R / w_norm))
-
-    def _adamw_step(self, group: dict) -> None:
-        params_with_grad: list[torch.Tensor] = []
-        grads: list[torch.Tensor] = []
-        exp_avgs: list[torch.Tensor] = []
-        exp_avg_sqs: list[torch.Tensor] = []
-        max_exp_avg_sqs: list[torch.Tensor] = []
-        state_steps: list[torch.Tensor] = []
-        beta1, beta2 = group["betas"]
-
-        has_complex = AdamW._init_group(
-            self,
-            group,
-            params_with_grad,
-            grads,
-            exp_avgs,
-            exp_avg_sqs,
-            max_exp_avg_sqs,
-            state_steps,
-        )
-
-        adam(
-            params_with_grad,
-            grads,
-            exp_avgs,
-            exp_avg_sqs,
-            max_exp_avg_sqs,
-            state_steps,
-            amsgrad=group["amsgrad"],
-            has_complex=has_complex,
-            beta1=beta1,
-            beta2=beta2,
-            lr=group["lr"],
-            weight_decay=group["weight_decay"],
-            eps=group["eps"],
-            maximize=False,
-            foreach=group["foreach"],
-            capturable=group["capturable"],
-            differentiable=group["differentiable"],
-            fused=group["fused"],
-            grad_scale=getattr(self, "grad_scale", None),
-            found_inf=getattr(self, "found_inf", None),
-            decoupled_weight_decay=True,
-        )
+            params.append(p)
+            grads.append(p.grad)
+            exp_avgs.append(state["exp_avg"])
+            exp_avg_sqs.append(state["exp_avg_sq"])
+            Rs.append(state["R"])
+            state_steps.append(state["step"])
