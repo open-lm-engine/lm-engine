@@ -57,7 +57,7 @@ class CommonConfig(BaseArgs):
     m_residual: float | None = None
     init_method: str = "normal"
     embedding_init_method: str = "normal"
-    use_depth_scaled_init: bool = (True,)
+    use_depth_scaled_init: bool = True
     sequence_mixer_blocks: list[
         _SoftmaxAttentionArgs
         | _Mamba2Args
