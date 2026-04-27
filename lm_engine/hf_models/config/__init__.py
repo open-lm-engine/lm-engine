@@ -78,10 +78,9 @@ class CommonConfig(BaseArgs):
         assert self.embedding_init_method in _ALL_INIT_METHODS
         assert self.position_embedding_type in ["rope", "learned_absolute", "nope"]
 
-        self._set_sequence_mixer_blocks()
         assert len(self.sequence_mixer_blocks) == self.num_layers
+        assert len(self.mlp_blocks) == self.num_layers
 
-        self.rope_dim = rope_dim
         if self.rope_dim is None and position_embedding_type == "rope":
             assert (
                 self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "sequence_mixer_type")
