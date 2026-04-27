@@ -28,7 +28,31 @@ class PreTrainedModelMixin(PreTrainedModel):
     _no_split_modules = ["Block"]
 
     def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
-        super().__init__(config, *args, **kwargs)
+        import copy
+        import re
+
+        from transformers.modeling_utils import _CAN_RECORD_REGISTRY, LOSS_MAPPING
+
+        # Skip PreTrainedModel.__init__ (which requires isinstance(config, PretrainedConfig))
+        # but still call DTensorModule.__init__ and nn.Module.__init__ via cooperative super()
+        super(PreTrainedModel, self).__init__()
+        self.config = config
+        self.config._attn_implementation_internal = self._check_and_adjust_attn_implementation(
+            getattr(config, "_attn_implementation", None), is_init_check=True
+        )
+        loss_type = self.__class__.__name__
+        if loss_type not in LOSS_MAPPING:
+            loss_groups = f"({'|'.join(LOSS_MAPPING)})"
+            matches = re.findall(loss_groups, self.__class__.__name__)
+            loss_type = matches[0] if matches else None
+        self.loss_type = loss_type
+        self.name_or_path = config.name_or_path
+        self.warnings_issued = {}
+        self.generation_config = None
+        self._keep_in_fp32_modules = copy.copy(self.__class__._keep_in_fp32_modules)
+        self._keep_in_fp32_modules_strict = copy.copy(self.__class__._keep_in_fp32_modules_strict)
+        self._no_split_modules = list(self._no_split_modules or [])
+        _CAN_RECORD_REGISTRY[str(self.__class__)] = self._can_record_outputs
 
         self.sequence_parallel = kwargs.get("sequence_parallel", False)
         self.num_pipeline_stages = kwargs.get("num_pipeline_stages", 1)
