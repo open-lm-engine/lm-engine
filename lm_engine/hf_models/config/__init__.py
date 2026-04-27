@@ -96,12 +96,6 @@ class CommonConfig(BaseArgs):
                     "",
                 )
 
-        self.mlp_blocks = mlp_blocks
-        self._set_mlp_blocks()
-        assert len(self.mlp_blocks) == self.num_layers
-
-        self.router_aux_loss_coef = router_aux_loss_coef
-
     @_hold_base_args(key="sequence_mixer_blocks")
     @_hold_base_args(key="mlp_blocks")
     def to_json_string(self, use_diff: bool = True) -> str:
