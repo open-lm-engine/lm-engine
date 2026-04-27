@@ -9,7 +9,7 @@ from ...utils import BaseArgs
 
 class _MLPArgs(BaseArgs):
     mlp_type: str = "MLP"
-    intermediate_size: int
+    intermediate_size: int | None = None
     activation_function: str = "gelu_pytorch_tanh"
     use_interleaved_weights: bool = False
     dropout: float = 0
