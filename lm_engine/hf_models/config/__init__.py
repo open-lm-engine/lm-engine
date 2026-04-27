@@ -23,6 +23,7 @@ _ALL_INIT_METHODS = ["normal", "mup", "fan_in"]
 
 
 class CommonConfig(BaseArgs):
+    model_type: str = None
     vocab_size: int
     max_position_embeddings: int
     hidden_size: int = 768

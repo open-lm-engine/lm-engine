@@ -8,7 +8,7 @@ from ...config import CommonConfig
 
 
 class GPTCrossLayerConfig(CommonConfig):
-    model_type = "gpt_crosslayer"
+    model_type: str = "gpt_crosslayer"
 
     def __init__(self, sharing_pattern: list[int] | None = None, **kwargs) -> GPTCrossLayerConfig:
         super().__init__(**kwargs)

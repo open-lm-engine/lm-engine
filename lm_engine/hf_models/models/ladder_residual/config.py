@@ -6,4 +6,4 @@ from ...config import CommonConfig
 
 
 class LadderResidualConfig(CommonConfig):
-    model_type = "ladder_residual"
+    model_type: str = "ladder_residual"
