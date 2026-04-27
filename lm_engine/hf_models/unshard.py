@@ -12,8 +12,8 @@ from .models import (
 
 
 _UNSHARD_STATE_DICT_FUNCTIONS = {
-    GPTBaseConfig.model_type: unshard_gpt_base_tensor_parallel_state_dicts,
-    LadderResidualConfig.model_type: unshard_gpt_base_tensor_parallel_state_dicts,
+    GPTBaseConfig.model_fields["model_type"].default: unshard_gpt_base_tensor_parallel_state_dicts,
+    LadderResidualConfig.model_fields["model_type"].default: unshard_gpt_base_tensor_parallel_state_dicts,
 }
 
 
@@ -35,8 +35,8 @@ def unshard_tensor_parallel_state_dicts(
 
 
 _FIX_UNSHARDED_STATE_DICT_FUNCTIONS = {
-    GPTBaseConfig.model_type: fix_gpt_base_unsharded_state_dict,
-    LadderResidualConfig.model_type: fix_gpt_base_unsharded_state_dict,
+    GPTBaseConfig.model_fields["model_type"].default: fix_gpt_base_unsharded_state_dict,
+    LadderResidualConfig.model_fields["model_type"].default: fix_gpt_base_unsharded_state_dict,
 }
 
 
