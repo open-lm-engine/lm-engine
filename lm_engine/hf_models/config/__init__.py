@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
 from ...utils import BaseArgs, divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
@@ -17,20 +17,6 @@ from .sequence_mixer import (
     _RNNArgs,
     _SoftmaxAttentionArgs,
 )
-
-
-def _hold_base_args(key: str) -> Callable:
-    def _holded_function(function: Callable) -> Callable:
-        def _run(self, *args, **kwargs):
-            value: list[BaseArgs] = getattr(self, key)
-            setattr(self, key, [i.to_dict() if isinstance(i, BaseArgs) else i for i in value])
-            output = function(self, *args, **kwargs)
-            setattr(self, key, value)
-            return output
-
-        return _run
-
-    return _holded_function
 
 
 _ALL_INIT_METHODS = ["normal", "mup", "fan_in"]
@@ -95,11 +81,6 @@ class CommonConfig(BaseArgs):
                     self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
                     "",
                 )
-
-    @_hold_base_args(key="sequence_mixer_blocks")
-    @_hold_base_args(key="mlp_blocks")
-    def to_json_string(self, use_diff: bool = True) -> str:
-        return super().to_json_string(use_diff)
 
     def check_equal_for_all_and_get_value(
         self,
