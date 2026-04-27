@@ -67,7 +67,7 @@ class CommonConfig(BaseArgs):
         assert len(self.sequence_mixer_blocks) == self.num_layers
         assert len(self.mlp_blocks) == self.num_layers
 
-        if self.rope_dim is None and position_embedding_type == "rope":
+        if self.rope_dim is None and self.position_embedding_type == "rope":
             assert (
                 self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "sequence_mixer_type")
                 == "softmax_attention"
