@@ -11,12 +11,10 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_causal_conv1d_available
-from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
-from ..activations import get_activation_function, is_glu
+from ..activations import get_activation_function
 from ..convolution import ParameterizedConv1d
 from ..init_utils import _get_std_for_linear
-from ..linear import ParameterizedLinear
 
 
 if is_causal_conv1d_available():
@@ -99,41 +97,37 @@ class CausalConvolution(nn.Module):
         input_state: torch.Tensor | None,
         attention_mask: torch.Tensor | None,
         return_cache_state: bool,
-        activation_string: str,
         conv1d_padding: int,
         conv1d_stride: int = 1,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         W = self.conv1d.weight
         b = self.conv1d.bias
 
-        casual_conv1d_compatible = self.num_groups == W.size(0) and W.size(1) == 1
-        sequence_length = hidden_states.size(1)
+        S = hidden_states.size(1)
 
         assert conv1d_stride == 1
         assert conv1d_padding == self.kernel_size - 1
 
         hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
 
-        if is_kernel_allowed(Kernel.causal_conv1d) and casual_conv1d_compatible:
-            use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
-
+        if is_kernel_allowed(Kernel.causal_conv1d) and self.casual_conv1d_compatible:
             if input_state is None:
                 hidden_states = hidden_states.transpose(-1, -2)
 
                 if return_cache_state:
                     # F.pad trims the hidden_states if sequence_length > kernel_size
-                    input_state = F.pad(hidden_states, (self.kernel_size - sequence_length, 0))
+                    input_state = F.pad(hidden_states, (self.kernel_size - S, 0))
 
                 hidden_states = causal_conv1d_fn(
                     x=hidden_states,
                     weight=W.squeeze(1),
                     bias=b,
-                    activation=self.activation_string if use_activation_inside_kernel else None,
+                    activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
 
                 hidden_states = hidden_states.transpose(-1, -2)
             else:
-                assert sequence_length == 1
+                assert S == 1
 
                 # we clone to prevent modification in-place
                 # torch compile can remove the clone if its not needed
@@ -144,11 +138,11 @@ class CausalConvolution(nn.Module):
                     conv_state=input_state_buffer,
                     weight=W.squeeze(1),
                     bias=b,
-                    activation=self.activation_string if use_activation_inside_kernel else None,
+                    activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
                 input_state = input_state_buffer if return_cache_state else None
 
-            if not use_activation_inside_kernel:
+            if not self.use_activation_inside_kernel:
                 hidden_states = self.activation_function(hidden_states)
         else:
             if input_state is None:
@@ -156,7 +150,7 @@ class CausalConvolution(nn.Module):
 
                 if return_cache_state:
                     # F.pad trims the hidden_states if sequence_length > kernel_size
-                    input_state = F.pad(hidden_states, (self.kernel_size - sequence_length, 0))
+                    input_state = F.pad(hidden_states, (self.kernel_size - S, 0))
 
                 hidden_states = F.conv1d(
                     input=hidden_states,
@@ -171,7 +165,7 @@ class CausalConvolution(nn.Module):
                 hidden_states = hidden_states[..., : 1 - self.kernel_size]
                 hidden_states = hidden_states.transpose(-1, -2)
             else:
-                assert sequence_length == 1
+                assert S == 1
 
                 input_state = input_state.roll(shifts=-1, dims=-1)
                 input_state[..., -1] = hidden_states[:, 0]
