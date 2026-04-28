@@ -85,10 +85,7 @@ class CausalConvolution(nn.Module):
         self.casual_conv1d_compatible = self.num_groups == self.in_channels == self.out_channels
         self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
 
-        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.conv1d.weight)
-
-        mark_parameter_as_no_weight_decay(self.input_projection.bias)
         mark_parameter_as_no_weight_decay(self.conv1d.bias)
 
     def forward(
