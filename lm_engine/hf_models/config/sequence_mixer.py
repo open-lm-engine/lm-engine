@@ -134,19 +134,6 @@ class _M2RNNArgs(BaseArgs):
         assert self.sequence_mixer_type == "m2rnn"
 
 
-class _CausalConvolution(BaseArgs):
-    sequence_mixer_type: str = "causal_convolution"
-    activation_function: str = "silu"
-    in_channels: int
-    out_channels: int
-    kernel_size: int
-    num_groups: int
-    add_bias: bool = False
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "causal_convolution"
-
-
 class _GatedDeltaNetArgs(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "gated_deltanet"
     k_head_dim: int

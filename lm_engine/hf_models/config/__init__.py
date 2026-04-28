@@ -11,15 +11,7 @@ from transformers import PretrainedConfig
 
 from ...utils import BaseArgs, divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
-from .sequence_mixer import (
-    _CausalConvolution,
-    _GatedDeltaNetArgs,
-    _GRUArgs,
-    _M2RNNArgs,
-    _Mamba2Args,
-    _RNNArgs,
-    _SoftmaxAttentionArgs,
-)
+from .sequence_mixer import _GatedDeltaNetArgs, _GRUArgs, _M2RNNArgs, _Mamba2Args, _RNNArgs, _SoftmaxAttentionArgs
 
 
 def _hold_base_args(key: str) -> Callable:
@@ -37,7 +29,6 @@ def _hold_base_args(key: str) -> Callable:
 
 
 _SEQUENCE_MIXER_CONFIG_CLASSES = {
-    "causal_convolution": _CausalConvolution,
     "gru": _GRUArgs,
     "m2rnn": _M2RNNArgs,
     "mamba2": _Mamba2Args,
@@ -183,13 +174,7 @@ class CommonConfig(PretrainedConfig):
             self.sequence_mixer_blocks = [{} for _ in range(self.num_layers)]
 
         sequence_mixer_blocks: list[
-            _CausalConvolution
-            | _GRUArgs
-            | _Mamba2Args
-            | _RNNArgs
-            | _M2RNNArgs
-            | _SoftmaxAttentionArgs
-            | _GatedDeltaNetArgs
+            _GRUArgs | _Mamba2Args | _RNNArgs | _M2RNNArgs | _SoftmaxAttentionArgs | _GatedDeltaNetArgs
         ] = []
         for i in range(self.num_layers):
             sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])
