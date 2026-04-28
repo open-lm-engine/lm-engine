@@ -17,45 +17,10 @@ from ..parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from .activations import get_activation_function
-from .convolution import ParameterizedConv1d
 
 
 if is_causal_conv1d_available():
     from causal_conv1d import causal_conv1d_fn, causal_conv1d_update
-
-
-class ParameterizedConv1d(nn.Conv1d):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        stride: int = 1,
-        padding: str | int = 0,
-        dilation: int = 1,
-        groups: int = 1,
-        bias: bool = True,
-        padding_mode: str = "zeros",  # TODO: refine this type
-        device=None,
-        dtype=None,
-        std: float | None = None,
-    ) -> ParameterizedConv1d:
-        self.std = std
-        super().__init__(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-            dilation=dilation,
-            groups=groups,
-            bias=bias,
-            padding_mode=padding_mode,
-            device=device,
-            dtype=dtype,
-        )
-
-        mark_parameter_as_no_weight_decay(self.bias)
 
 
 def _apply_mask_to_padding_states(hidden_states: torch.Tensor, attention_mask: torch.Tensor | None) -> torch.Tensor:
@@ -69,47 +34,32 @@ def _apply_mask_to_padding_states(hidden_states: torch.Tensor, attention_mask: t
     return hidden_states
 
 
-class CausalConvolution(nn.Conv1d):
+class DepthwiseCausalConvolution(nn.Conv1d):
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
+        hidden_size: int,
         kernel_size: int,
-        groups: int,
         activation_function: str,
         add_bias: bool,
         std: float | None,
         use_padding_free_transformer: bool,
-    ) -> CausalConvolution:
+    ) -> DepthwiseCausalConvolution:
         if use_padding_free_transformer:
             raise NotImplementedError()
 
-        # _get_std_for_linear(
-        #     initializer_range=initializer_range,
-        #     init_method=init_method,
-        #     m_width=m_width,
-        #     fan_in=kernel_size,
-        #     num_layers=num_layers,
-        #     use_depth_scaled_init=False,
-        # )
-
         super().__init__(
-            in_channels=in_channels,
-            out_channels=out_channels,
+            in_channels=hidden_size,
+            out_channels=hidden_size,
             kernel_size=kernel_size,
             padding=kernel_size - 1,
-            groups=groups,
+            groups=hidden_size,
             bias=add_bias,
         )
 
         self.activation_string = activation_function
         self.activation_function = get_activation_function(self.activation_string)
-        self.casual_conv1d_compatible = self.groups == self.in_channels == self.out_channels
         self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
         self.std = std
-
-        divide_if_divisible(in_channels, groups)
-        divide_if_divisible(out_channels, groups)
 
         mark_parameter_as_mup_learning_rate(self.weight)
         mark_parameter_as_no_weight_decay(self.bias)
@@ -120,14 +70,8 @@ class CausalConvolution(nn.Conv1d):
         input_state: torch.Tensor | None,
         attention_mask: torch.Tensor | None,
         return_cache_state: bool,
-        conv1d_padding: int,
-        conv1d_stride: int = 1,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         S = hidden_states.size(1)
-
-        assert conv1d_stride == 1
-        assert conv1d_padding == self.kernel_size - 1
-
         hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
 
         if is_kernel_allowed(Kernel.causal_conv1d) and self.casual_conv1d_compatible:
