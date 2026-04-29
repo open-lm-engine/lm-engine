@@ -2,6 +2,8 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+import torch
+
 from .config import CommonConfig
 from .loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
 from .mixins import CausalLMOutputWithPast, PipelineParallelInput, PipelineParallelOutput
@@ -39,3 +41,31 @@ from .utils import convert_padding_free_lists_to_tensors, disable_generation_cac
 
 
 register_model_classes()
+
+
+def _patch_granitemoehybrid_weight_init() -> None:
+    try:
+        from transformers.models.granitemoehybrid.modeling_granitemoehybrid import (
+            GraniteMoeHybridMambaLayer,
+            GraniteMoeHybridPreTrainedModel,
+        )
+    except Exception:
+        return
+
+    if getattr(GraniteMoeHybridPreTrainedModel._init_weights, "_lm_engine_patched", False):
+        return
+
+    def _init_weights(self, module):
+        super(GraniteMoeHybridPreTrainedModel, self)._init_weights(module)
+        if isinstance(module, GraniteMoeHybridMambaLayer):
+            module.dt_bias.data.fill_(1.0)
+            module.A_log.data.copy_(
+                torch.log(torch.arange(1, module.num_heads + 1, dtype=module.A_log.dtype, device=module.A_log.device))
+            )
+            module.D.data.fill_(1.0)
+
+    _init_weights._lm_engine_patched = True
+    GraniteMoeHybridPreTrainedModel._init_weights = _init_weights
+
+
+_patch_granitemoehybrid_weight_init()
