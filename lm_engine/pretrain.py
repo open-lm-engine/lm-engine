@@ -395,15 +395,8 @@ def train(
         / ProcessGroupManager.get_world_size()
     )
 
-    forward_context = (
-        torch.autocast(Accelerator.get_device_type(), dtype=torch.bfloat16)
-        if args.distributed_args.fsdp_algorithm is None
-        else nullcontext
-    )
-
-    backward_context = [loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext]
-    if args.distributed_args.fsdp_algorithm is None:
-        backward_context.append(torch.autocast(Accelerator.get_device_type(), dtype=torch.bfloat16))
+    forward_context = nullcontext
+    backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
 
     torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
     torch_profiler.__enter__()
@@ -699,7 +692,15 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     experiments_tracker.log_args(args, **model_container[0].calculate_num_parameters(return_dict=True))
 
     # main training loop
-    with disable_generation_cache(), enable_kernels(args.kernel_args.kernels):
+    with (
+        disable_generation_cache(),
+        enable_kernels(args.kernel_args.kernels),
+        (
+            torch.autocast(device_type=Accelerator.get_device_type(), dtype=torch.bfloat16)
+            if args.distributed_args.fsdp_algorithm is None
+            else nullcontext
+        ),
+    ):
         train(
             args,
             model_container=model_container,
