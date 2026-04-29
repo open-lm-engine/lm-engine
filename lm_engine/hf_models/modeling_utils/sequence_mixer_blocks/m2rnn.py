@@ -20,8 +20,8 @@ from ...parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ..activations import clip_gradients, is_glu, silu, tanh
-from ..convolution import DepthwiseCausalConvolution
 from ..decay_gate import SoftplusDecayGate
+from ..depthwise_causal_convolution import DepthwiseCausalConvolution
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function

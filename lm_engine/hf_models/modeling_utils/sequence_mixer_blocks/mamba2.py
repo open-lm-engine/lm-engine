@@ -18,8 +18,8 @@ from ...parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ..activations import get_activation_function, silu
-from ..convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
 from ..decay_gate import SoftplusDecayGate
+from ..depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function

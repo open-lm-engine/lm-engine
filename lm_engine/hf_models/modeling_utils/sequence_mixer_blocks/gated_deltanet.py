@@ -13,8 +13,8 @@ import torch.nn as nn
 from ....utils import divide_if_divisible, is_fla_available
 from ...cache import ConstantCache, GenerationCache, GenerationState
 from ..activations import silu
-from ..convolution import DepthwiseCausalConvolution
 from ..decay_gate import SoftplusDecayGate
+from ..depthwise_causal_convolution import DepthwiseCausalConvolution
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function

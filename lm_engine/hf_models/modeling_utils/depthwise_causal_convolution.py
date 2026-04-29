@@ -61,7 +61,6 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         self.activation_string = activation_function
         self.activation_function = get_activation_function(self.activation_string)
         self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
-        self.casual_conv1d_compatible = True
 
         mark_parameter_as_no_weight_decay(self.bias)
 
@@ -77,7 +76,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         S = hidden_states.size(1)
         hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
 
-        if is_kernel_allowed(Kernel.causal_conv1d) and self.casual_conv1d_compatible:
+        if is_kernel_allowed(Kernel.causal_conv1d):
             if input_state is None:
                 hidden_states = hidden_states.transpose(-1, -2)
 
