@@ -40,6 +40,7 @@ from .utils import (
     log_rank_0,
     set_seed,
     setup_tf32,
+    string_to_torch_dtype,
 )
 
 
@@ -696,7 +697,9 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         disable_generation_cache(),
         enable_kernels(args.kernel_args.kernels),
         (
-            torch.autocast(device_type=Accelerator.get_device_type(), dtype=torch.bfloat16)
+            torch.autocast(
+                device_type=Accelerator.get_device_type(), dtype=string_to_torch_dtype(args.mixed_precision_args.dtype)
+            )
             if args.distributed_args.fsdp_algorithm is None
             else nullcontext
         ),
