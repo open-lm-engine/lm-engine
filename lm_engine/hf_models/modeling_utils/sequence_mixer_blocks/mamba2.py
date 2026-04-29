@@ -273,7 +273,7 @@ class Mamba2(nn.Module):
                     ssm_state = torch.zeros(
                         batch_size,
                         self.num_heads,
-                        divide_if_divisible(self.intermediate_size, self.num_heads, ""),
+                        divide_if_divisible(self.intermediate_size, self.num_heads),
                         self.ssm_state_size,
                         device=projected_states.device,
                         dtype=dtype,
