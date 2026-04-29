@@ -155,7 +155,16 @@ def wrap_model_container_for_distributed_training(
 
     if fsdp_algorithm is None:
         for i, model in enumerate(model_container):
-            model = model.to(Accelerator.get_current_device())
+            if efficient_initialization:
+                model = model.to_empty(Accelerator.get_current_device())
+
+                for module in model.modules():
+                    if hasattr(module, "reset_parameters"):
+                        with torch.device(device):
+                            module.reset_parameters()
+            else:
+                model = model.to(Accelerator.get_current_device())
+
             if torch_compile:
                 model = torch.compile(model, backend=Accelerator.get_torch_compile_backend())
 
