@@ -61,7 +61,6 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
         self.std = std
 
-        mark_parameter_as_mup_learning_rate(self.weight)
         mark_parameter_as_no_weight_decay(self.bias)
 
     def forward(

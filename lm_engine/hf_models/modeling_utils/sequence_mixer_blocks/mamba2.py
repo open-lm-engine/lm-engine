@@ -18,7 +18,7 @@ from ...parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ..activations import get_activation_function, silu
-from ..convolution import ParameterizedConv1d
+from ..convolution import DepthwiseCausalConvolution
 from ..decay_gate import SoftplusDecayGate
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
@@ -144,13 +144,11 @@ class Mamba2(nn.Module):
 
         # 1D convolutional layer
         self.conv_dim = self.intermediate_size + 2 * self.n_groups * self.ssm_state_size
-        self.conv1d = ParameterizedConv1d(
-            in_channels=self.conv_dim,
-            out_channels=self.conv_dim,
-            bias=use_conv_bias,
+        self.conv1d = DepthwiseCausalConvolution(
+            hidden_size=self.conv_dim,
             kernel_size=self.conv_kernel_size,
-            groups=self.conv_dim,
-            padding=self.conv_kernel_size - 1,
+            activation_function=self.activation_string,
+            add_bias=add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
@@ -159,6 +157,7 @@ class Mamba2(nn.Module):
                 num_layers=num_layers,
                 use_depth_scaled_init=False,
             ),
+            use_padding_free_transformer=False,
         )
 
         # projection of the input hidden states
