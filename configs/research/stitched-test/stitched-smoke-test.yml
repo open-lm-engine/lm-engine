@@ -1,0 +1,133 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+# **************************************************
+# Smoke-test config for StitchedSequenceDataset e2e training.
+# Uses the-stack-v2 data (6pct, Qwen3.5-0.8B tokenized).
+# Runs only 10 steps to verify data loading → forward → backward works.
+# **************************************************
+
+datasets:
+  - class_name: StitchedDataset
+    data_name: StitchedTheStack
+    data_sampling_ratio: 1
+    class_args:
+      stitched_seq_path: /data/cache_jyo/stitched_seq_thestack_test.parquet
+      data_root: /data/pretrain-data/tokenized/bigcode-the-stack-v2-train-full/data-6pct
+      sequence_length: 4096
+      data_cache_path: /data/cache_jyo/stitched_index_cache
+      ordering_strategy: sequential
+      split_ratio: [0.99, 0.01, 0.0]
+      eval_steps: 2
+      num_workers: 4
+
+tokenizer_args:
+  tokenizer_name: Qwen/Qwen3.5-0.8B
+
+kernel_args:
+  kernels:
+    - rnn
+    - gru
+    - flash_attention_3
+
+model_args:
+  pretrained_config:
+    initializer_range: 0.02
+    layer_norm_epsilon: 1e-05
+    model_type: gpt_base
+    normalization_function: rmsnorm
+    position_embedding_type: rope
+    hidden_size: 512
+    num_layers: 4
+    init_method: normal
+    bos_token_id: 248046
+    eos_token_id: 248046
+    pad_token_id: 248044
+    vocab_size: 248077
+    max_position_embeddings: 8192
+    sequence_mixer_blocks:
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 8
+        num_key_value_heads: 8
+        sliding_window: 4096
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 8
+        num_key_value_heads: 8
+        sliding_window: 4096
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 8
+        num_key_value_heads: 8
+        sliding_window: 4096
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 8
+        num_key_value_heads: 8
+        sliding_window: 4096
+        add_bias: false
+    mlp_blocks:
+      - activation_function: silu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1344
+      - activation_function: silu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1344
+      - activation_function: silu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1344
+      - activation_function: silu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 1344
+  efficient_initialization: false
+
+tuning_args:
+  tuning_method: pretraining
+
+save_args:
+  save_path: /data/checkpoints_jyo/stitched-smoke-test
+  save_interval: 100000
+
+logging_args:
+  log_interval: 1
+
+training_parameters:
+  num_training_steps: 10
+  eval_interval: 5
+  micro_batch_size: 1
+  gradient_accumulation_steps: 1
+  eval_during_training: true
+
+optimizer_args:
+  class_name: TorchAdamW
+  class_args:
+    lr: 1e-4
+    weight_decay: 0.1
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1e-8
+
+lr_scheduler_args:
+  lr_decay_style: cosine
+  num_warmup_steps: 2
+  num_constant_steps: 0
+  num_decay_steps: 8
+
+mixed_precision_args:
+  dtype: bf16
+
+distributed_args:
+  stage: 3
+  torch_compile: false
+  zero_topology:
+    data_parallel_replication_world_size: 1
+    data_parallel_sharding_world_size: 8
+  gradient_checkpointing_method: block
+  gradient_checkpointing_args:
+    num_blocks: 2
