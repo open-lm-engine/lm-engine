@@ -17,7 +17,7 @@ if is_torch_xla_available():
 
 
 if is_torch_neuronx_available():
-    from torch_neuronx.profiling import NeuronConfig, ProfileMode
+    from torch_neuronx.profiling import NeuronConfig, NeuronProfiler, ProfileMode
 
 
 class TorchProfiler:
@@ -38,8 +38,12 @@ class TorchProfiler:
         if self.accelerator == Accelerator.trainium:
             experimental_config = NeuronConfig(
                 modes=[ProfileMode.DEVICE, ProfileMode.RUNTIME],
+                max_events_per_nc=100000,
                 profile_output_dir=path,
+                capture_enabled_for_nc="0",
             )
+
+            exporter = NeuronProfiler(experimental_config)
 
         self._profiler = None
         if self.accelerator != Accelerator.tpu:
@@ -52,7 +56,11 @@ class TorchProfiler:
                     repeat=1,
                 ),
                 experimental_config=experimental_config,
-                on_trace_ready=torch.profiler.tensorboard_trace_handler(path),
+                on_trace_ready=(
+                    exporter.export_trace
+                    if self.accelerator == Accelerator.trainium
+                    else torch.profiler.tensorboard_trace_handler(path)
+                ),
                 record_shapes=True,
                 profile_memory=True,
             )
