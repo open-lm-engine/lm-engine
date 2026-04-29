@@ -153,17 +153,19 @@ def wrap_model_container_for_distributed_training(
     if torch_compile:
         log_rank_0(logging.INFO, "using torch compile")
 
+    device = Accelerator.get_current_device()
+
     if fsdp_algorithm is None:
         for i, model in enumerate(model_container):
             if efficient_initialization:
-                model = model.to_empty(Accelerator.get_current_device())
+                model = model.to_empty(device=device)
 
                 for module in model.modules():
                     if hasattr(module, "reset_parameters"):
                         with torch.device(device):
                             module.reset_parameters()
             else:
-                model = model.to(Accelerator.get_current_device())
+                model = model.to(device)
 
             if torch_compile:
                 model = torch.compile(model, backend=Accelerator.get_torch_compile_backend())
@@ -312,8 +314,6 @@ def wrap_model_container_for_distributed_training(
                 )
 
                 if efficient_initialization:
-                    device = Accelerator.get_current_device()
-
                     # contributed by Yu Chin Fabian Lim
                     # original reference https://github.com/fabianlim/accelerate/pull/1
                     if model_name is None:
@@ -368,7 +368,7 @@ def wrap_model_container_for_distributed_training(
                     cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
                     mixed_precision=mixed_precision_policy,
                     auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
-                    device_id=Accelerator.get_current_device(),
+                    device_id=device,
                     limit_all_gathers=True,
                     use_orig_params=True,
                     # https://github.com/meta-llama/llama-recipes/blob/492455dc080f6c25f356e283e443be0cce86aaeb/src/llama_recipes/finetuning.py#L191
@@ -434,7 +434,7 @@ def wrap_model_container_for_distributed_training(
                 model,
                 stage_index=model.pipeline_stage_id,
                 num_stages=num_pipeline_stages,
-                device=Accelerator.get_current_device(),
+                device=device,
                 input_args=dummy_input_tensor,
                 output_args=dummy_output_tensor,
                 group=ProcessGroupManager.get_pipeline_parallel_group(),
