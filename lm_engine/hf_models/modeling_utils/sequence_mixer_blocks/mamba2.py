@@ -10,14 +10,14 @@ import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_causal_conv1d_available, is_mamba_2_ssm_available
+from ....utils import divide_if_divisible, is_mamba_2_ssm_available
 from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ..activations import get_activation_function, silu
+from ..activations import silu
 from ..decay_gate import SoftplusDecayGate
 from ..depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
 from ..init_utils import _get_std_for_linear
@@ -28,9 +28,6 @@ from ..normalization import get_normalization_function
 if is_mamba_2_ssm_available():
     from mamba_ssm.ops.triton.selective_state_update import selective_state_update
     from mamba_ssm.ops.triton.ssd_combined import mamba_chunk_scan_combined, mamba_split_conv1d_scan_combined
-
-if is_causal_conv1d_available():
-    from causal_conv1d import causal_conv1d_fn, causal_conv1d_update
 
 
 def _pad_tensor_by_size(input_tensor: torch.Tensor, pad_size: int) -> torch.Tensor:
@@ -131,10 +128,6 @@ class Mamba2(nn.Module):
         self.layer_idx = layer_idx
         self.use_conv_bias = use_conv_bias
 
-        self.activation_string = ssm_activation_function
-        self.activation = get_activation_function(self.activation_string)
-        self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
-
         self.n_groups = num_groups
         self.head_dim = divide_if_divisible(ssm_intermediate_size, ssm_num_heads, "")
         self.chunk_size = chunk_size
@@ -146,7 +139,7 @@ class Mamba2(nn.Module):
         self.conv1d = DepthwiseCausalConvolution(
             hidden_size=self.conv_dim,
             kernel_size=self.conv_kernel_size,
-            activation_function=self.activation_string,
+            activation_function=ssm_activation_function,
             add_bias=add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
@@ -256,16 +249,12 @@ class Mamba2(nn.Module):
 
         # 2. Convolution sequence transformation
         if use_precomputed_states:
-            conv_state = conv_state.roll(shifts=-1, dims=-1)
-            conv_state[:, :, -1] = hidden_states_B_C[:, 0, :].to(conv_state.device)
-
-            # We need to guarantee that anything regarding the cache is on the same device
-            conv_state = conv_state.to(device=self.conv1d.weight.device)
-
-            hidden_states_B_C = torch.sum(conv_state * self.conv1d.weight.squeeze(1), dim=-1)
-            if self.use_conv_bias:
-                hidden_states_B_C = hidden_states_B_C + self.conv1d.bias
-            hidden_states_B_C = self.activation(hidden_states_B_C)
+            hidden_states_B_C, conv_state = self.conv1d(
+                hidden_states=hidden_states_B_C,
+                input_state=conv_state,
+                attention_mask=attention_mask,
+                return_cache_state=True,
+            )
         else:
             # Init cache
             if cache_params is not None:
@@ -279,13 +268,11 @@ class Mamba2(nn.Module):
                         dtype=dtype,
                     )
 
-                hidden_states_B_C_transposed = hidden_states_B_C.transpose(1, 2)
-                conv_state = F.pad(
-                    hidden_states_B_C_transposed, (self.conv_kernel_size - hidden_states_B_C_transposed.shape[-1], 0)
-                )
-
-            hidden_states_B_C = self.activation(
-                self.conv1d(hidden_states_B_C.transpose(1, 2))[..., :seq_len].transpose(1, 2)
+            hidden_states_B_C, conv_state = self.conv1d(
+                hidden_states=hidden_states_B_C,
+                input_state=None,
+                attention_mask=attention_mask,
+                return_cache_state=cache_params is not None,
             )
 
         hidden_states_B_C = _apply_mask_to_padding_states(hidden_states_B_C, attention_mask)
@@ -507,12 +494,11 @@ class Mamba2(nn.Module):
             )
 
             # 2. Convolution sequence transformation
-            hidden_states_B_C = causal_conv1d_update(
-                hidden_states_B_C,
-                conv_state,
-                self.conv1d.weight.squeeze(1),
-                self.conv1d.bias,
-                self.activation_string,
+            hidden_states_B_C, conv_state = self.conv1d(
+                hidden_states=hidden_states_B_C[:, None, :],
+                input_state=conv_state,
+                attention_mask=None,
+                return_cache_state=cache_params is not None,
             )
 
             hidden_states, B, C = torch.split(
@@ -589,36 +575,13 @@ class Mamba2(nn.Module):
                     [self.intermediate_size, self.conv_dim, self.num_heads], dim=-1
                 )
 
-                hidden_states_B_C_transposed = hidden_states_B_C.transpose(1, 2)
-
                 # 2. Convolution sequence transformation
-                # Init cache
-                if cache_params is not None:
-                    # storing the states
-                    # If we just take xBC[:, :, -self.d_conv :], it will error if seqlen < self.d_conv
-                    # Instead F.pad will pad with zeros if seqlen < self.d_conv, and truncate otherwise.
-                    conv_state = F.pad(
-                        hidden_states_B_C_transposed,
-                        (self.conv_kernel_size - hidden_states_B_C_transposed.shape[-1], 0),
-                    )
-
-                    cache_params.update(
-                        states=(
-                            GenerationState(state=conv_state, method=ConstantCache),
-                            GenerationState(state=ssm_state, method=ConstantCache),
-                        ),
-                        layer_idx=self.layer_idx,
-                    )
-
-                hidden_states_B_C = causal_conv1d_fn(
-                    x=hidden_states_B_C_transposed,
-                    weight=self.conv1d.weight.squeeze(1),
-                    bias=self.conv1d.bias,
-                    activation=self.activation_string if self.use_activation_inside_kernel else None,
-                ).transpose(1, 2)
-
-                if not self.use_activation_inside_kernel:
-                    hidden_states_B_C = self.activation(hidden_states_B_C)
+                hidden_states_B_C, conv_state = self.conv1d(
+                    hidden_states=hidden_states_B_C,
+                    input_state=None,
+                    attention_mask=attention_mask,
+                    return_cache_state=cache_params is not None,
+                )
 
                 hidden_states_B_C = _apply_mask_to_padding_states(hidden_states_B_C, attention_mask)
                 hidden_states, B, C = torch.split(

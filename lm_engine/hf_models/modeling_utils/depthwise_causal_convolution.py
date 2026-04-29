@@ -71,8 +71,8 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         hidden_states: torch.Tensor,
         input_state: torch.Tensor | None,
         attention_mask: torch.Tensor | None,
-        return_cache_state: bool,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        output_state: bool,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         S = hidden_states.size(1)
         hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
 
@@ -80,7 +80,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             if input_state is None:
                 hidden_states = hidden_states.transpose(-1, -2)
 
-                if return_cache_state:
+                if output_state:
                     # F.pad trims the hidden_states if sequence_length > kernel_size
                     input_state = F.pad(hidden_states, (self.kernel_size - S, 0))
 
@@ -95,10 +95,8 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             else:
                 assert S == 1
 
-                # we clone to prevent modification in-place
-                # torch compile can remove the clone if its not needed
-                # this is to prevent silent incorrectness down the line in the model
                 input_state_buffer = input_state.clone()
+
                 hidden_states = causal_conv1d_update(
                     x=hidden_states,
                     conv_state=input_state_buffer,
@@ -106,7 +104,8 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                     bias=self.bias,
                     activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
-                input_state = input_state_buffer if return_cache_state else None
+
+                input_state = input_state_buffer if output_state else None
 
             if not self.use_activation_inside_kernel:
                 hidden_states = self.activation_function(hidden_states)
@@ -114,7 +113,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             if input_state is None:
                 hidden_states = hidden_states.transpose(-1, -2)
 
-                if return_cache_state:
+                if output_state:
                     # F.pad trims the hidden_states if sequence_length > kernel_size
                     input_state = F.pad(hidden_states, (self.kernel_size - S, 0))
 
@@ -134,7 +133,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 if self.bias is not None:
                     hidden_states = hidden_states + self.bias
 
-                if not return_cache_state:
+                if not output_state:
                     input_state = None
 
             hidden_states = self.activation_function(hidden_states)
