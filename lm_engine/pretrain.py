@@ -405,8 +405,6 @@ def train(
     if args.distributed_args.fsdp_algorithm is None:
         backward_context.append(torch.autocast(Accelerator.get_device_type(), dtype=torch.bfloat16))
 
-    backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
-
     torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
     torch_profiler.__enter__()
 
