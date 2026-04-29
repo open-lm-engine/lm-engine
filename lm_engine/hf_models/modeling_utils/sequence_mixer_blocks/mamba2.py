@@ -18,12 +18,11 @@ from ...parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ..activations import get_activation_function, silu
-from ..convolution import DepthwiseCausalConvolution
+from ..convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
 from ..decay_gate import SoftplusDecayGate
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
-from .causal_convolution import _apply_mask_to_padding_states
 
 
 if is_mamba_2_ssm_available():

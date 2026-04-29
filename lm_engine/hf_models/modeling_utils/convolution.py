@@ -47,6 +47,8 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         if use_padding_free_transformer:
             raise NotImplementedError()
 
+        self.std = std
+
         super().__init__(
             in_channels=hidden_size,
             out_channels=hidden_size,
@@ -59,9 +61,10 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         self.activation_string = activation_function
         self.activation_function = get_activation_function(self.activation_string)
         self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
-        self.std = std
 
         mark_parameter_as_no_weight_decay(self.bias)
+
+        self.reset_parameters()
 
     def forward(
         self,
