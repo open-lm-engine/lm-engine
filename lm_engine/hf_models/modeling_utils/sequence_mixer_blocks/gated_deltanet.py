@@ -13,12 +13,11 @@ import torch.nn as nn
 from ....utils import divide_if_divisible, is_fla_available
 from ...cache import ConstantCache, GenerationCache, GenerationState
 from ..activations import silu
-from ..convolution import ParameterizedConv1d
 from ..decay_gate import SoftplusDecayGate
+from ..depthwise_causal_convolution import DepthwiseCausalConvolution
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
-from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
@@ -105,13 +104,11 @@ class GatedDeltaNet(nn.Module):
         )
 
         self.conv_size = conv_size
-        self.qkv_conv1d = ParameterizedConv1d(
-            in_channels=2 * self.key_dim + self.value_dim,
-            out_channels=2 * self.key_dim + self.value_dim,
+        self.qkv_conv1d = DepthwiseCausalConvolution(
+            hidden_size=2 * self.key_dim + self.value_dim,
             kernel_size=conv_size,
-            padding=conv_size - 1,
-            groups=2 * self.key_dim + self.value_dim,
-            bias=False,
+            activation_function="silu",
+            add_bias=False,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
@@ -120,8 +117,8 @@ class GatedDeltaNet(nn.Module):
                 num_layers=num_layers,
                 use_depth_scaled_init=False,
             ),
+            use_padding_free_transformer=use_padding_free_transformer,
         )
-        self.activation_string = "silu"
 
         self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
         self.o_proj = ParameterizedLinear(
@@ -163,17 +160,11 @@ class GatedDeltaNet(nn.Module):
         else:
             a, b = self.ab_proj(hidden_states).chunk(2, dim=-1)
 
-        qkv, c = causal_convolution(
+        qkv, c = self.qkv_conv1d(
             hidden_states=qkv,
             input_state=c,
             attention_mask=attention_mask,
-            conv1d_weight=self.qkv_conv1d.weight,
-            conv1d_bias=self.qkv_conv1d.bias,
-            conv1d_num_groups=qkv.size(-1),
-            return_cache_state=cache_params is not None,
-            activation_string=self.activation_string,
-            conv1d_padding=self.conv_size - 1,
-            conv1d_stride=1,
+            output_state=cache_params is not None,
         )
 
         q, k, v = qkv.split((self.key_dim, self.key_dim, self.value_dim), dim=-1)

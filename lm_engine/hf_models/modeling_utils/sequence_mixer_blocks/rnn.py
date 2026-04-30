@@ -17,11 +17,10 @@ from ...parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ..activations import clip_gradients, get_activation_function, is_glu, silu, tanh
-from ..convolution import ParameterizedConv1d
+from ..depthwise_causal_convolution import DepthwiseCausalConvolution
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
-from .causal_convolution import causal_convolution
 from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
@@ -97,13 +96,11 @@ class RNN(nn.Module):
         if kernel_size is not None:
             assert not is_glu(self.activation_string)
 
-            self.conv1d = ParameterizedConv1d(
-                in_channels=self.state_size,
-                out_channels=self.state_size,
+            self.conv1d = DepthwiseCausalConvolution(
+                hidden_size=self.state_size,
                 kernel_size=kernel_size,
-                bias=add_bias,
-                padding=kernel_size - 1,
-                groups=self.state_size,
+                activation_function=self.activation_string,
+                add_bias=add_bias,
                 std=_get_std_for_linear(
                     initializer_range=initializer_range,
                     init_method=init_method,
@@ -112,6 +109,7 @@ class RNN(nn.Module):
                     num_layers=num_layers,
                     use_depth_scaled_init=False,
                 ),
+                use_padding_free_transformer=use_padding_free_transformer,
             )
 
             mark_parameter_as_mup_learning_rate(self.conv1d.weight)
@@ -176,17 +174,11 @@ class RNN(nn.Module):
         if self.kernel_size is None:
             x = self.activation_function(x)
         else:
-            x, c = causal_convolution(
+            x, c = self.conv1d(
                 hidden_states=x,
                 input_state=c,
                 attention_mask=attention_mask,
-                conv1d_weight=self.conv1d.weight,
-                conv1d_bias=self.conv1d.bias,
-                conv1d_num_groups=self.state_size,
-                return_cache_state=cache_params is not None,
-                activation_string=self.activation_string,
-                conv1d_padding=self.kernel_size - 1,
-                conv1d_stride=1,
+                output_state=cache_params is not None,
             )
 
         x = x.view(*x.size()[:-1], -1, self.state_head_dim)
