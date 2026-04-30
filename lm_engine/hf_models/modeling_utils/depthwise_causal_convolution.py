@@ -61,6 +61,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         self.activation_string = activation_function
         self.activation_function = get_activation_function(self.activation_string)
         self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
+        self.kernel_size = kernel_size
 
         mark_parameter_as_no_weight_decay(self.bias)
 
