@@ -253,7 +253,7 @@ class Mamba2(nn.Module):
                 hidden_states=hidden_states_B_C,
                 input_state=conv_state,
                 attention_mask=attention_mask,
-                return_cache_state=True,
+                output_state=True,
             )
         else:
             # Init cache
@@ -272,7 +272,7 @@ class Mamba2(nn.Module):
                 hidden_states=hidden_states_B_C,
                 input_state=None,
                 attention_mask=attention_mask,
-                return_cache_state=cache_params is not None,
+                output_state=cache_params is not None,
             )
 
         hidden_states_B_C = _apply_mask_to_padding_states(hidden_states_B_C, attention_mask)
@@ -498,7 +498,7 @@ class Mamba2(nn.Module):
                 hidden_states=hidden_states_B_C[:, None, :],
                 input_state=conv_state,
                 attention_mask=None,
-                return_cache_state=cache_params is not None,
+                output_state=cache_params is not None,
             )
 
             hidden_states, B, C = torch.split(
@@ -580,7 +580,7 @@ class Mamba2(nn.Module):
                     hidden_states=hidden_states_B_C,
                     input_state=None,
                     attention_mask=attention_mask,
-                    return_cache_state=cache_params is not None,
+                    output_state=cache_params is not None,
                 )
 
                 hidden_states_B_C = _apply_mask_to_padding_states(hidden_states_B_C, attention_mask)

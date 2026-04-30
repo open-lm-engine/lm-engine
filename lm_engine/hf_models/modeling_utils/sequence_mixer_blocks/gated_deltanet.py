@@ -164,7 +164,7 @@ class GatedDeltaNet(nn.Module):
             hidden_states=qkv,
             input_state=c,
             attention_mask=attention_mask,
-            return_cache_state=cache_params is not None,
+            output_state=cache_params is not None,
         )
 
         q, k, v = qkv.split((self.key_dim, self.key_dim, self.value_dim), dim=-1)
