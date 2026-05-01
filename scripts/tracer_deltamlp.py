@@ -27,6 +27,7 @@ import os
 
 import torch
 import torch.nn.functional as F
+import wandb
 import yaml
 from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
@@ -35,7 +36,6 @@ from tqdm import tqdm
 from transformers import AutoConfig, AutoModelForCausalLM
 
 import lm_engine.hf_models  # noqa: F401 – registers model classes with HF AutoModel
-import wandb
 
 
 def _progress(iterable, **kwargs):

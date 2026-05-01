@@ -23,7 +23,8 @@ from ..containers import BackwardHookOptimizerContainer, ModelContainer, Optimiz
 from ..enums import ParamsGroupMethod
 from ..hf_models import get_optimizer_split_function
 from ..utils import log_rank_0
-from .hyperball import HyperballAdamW
+from .adam_hyperball import HyperballAdamW
+from .muon_hyperball import MuonHyperball
 from .params_group import _ParamsGroupsList, get_param_groups_list
 from .split_param_optimizer import SplitParamOptimizer
 
@@ -43,6 +44,7 @@ _OPTIMIZER_CLASSES = {
     "TorchRprop": TorchRprop,
     "TorchSGD": TorchSGD,
     "HyperballAdamW": HyperballAdamW,
+    "MuonHyperball": MuonHyperball,
 }
 
 

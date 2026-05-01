@@ -151,7 +151,11 @@ def get_hyperball_group_with_names(model: ModelWrapper, optimizer_class_args: di
             _ParamsGroup(
                 name="hyperball",
                 parameter_name_map=hyperball_params,
-                params_group_kwargs={"hyperball": True, "weight_decay": 0},
+                params_group_kwargs={
+                    "hyperball": True,
+                    "weight_decay": 0,
+                    "hybrid_ns": optimizer_class_args.pop("hybrid_ns", False),
+                },
             ),
             _ParamsGroup(
                 name="no_weight_decay",
