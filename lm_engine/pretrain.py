@@ -401,6 +401,13 @@ def train(
     torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
     torch_profiler.__enter__()
 
+    cost_per_accelerator_per_hour = args.logging_args.cost_per_accelerator_per_hour
+    cost_per_accelerator_per_second = (
+        None if cost_per_accelerator_per_hour is None else cost_per_accelerator_per_hour / 3600
+    )
+    num_accelerators = ProcessGroupManager.get_world_size()
+    cumulative_cost_usd = 0.0
+
     start_time = time.perf_counter()
     steps_since_start_time = 0
     metrics_tracker = MetricsTrackingDict({})
@@ -451,6 +458,10 @@ def train(
             metrics_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
             metrics_tracker["step_time (sec)"] = step_time
             metrics_tracker["tokens"] = global_step_in_tokens
+
+            if cost_per_accelerator_per_second is not None:
+                cumulative_cost_usd += time_elapsed * num_accelerators * cost_per_accelerator_per_second
+                metrics_tracker["cost (USD)"] = cumulative_cost_usd
 
             track_metrics(
                 global_step=global_step,
