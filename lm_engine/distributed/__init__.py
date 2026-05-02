@@ -399,19 +399,20 @@ def wrap_model_container_for_distributed_training(
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
 
     if torch_compile:
+        backend = "inductor"
+        fullgraph = False
+
         if fsdp_algorithm == 3:
-            compile_backend = get_simple_fsdp_compile_backend(
-                fsdp_reshard_after_forward=zero3, auto_bucketing=args.distributed_args.fsdp_auto_bucketing
+            backend = get_simple_fsdp_compile_backend(
+                fsdp_reshard_after_forward=zero3,
+                auto_bucketing=args.distributed_args.fsdp_auto_bucketing,
+                backend=backend,
             )
 
-            compile_backend = "inductor"
             fullgraph = True
-        else:
-            compile_backend = "inductor"
-            fullgraph = False
 
         for i, model in enumerate(model_container):
-            model_container[i] = torch.compile(model, backend=compile_backend, fullgraph=fullgraph)
+            model_container[i] = torch.compile(model, backend=backend, fullgraph=fullgraph)
 
     set_parameter_marker_maps(
         model_container,
