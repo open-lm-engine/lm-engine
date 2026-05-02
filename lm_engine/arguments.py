@@ -260,6 +260,8 @@ class DistributedArgs(BaseArgs):
     timeout_minutes: int | None = None
     # fsdp algorithm
     fsdp_algorithm: int | None = 2
+    # for fsdp_algorithm=3 (simple FSDP) + torch_compile: enable inductor auto-bucketing
+    fsdp_auto_bucketing: bool = False
     # whether to sync every gradient accumulation step
     sync_every_gradient_accumulation_step: bool = False
     # total number of pipeline stages

@@ -50,6 +50,7 @@ from ..utils import (
 )
 from .fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
 from .fsdp import data_parallel as simple_fsdp_data_parallel
+from .fsdp_compile import get_simple_fsdp_compile_backend
 
 
 if is_torch_xla_available():
@@ -142,6 +143,7 @@ def wrap_model_container_for_distributed_training(
     """
 
     stage = args.distributed_args.stage
+    zero3 = stage == 3
     cpu_offload = args.distributed_args.cpu_offload
     torch_compile = args.distributed_args.torch_compile
     dtype = args.mixed_precision_args.dtype
@@ -285,7 +287,6 @@ def wrap_model_container_for_distributed_training(
                 )
         elif use_ddp or fsdp_algorithm == 2:
             log_rank_0(logging.INFO, "using FSDP-2")
-            zero3 = stage == 3
 
             def _sharding_function(parameter: nn.Parameter) -> Shard:
                 dps = (
@@ -398,8 +399,19 @@ def wrap_model_container_for_distributed_training(
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
 
     if torch_compile:
+        if fsdp_algorithm == 3:
+            compile_backend = get_simple_fsdp_compile_backend(
+                fsdp_reshard_after_forward=zero3, auto_bucketing=args.distributed_args.fsdp_auto_bucketing
+            )
+
+            compile_backend = "inductor"
+            fullgraph = True
+        else:
+            compile_backend = "inductor"
+            fullgraph = False
+
         for i, model in enumerate(model_container):
-            model_container[i] = torch.compile(model)
+            model_container[i] = torch.compile(model, backend=compile_backend, fullgraph=fullgraph)
 
     set_parameter_marker_maps(
         model_container,
