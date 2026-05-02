@@ -26,11 +26,11 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
 )
 
-from .arguments import TrainingArgs
-from .containers import ModelContainer
-from .enums import Kernel
-from .gradient_checkpointing import apply_gradient_checkpointing
-from .hf_models import (
+from ..arguments import TrainingArgs
+from ..containers import ModelContainer
+from ..enums import Kernel
+from ..gradient_checkpointing import apply_gradient_checkpointing
+from ..hf_models import (
     _INIT_MARKER,
     _OPTIMIZER_SPLIT_FUNCTION,
     CausalLMOutputWithPast,
@@ -38,8 +38,8 @@ from .hf_models import (
     is_parameter_initialized,
     set_parameter_marker_maps,
 )
-from .kernels import is_kernel_allowed
-from .utils import (
+from ..kernels import is_kernel_allowed
+from ..utils import (
     Accelerator,
     ProcessGroupManager,
     get_module_class_from_name,
@@ -48,6 +48,8 @@ from .utils import (
     log_rank_0,
     string_to_torch_dtype,
 )
+from .fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
+from .fsdp import data_parallel as simple_fsdp_data_parallel
 
 
 if is_torch_xla_available():
@@ -58,7 +60,7 @@ if is_torch_xla_available():
 if is_torchao_available():
     from torchao.float8 import ScalingType
 
-    from .fp8 import FP8Manager
+    from ..fp8 import FP8Manager
 
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
@@ -257,7 +259,31 @@ def wrap_model_container_for_distributed_training(
             fsdp_algorithm=2 if use_ddp else fsdp_algorithm,
         )
 
-        if use_ddp or fsdp_algorithm == 2:
+        if fsdp_algorithm == 3:
+            log_rank_0(logging.INFO, "using simple FSDP")
+            assert num_pipeline_stages == 1, "simple FSDP does not support pipeline parallelism"
+            assert not cpu_offload, "simple FSDP does not support CPU offload"
+            assert not efficient_initialization, "simple FSDP does not support efficient initialization"
+            assert stage in [0, 3], "simple FSDP supports only stage 0 (DDP) and stage 3 (FSDP)"
+
+            if use_ddp:
+                simple_mode = "replicate"
+                simple_mesh = dp_mesh["ddp"]
+            elif data_parallel_replication_world_size > 1:
+                simple_mode = "hybrid_shard"
+                simple_mesh = dp_mesh
+            else:
+                simple_mode = "fully_shard"
+                simple_mesh = dp_mesh["fsdp"]
+
+            simple_mp_policy = SimpleMixedPrecisionPolicy(param_dtype=dtype, reduce_dtype=communication_dtype)
+
+            for i, model in enumerate(model_container):
+                model = model.to(Accelerator.get_current_device())
+                model_container[i] = simple_fsdp_data_parallel(
+                    model, device_mesh=simple_mesh, mode=simple_mode, mp_policy=simple_mp_policy
+                )
+        elif use_ddp or fsdp_algorithm == 2:
             log_rank_0(logging.INFO, "using FSDP-2")
             zero3 = stage == 3
 
