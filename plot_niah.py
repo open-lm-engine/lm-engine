@@ -33,12 +33,26 @@ IGNORE = []  # Result dir or file name patterns to ignore (glob or substring)
 IGNORE_MODELS = [
     "RNN",
     "GRU",
-    "Gated DeltaNet",
-    "Hybrid Gated DeltaNet",
+    # "Hybrid DeltaNet",
+    # "Hybrid Robust DeltaNet",
+    # "Hybrid Gated DeltaNet",
+    # "Hybrid Gated Robust DeltaNet",
+    # "DeltaNet",
+    # "Robust DeltaNet",
+    # "Gated DeltaNet",
+    # "Gated Robust DeltaNet",
+    "$\mathrm{M}^2\mathrm{RNN}$",
     "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-1",
+    "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-" + f"{n}",
+    "Hybrid Mamba2 + $\mathrm{M}^2\mathrm{RNN}$-1",
+    "Hybrid Mamba2",
+    "Mamba2",
+    "Hybrid $\mathrm{M}^2\mathrm{RNN}$",
     "Hybrid Gated DeltaNet + $\mathrm{M}^2\mathrm{RNN}$-" + f"{n}",
     "Gated DeltaNet (neg)",
     "GDN",
+    "Softmax Attention",
+    "Hybrid Gated DeltaNet + Gated Robust DeltaNet-1",
 ]  # Model names to exclude from plot, e.g. ["rnn", "gru"]
 # IGNORE_MODELS = [
 #     "RNN",
@@ -55,6 +69,13 @@ FIGSIZE_PER_ROW = (18, 5)
 # For JSON mode: model size in dir name (e.g. "400m") and display names
 SIZE = "400m"
 MODEL_NAME_MAP = {
+    "deltanet": "DeltaNet",
+    "hybrid-deltanet": "Hybrid DeltaNet",
+    "m2rnn_tt": "Robust DeltaNet",
+    "gated-m2rnn_tt": "Gated Robust DeltaNet",
+    "hybrid-m2rnn_tt": "Hybrid Robust DeltaNet",
+    "hybrid-gated-m2rnn_tt": "Hybrid Gated Robust DeltaNet",
+    "hybrid-gated-deltanet-gated-m2rnn_tt-1l": "Hybrid Gated DeltaNet + Gated Robust DeltaNet-1",
     "softmax-attention": "Softmax Attention",
     "mamba2": "Mamba2",
     "gated-deltanet": "Gated DeltaNet",
@@ -72,26 +93,33 @@ MODEL_NAME_MAP = {
 }
 # Canonical display order and pinned colours (consistent across all subplots)
 MODEL_ORDER = [
-    "Softmax Attention",
-    "Mamba2",
+    "DeltaNet",
+    "Robust DeltaNet",
     "Gated DeltaNet",
-    "Gated DeltaNet (neg)",
-    "GRU",
-    "RNN",
-    "$\\mathrm{M}^2\\mathrm{RNN}$",
-    "Hybrid Mamba2",
-    "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-1",
-    "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-" + f"{n}",
+    "Gated Robust DeltaNet",
+    "Hybrid DeltaNet",
+    "Hybrid Robust DeltaNet",
     "Hybrid Gated DeltaNet",
-    "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-1",
-    "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-" + f"{n}",
-    "Hybrid $\\mathrm{M}^2\\mathrm{RNN}$",
+    "Hybrid Gated Robust DeltaNet",
+    # "Hybrid Gated DeltaNet + Gated Robust DeltaNet-1",
+    # "Mamba2",
+    # "Gated DeltaNet (neg)",
+    # "GRU",
+    # "RNN",
+    # "$\\mathrm{M}^2\\mathrm{RNN}$",
+    # "Hybrid Mamba2",
+    # "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-1",
+    # "Hybrid Mamba2 + $\\mathrm{M}^2\\mathrm{RNN}$-" + f"{n}",
+    # "Hybrid Gated DeltaNet",
+    # "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-1",
+    # "Hybrid Gated DeltaNet + $\\mathrm{M}^2\\mathrm{RNN}$-" + f"{n}",
+    # "Hybrid $\\mathrm{M}^2\\mathrm{RNN}$",
 ]
 _tab10 = plt.cm.tab10.colors
 MODEL_COLORS = {name: _tab10[i % len(_tab10)] for i, name in enumerate(MODEL_ORDER)}
 
-MODEL_COLORS["Hybrid Gated DeltaNet"] = (0.1, 0.1, 0.1)
-MODEL_COLORS["Gated DeltaNet"] = (0.5, 0.5, 0.5)
+# MODEL_COLORS["Hybrid Gated DeltaNet"] = (0.1, 0.1, 0.1)
+# MODEL_COLORS["Gated DeltaNet"] = (0.5, 0.5, 0.5)
 
 NIAH_TASKS = [
     "niah_single_1",
@@ -116,13 +144,14 @@ def should_ignore(name: str, ignore_patterns: list[str]) -> bool:
 
 
 def find_json_results(log_dir: Path, size: str) -> dict[str, Path]:
-    """Find lm-eval JSON files in results-<name>-<size>-cosine subdirs."""
+    """Find lm-eval JSON files. Prefers <model>-<size>-cosine-niah_*.json in log_dir.parent;
+    falls back to results-<model>-<size>-cosine subdirs in log_dir."""
     out = {}
-    pattern = re.compile(re.escape(size).join([r"results-(.+)-", r"-cosine"]))
+    subdir_pattern = re.compile(re.escape(size).join([r"results-(.+)-", r"-cosine"]))
     for subdir in log_dir.iterdir():
         if not subdir.is_dir() or not subdir.name.startswith("results-"):
             continue
-        match = pattern.match(subdir.name)
+        match = subdir_pattern.match(subdir.name)
         if not match:
             continue
         model_name = match.group(1)
@@ -131,6 +160,18 @@ def find_json_results(log_dir: Path, size: str) -> dict[str, Path]:
         jsons = list(subdir.rglob("*.json"))
         if jsons:
             out[model_name] = jsons[0]
+
+    flat_pattern = re.compile(re.escape(size).join([r"(.+)-", r"-cosine-niah_.+\.json$"]))
+    for path in log_dir.parent.glob(f"*-{size}-cosine-niah_*.json"):
+        if not path.is_file():
+            continue
+        match = flat_pattern.match(path.name)
+        if not match:
+            continue
+        model_name = match.group(1)
+        if should_ignore(path.name, IGNORE):
+            continue
+        out[model_name] = path
     return out
 
 
