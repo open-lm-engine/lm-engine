@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import math
+from functools import partial
 
 import torch
 import torch.nn.functional as F
@@ -14,7 +15,7 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....utils import Accelerator, divide_if_divisible, is_torch_xla_available
 from ...cache import GenerationCache, GenerationState, LinearCache
 from ...config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
-from ...parameter import mark_parameter_as_mup_learning_rate
+from ...parameter import mark_parameter_as_mup_learning_rate, set_optimizer_split_function
 from ..activations import sigmoid
 from ..chunk import contiguous_split
 from ..dropout import Dropout
@@ -53,15 +54,22 @@ def interleave_query_key_value_tensor_for_attention(
     return torch.cat(interleaved)
 
 
-def split_query_key_value_tensor_for_attention(
+def _split_query_key_value_tensor_for_attention_for_optimizer(
     query_key_value_weight: torch.Tensor, num_heads: int, num_key_value_heads: int
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     query_heads_per_group = num_heads // num_key_value_heads
-    original_shape = query_key_value_weight.shape
-
-    query_key_value_weight = query_key_value_weight.view(num_key_value_heads, (query_heads_per_group + 2), -1)
-
+    query_key_value_weight = query_key_value_weight.view(num_key_value_heads, query_heads_per_group + 2, -1)
     query_weight, key_weight, value_weight = query_key_value_weight.split((query_heads_per_group, 1, 1), 1)
+    return query_weight, key_weight, value_weight
+
+
+def split_query_key_value_tensor_for_attention(
+    query_key_value_weight: torch.Tensor, num_heads: int, num_key_value_heads: int
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    original_shape = query_key_value_weight.shape
+    query_weight, key_weight, value_weight = _split_query_key_value_tensor_for_attention_for_optimizer(
+        query_key_value_weight=query_key_value_weight, num_heads=num_heads, num_key_value_heads=num_key_value_heads
+    )
 
     query_weight = query_weight.reshape(-1, *original_shape[1:])
     key_weight = key_weight.reshape(-1, *original_shape[1:])
@@ -197,6 +205,15 @@ class Attention(DTensorModule):
 
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
+
+        set_optimizer_split_function(
+            self.c_attn.weight,
+            partial(
+                _split_query_key_value_tensor_for_attention_for_optimizer,
+                num_heads=self.num_heads,
+                num_key_value_heads=self.num_key_value_heads,
+            ),
+        )
 
     def forward(
         self,

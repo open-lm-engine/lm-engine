@@ -175,6 +175,8 @@ class OptimizerArgs(BaseArgs):
     params_group_method: ParamsGroupMethod | None = None
     # backward hooked optimizer
     use_optimizer_with_backward_hook: bool = False
+    # whether to split params for the optimizer using model-defined split functions
+    split_params_for_optimizer: bool = False
     # class args for optimizer
     class_args: dict = {
         "lr": 1e-5,
@@ -258,6 +260,8 @@ class DistributedArgs(BaseArgs):
     timeout_minutes: int | None = None
     # fsdp algorithm
     fsdp_algorithm: int | None = 2
+    # for fsdp_algorithm=3 (simple FSDP) + torch_compile: enable inductor auto-bucketing
+    fsdp_auto_bucketing: bool = True
     # whether to sync every gradient accumulation step
     sync_every_gradient_accumulation_step: bool = False
     # total number of pipeline stages
