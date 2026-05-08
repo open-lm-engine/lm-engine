@@ -54,12 +54,19 @@ _DATA_PARALLEL_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
 
+# context parallel
+_CONTEXT_PARALLEL_MESH: DeviceMesh | None = None
+_CONTEXT_PARALLEL_GROUP: ProcessGroup | None = None
+_CONTEXT_PARALLEL_RANK: int | None = None
+_CONTEXT_PARALLEL_WORLD_SIZE: int | None = None
+
 
 class ProcessGroupManager:
     def __init__(
         self,
         tensor_parallel_world_size: int = 1,
         pipeline_parallel_world_size: int = 1,
+        context_parallel_world_size: int = 1,
         data_parallel_replication_world_size: int | None = None,
         data_parallel_sharding_world_size: int | None = None,
         zero_stage: int = 3,
@@ -105,8 +112,17 @@ class ProcessGroupManager:
 
         Accelerator.set_device(_LOCAL_RANK)
 
-        data_parallel_size = _WORLD_SIZE // (tensor_parallel_world_size * pipeline_parallel_world_size)
-        assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == _WORLD_SIZE
+        data_parallel_size = _WORLD_SIZE // (
+            tensor_parallel_world_size * pipeline_parallel_world_size * context_parallel_world_size
+        )
+
+        assert (
+            tensor_parallel_world_size
+            * pipeline_parallel_world_size
+            * context_parallel_world_size
+            * data_parallel_size
+            == _WORLD_SIZE
+        )
 
         if zero_stage == 0:
             assert data_parallel_sharding_world_size is None or data_parallel_sharding_world_size == 1
@@ -128,15 +144,16 @@ class ProcessGroupManager:
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
-        _MESH = init_device_mesh(
+        _DENSE_MESH = init_device_mesh(
             "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
                 data_parallel_sharding_world_size,
+                context_parallel_world_size,
                 tensor_parallel_world_size,
             ),
-            mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
+            mesh_dim_names=("pp", "ddp", "fsdp", "cp", "tp"),
         )
 
         if use_async_tensor_parallel:
@@ -146,6 +163,7 @@ class ProcessGroupManager:
         if accelerator == Accelerator.tpu:
             assert tensor_parallel_world_size == 1
             assert pipeline_parallel_world_size == 1
+            assert context_parallel_world_size == 1
         else:
             group = ProcessGroupManager.get_tensor_parallel_group()
             ranks = torch.distributed.get_process_group_ranks(group)
