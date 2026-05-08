@@ -123,8 +123,10 @@ def _get_fsdp_mixed_precision(
 
     if fsdp_algorithm == 1:
         mixed_precision = MixedPrecision1(param_dtype=dtype, reduce_dtype=communication_dtype, buffer_dtype=dtype)
-    else:
+    elif fsdp_algorithm == 2:
         mixed_precision = MixedPrecision2(param_dtype=dtype, reduce_dtype=communication_dtype)
+    else:
+        mixed_precision = SimpleMixedPrecisionPolicy(param_dtype=dtype, reduce_dtype=communication_dtype)
 
     return mixed_precision
 
@@ -289,12 +291,10 @@ def wrap_model_container_for_distributed_training(
                 simple_mode = "fully_shard"
                 simple_mesh = dp_mesh["fsdp"]
 
-            simple_mp_policy = SimpleMixedPrecisionPolicy(param_dtype=dtype, reduce_dtype=communication_dtype)
-
             for i, model in enumerate(model_container):
                 model = model.to(Accelerator.get_current_device())
                 model_container[i] = simple_fsdp_data_parallel(
-                    model, device_mesh=simple_mesh, mode=simple_mode, mp_policy=simple_mp_policy
+                    model, device_mesh=simple_mesh, mode=simple_mode, mp_policy=mixed_precision_policy
                 )
         elif use_ddp or fsdp_algorithm == 2:
             log_rank_0(logging.INFO, "using FSDP-2")
