@@ -702,7 +702,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
                 device_type=Accelerator.get_device_type(), dtype=string_to_torch_dtype(args.mixed_precision_args.dtype)
             )
             if args.distributed_args.fsdp_algorithm is None
-            else nullcontext
+            else nullcontext()
         ),
     ):
         train(
