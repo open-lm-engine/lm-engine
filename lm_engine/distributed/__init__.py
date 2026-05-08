@@ -408,7 +408,7 @@ def wrap_model_container_for_distributed_training(
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
 
     if torch_compile:
-        backend = "inductor"
+        backend = Accelerator.get_torch_compile_backend()
 
         if fsdp_algorithm == 3:
             backend = get_simple_fsdp_compile_backend(
@@ -418,7 +418,7 @@ def wrap_model_container_for_distributed_training(
             )
 
         for i, model in enumerate(model_container):
-            model_container[i] = torch.compile(model, backend=Accelerator.get_torch_compile_backend())
+            model_container[i] = torch.compile(model, backend=backend)
 
     set_parameter_marker_maps(
         model_container,
