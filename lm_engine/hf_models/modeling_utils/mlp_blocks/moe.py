@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,23 +13,31 @@ from torch.distributed._tensor.placement_types import Partial, Replicate, Shard
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....utils import ProcessGroupManager, divide_if_divisible, is_sonicmoe_available, is_xma_available
+from ....utils import (
+    ProcessGroupManager,
+    divide_if_divisible,
+    is_sonicmoe_available,
+    is_triton_available,
+    is_xma_available,
+)
 from ...loss import add_aux_loss
 from ...parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ..activations import get_activation_function, is_glu
+from ..activations import get_activation_function, is_glu, sigmoid
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
 from ..linear import ColumnParallelLinear, ParameterizedLinear, ReplicatedLinear, RowParallelLinear
 from .mlp import _get_std_for_linear
 
 
-if is_xma_available():
+if is_xma_available() and is_triton_available():
     from xma import continuous_count
-    from xma.layers.moe import scattered_experts
+
+    if is_triton_available():
+        from xma.layers.moe import down_projection_experts, up_projection_experts
 
 
 if is_sonicmoe_available():
@@ -90,42 +96,6 @@ class ParameterizedExperts(nn.Module):
 
         self.reset_parameters()
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        num_experts_per_token: int | None = None,
-        expert_frequency: torch.Tensor | None = None,
-        sorted_expert_idxs: torch.Tensor | None = None,
-        sorted_scattered_idxs: torch.Tensor | None = None,
-        expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
-    ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.scattermoe):
-            x = scattered_experts(
-                inputs=x,
-                expert_weights=self.weight.permute(0, 2, 1),
-                k=num_experts_per_token,
-                sorted_expert_idxs=sorted_expert_idxs,
-                sorted_scattered_idxs=sorted_scattered_idxs,
-                expert_offsets=expert_offsets,
-                gates=gates,
-                grouped_in=grouped_in,
-                grouped_out=grouped_out,
-            )
-        else:
-            x = x.split(expert_frequency.tolist(), dim=0)
-            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
-            x = torch.cat(x, dim=0)
-
-        return x
-
-    def extra_repr(self) -> str:
-        return "num_experts={}, in_features={}, out_features={}".format(
-            self.num_experts, self.in_features, self.out_features
-        )
-
     @torch.no_grad()
     def reset_parameters(self) -> None:
         nn.init.normal_(self.weight, mean=0, std=self.std)
@@ -176,32 +146,28 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         sorted_expert_idxs: torch.Tensor | None = None,
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
     ) -> torch.Tensor:
         if self.is_tp_enabled:
             assert is_kernel_allowed(Kernel.scattermoe)
 
+        weight = dtensor_to_tensor(self.weight)
+
         if is_kernel_allowed(Kernel.scattermoe):
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
 
-            x = scattered_experts(
-                inputs=x,
-                expert_weights=dtensor_to_tensor(self.weight).permute(0, 2, 1),
+            x = up_projection_experts(
+                x=x,
+                expert_weights=weight.permute(0, 2, 1),
                 k=num_experts_per_token,
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                gates=gates,
-                grouped_in=grouped_in,
-                grouped_out=grouped_out,
             )
 
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             x = x.split(expert_frequency.tolist(), dim=0)
-            x = [F.linear(x[i], self.weight[i]) for i in range(self.num_experts)]
+            x = [F.linear(x[i], weight[i]) for i in range(self.num_experts)]
             x = torch.cat(x, dim=0)
 
         return x
@@ -254,22 +220,33 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
         sorted_expert_idxs: torch.Tensor | None = None,
         sorted_scattered_idxs: torch.Tensor | None = None,
         expert_offsets: torch.Tensor | None = None,
-        gates: torch.Tensor | None = None,
-        grouped_in: bool = False,
-        grouped_out: bool = False,
+        router_weights: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        return ColumnParallelExperts.forward(
-            self,
-            x=x,
-            num_experts_per_token=num_experts_per_token,
-            expert_frequency=expert_frequency,
-            sorted_expert_idxs=sorted_expert_idxs,
-            sorted_scattered_idxs=sorted_scattered_idxs,
-            expert_offsets=expert_offsets,
-            gates=gates,
-            grouped_in=grouped_in,
-            grouped_out=grouped_out,
-        )
+        if self.is_tp_enabled:
+            assert is_kernel_allowed(Kernel.scattermoe)
+
+        weight = dtensor_to_tensor(self.weight)
+
+        if is_kernel_allowed(Kernel.scattermoe):
+            x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+
+            x = down_projection_experts(
+                x=x,
+                expert_weights=weight.permute(0, 2, 1),
+                k=num_experts_per_token,
+                sorted_expert_idxs=sorted_expert_idxs,
+                sorted_scattered_idxs=sorted_scattered_idxs,
+                expert_offsets=expert_offsets,
+                router_weights=router_weights,
+            )
+
+            x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
+        else:
+            x = x.split(expert_frequency.tolist(), dim=0)
+            x = [F.linear(x[i], weight[i]) for i in range(self.num_experts)]
+            x = torch.cat(x, dim=0)
+
+        return x
 
     def extra_repr(self) -> str:
         return "num_experts={}, in_features_per_tp_rank={}, out_features={}".format(
@@ -296,6 +273,7 @@ class MoE(DTensorModule):
         initializer_range: float,
         m_width: float,
         num_layers: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
         sequence_parallel: bool = False,
     ) -> MoE:
@@ -312,15 +290,22 @@ class MoE(DTensorModule):
         self.use_interleaved_weights_for_shared_experts = use_interleaved_weights_for_shared_experts
         self.use_interleaved_weights = use_interleaved_weights
 
-        std = _get_std_for_linear(initializer_range, init_method, m_width)
+        up_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=self.hidden_size,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
+        )
 
-        self.gate = ReplicatedLinear(in_features=self.hidden_size, out_features=num_experts, bias=False, std=std)
+        self.gate = ReplicatedLinear(in_features=self.hidden_size, out_features=num_experts, bias=False, std=up_std)
 
         if self.shared_expert_gating:
             assert shared_intermediate_size is not None
 
             self.shared_expert_gate = ParameterizedLinear(
-                in_features=self.hidden_size, out_features=1, bias=False, std=std
+                in_features=self.hidden_size, out_features=1, bias=False, std=up_std
             )
 
         self.is_glu = is_glu(activation_function)
@@ -330,7 +315,7 @@ class MoE(DTensorModule):
             in_features=self.hidden_size,
             out_features=2 * self.intermediate_size if self.is_glu else self.intermediate_size,
             add_bias=add_bias,
-            std=std,
+            std=up_std,
         )
 
         if self.shared_intermediate_size is not None:
@@ -338,20 +323,25 @@ class MoE(DTensorModule):
                 in_features=self.hidden_size,
                 out_features=2 * self.shared_intermediate_size if self.is_glu else self.shared_intermediate_size,
                 bias=add_bias,
-                std=std,
+                std=up_std,
             )
 
         self.activation_function_string = activation_function
         self.act = get_activation_function(activation_function)
-
-        std /= math.sqrt(2 * num_layers)
 
         self.c_proj = RowParallelExperts(
             num_experts=num_experts,
             in_features=self.intermediate_size,
             out_features=self.hidden_size,
             add_bias=add_bias,
-            std=std,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.intermediate_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
         )
 
         if self.shared_intermediate_size is not None:
@@ -359,7 +349,14 @@ class MoE(DTensorModule):
                 in_features=self.shared_intermediate_size,
                 out_features=self.hidden_size,
                 bias=add_bias,
-                std=std,
+                std=_get_std_for_linear(
+                    initializer_range=initializer_range,
+                    init_method=init_method,
+                    m_width=m_width,
+                    fan_in=self.shared_intermediate_size,
+                    num_layers=num_layers,
+                    use_depth_scaled_init=use_depth_scaled_init,
+                ),
             )
 
         self.dropout = Dropout(dropout)
@@ -490,7 +487,6 @@ class MoE(DTensorModule):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                grouped_out=True,
             )
 
             x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
@@ -501,8 +497,7 @@ class MoE(DTensorModule):
                 sorted_expert_idxs=sorted_expert_idxs,
                 sorted_scattered_idxs=sorted_scattered_idxs,
                 expert_offsets=expert_offsets,
-                grouped_in=True,
-                gates=router_weights,
+                router_weights=router_weights,
             )
 
             x = self.dropout(x)
@@ -535,7 +530,7 @@ class MoE(DTensorModule):
         x = self.c_proj_shared(x)
 
         if g is not None:
-            x = x * F.sigmoid(g)
+            x = x * sigmoid(g)
 
         return x
 

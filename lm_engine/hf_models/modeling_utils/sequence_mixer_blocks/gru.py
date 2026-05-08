@@ -4,21 +4,21 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
+from ....enums import Kernel
+from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible, is_xma_available
-from ...cache import GenerationCache
+from ...cache import ConstantCache, GenerationCache, GenerationState
 from ...parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ..activations import get_activation_function, is_glu
+from ..activations import clip_gradients, get_activation_function, is_glu, sigmoid, silu, tanh
 from ..convolution import ParameterizedConv1d
+from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
 from .causal_convolution import causal_convolution
@@ -26,7 +26,7 @@ from .utils import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_s
 
 
 if is_xma_available():
-    from xma.layers.gru import gru
+    from xma import gru
 
 
 class GRU(nn.Module):
@@ -51,6 +51,7 @@ class GRU(nn.Module):
         normalization_function: str | None,
         num_layers: int,
         layer_idx: int,
+        use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
     ) -> GRU:
         super().__init__()
@@ -93,18 +94,30 @@ class GRU(nn.Module):
         self.xr_shape = self.num_reset_input_heads * self.state_head_dim
         self.g_shape = self.num_heads * self.state_head_dim
 
-        std = initializer_range
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-        self.state_weight_std = std
-
-        self.input_projection = ParameterizedLinear(
-            input_size, self.x_shape + self.xf_shape + self.xr_shape + self.g_shape, bias=add_bias, std=std
+        self.state_weight_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=self.state_head_dim,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
         )
 
-        if kernel_size is None:
-            assert activation_function is None
-        else:
+        self.input_projection = ParameterizedLinear(
+            input_size,
+            self.x_shape + self.xf_shape + self.xr_shape + self.g_shape,
+            bias=add_bias,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=input_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
+        )
+
+        if kernel_size is not None:
             assert not is_glu(self.activation_string)
 
             self.conv1d = ParameterizedConv1d(
@@ -114,7 +127,14 @@ class GRU(nn.Module):
                 bias=add_bias,
                 padding=kernel_size - 1,
                 groups=self.state_size,
-                std=std,
+                std=_get_std_for_linear(
+                    initializer_range=initializer_range,
+                    init_method=init_method,
+                    m_width=m_width,
+                    fan_in=kernel_size,
+                    num_layers=num_layers,
+                    use_depth_scaled_init=False,
+                ),
             )
 
             mark_parameter_as_mup_learning_rate(self.conv1d.weight)
@@ -129,10 +149,19 @@ class GRU(nn.Module):
             )
         )
 
-        std = initializer_range / math.sqrt(2 * num_layers)
-        if init_method == "mup":
-            std /= math.sqrt(m_width)
-        self.output_projection = ParameterizedLinear(self.state_size, output_size, bias=False, std=std)
+        self.output_projection = ParameterizedLinear(
+            self.state_size,
+            output_size,
+            bias=False,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.state_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
+        )
 
         self.norm = get_normalization_function(normalization_function, self.state_size)
 
@@ -165,7 +194,11 @@ class GRU(nn.Module):
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
                 x = pack_sequence(inputs=x, cu_seqlens=cu_seqlens)
 
-        c, h = (None, None) if cache_params is None else cache_params.get_cache(self.layer_idx)
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
 
         x = self.input_projection(x)
         x, xf, xr, g = x.split((self.x_shape, self.xf_shape, self.xr_shape, self.g_shape), dim=-1)
@@ -192,31 +225,146 @@ class GRU(nn.Module):
             (self.num_weight_heads, self.num_forget_weight_heads, self.num_reset_weight_heads), dim=0
         )
 
-        x, h = gru(
-            input=x,
-            weight=W,
-            forget_input=xf,
-            forget_weight=Wf,
-            reset_input=xr,
-            reset_weight=Wr,
-            input_state=h,
-            gradient_clipping=self.gradient_clipping,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-        )
+        if is_kernel_allowed(Kernel.gru):
+            x, h = gru(
+                input=x,
+                weight=W,
+                forget_input=xf,
+                forget_weight=Wf,
+                reset_input=xr,
+                reset_weight=Wr,
+                input_state=h,
+                gradient_clipping=self.gradient_clipping,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
+        else:
+            x, h = self._torch_forward(
+                x=x,
+                xf=xf,
+                xr=xr,
+                h0=h,
+                gradient_clipping=self.gradient_clipping,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
 
         if not self.use_padding_free_transformer and attention_mask is not None:
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         if cache_params is not None:
-            cache_params.update(conv_state=c, ssm_state=h, num_tokens_added=x.size(1), layer_idx=self.layer_idx)
+            cache_params.update(
+                states=(
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=S),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=S),
+                ),
+                layer_idx=self.layer_idx,
+            )
 
         x = x.flatten(-2, -1)
-        x = x * F.silu(g)
+        x = x * silu(g)
         x = self.norm(x)
         x = self.output_projection(x)
 
         return x
+
+    def _torch_forward(
+        self,
+        x: torch.Tensor,
+        xf: torch.Tensor,
+        xr: torch.Tensor,
+        h0: torch.Tensor | None,
+        gradient_clipping: float | None,
+        cu_seqlens: torch.Tensor | None,
+        max_seqlen: int | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        W, Wf, Wr = self.state_weight.split(
+            (self.num_weight_heads, self.num_forget_weight_heads, self.num_reset_weight_heads), dim=0
+        )
+
+        Nx = x.size(-2)
+        Nxf = xf.size(-2)
+        Nxr = xr.size(-2)
+
+        Nw = W.size(0)
+        Nwf = Wf.size(0)
+        Nwr = Wr.size(0)
+
+        N = max(Nx, Nxf, Nxr, Nw, Nwf, Nwr)
+
+        y_shape = list(x.size())
+        y_shape[-2] = N
+        y = torch.empty(y_shape, device=x.device, dtype=x.dtype)
+
+        if cu_seqlens is None:
+            B, S, _, H = x.size()
+        else:
+            B = cu_seqlens.size(0) - 1
+            S = max_seqlen
+            H = x.size(-1)
+
+        Gx = N // Nx
+        Gxf = N // Nxf
+        Gxr = N // Nxr
+
+        Gw = N // Nw
+        Gwf = N // Nwf
+        Gwr = N // Nwr
+
+        x = x.repeat_interleave(Gx, dim=-2)
+        xf = xf.repeat_interleave(Gxf, dim=-2)
+        xr = xr.repeat_interleave(Gxr, dim=-2)
+
+        W = W.repeat_interleave(Gw, dim=0)[None, ...]
+        Wf = Wf.repeat_interleave(Gwf, dim=0)[None, ...]
+        Wr = Wr.repeat_interleave(Gwr, dim=0)[None, ...]
+
+        if h0 is None:
+            h0 = torch.zeros(B, N, H, device=x.device, dtype=x.dtype)
+
+        if cu_seqlens is not None:
+            h0 = h0.clone()
+            start = cu_seqlens[:-1]
+            end = cu_seqlens[1:]
+
+        for s in range(S):
+            if cu_seqlens is None:
+                f = h0[..., None, :] @ Wf + xf[:, s, :, None, :]
+                r = h0[..., None, :] @ Wr + xr[:, s, :, None, :]
+            else:
+                offset = start + s
+                unfinished = offset < end
+                offset_unfinished = offset[unfinished]
+
+                f = h0[unfinished, :, None, :] @ Wf + xf[offset_unfinished, :, None, :]
+                r = h0[unfinished, :, None, :] @ Wr + xr[offset_unfinished, :, None, :]
+
+            f = sigmoid(f)
+            r = sigmoid(r)
+
+            if cu_seqlens is None:
+                z = (h0[..., None, :] * r) @ W + x[:, s, :, None, :]
+            else:
+                z = (h0[unfinished, :, None, :] * r) @ W + x[offset_unfinished, :, None, :]
+
+            z = tanh(z)
+
+            if cu_seqlens is None:
+                h = f * h0[..., None, :] + (1 - f) * z
+            else:
+                h = f * h0[unfinished, :, None, :] + (1 - f) * z
+
+            h = h.squeeze(-2)
+            h = clip_gradients(h, gradient_clipping)
+
+            if cu_seqlens is None:
+                y[:, s] = h
+                h0 = h
+            else:
+                y[offset_unfinished] = h
+                h0[unfinished] = h
+
+        return y, h0
 
     @torch.no_grad()
     def reset_parameters(self) -> None:

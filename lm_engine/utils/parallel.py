@@ -128,8 +128,8 @@ class ProcessGroupManager:
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
-        _DENSE_MESH = init_device_mesh(
-            "cpu" if accelerator == Accelerator.tpu else Accelerator.get_device_type(),
+        _MESH = init_device_mesh(
+            "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,

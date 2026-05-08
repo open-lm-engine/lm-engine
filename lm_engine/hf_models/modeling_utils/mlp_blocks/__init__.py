@@ -24,6 +24,7 @@ def get_mlp_block(
         initializer_range=config.initializer_range,
         m_width=config.m_width,
         num_layers=config.num_layers,
+        use_depth_scaled_init=config.use_depth_scaled_init,
         use_padding_free_transformer=use_padding_free_transformer,
         sequence_parallel=sequence_parallel,
     )

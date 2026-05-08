@@ -27,6 +27,12 @@ class BaseArgs(BaseModel):
                 for v in value:
                     if isinstance(v, BaseArgs):
                         result.append(v.to_dict())
+                    elif isinstance(v, Enum):
+                        result.append(v.value)
+                    elif isinstance(v, type):
+                        result.append(v.__name__)
+                    else:
+                        result.append(v)
             elif isinstance(value, Enum):
                 result = value.value
             elif isinstance(value, type):

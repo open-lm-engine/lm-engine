@@ -22,7 +22,7 @@ from ...loss import (
     get_aux_loss,
     is_aux_loss_zero,
 )
-from ...modeling_utils import DTensorModule, LMHead
+from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
 from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
 from ..modeling_outputs import (
     BaseModelOutputWithPast,
@@ -59,10 +59,23 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
             self.m_width = config.m_width
 
+    def get_input_embeddings(self) -> ParameterizedEmbedding:
+        return self.transformer.wte
+
+    def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
+        self.transformer.wte = value
+
+    def get_output_embeddings(self) -> ParameterizedLinear:
+        return self.transformer.wte if self._tied_word_embeddings else self.lm_head
+
+    def set_output_embeddings(self, new_embeddings: ParameterizedLinear) -> None:
+        if not self._tied_word_embeddings:
+            self.lm_head = new_embeddings
+
     def forward(
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | list[list[int]] | None = None,
         inputs_embeds: torch.Tensor | list[list[float]] | None = None,
@@ -79,7 +92,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         assert inputs_embeds is None
 
         if self.is_pipeline_parallel_enabled:
-            assert past_key_values is None
+            assert cache_params is None
 
         clear_aux_loss()
 
@@ -91,7 +104,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 labels=labels,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 use_cache=use_cache,
             )
@@ -101,7 +114,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
-            past_key_values=past_key_values,
+            cache_params=cache_params,
             attention_mask=attention_mask,
             position_ids=position_ids,
             use_cache=use_cache,
@@ -110,7 +123,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         )
 
         hidden_states = transformer_outputs.last_hidden_state
-        past_key_values = transformer_outputs.past_key_values
+        cache_params = transformer_outputs.cache_params
 
         del pipeline_parallel_input
         del transformer_outputs
@@ -123,12 +136,12 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             if labels is None:
                 if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
                     if self.m_width is not None:
-                        hidden_states = hidden_states / self.m_width
+                        hidden_states = hidden_states * (1 / self.m_width)
                 else:
                     lm_logits = self.get_lm_logits(hidden_states)
 
                     if self.m_width is not None:
-                        lm_logits = lm_logits / self.m_width
+                        lm_logits = lm_logits * (1 / self.m_width)
             else:
                 assert not self.is_pipeline_parallel_enabled
                 assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
@@ -136,7 +149,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 lm_logits = self.get_lm_logits(hidden_states)
 
                 if self.m_width is not None:
-                    lm_logits = lm_logits / self.m_width
+                    lm_logits = lm_logits * (1 / self.m_width)
 
                 loss = get_autoregressive_language_modeling_loss(
                     lm_logits=lm_logits,
@@ -162,7 +175,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 loss=loss,
                 aux_loss=aux_loss,
                 logits=lm_logits,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 last_hidden_state=hidden_states,
             )
         else:
@@ -245,7 +258,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 )
 
             lm_logits = output.logits[:, -1, :]
-            past_key_values = output.past_key_values
+            cache_params = output.cache_params
 
             if temperature == 0:
                 next_token = lm_logits.argmax(dim=-1).unsqueeze(1)
@@ -287,7 +300,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 break
 
             output: CausalLMOutputWithPast = self(
-                input_ids=next_token, attention_mask=attention_mask, past_key_values=past_key_values
+                input_ids=next_token, attention_mask=attention_mask, cache_params=cache_params
             )
 
         return generated_tokens

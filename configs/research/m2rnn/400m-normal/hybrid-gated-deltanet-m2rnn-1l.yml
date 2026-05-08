@@ -1,0 +1,381 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+datasets:
+  # class_name - data_name & data_sampling_ratio are not used but need to be passed to avoid errors
+  - class_name: MegatronDataset
+    data_name: Megatron
+    data_sampling_ratio: 1
+    class_args:
+      eval_steps: 2
+      data_cache_path: data-cache
+      # Option 1: data loading using --data-path with single file
+      data_path:
+        - datasets/nemotron-cc-hq
+      split: 99.5,0.5,0
+      # split: 1,0,0
+      sequence_length: 4096
+
+tokenizer_args:
+  tokenizer_name: open-lm-engine/hybrid-m2rnn-410m
+
+kernel_args:
+  kernels:
+    - rnn
+    - gru
+    - m2rnn
+    - causal_conv1d
+    - mamba2_ssm
+    - flash_attention_3
+    - sonicmoe
+
+model_args:
+  pretrained_config:
+    initializer_range: 0.02
+    layer_norm_epsilon: 1e-05
+    model_type: gpt_base
+    normalization_function: rmsnorm
+    position_embedding_type: nope
+    hidden_size: 1024
+    num_layers: 24
+    init_method: normal
+    bos_token_id: 100257
+    eos_token_id: 100257
+    pad_token_id: 100256
+    vocab_size: 100352
+    max_position_embeddings: 4096
+    sequence_mixer_blocks:
+      - sequence_mixer_type: m2rnn
+        k_head_dim: 64
+        v_head_dim: 16
+        num_q_heads: 1
+        num_k_heads: 1
+        num_v_heads: 84
+        num_f_heads: 84
+        num_g_heads: 84
+        num_weight_heads: 84
+        use_residual: true
+        activation_function: silu
+        normalization_function: rmsnorm
+        kernel_size: 4
+        add_bias: false
+        gradient_clipping: 1
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        add_bias: false
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        add_bias: false
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        add_bias: false
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+      - sequence_mixer_type: gated_deltanet
+        k_head_dim: 256
+        v_head_dim: 512
+        num_k_heads: 2
+        num_v_heads: 2
+        use_gate: true
+        allow_neg_eigval: false
+        kernel_size: 4
+    mlp_blocks:
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+      - activation_function: swiglu
+        mlp_type: MLP
+        add_bias: false
+        intermediate_size: 2752
+  efficient_initialization: false
+
+tuning_args:
+  tuning_method: pretraining
+
+save_args:
+  save_path: checkpoints/hybrid-gated-deltanet-m2rnn-1l-400m-cosine
+  save_interval: 5000
+
+# load_args:
+#   load_path: checkpoints/hybrid-gated-deltanet-m2rnn-1l-400m-cosine
+
+logging_args:
+  log_interval: 10
+  # torch_profiler_trace_path: tmp
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: m2rnn
+    name: hybrid-gated-deltanet-m2rnn-1l-400m-cosine
+
+training_parameters:
+  num_training_steps: 25000
+  eval_interval: 2500
+  micro_batch_size: 8
+  gradient_accumulation_steps: 4
+  eval_during_training: true
+
+optimizer_args:
+  class_name: TorchAdamW
+  class_args:
+    lr: 3e-4
+    weight_decay: 0.1
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1e-10
+
+lr_scheduler_args:
+  lr_decay_style: cosine
+  num_warmup_steps: 2500
+  num_constant_steps: 0
+  num_decay_steps: 22500
+
+mixed_precision_args:
+  dtype: bf16
+
+distributed_args:
+  stage: 0
+  torch_compile: true

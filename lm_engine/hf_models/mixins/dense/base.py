@@ -14,6 +14,7 @@ from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
+from ...modeling_utils.init_utils import _get_std_for_embedding
 from ...utils import convert_padding_free_lists_to_tensors, is_generation_cache_enabled
 from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
@@ -25,7 +26,6 @@ class PreTrainedModelMixin(PreTrainedModel):
     base_model_prefix = "transformer"
     causal = True
     _no_split_modules = ["Block"]
-    _skip_keys_device_placement = "past_key_values"
 
     def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
         super().__init__(config, *args, **kwargs)
@@ -57,7 +57,7 @@ class PreTrainedModelMixin(PreTrainedModel):
         labels: torch.Tensor | list[list[int]] | None,
         cu_seqlens: torch.Tensor | None,
         max_seqlen: int | None,
-        past_key_values: tuple[tuple[torch.Tensor]],
+        cache_params: tuple[tuple[torch.Tensor]],
         attention_mask: torch.Tensor | None,
         use_cache: bool,
     ) -> tuple[torch.Tensor]:
@@ -86,7 +86,7 @@ class PreTrainedModelMixin(PreTrainedModel):
                 assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
                 assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
 
-            if use_cache or past_key_values is not None:
+            if use_cache or cache_params is not None:
                 raise NotImplementedError("KV caching is not supported with padding_free transformer")
 
         return input_ids, position_ids, labels, cu_seqlens, max_seqlen
@@ -121,7 +121,11 @@ class BaseModelMixin(PreTrainedModelMixin):
             self.wte = ParameterizedEmbedding(
                 config.vocab_size,
                 self.embed_dim,
-                std=self.initializer_range,
+                std=_get_std_for_embedding(
+                    initializer_range=self.initializer_range,
+                    init_method=config.embedding_init_method,
+                    embed_dim=self.embed_dim,
+                ),
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 sequence_parallel=self.sequence_parallel,
             )
@@ -159,7 +163,7 @@ class BaseModelMixin(PreTrainedModelMixin):
     def forward(
         self,
         input_ids: torch.Tensor | None = None,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
@@ -173,10 +177,10 @@ class BaseModelMixin(PreTrainedModelMixin):
                 causal_mask,
                 position_ids,
                 rope_cos_sin,
-                past_key_values,
+                cache_params,
             ) = self._prepare_a_bunch_of_stuff(
                 input_ids=input_ids,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=attention_mask,
                 position_ids=position_ids,
                 use_cache=use_cache,
@@ -184,7 +188,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 max_seqlen=max_seqlen,
             )
         else:
-            assert past_key_values is None
+            assert cache_params is None
             assert attention_mask is None
 
             hidden_states = input_ids
@@ -192,7 +196,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
             if self.use_padding_free_transformer:
                 key_length = max_seqlen
-                # query length will change if past_key_values is not None
+                # query length will change if cache_params is not None
                 query_length = key_length - past_length
             else:
                 key_length = (
@@ -207,27 +211,25 @@ class BaseModelMixin(PreTrainedModelMixin):
 
             rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
 
-        if is_generation_cache_enabled():
-            past_key_values = (
-                GenerationCache(self.config) if use_cache and past_key_values is None else past_key_values
-            )
+        if is_generation_cache_enabled() and use_cache and cache_params is None:
+            cache_params = GenerationCache()
 
         mamba_mask = None
         mamba_mask_computed = False
 
         for layer_idx in range(self.layer_start_id, self.layer_end_id):
             sequence_mixer_type = self.sequence_mixer_block_types[layer_idx]
-            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru"]
+            is_linear_layer = sequence_mixer_type in ["mamba2", "rnn", "gru", "m2rnn", "gated_deltanet"]
 
             if is_linear_layer and not mamba_mask_computed:
-                mamba_mask = self._get_mamba_mask(attention_mask, past_key_values)
+                mamba_mask = self._get_mamba_mask(attention_mask, cache_params)
                 mamba_mask_computed = True
 
             block = self.h[str(layer_idx)]
 
             hidden_states = block(
                 hidden_states,
-                past_key_values=past_key_values,
+                cache_params=cache_params,
                 attention_mask=mamba_mask if is_linear_layer else causal_mask,
                 rope_cos_sin=rope_cos_sin,
                 cu_seqlens=cu_seqlens,
@@ -237,7 +239,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         if self.is_last_stage:
             hidden_states = self.ln_f(hidden_states)
 
-        return BaseModelOutputWithPast(last_hidden_state=hidden_states, past_key_values=past_key_values)
+        return BaseModelOutputWithPast(last_hidden_state=hidden_states, cache_params=cache_params)
 
     def _get_position_ids(
         self, attention_mask: torch.Tensor, past_length: int, query_length: int, key_length: int, device: torch.device
@@ -259,8 +261,8 @@ class BaseModelMixin(PreTrainedModelMixin):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         if self.position_embedding_type == "rope":
             cos, sin = self.rope(key_length, dtype=dtype)
-            cos = cos[position_ids].unsqueeze(1)
-            sin = sin[position_ids].unsqueeze(1)
+            cos = cos[position_ids]
+            sin = sin[position_ids]
             return cos, sin
 
     def _prepare_causal_attention_mask(
@@ -320,7 +322,7 @@ class BaseModelMixin(PreTrainedModelMixin):
     def _prepare_a_bunch_of_stuff(
         self,
         input_ids: torch.Tensor | None = None,
-        past_key_values: GenerationCache | None = None,
+        cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         use_cache: bool | None = None,
@@ -352,7 +354,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         if self.use_padding_free_transformer:
             key_length = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
         else:
-            past_length = 0 if past_key_values is None else past_key_values.get_seq_length()
+            past_length = 0 if cache_params is None else cache_params.get_seq_length()
             query_length = input_shape[-1]
             key_length = past_length + query_length
 
@@ -375,7 +377,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             attention_mask,
             position_ids,
             rope_cos_sin,
-            past_key_values,
+            cache_params,
         )
 
     def _setup_positional_encoding(self) -> None:
@@ -445,12 +447,12 @@ class BaseModelMixin(PreTrainedModelMixin):
         return attention_mask
 
     def _get_mamba_mask(
-        self, attention_mask: torch.Tensor | None, past_key_values: GenerationCache
+        self, attention_mask: torch.Tensor | None, cache_params: GenerationCache
     ) -> torch.Tensor | None:
         mamba_mask = attention_mask
         if (
-            past_key_values is None
-            or past_key_values.get_seq_length() > 0
+            cache_params is None
+            or cache_params.get_seq_length() > 0
             or (attention_mask is not None and torch.all(attention_mask == 1))
         ):
             mamba_mask = None

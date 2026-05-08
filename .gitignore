@@ -9,3 +9,7 @@ build/
 uv.lock
 .venv
 .DS_Store
+wandb
+*.bin
+*.idx
+*.npy

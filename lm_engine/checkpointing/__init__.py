@@ -128,7 +128,11 @@ def save_checkpoint(
                 "Therefore, the function will not save the optimizer",
             )
 
+    accelerator = Accelerator.get_accelerator()
+
     if args.save_args.async_checkpointing:
+        assert accelerator == Accelerator.cuda
+
         global _FUTURE
         _FUTURE = dcp.async_save(
             {
@@ -154,8 +158,6 @@ def save_checkpoint(
 
         _FUTURE.add_done_callback(_f)
     else:
-        accelerator = Accelerator.get_accelerator()
-
         if accelerator == Accelerator.cuda:
             dcp.save({"state": _ModelSaver(model_container)}, checkpoint_id=_get_model_path(save_path))
 
@@ -164,6 +166,12 @@ def save_checkpoint(
                     {"state": _OptimizerSaver(model_container, optimizer_container)},
                     checkpoint_id=_get_optimizer_path(save_path),
                 )
+        elif accelerator == Accelerator.mps:
+            assert len(model_container) == 1
+            assert len(optimizer_container) == 1
+
+            torch.save({"state": model_container[0].state_dict()}, f"{_get_model_path(save_path)}.pt")
+            torch.save({"state": optimizer_container[0].state_dict()}, f"{_get_optimizer_path(save_path)}.pt")
         elif accelerator == Accelerator.tpu:
             assert len(model_container) == 1
             assert len(optimizer_container) == 1
@@ -264,6 +272,12 @@ def load_checkpoint_for_training(
                 saver.load_state_dict(state_dict["state"])
 
         del saver, state_dict
+    elif accelerator == Accelerator.mps:
+        assert len(model_container) == 1
+        assert len(optimizer_container) == 1
+
+        model_container[0].load_state_dict(torch.load(f"{_get_model_path(load_path)}.pt")["state"])
+        optimizer_container[0].load_state_dict(torch.load(f"{_get_optimizer_path(load_path)}.pt")["state"])
     elif accelerator == Accelerator.tpu:
         assert len(model_container) == 1
         assert len(optimizer_container) == 1
@@ -393,6 +407,8 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
         dtype = string_to_torch_dtype(model.dtype)
         for key in list(state.keys()):
             state[key] = state[key].to(dtype)
+    elif accelerator == Accelerator.mps:
+        state = torch.load(f"{_get_model_path(_get_base_path(load_path, iteration))}.pt")["state"]
     elif accelerator == Accelerator.tpu:
         state, _ = xla_consolidate_sharded_model_checkpoints(
             f"{_get_model_optimizer_path(_get_base_path(load_path, iteration))}/", "*.pt", "", save_model=False

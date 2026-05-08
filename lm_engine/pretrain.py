@@ -182,13 +182,17 @@ def train_step_without_pipeline_parallel(
     assert len(model_container) == 1
     model = model_container[0]
 
-    fsdp_algorithm = 2 if hasattr(model, "set_requires_gradient_sync") else 1
+    fsdp_algorithm = None
+    if hasattr(model, "set_requires_gradient_sync"):
+        fsdp_algorithm = 2
+    elif hasattr(model, "no_sync"):
+        fsdp_algorithm = 1
 
     no_sync = nullcontext
     if not sync_every_gradient_accumulation_step:
         if fsdp_algorithm == 1:
             no_sync = model.no_sync
-        else:
+        elif fsdp_algorithm == 2:
             model.set_requires_gradient_sync(False)
 
     metrics_tracker = MetricsTrackingDict({})
@@ -519,7 +523,7 @@ def evaluate(
     group_names: list[str],
     lm_loss_multiplier: float,
     context: str,
-) -> float:
+) -> None:
     """main validation loop for the program
 
     Args:
@@ -532,9 +536,6 @@ def evaluate(
         group_names (list[str]): names of the datasets in validation/test group
         lm_loss_multiplier (float): lm loss multiplier
         context (str): context
-
-    Returns:
-        MetricsTrackingDict: metrics tracker
     """
 
     assert len(model_container) == 1
@@ -561,6 +562,9 @@ def evaluate(
     model.eval()
 
     for group_name, val_dataloader in zip(group_names, val_dataloaders):
+        if val_dataloader is None:
+            continue
+
         metrics_tracker = MetricsTrackingDict({})
 
         for _ in range(eval_steps):
@@ -586,8 +590,6 @@ def evaluate(
         )
 
     model.train()
-
-    return metrics_tracker
 
 
 def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> None:
@@ -644,6 +646,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         model_container=model_container,
         params_group_method=args.optimizer_args.params_group_method,
         use_optimizer_with_backward_hook=args.optimizer_args.use_optimizer_with_backward_hook,
+        split_params_for_optimizer=args.optimizer_args.split_params_for_optimizer,
     )
 
     lr_scheduler_container = get_scheduler_container(

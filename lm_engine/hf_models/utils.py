@@ -11,7 +11,7 @@ def convert_padding_free_lists_to_tensors(
     input_ids: list[list[int]] | None = None,
     position_ids: list[list[int]] | None = None,
     labels: list[list[int]] | None = None,
-    device: torch.device = None,
+    device: torch.device | None = None,
 ) -> tuple[torch.Tensor | int]:
 
     # check input types are correct
@@ -45,7 +45,7 @@ def _check_list_type(list_of_list: list[list[int | float]] | None, error_message
     assert isinstance(list_of_list[0], list), error_message
 
 
-def _flatten_and_convert_to_tensors(x: list[int], device: torch.device) -> torch.Tensor:
+def _flatten_and_convert_to_tensors(x: list[int], device: torch.device | None) -> torch.Tensor:
     y = []
     for sequence in x:
         y.extend(sequence)

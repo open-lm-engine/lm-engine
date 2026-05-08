@@ -1,0 +1,941 @@
+# **************************************************
+# Copyright (c) 2025, Mayank Mishra
+# **************************************************
+
+datasets:
+  # class_name - data_name & data_sampling_ratio are not used but need to be passed to avoid errors
+  - class_name: MegatronDataset
+    data_name: Megatron
+    data_sampling_ratio: 1
+    class_args:
+      eval_steps: 2
+      data_cache_path: data-cache
+      # Option 1: data loading using --data-path with single file
+      data_path:
+        - datasets/nemotron-cc-hq
+      split: 99.5,0.5,0
+      # split: 1,0,0
+      sequence_length: 4096
+
+tokenizer_args:
+  tokenizer_name: open-lm-engine/hybrid-m2rnn-410m
+
+kernel_args:
+  kernels:
+    - rnn
+    - gru
+    - m2rnn
+    - causal_conv1d
+    - mamba2_ssm
+    - flash_attention_3
+    - sonicmoe
+
+model_args:
+  pretrained_config:
+    initializer_range: 0.02
+    layer_norm_epsilon: 1e-05
+    model_type: gpt_base
+    normalization_function: rmsnorm
+    position_embedding_type: nope
+    hidden_size: 1536
+    num_layers: 40
+    init_method: normal
+    bos_token_id: 100257
+    eos_token_id: 100257
+    pad_token_id: 100256
+    vocab_size: 100352
+    max_position_embeddings: 4096
+    sequence_mixer_blocks:
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+      - sequence_mixer_type: gru
+        state_head_dim: 16
+        num_input_heads: 128
+        num_forget_input_heads: 128
+        num_reset_input_heads: 128
+        num_weight_heads: 128
+        num_forget_weight_heads: 128
+        num_reset_weight_heads: 128
+        add_bias: false
+        normalization_function: rmsnorm
+        gradient_clipping: 1
+        kernel_size: 4
+        activation_function: silu
+    mlp_blocks:
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+      - mlp_type: MoE
+        shared_intermediate_size: 1024
+        num_experts: 128
+        num_experts_per_tok: 8
+        use_interleaved_weights: true
+        intermediate_size: 256
+        activation_function: swiglu
+        add_bias: false
+  efficient_initialization: false
+
+tuning_args:
+  tuning_method: pretraining
+
+save_args:
+  save_path: checkpoints/gru-7b-cosine
+  save_interval: 5000
+
+# load_args:
+#   load_path: checkpoints/gru-7b-cosine
+
+logging_args:
+  log_interval: 10
+  # torch_profiler_trace_path: tmp
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: m2rnn
+    name: gru-7b-cosine
+
+training_parameters:
+  num_training_steps: 25000
+  eval_interval: 2500
+  micro_batch_size: 4
+  gradient_accumulation_steps: 4
+  eval_during_training: true
+
+optimizer_args:
+  class_name: TorchAdamW
+  class_args:
+    lr: 3e-4
+    weight_decay: 0.1
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1e-10
+
+lr_scheduler_args:
+  lr_decay_style: cosine
+  num_warmup_steps: 2500
+  num_constant_steps: 0
+  num_decay_steps: 22500
+
+mixed_precision_args:
+  dtype: bf16
+
+distributed_args:
+  stage: 3
+  torch_compile: true
+  zero_topology:
+    data_parallel_replication_world_size: 8
+    data_parallel_sharding_world_size: 8
