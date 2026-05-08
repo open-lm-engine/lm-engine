@@ -127,7 +127,7 @@ def get_simple_fsdp_compile_backend(
                 bw_compiler=autobucketing_reordering_pass,
                 keep_inference_input_mutations=True,
             )
-        elif backend == "inductor":
+        elif backend in ["inductor", "neuron"]:
 
             def _inductor_autobucketing_pass(gm: torch.fx.Graph) -> torch.fx.GraphModule:
                 return schedule_overlap_bucketing_from_inductor_configs(gm.owning_module)
