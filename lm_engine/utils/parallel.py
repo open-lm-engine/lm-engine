@@ -55,6 +55,7 @@ _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
 
 # context parallel
+_CONTEXT_MESH: DeviceMesh | None = None  # separate 4D mesh ("pp", "batch", "cp", "tp") for CP group access
 _CONTEXT_PARALLEL_MESH: DeviceMesh | None = None
 _CONTEXT_PARALLEL_GROUP: ProcessGroup | None = None
 _CONTEXT_PARALLEL_RANK: int | None = None
@@ -74,6 +75,7 @@ class ProcessGroupManager:
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
         global _DENSE_MESH
+        global _CONTEXT_MESH
         global _TENSOR_PARALLEL_FIRST_RANK
         global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
         global _DATA_PARALLEL_SHARDING_WORLD_SIZE
@@ -143,17 +145,31 @@ class ProcessGroupManager:
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
+        device_type = "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type()
+
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
+        # fsdp folds in context parallel so FSDP all-gathers span both dp_shard and cp ranks
         _DENSE_MESH = init_device_mesh(
-            "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
+            device_type,
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
-                data_parallel_sharding_world_size,
+                data_parallel_sharding_world_size * context_parallel_world_size,
+                tensor_parallel_world_size,
+            ),
+            mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
+        )
+
+        # separate mesh that exposes the cp dimension explicitly, used to form the CP process group
+        _CONTEXT_MESH = init_device_mesh(
+            device_type,
+            (
+                pipeline_parallel_world_size,
+                data_parallel_replication_world_size * data_parallel_sharding_world_size,
                 context_parallel_world_size,
                 tensor_parallel_world_size,
             ),
-            mesh_dim_names=("pp", "ddp", "fsdp", "cp", "tp"),
+            mesh_dim_names=("pp", "batch", "cp", "tp"),
         )
 
         if use_async_tensor_parallel:
@@ -397,13 +413,17 @@ class ProcessGroupManager:
 
         _DATA_PARALLEL_WORLD_SIZE = original_world_size
 
+    @staticmethod
+    def get_context_mesh() -> DeviceMesh:
+        return _CONTEXT_MESH
+
     # context parallel
     @staticmethod
     def get_context_parallel_mesh() -> DeviceMesh:
         global _CONTEXT_PARALLEL_MESH
 
         if _CONTEXT_PARALLEL_MESH is None:
-            _CONTEXT_PARALLEL_MESH = ProcessGroupManager.get_dense_mesh()["cp"]
+            _CONTEXT_PARALLEL_MESH = _CONTEXT_MESH["cp"]
         return _CONTEXT_PARALLEL_MESH
 
     @staticmethod
@@ -464,27 +484,6 @@ class ProcessGroupManager:
     @staticmethod
     def is_context_parallel_first_rank() -> bool:
         return ProcessGroupManager.get_context_parallel_rank() == 0
-
-    # mesh dim indices in the dense mesh ("pp", "ddp", "fsdp", "cp", "tp")
-    @staticmethod
-    def get_pipeline_parallel_mesh_dim() -> int:
-        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("pp")
-
-    @staticmethod
-    def get_data_parallel_replication_mesh_dim() -> int:
-        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("ddp")
-
-    @staticmethod
-    def get_data_parallel_sharding_mesh_dim() -> int:
-        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("fsdp")
-
-    @staticmethod
-    def get_context_parallel_mesh_dim() -> int:
-        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("cp")
-
-    @staticmethod
-    def get_tensor_parallel_mesh_dim() -> int:
-        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("tp")
 
     def __str__(self) -> str:
         return str(self.get_dense_mesh())
