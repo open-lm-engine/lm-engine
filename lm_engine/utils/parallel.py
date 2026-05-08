@@ -397,6 +397,95 @@ class ProcessGroupManager:
 
         _DATA_PARALLEL_WORLD_SIZE = original_world_size
 
+    # context parallel
+    @staticmethod
+    def get_context_parallel_mesh() -> DeviceMesh:
+        global _CONTEXT_PARALLEL_MESH
+
+        if _CONTEXT_PARALLEL_MESH is None:
+            _CONTEXT_PARALLEL_MESH = ProcessGroupManager.get_dense_mesh()["cp"]
+        return _CONTEXT_PARALLEL_MESH
+
+    @staticmethod
+    def get_context_parallel_group() -> ProcessGroup:
+        global _CONTEXT_PARALLEL_GROUP
+
+        if _CONTEXT_PARALLEL_GROUP is None:
+            _CONTEXT_PARALLEL_GROUP = ProcessGroupManager.get_context_parallel_mesh().get_group()
+        return _CONTEXT_PARALLEL_GROUP
+
+    @staticmethod
+    def get_context_parallel_rank() -> int:
+        global _CONTEXT_PARALLEL_RANK
+
+        if _CONTEXT_PARALLEL_RANK is None:
+            _CONTEXT_PARALLEL_RANK = ProcessGroupManager.get_context_parallel_mesh().get_local_rank()
+        return _CONTEXT_PARALLEL_RANK
+
+    @contextmanager
+    @staticmethod
+    def set_dummy_context_parallel_rank(rank: int):
+        global _CONTEXT_PARALLEL_RANK
+
+        original_rank = _CONTEXT_PARALLEL_RANK
+        _CONTEXT_PARALLEL_RANK = rank
+
+        yield
+
+        _CONTEXT_PARALLEL_RANK = original_rank
+
+    @staticmethod
+    def get_context_parallel_world_size() -> int:
+        global _CONTEXT_PARALLEL_WORLD_SIZE
+
+        if _CONTEXT_PARALLEL_WORLD_SIZE is None:
+            _CONTEXT_PARALLEL_WORLD_SIZE = ProcessGroupManager.get_context_parallel_mesh().size()
+        return _CONTEXT_PARALLEL_WORLD_SIZE
+
+    @contextmanager
+    @staticmethod
+    def set_dummy_context_parallel_world_size(world_size: int):
+        global _CONTEXT_PARALLEL_WORLD_SIZE
+
+        original_world_size = _CONTEXT_PARALLEL_WORLD_SIZE
+        _CONTEXT_PARALLEL_WORLD_SIZE = world_size
+
+        yield
+
+        _CONTEXT_PARALLEL_WORLD_SIZE = original_world_size
+
+    @staticmethod
+    def is_context_parallel_enabled() -> bool:
+        try:
+            return ProcessGroupManager.is_initialized() and ProcessGroupManager.get_context_parallel_world_size() > 1
+        except:
+            return False
+
+    @staticmethod
+    def is_context_parallel_first_rank() -> bool:
+        return ProcessGroupManager.get_context_parallel_rank() == 0
+
+    # mesh dim indices in the dense mesh ("pp", "ddp", "fsdp", "cp", "tp")
+    @staticmethod
+    def get_pipeline_parallel_mesh_dim() -> int:
+        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("pp")
+
+    @staticmethod
+    def get_data_parallel_replication_mesh_dim() -> int:
+        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("ddp")
+
+    @staticmethod
+    def get_data_parallel_sharding_mesh_dim() -> int:
+        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("fsdp")
+
+    @staticmethod
+    def get_context_parallel_mesh_dim() -> int:
+        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("cp")
+
+    @staticmethod
+    def get_tensor_parallel_mesh_dim() -> int:
+        return ProcessGroupManager.get_dense_mesh().mesh_dim_names.index("tp")
+
     def __str__(self) -> str:
         return str(self.get_dense_mesh())
 
