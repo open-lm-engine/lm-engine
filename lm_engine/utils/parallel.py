@@ -55,7 +55,7 @@ _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
 
 # context parallel
-_CONTEXT_MESH: DeviceMesh | None = None  # separate 4D mesh ("pp", "batch", "cp", "tp") for CP group access
+_DATALOADING_MESH: DeviceMesh | None = None  # 4D mesh ("pp", "batch", "cp", "tp") — exposes cp dim for CP group access
 _CONTEXT_PARALLEL_MESH: DeviceMesh | None = None
 _CONTEXT_PARALLEL_GROUP: ProcessGroup | None = None
 _CONTEXT_PARALLEL_RANK: int | None = None
@@ -75,7 +75,7 @@ class ProcessGroupManager:
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
         global _DENSE_MESH
-        global _CONTEXT_MESH
+        global _DATALOADING_MESH
         global _TENSOR_PARALLEL_FIRST_RANK
         global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
         global _DATA_PARALLEL_SHARDING_WORLD_SIZE
@@ -161,7 +161,7 @@ class ProcessGroupManager:
         )
 
         # separate mesh that exposes the cp dimension explicitly, used to form the CP process group
-        _CONTEXT_MESH = init_device_mesh(
+        _DATALOADING_MESH = init_device_mesh(
             device_type,
             (
                 pipeline_parallel_world_size,
@@ -414,8 +414,8 @@ class ProcessGroupManager:
         _DATA_PARALLEL_WORLD_SIZE = original_world_size
 
     @staticmethod
-    def get_context_mesh() -> DeviceMesh:
-        return _CONTEXT_MESH
+    def get_dataloading_mesh() -> DeviceMesh:
+        return _DATALOADING_MESH
 
     # context parallel
     @staticmethod
@@ -423,7 +423,7 @@ class ProcessGroupManager:
         global _CONTEXT_PARALLEL_MESH
 
         if _CONTEXT_PARALLEL_MESH is None:
-            _CONTEXT_PARALLEL_MESH = _CONTEXT_MESH["cp"]
+            _CONTEXT_PARALLEL_MESH = _DATALOADING_MESH["cp"]
         return _CONTEXT_PARALLEL_MESH
 
     @staticmethod
