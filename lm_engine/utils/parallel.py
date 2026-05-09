@@ -114,17 +114,9 @@ class ProcessGroupManager:
 
         Accelerator.set_device(_LOCAL_RANK)
 
-        data_parallel_size = _WORLD_SIZE // (
-            tensor_parallel_world_size * pipeline_parallel_world_size * context_parallel_world_size
-        )
+        data_parallel_size = _WORLD_SIZE // (tensor_parallel_world_size * pipeline_parallel_world_size)
 
-        assert (
-            tensor_parallel_world_size
-            * pipeline_parallel_world_size
-            * context_parallel_world_size
-            * data_parallel_size
-            == _WORLD_SIZE
-        )
+        assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == _WORLD_SIZE
 
         if zero_stage == 0:
             assert data_parallel_sharding_world_size is None or data_parallel_sharding_world_size == 1
@@ -154,7 +146,7 @@ class ProcessGroupManager:
             (
                 pipeline_parallel_world_size,
                 data_parallel_replication_world_size,
-                data_parallel_sharding_world_size * context_parallel_world_size,
+                data_parallel_sharding_world_size,
                 tensor_parallel_world_size,
             ),
             mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
