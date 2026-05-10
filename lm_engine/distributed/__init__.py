@@ -399,7 +399,7 @@ def wrap_model_container_for_distributed_training(
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
 
     if torch_compile:
-        backend = "inductor"
+        backend = Accelerator.get_torch_compile_backend()
         fullgraph = False
 
         if fsdp_algorithm == 3:
