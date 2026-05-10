@@ -26,20 +26,19 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
 )
 
-from .arguments import TrainingArgs
-from .containers import ModelContainer
-from .enums import Kernel
-from .gradient_checkpointing import apply_gradient_checkpointing
-from .hf_models import (
+from ..arguments import TrainingArgs
+from ..containers import ModelContainer
+from ..enums import Kernel
+from ..gradient_checkpointing import apply_gradient_checkpointing
+from ..hf_models import (
     _INIT_MARKER,
-    _OPTIMIZER_SPLIT_FUNCTION,
     CausalLMOutputWithPast,
     get_parameter_marker_maps,
     is_parameter_initialized,
     set_parameter_marker_maps,
 )
-from .kernels import is_kernel_allowed
-from .utils import (
+from ..kernels import is_kernel_allowed
+from ..utils import (
     Accelerator,
     ProcessGroupManager,
     get_module_class_from_name,
@@ -48,6 +47,9 @@ from .utils import (
     log_rank_0,
     string_to_torch_dtype,
 )
+from .simple_fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
+from .simple_fsdp import data_parallel as simple_fsdp_data_parallel
+from .simple_fsdp import get_simple_fsdp_compile_backend
 
 
 if is_torch_xla_available():
@@ -58,7 +60,7 @@ if is_torch_xla_available():
 if is_torchao_available():
     from torchao.float8 import ScalingType
 
-    from .fp8 import FP8Manager
+    from ..fp8 import FP8Manager
 
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
@@ -120,8 +122,12 @@ def _get_fsdp_mixed_precision(
 
     if fsdp_algorithm == 1:
         mixed_precision = MixedPrecision1(param_dtype=dtype, reduce_dtype=communication_dtype, buffer_dtype=dtype)
-    else:
+    elif fsdp_algorithm == 2:
         mixed_precision = MixedPrecision2(param_dtype=dtype, reduce_dtype=communication_dtype)
+    elif fsdp_algorithm == 3:
+        mixed_precision = SimpleMixedPrecisionPolicy(param_dtype=dtype, reduce_dtype=communication_dtype)
+    else:
+        raise ValueError(f"unexpected fsdp_algorithm {(fsdp_algorithm)}")
 
     return mixed_precision
 
@@ -140,6 +146,7 @@ def wrap_model_container_for_distributed_training(
     """
 
     stage = args.distributed_args.stage
+    zero3 = stage == 3
     cpu_offload = args.distributed_args.cpu_offload
     torch_compile = args.distributed_args.torch_compile
     dtype = args.mixed_precision_args.dtype
@@ -257,9 +264,30 @@ def wrap_model_container_for_distributed_training(
             fsdp_algorithm=2 if use_ddp else fsdp_algorithm,
         )
 
-        if use_ddp or fsdp_algorithm == 2:
+        if fsdp_algorithm == 3:
+            log_rank_0(logging.INFO, "using simple FSDP")
+            assert num_pipeline_stages == 1, "simple FSDP does not support pipeline parallelism"
+            assert not cpu_offload, "simple FSDP does not support CPU offload"
+            assert not efficient_initialization, "simple FSDP does not support efficient initialization"
+            assert stage in [0, 3], "simple FSDP supports only stage 0 (DDP) and stage 3 (FSDP)"
+
+            if use_ddp:
+                simple_mode = "replicate"
+                simple_mesh = dp_mesh["ddp"]
+            elif data_parallel_replication_world_size > 1:
+                simple_mode = "hybrid_shard"
+                simple_mesh = dp_mesh
+            else:
+                simple_mode = "fully_shard"
+                simple_mesh = dp_mesh["fsdp"]
+
+            for i, model in enumerate(model_container):
+                model = model.to(Accelerator.get_current_device())
+                model_container[i] = simple_fsdp_data_parallel(
+                    model, device_mesh=simple_mesh, mode=simple_mode, mp_policy=mixed_precision_policy
+                )
+        elif use_ddp or fsdp_algorithm == 2:
             log_rank_0(logging.INFO, "using FSDP-2")
-            zero3 = stage == 3
 
             def _sharding_function(parameter: nn.Parameter) -> Shard:
                 dps = (
@@ -372,8 +400,18 @@ def wrap_model_container_for_distributed_training(
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
 
     if torch_compile:
+        backend = Accelerator.get_torch_compile_backend()
+        fullgraph = False
+
+        if fsdp_algorithm == 3:
+            backend = get_simple_fsdp_compile_backend(
+                fsdp_reshard_after_forward=zero3, auto_bucketing=True, backend=backend
+            )
+
+            fullgraph = True
+
         for i, model in enumerate(model_container):
-            model_container[i] = torch.compile(model)
+            model_container[i] = torch.compile(model, backend=backend, fullgraph=fullgraph)
 
     set_parameter_marker_maps(
         model_container,

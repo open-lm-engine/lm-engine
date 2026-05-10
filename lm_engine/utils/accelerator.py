@@ -127,3 +127,10 @@ class Accelerator(Enum):
             raise ValueError(f"unexpected device ({accelerator})")
 
         return state
+
+    @staticmethod
+    def get_torch_compile_backend() -> str:
+        if Accelerator.get_accelerator() == Accelerator.trainium:
+            return "neuron"
+
+        return "inductor"

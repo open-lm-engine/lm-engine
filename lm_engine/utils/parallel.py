@@ -15,6 +15,7 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
+from .accelerator import Accelerator
 from .miscellaneous import divide_if_divisible
 from .packages import is_torch_xla_available
 
@@ -65,8 +66,6 @@ class ProcessGroupManager:
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
-        from .accelerator import Accelerator
-
         global _MESH
         global _TENSOR_PARALLEL_FIRST_RANK
         global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
