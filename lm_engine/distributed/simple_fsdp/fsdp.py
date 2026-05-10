@@ -2,10 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-# **************************************************
-# Copyright (c) 2025, Mayank Mishra
-# **************************************************
-#
 # Adapted from torchtitan's simple FSDP implementation:
 # https://github.com/pytorch/torchtitan/blob/main/torchtitan/experiments/graph_trainer/simple_fsdp.py
 # Original copyright (c) Meta Platforms, Inc. and affiliates.

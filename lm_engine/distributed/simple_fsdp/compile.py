@@ -2,7 +2,6 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
-#
 # Adapted from torchtitan's graph_trainer JIT compile pipeline:
 # https://github.com/pytorch/torchtitan/tree/main/torchtitan/experiments/graph_trainer
 # Subset: auto-bucketing + reshard-after-forward joint pass for SimpleFSDP.
