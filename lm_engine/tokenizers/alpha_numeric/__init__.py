@@ -64,3 +64,13 @@ class AlphaNumericTokenizer:
             x = x[0]
 
         return x
+
+    def decode(self, ids: list[int], skip_special_tokens: bool = True) -> str:
+        if isinstance(ids, torch.Tensor):
+            ids = ids.tolist()
+        return self._tokenizer.decode(ids, skip_special_tokens)
+
+    def batch_decode(self, ids: list[list[int]], skip_special_tokens: bool = True) -> list[str]:
+        if isinstance(ids, torch.Tensor):
+            ids = ids.tolist()
+        return self._tokenizer.batch_decode(ids, skip_special_tokens)
