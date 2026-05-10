@@ -11,26 +11,15 @@ import torch
 from ...utils import compile_cpp_extension
 
 
-_dir = os.path.dirname(__file__)
-
-_MODULE = compile_cpp_extension(
-    "alpha_numeric_cpp",
-    sources=os.path.join(_dir, "alpha_numeric.cpp"),
-    build_directory=os.path.join(_dir, "build"),
-    extra_cflags=["-O3", "-Wall", "-shared", "-std=c++14", "-fPIC", "-fdiagnostics-color"],
-)
-
-
 class AlphaNumericTokenizer:
     def __init__(self) -> AlphaNumericTokenizer:
-        self.eos_token = "<|endoftext|>"
-        self.eos_token_id = 62
-
-        self.pad_token = self.eos_token
-        self.pad_token_id = self.eos_token_id
-
-        self.special_tokens = {}
-        self._tokenizer = _MODULE.AlphaNumericTokenizer()
+        current_dir = os.path.dirname(__file__)
+        self._tokenizer = compile_cpp_extension(
+            "alpha_numeric_cpp",
+            sources=os.path.join(current_dir, "alpha_numeric.cpp"),
+            build_directory=os.path.join(current_dir, "build"),
+            extra_cflags=["-O3", "-Wall", "-shared", "-std=c++14", "-fPIC", "-fdiagnostics-color"],
+        ).AlphaNumericTokenizer()
 
     def __call__(
         self,
