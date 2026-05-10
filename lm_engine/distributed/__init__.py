@@ -404,9 +404,7 @@ def wrap_model_container_for_distributed_training(
 
         if fsdp_algorithm == 3:
             backend = get_simple_fsdp_compile_backend(
-                fsdp_reshard_after_forward=zero3,
-                auto_bucketing=args.distributed_args.fsdp_auto_bucketing,
-                backend=backend,
+                fsdp_reshard_after_forward=zero3, auto_bucketing=True, backend=backend
             )
 
             fullgraph = True
