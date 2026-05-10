@@ -18,7 +18,7 @@ def compile_cpp_extension(
     sources: list[str] | str,
     build_directory: str,
     extra_cflags: list[str] = ["-O3", "-Wall", "-shared", "-fPIC", "-fdiagnostics-color"],
-    verbose: bool = False,
+    verbose: bool = True,
     distributed: bool = False,
 ) -> types.ModuleType:
     os.makedirs(build_directory, exist_ok=True)

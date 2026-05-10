@@ -2,13 +2,18 @@
 # Copyright (c) 2025, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
 
 from transformers import AutoConfig, AutoTokenizer
 from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, cached_file
 from transformers.utils.hub import get_checkpoint_shard_files
 
-from ..tokenizers import TOKENIZER_TYPE, get_tokenizer
+
+if TYPE_CHECKING:
+    from ..tokenizers import TOKENIZER_TYPE
 
 
 def download_repo(repo_name_or_path: str) -> tuple[AutoConfig | None, TOKENIZER_TYPE | None, str]:
@@ -45,6 +50,8 @@ def _download_config(repo_name_or_path: str) -> AutoConfig | None:
 
 
 def _download_tokenizer(repo_name_or_path: str) -> TOKENIZER_TYPE | None:
+    from ..tokenizers import get_tokenizer
+
     try:
         tokenizer = get_tokenizer(AutoTokenizer.__name__, repo_name_or_path)
     except:
