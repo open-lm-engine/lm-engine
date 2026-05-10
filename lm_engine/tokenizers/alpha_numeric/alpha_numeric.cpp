@@ -124,11 +124,6 @@ public:
     }
 };
 
-// Out-of-class definitions required in C++14 when ODR-used (e.g. by pybind11 def_readonly_static).
-constexpr int AlphaNumericTokenizer::eos_token_id;
-constexpr int AlphaNumericTokenizer::pad_token_id;
-constexpr const char *AlphaNumericTokenizer::eos_token_str;
-
 PYBIND11_MODULE(alpha_numeric_cpp, m) {
     py::class_<TokenizerOutput>(m, "TokenizerOutput")
         .def_readwrite("input_ids", &TokenizerOutput::input_ids)
@@ -142,13 +137,9 @@ PYBIND11_MODULE(alpha_numeric_cpp, m) {
              py::arg("padding") = false,
              py::arg("add_special_tokens") = true)
         .def("encode", &AlphaNumericTokenizer::encode, py::arg("input"), py::arg("add_special_tokens") = true)
-        .def("get_token_id", &AlphaNumericTokenizer::get_token_id, py::arg("c"))
-        .def("get_char", &AlphaNumericTokenizer::get_char, py::arg("id"))
         .def("decode", &AlphaNumericTokenizer::decode, py::arg("ids"), py::arg("skip_special_tokens") = true)
         .def("batch_decode",
              &AlphaNumericTokenizer::batch_decode,
              py::arg("ids"),
-             py::arg("skip_special_tokens") = true)
-        .def_readonly_static("eos_token_id", &AlphaNumericTokenizer::eos_token_id)
-        .def_readonly_static("pad_token_id", &AlphaNumericTokenizer::pad_token_id);
+             py::arg("skip_special_tokens") = true);
 }

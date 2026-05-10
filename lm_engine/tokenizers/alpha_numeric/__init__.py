@@ -19,7 +19,7 @@ _MODULE = load_cpp_extension(
     sources=[os.path.join(_dir, "alpha_numeric.cpp")],
     extra_cflags=["-O3", "-Wall", "-shared", "-std=c++14", "-fPIC", "-fdiagnostics-color"],
     build_directory=_build_dir,
-    verbose=False,
+    verbose=True,
 )
 
 
