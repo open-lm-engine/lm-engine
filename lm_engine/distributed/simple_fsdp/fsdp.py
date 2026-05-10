@@ -239,7 +239,6 @@ def data_parallel(
         for p_name, p in params_dict.items():
             if p is not None and p.numel() > 0:
                 distribute_tensor_func = _distribute_dtensor if isinstance(p, DTensor) else distribute_tensor
-
                 mod.register_parameter(p_name, nn.Parameter(distribute_tensor_func(p, device_mesh, param_sharding)))
 
         _register_parametrization(
