@@ -22,7 +22,7 @@ public:
     static constexpr int pad_token_id = eos_token_id;
     static constexpr const char *eos_token_str = "<|endoftext|>";
 
-    explicit AlphaNumericTokenizer(bool lowercase_only = true) : lowercase_only(lowercase_only) {}
+    AlphaNumericTokenizer() = default;
 
     TokenizerOutput encode_batch(const std::vector<std::string> &inputs,
                                  bool padding = false,
@@ -122,9 +122,6 @@ public:
             return static_cast<char>('A' + id - 36);
         throw std::invalid_argument("unexpected token id: " + std::to_string(id));
     }
-
-private:
-    bool lowercase_only;
 };
 
 // Out-of-class definitions required in C++14 when ODR-used (e.g. by pybind11 def_readonly_static).
@@ -138,7 +135,7 @@ PYBIND11_MODULE(alpha_numeric_cpp, m) {
         .def_readwrite("attention_mask", &TokenizerOutput::attention_mask);
 
     py::class_<AlphaNumericTokenizer>(m, "AlphaNumericTokenizer")
-        .def(py::init<bool>(), py::arg("lowercase_only") = true)
+        .def(py::init<>())
         .def("encode_batch",
              &AlphaNumericTokenizer::encode_batch,
              py::arg("inputs"),

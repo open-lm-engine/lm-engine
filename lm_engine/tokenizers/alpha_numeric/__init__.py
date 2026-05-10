@@ -24,17 +24,15 @@ _MODULE = load_cpp_extension(
 
 
 class AlphaNumericTokenizer:
-    def __init__(self, lowercase_only: bool = True) -> AlphaNumericTokenizer:
+    def __init__(self) -> AlphaNumericTokenizer:
         self.eos_token = "<|endoftext|>"
         self.eos_token_id = 62
 
         self.pad_token = self.eos_token
         self.pad_token_id = self.eos_token_id
 
-        self.lowercase_only = lowercase_only
         self.special_tokens = {}
-
-        self._tokenizer = _MODULE.AlphaNumericTokenizer(lowercase_only)
+        self._tokenizer = _MODULE.AlphaNumericTokenizer()
 
     def __call__(
         self,
