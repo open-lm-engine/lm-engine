@@ -81,23 +81,9 @@ def _distribute_dtensor(tensor: DTensor, device_mesh: DeviceMesh, dp_placements:
     current_placements = (Replicate(),) * len(dp_placements)
     target_placements = tuple(dp_placements)
 
-    current_spec = DTensorSpec(
-        mesh=outer_mesh,
-        placements=current_placements,
-        tensor_meta=inner_spec.tensor_meta,
-    )
-
-    target_spec = DTensorSpec(
-        mesh=outer_mesh,
-        placements=target_placements,
-        tensor_meta=inner_spec.tensor_meta,
-    )
-
-    result_tensor = redistribute_local_tensor(
-        tensor._local_tensor,
-        current_spec=current_spec,
-        target_spec=target_spec,
-    )
+    current_spec = DTensorSpec(mesh=outer_mesh, placements=current_placements, tensor_meta=inner_spec.tensor_meta)
+    target_spec = DTensorSpec(mesh=outer_mesh, placements=target_placements, tensor_meta=inner_spec.tensor_meta)
+    result_tensor = redistribute_local_tensor(tensor._local_tensor, current_spec=current_spec, target_spec=target_spec)
 
     return DTensor(
         result_tensor.requires_grad_(tensor.requires_grad),
