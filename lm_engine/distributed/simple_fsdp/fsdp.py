@@ -229,7 +229,6 @@ def data_parallel(
     shard_dim: int = 0,
     full_dtensor: bool = False,
 ) -> nn.Module:
-    param_sharding: tuple[Placement, ...]
     if mode == "replicate":
         param_sharding = (Replicate(),)
     elif mode == "fully_shard":
