@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import types
 
-from torch.utils.cpp_extension import load as _torch_load
+from torch.utils.cpp_extension import load
 
 from .communication import Communication
 from .parallel import ProcessGroupManager
@@ -24,13 +24,7 @@ def compile_cpp_extension(
     os.makedirs(build_directory, exist_ok=True)
 
     def _compile() -> types.ModuleType:
-        return _torch_load(
-            name,
-            sources=sources,
-            extra_cflags=extra_cflags,
-            build_directory=build_directory,
-            verbose=verbose,
-        )
+        return load(name, sources=sources, extra_cflags=extra_cflags, build_directory=build_directory, verbose=verbose)
 
     if not distributed:
         return _compile()
