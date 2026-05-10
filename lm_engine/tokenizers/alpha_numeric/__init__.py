@@ -47,6 +47,10 @@ class AlphaNumericTokenizer:
             for k, v in result.items():
                 result[k] = torch.tensor(v)
 
+        if not is_list:
+            for k, v in result.items():
+                result[k] = result[k][0]
+
         return result
 
     def decode(self, ids: list[int], skip_special_tokens: bool = True) -> str:
