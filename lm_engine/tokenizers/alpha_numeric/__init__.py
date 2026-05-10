@@ -14,7 +14,7 @@ _dir = os.path.dirname(__file__)
 _build_dir = os.path.join(_dir, "build")
 os.makedirs(_build_dir, exist_ok=True)
 
-_cpp = load_cpp_extension(
+_MODULE = load_cpp_extension(
     "alpha_numeric_cpp",
     sources=[os.path.join(_dir, "alpha_numeric_bindings.cpp")],
     extra_cflags=["-O3", "-Wall", "-shared", "-std=c++14", "-fPIC", "-fdiagnostics-color"],
@@ -26,15 +26,15 @@ _cpp = load_cpp_extension(
 class AlphaNumericTokenizer:
     def __init__(self, lowercase_only: bool = True) -> AlphaNumericTokenizer:
         self.eos_token = "<|endoftext|>"
-        self.pad_token = self.eos_token
-        self.lowercase_only = lowercase_only
-
         self.eos_token_id = 62
+
+        self.pad_token = self.eos_token
         self.pad_token_id = self.eos_token_id
 
+        self.lowercase_only = lowercase_only
         self.special_tokens = {}
 
-        self._tokenizer = _cpp.AlphaNumericTokenizer(lowercase_only)
+        self._tokenizer = _MODULE.AlphaNumericTokenizer(lowercase_only)
 
     def __call__(
         self,
