@@ -7,19 +7,17 @@ from __future__ import annotations
 import os
 
 import torch
-from torch.utils.cpp_extension import load as load_cpp_extension
+
+from ...utils import compile_cpp_extension
 
 
 _dir = os.path.dirname(__file__)
-_build_dir = os.path.join(_dir, "build")
-os.makedirs(_build_dir, exist_ok=True)
 
-_MODULE = load_cpp_extension(
+_MODULE = compile_cpp_extension(
     "alpha_numeric_cpp",
-    sources=[os.path.join(_dir, "alpha_numeric.cpp")],
+    sources=os.path.join(_dir, "alpha_numeric.cpp"),
+    build_directory=os.path.join(_dir, "build"),
     extra_cflags=["-O3", "-Wall", "-shared", "-std=c++14", "-fPIC", "-fdiagnostics-color"],
-    build_directory=_build_dir,
-    verbose=True,
 )
 
 
