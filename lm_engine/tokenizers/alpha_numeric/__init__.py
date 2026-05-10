@@ -12,7 +12,7 @@ from ...utils import compile_cpp_extension
 
 
 class AlphaNumericTokenizer:
-    def __init__(self) -> None:
+    def __init__(self) -> AlphaNumericTokenizer:
         current_dir = os.path.dirname(__file__)
         self._tokenizer = compile_cpp_extension(
             "alpha_numeric_cpp",
