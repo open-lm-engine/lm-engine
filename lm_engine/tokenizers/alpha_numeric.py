@@ -4,9 +4,23 @@
 
 from __future__ import annotations
 
-import torch
+import os
 
-from .utils import pad
+import torch
+from torch.utils.cpp_extension import load as load_cpp_extension
+
+
+_dir = os.path.dirname(__file__)
+_build_dir = os.path.join(_dir, "build")
+os.makedirs(_build_dir, exist_ok=True)
+
+_cpp = load_cpp_extension(
+    "alpha_numeric_cpp",
+    sources=[os.path.join(_dir, "alpha_numeric_bindings.cpp")],
+    extra_cflags=["-O3", "-Wall", "-shared", "-std=c++14", "-fPIC", "-fdiagnostics-color"],
+    build_directory=_build_dir,
+    verbose=False,
+)
 
 
 class AlphaNumericTokenizer:
@@ -16,15 +30,11 @@ class AlphaNumericTokenizer:
         self.lowercase_only = lowercase_only
 
         self.eos_token_id = 62
-
-        self._0 = ord("0")
-        self._9 = ord("9")
-        self.a = ord("a")
-        self.z = ord("z")
-        self.A = ord("A")
-        self.Z = ord("Z")
+        self.pad_token_id = self.eos_token_id
 
         self.special_tokens = {}
+
+        self._tokenizer = _cpp.AlphaNumericTokenizer(lowercase_only)
 
     def __call__(
         self,
@@ -41,49 +51,16 @@ class AlphaNumericTokenizer:
 
         assert all([isinstance(i, str) for i in x])
 
-        batch_size = len(x)
-        sequence_lengths = [len(i) for i in x]
-        max_sequence_length = max(sequence_lengths)
+        if not padding and len(x) > 1:
+            lengths = [len(s) for s in x]
+            assert all([l == lengths[0] for l in lengths]), "padding should be True for examples of unequal shapes"
 
-        if not padding and batch_size > 1:
-            assert all(
-                [i == max_sequence_length for i in sequence_lengths]
-            ), "padding should be True for examples of unequal shapes"
-
-        y = []
-        for sample in x:
-            y.append([])
-            for token in sample:
-                y[-1].append(self._get_token_id(token))
-
-            if add_special_tokens:
-                y[-1].append(self.eos_token_id)
-
-        if padding:
-            y, attention_mask = pad(inputs=y, pad_token_id=self.pad_token_id)
+        result = self._tokenizer.encode_batch(x, padding, add_special_tokens)
+        y = result.input_ids
 
         if return_tensors == "pt":
             y = torch.tensor(y)
         elif not is_list:
             y = y[0]
-
-        return y
-
-    def _get_token_id(self, x: str) -> None:
-        assert isinstance(x, str)
-        assert len(x) == 1
-
-        xid = ord(x)
-
-        if self._0 <= xid <= self._9:
-            y = xid - self._0
-        elif self.a <= xid <= self.z:
-            y = xid - self.a + 10
-        elif self.A <= xid <= self.Z:
-            y = xid - self.A + 36
-        elif xid == self.eos_token:
-            y = self.eos_token_id
-        else:
-            raise ValueError(f"unexpected token ({x})")
 
         return y
