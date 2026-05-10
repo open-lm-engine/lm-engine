@@ -9,6 +9,9 @@ import types
 
 from torch.utils.cpp_extension import load as _torch_load
 
+from .communication import Communication
+from .parallel import ProcessGroupManager
+
 
 def compile_cpp_extension(
     name: str,
@@ -31,9 +34,6 @@ def compile_cpp_extension(
 
     if not distributed:
         return _compile()
-
-    from .communication import Communication
-    from .parallel import ProcessGroupManager
 
     module = None
     if ProcessGroupManager.get_global_rank() == 0:
