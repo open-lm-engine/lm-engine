@@ -27,7 +27,7 @@ class AlphaNumericTokenizer:
         return_tensors: str | None = None,
         padding: bool = False,
         add_special_tokens: bool = True,
-    ) -> torch.Tensor | list[int]:
+    ) -> dict[str, torch.Tensor | list[int] | list[list[int]]]:
         assert return_tensors in ["pt", None]
 
         is_list = isinstance(x, list)
