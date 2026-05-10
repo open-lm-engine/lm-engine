@@ -32,7 +32,6 @@ from ..enums import Kernel
 from ..gradient_checkpointing import apply_gradient_checkpointing
 from ..hf_models import (
     _INIT_MARKER,
-    _OPTIMIZER_SPLIT_FUNCTION,
     CausalLMOutputWithPast,
     get_parameter_marker_maps,
     is_parameter_initialized,
@@ -48,9 +47,9 @@ from ..utils import (
     log_rank_0,
     string_to_torch_dtype,
 )
-from .fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
-from .fsdp import data_parallel as simple_fsdp_data_parallel
-from .fsdp_compile import get_simple_fsdp_compile_backend
+from .simple_fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
+from .simple_fsdp import data_parallel as simple_fsdp_data_parallel
+from .simple_fsdp import get_simple_fsdp_compile_backend
 
 
 if is_torch_xla_available():
@@ -125,8 +124,10 @@ def _get_fsdp_mixed_precision(
         mixed_precision = MixedPrecision1(param_dtype=dtype, reduce_dtype=communication_dtype, buffer_dtype=dtype)
     elif fsdp_algorithm == 2:
         mixed_precision = MixedPrecision2(param_dtype=dtype, reduce_dtype=communication_dtype)
-    else:
+    elif fsdp_algorithm == 3:
         mixed_precision = SimpleMixedPrecisionPolicy(param_dtype=dtype, reduce_dtype=communication_dtype)
+    else:
+        raise ValueError(f"unexpected fsdp_algorithm {(fsdp_algorithm)}")
 
     return mixed_precision
 
@@ -409,16 +410,17 @@ def wrap_model_container_for_distributed_training(
 
     if torch_compile:
         backend = Accelerator.get_torch_compile_backend()
+        fullgraph = False
 
         if fsdp_algorithm == 3:
             backend = get_simple_fsdp_compile_backend(
-                fsdp_reshard_after_forward=zero3,
-                auto_bucketing=args.distributed_args.fsdp_auto_bucketing,
-                backend=backend,
+                fsdp_reshard_after_forward=zero3, auto_bucketing=True, backend=backend
             )
 
+            fullgraph = True
+
         for i, model in enumerate(model_container):
-            model_container[i] = torch.compile(model, backend=backend)
+            model_container[i] = torch.compile(model, backend=backend, fullgraph=fullgraph)
 
     set_parameter_marker_maps(
         model_container,

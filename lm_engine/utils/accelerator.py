@@ -138,11 +138,8 @@ class Accelerator(Enum):
 
         return ProfilerActivity.CUDA
 
-    @staticmethod
     def get_torch_compile_backend() -> str:
-        accelerator = Accelerator.get_accelerator()
-
-        if accelerator == Accelerator.trainium:
+        if Accelerator.get_accelerator() == Accelerator.trainium:
             return "neuron"
 
         return "inductor"
