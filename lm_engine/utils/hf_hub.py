@@ -12,8 +12,15 @@ from transformers.utils.hub import get_checkpoint_shard_files
 
 
 def download_repo(repo_name_or_path: str) -> tuple[AutoConfig | None, AutoTokenizer | None, str]:
-    config = AutoConfig.from_pretrained(repo_name_or_path)
-    tokenizer = AutoTokenizer.from_pretrained(repo_name_or_path)
+    try:
+        config = AutoConfig.from_pretrained(repo_name_or_path)
+    except Exception:
+        config = None
+
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(repo_name_or_path)
+    except Exception:
+        tokenizer = None
     model_path = None
 
     if os.path.isdir(repo_name_or_path):
