@@ -16,7 +16,7 @@ os.makedirs(_build_dir, exist_ok=True)
 
 _MODULE = load_cpp_extension(
     "alpha_numeric_cpp",
-    sources=[os.path.join(_dir, "alpha_numeric_bindings.cpp")],
+    sources=[os.path.join(_dir, "alpha_numeric.cpp")],
     extra_cflags=["-O3", "-Wall", "-shared", "-std=c++14", "-fPIC", "-fdiagnostics-color"],
     build_directory=_build_dir,
     verbose=False,

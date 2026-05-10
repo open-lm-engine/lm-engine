@@ -93,6 +93,10 @@ private:
     bool lowercase_only;
 };
 
+// Out-of-class definitions required in C++14 when ODR-used (e.g. by pybind11 def_readonly_static).
+constexpr int AlphaNumericTokenizer::eos_token_id;
+constexpr int AlphaNumericTokenizer::pad_token_id;
+
 PYBIND11_MODULE(alpha_numeric_cpp, m) {
     py::class_<TokenizerOutput>(m, "TokenizerOutput")
         .def_readwrite("input_ids", &TokenizerOutput::input_ids)
