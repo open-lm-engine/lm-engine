@@ -70,6 +70,10 @@ public:
             }
         } else {
             out.input_ids = std::move(ids);
+            out.attention_mask.reserve(out.input_ids.size());
+            for (const auto &seq : out.input_ids) {
+                out.attention_mask.emplace_back(seq.size(), 1);
+            }
         }
 
         return out;
