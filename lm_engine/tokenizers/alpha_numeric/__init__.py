@@ -56,14 +56,13 @@ class AlphaNumericTokenizer:
             assert all([l == lengths[0] for l in lengths]), "padding should be True for examples of unequal shapes"
 
         result = self._tokenizer.encode_batch(x, padding, add_special_tokens)
-        x = result.input_ids
+        result = {"input_ids": result.input_ids, "attention_mask": result.attention_mask}
 
         if return_tensors == "pt":
-            x = torch.tensor(x)
-        elif not is_list:
-            x = x[0]
+            for k, v in result.items():
+                result[k] = torch.tensor(v)
 
-        return x
+        return result
 
     def decode(self, ids: list[int], skip_special_tokens: bool = True) -> str:
         if isinstance(ids, torch.Tensor):

@@ -20,7 +20,6 @@ class AlphaNumericTokenizer {
 public:
     static constexpr int eos_token_id = 62;
     static constexpr int pad_token_id = eos_token_id;
-
     static constexpr const char *eos_token_str = "<|endoftext|>";
 
     explicit AlphaNumericTokenizer(bool lowercase_only = true) : lowercase_only(lowercase_only) {}
