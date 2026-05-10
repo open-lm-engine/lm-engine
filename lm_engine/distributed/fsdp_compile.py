@@ -101,10 +101,7 @@ def autobucketing_reordering_pass(gm: torch.fx.GraphModule, example_inputs: Any 
 
 
 def get_simple_fsdp_compile_backend(
-    *,
-    fsdp_reshard_after_forward: bool,
-    auto_bucketing: bool,
-    backend: str = "inductor",
+    *, fsdp_reshard_after_forward: bool, auto_bucketing: bool, backend: str
 ) -> Callable:
     """Build a torch.compile backend that wires SimpleFSDP-aware passes.
 
