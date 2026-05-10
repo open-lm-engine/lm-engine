@@ -21,6 +21,8 @@ public:
     static constexpr int eos_token_id = 62;
     static constexpr int pad_token_id = eos_token_id;
 
+    static constexpr const char *eos_token_str = "<|endoftext|>";
+
     explicit AlphaNumericTokenizer(bool lowercase_only = true) : lowercase_only(lowercase_only) {}
 
     TokenizerOutput encode_batch(const std::vector<std::string> &inputs,
@@ -89,6 +91,39 @@ public:
         throw std::invalid_argument(std::string("unexpected token: ") + c);
     }
 
+    std::string decode(const std::vector<int> &ids, bool skip_special_tokens = true) const {
+        std::string out;
+        out.reserve(ids.size());
+        for (int id : ids) {
+            if (id == eos_token_id) {
+                if (!skip_special_tokens)
+                    out += eos_token_str;
+                continue;
+            }
+            out += get_char(id);
+        }
+        return out;
+    }
+
+    std::vector<std::string> batch_decode(const std::vector<std::vector<int>> &ids,
+                                          bool skip_special_tokens = true) const {
+        std::vector<std::string> out;
+        out.reserve(ids.size());
+        for (const auto &seq : ids)
+            out.push_back(decode(seq, skip_special_tokens));
+        return out;
+    }
+
+    char get_char(int id) const {
+        if (id >= 0 && id <= 9)
+            return static_cast<char>('0' + id);
+        if (id >= 10 && id <= 35)
+            return static_cast<char>('a' + id - 10);
+        if (id >= 36 && id <= 61)
+            return static_cast<char>('A' + id - 36);
+        throw std::invalid_argument("unexpected token id: " + std::to_string(id));
+    }
+
 private:
     bool lowercase_only;
 };
@@ -96,6 +131,7 @@ private:
 // Out-of-class definitions required in C++14 when ODR-used (e.g. by pybind11 def_readonly_static).
 constexpr int AlphaNumericTokenizer::eos_token_id;
 constexpr int AlphaNumericTokenizer::pad_token_id;
+constexpr const char *AlphaNumericTokenizer::eos_token_str;
 
 PYBIND11_MODULE(alpha_numeric_cpp, m) {
     py::class_<TokenizerOutput>(m, "TokenizerOutput")
@@ -111,6 +147,12 @@ PYBIND11_MODULE(alpha_numeric_cpp, m) {
              py::arg("add_special_tokens") = true)
         .def("encode", &AlphaNumericTokenizer::encode, py::arg("input"), py::arg("add_special_tokens") = true)
         .def("get_token_id", &AlphaNumericTokenizer::get_token_id, py::arg("c"))
+        .def("get_char", &AlphaNumericTokenizer::get_char, py::arg("id"))
+        .def("decode", &AlphaNumericTokenizer::decode, py::arg("ids"), py::arg("skip_special_tokens") = true)
+        .def("batch_decode",
+             &AlphaNumericTokenizer::batch_decode,
+             py::arg("ids"),
+             py::arg("skip_special_tokens") = true)
         .def_readonly_static("eos_token_id", &AlphaNumericTokenizer::eos_token_id)
         .def_readonly_static("pad_token_id", &AlphaNumericTokenizer::pad_token_id);
 }
