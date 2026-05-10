@@ -26,16 +26,15 @@ def compile_cpp_extension(
     def _compile() -> types.ModuleType:
         return load(name, sources=sources, extra_cflags=extra_cflags, build_directory=build_directory, verbose=verbose)
 
-    if not distributed:
-        return _compile()
+    if distributed:
+        if ProcessGroupManager.get_global_rank() == 0:
+            module = _compile()
 
-    module = None
-    if ProcessGroupManager.get_global_rank() == 0:
-        module = _compile()
+        Communication.barrier()
 
-    Communication.barrier()
-
-    if ProcessGroupManager.get_global_rank() != 0:
+        if ProcessGroupManager.get_global_rank() != 0:
+            module = _compile()
+    else:
         module = _compile()
 
     return module
