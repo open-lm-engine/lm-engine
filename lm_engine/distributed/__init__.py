@@ -48,9 +48,9 @@ from ..utils import (
     log_rank_0,
     string_to_torch_dtype,
 )
+from .simple_fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
+from .simple_fsdp import data_parallel as simple_fsdp_data_parallel
 from .simple_fsdp import get_simple_fsdp_compile_backend
-from .simple_fsdp.fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
-from .simple_fsdp.fsdp import data_parallel as simple_fsdp_data_parallel
 
 
 if is_torch_xla_available():
