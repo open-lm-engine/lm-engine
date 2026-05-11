@@ -622,12 +622,8 @@ def get_simple_fsdp_compile_backend(
         elif backend in ("inductor", "neuron"):
 
             def _inductor_tb_pass(gm: torch.fx.Graph) -> torch.fx.GraphModule:
-                from torch._inductor.fx_passes.overlap_manual_scheduling import manual_overlap_bucketing as _mub
-
-                return _mub(
-                    gm.owning_module,
-                    module_bucket_plans=fsdp_manual_buckets,
-                    insert_overlap_deps=True,
+                return manual_overlap_bucketing(
+                    gm.owning_module, module_bucket_plans=fsdp_manual_buckets, insert_overlap_deps=True
                 )
 
             torch._inductor.config.allow_buffer_reuse = False
