@@ -605,7 +605,6 @@ def get_simple_fsdp_compile_backend(
             torch._inductor.config.post_grad_custom_post_pass = _inductor_autobucketing_pass
         else:
             raise ValueError(f"Unsupported backend {backend!r} for bucketing_mode='auto'")
-
     elif bucketing_mode == "transformer_block":
         _tb_pass = partial(transformer_block_bucketing_reordering_pass, fsdp_manual_buckets=fsdp_manual_buckets)
 
