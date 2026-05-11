@@ -694,17 +694,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     experiments_tracker.log_args(args, **model_container[0].calculate_num_parameters(return_dict=True))
 
     # main training loop
-    with (
-        disable_generation_cache(),
-        enable_kernels(args.kernel_args.kernels),
-        (
-            torch.autocast(
-                device_type=Accelerator.get_device_type(), dtype=string_to_torch_dtype(args.mixed_precision_args.dtype)
-            )
-            if args.distributed_args.fsdp_algorithm is None
-            else nullcontext()
-        ),
-    ):
+    with disable_generation_cache(), enable_kernels(args.kernel_args.kernels):
         train(
             args,
             model_container=model_container,
