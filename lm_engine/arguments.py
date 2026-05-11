@@ -278,7 +278,7 @@ class DistributedArgs(BaseArgs):
             assert self.tensor_parallel_world_size > 1, "tensor parallel needs to be enabled for sequence parallel"
 
         if self.tensor_parallel_world_size > 1:
-            assert self.fsdp_algorithm == 2, "FSDP-2 is required for using tensor parallel"
+            assert self.fsdp_algorithm in [2, 3], "FSDP-2/3 is required for using tensor parallel"
 
         if self.use_async_tensor_parallel:
             assert self.sequence_parallel, "sequence parallel should be enabled for using async-TP"
