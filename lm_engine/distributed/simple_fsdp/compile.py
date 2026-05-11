@@ -11,6 +11,7 @@ import sys
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from contextlib import suppress
+from functools import partial
 from typing import Any
 
 import torch
@@ -580,7 +581,6 @@ def get_simple_fsdp_compile_backend(
         raise ValueError("fsdp_manual_buckets must be provided when bucketing_mode='transformer_block'")
 
     torch._dynamo.config.capture_scalar_outputs = True
-
     inner_backend = torch._dynamo.lookup_backend(backend)
 
     if bucketing_mode == "auto":
@@ -607,17 +607,11 @@ def get_simple_fsdp_compile_backend(
             raise ValueError(f"Unsupported backend {backend!r} for bucketing_mode='auto'")
 
     elif bucketing_mode == "transformer_block":
-        import functools
+        _tb_pass = partial(transformer_block_bucketing_reordering_pass, fsdp_manual_buckets=fsdp_manual_buckets)
 
-        _tb_pass = functools.partial(
-            transformer_block_bucketing_reordering_pass,
-            fsdp_manual_buckets=fsdp_manual_buckets,
-        )
         if backend == "aot_eager":
             inner_backend = aot_autograd_backend(
-                fw_compiler=_tb_pass,
-                bw_compiler=_tb_pass,
-                keep_inference_input_mutations=True,
+                fw_compiler=_tb_pass, bw_compiler=_tb_pass, keep_inference_input_mutations=True
             )
         elif backend in ("inductor", "neuron"):
 
