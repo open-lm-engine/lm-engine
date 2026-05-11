@@ -9,7 +9,6 @@ from .compile import (
     create_extra_fsdp_pg,
     get_extra_fsdp_pg_name,
     get_simple_fsdp_compile_backend,
-    joint_transformer_block_bucketing_reordering_pass,
     normalize_view_ops_as_reshape,
     reassign_to_pg_pass,
     remove_detach_pass,
