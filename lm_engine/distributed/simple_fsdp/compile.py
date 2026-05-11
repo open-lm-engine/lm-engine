@@ -23,10 +23,6 @@ from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.utils.checkpoint import CheckpointPolicy
 
 
-# Maps original FSDP group_name -> extra PG group_name
-_EXTRA_FSDP_PG_REGISTRY: dict[str, str] = {}
-
-
 def async_tensor_parallel_pass(gm: torch.fx.GraphModule, example_inputs: tuple) -> torch.fx.GraphModule:
     """Pipeline TP collectives with matmuls via symmetric memory.
 
