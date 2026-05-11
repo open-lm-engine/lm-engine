@@ -8,6 +8,7 @@
 
 import heapq
 import sys
+import warnings
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from contextlib import suppress
@@ -20,8 +21,10 @@ from torch._dynamo.backends.common import aot_autograd as aot_autograd_backend
 from torch._dynamo.graph_deduplication import _stable_topological_sort
 from torch._inductor.config import aten_distributed_optimizations
 from torch._inductor.fx_passes.bucketing import BucketMode, is_all_gather_into_tensor, is_wait_tensor
+from torch._inductor.fx_passes.micro_pipeline_tp import micro_pipeline_tp_pass
 from torch._inductor.fx_passes.overlap_manual_scheduling import ManualOverlapScheduler, manual_overlap_bucketing
-from torch._inductor.fx_passes.overlap_scheduling import is_compute_node, schedule_overlap_bucketing
+from torch._inductor.fx_passes.overlap_scheduling import get_group_name, is_compute_node, schedule_overlap_bucketing
+from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh
 from torch.fx.traceback import annotate_fn
 from torch.utils._ordered_set import OrderedSet
@@ -167,11 +170,6 @@ def async_tensor_parallel_pass(gm: torch.fx.GraphModule, example_inputs: tuple) 
     Fuses all-gather + matmul into ``symm_mem.fused_all_gather_matmul`` and
     matmul + reduce-scatter into ``symm_mem.fused_matmul_reduce_scatter``.
     """
-    import warnings
-
-    from torch._inductor.fx_passes.micro_pipeline_tp import micro_pipeline_tp_pass
-    from torch._inductor.fx_passes.overlap_scheduling import get_group_name
-    from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 
     c10d = torch.ops._c10d_functional
     collective_targets = {
@@ -606,9 +604,9 @@ def get_simple_fsdp_compile_backend(
         else:
             raise ValueError(f"Unsupported backend {backend!r} for bucketing_mode='auto'")
     elif bucketing_mode == "transformer_block":
-        _tb_pass = partial(transformer_block_bucketing_reordering_pass, fsdp_manual_buckets=fsdp_manual_buckets)
-
         if backend == "aot_eager":
+            _tb_pass = partial(transformer_block_bucketing_reordering_pass, fsdp_manual_buckets=fsdp_manual_buckets)
+
             inner_backend = aot_autograd_backend(
                 fw_compiler=_tb_pass, bw_compiler=_tb_pass, keep_inference_input_mutations=True
             )
