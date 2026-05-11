@@ -157,7 +157,12 @@ def evaluate(
         else:
             num_steps = 0
 
-        num_steps = torch.tensor(num_steps, device=Accelerator.get_current_device(), dtype=torch.long)
+        num_steps = torch.tensor(
+            num_steps,
+            device=Accelerator.get_current_device(),
+            dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.long,
+        )
+
         torch.distributed.all_reduce(num_steps, group=ProcessGroupManager.get_tensor_parallel_group())
         num_steps = num_steps.item()
     else:
