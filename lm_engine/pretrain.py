@@ -40,7 +40,6 @@ from .utils import (
     log_rank_0,
     set_seed,
     setup_tf32,
-    string_to_torch_dtype,
 )
 
 
