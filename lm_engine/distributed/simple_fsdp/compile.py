@@ -323,11 +323,6 @@ def autobucketing_reordering_pass(gm: torch.fx.GraphModule, example_inputs: Any 
     return gm
 
 
-# ---------------------------------------------------------------------------
-# Transformer-block bucketing (per-fwd/bwd graph)
-# ---------------------------------------------------------------------------
-
-
 def transformer_block_bucketing_reordering_pass(
     gm: torch.fx.GraphModule,
     example_inputs: Any | None = None,
@@ -344,11 +339,6 @@ def transformer_block_bucketing_reordering_pass(
     manual_overlap_bucketing(gm, module_bucket_plans=fsdp_manual_buckets, insert_overlap_deps=False)
     gm.recompile()
     return gm
-
-
-# ---------------------------------------------------------------------------
-# Joint transformer-block bucketing (joint fwd+bwd graph)
-# ---------------------------------------------------------------------------
 
 
 class JointManualOverlapScheduler(ManualOverlapScheduler):
@@ -553,11 +543,6 @@ def joint_transformer_block_bucketing_reordering_pass(
     ).run()
     overlapped_gm.recompile()
     return overlapped_gm
-
-
-# ---------------------------------------------------------------------------
-# Backend builder
-# ---------------------------------------------------------------------------
 
 
 def get_simple_fsdp_compile_backend(
