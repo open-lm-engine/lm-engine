@@ -96,6 +96,7 @@ _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
 _CPU_GROUP: ProcessGroup | None = None
 _DATA_LOADING_MESH: _Mesh | None = None
+_CONTEXT_PARALLEL_MESH: _Mesh | None = None
 
 
 class ProcessGroupManager:
@@ -118,6 +119,8 @@ class ProcessGroupManager:
         global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
         global _DATA_PARALLEL_SHARDING_WORLD_SIZE
         global _CPU_GROUP
+        global _DATA_LOADING_MESH
+        global _CONTEXT_PARALLEL_MESH
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -213,16 +216,20 @@ class ProcessGroupManager:
         )
 
         # separate mesh that exposes the cp dimension explicitly, used to form the CP process group
-        _DATA_LOADING_MESH = init_device_mesh(
-            device_type,
-            (
-                pipeline_parallel_world_size,
-                data_loading_world_size,
-                context_parallel_world_size,
-                tensor_parallel_world_size,
-            ),
-            mesh_dim_names=("pp", "batch", "cp", "tp"),
+        _DATA_LOADING_MESH = _Mesh(
+            mesh=init_device_mesh(
+                device_type,
+                (
+                    pipeline_parallel_world_size,
+                    data_loading_world_size,
+                    context_parallel_world_size,
+                    tensor_parallel_world_size,
+                ),
+                mesh_dim_names=("pp", "batch", "cp", "tp"),
+            )
         )
+
+        _CONTEXT_PARALLEL_MESH = _Mesh(mesh=_DATA_LOADING_MESH.get_mesh()["cp"])
 
         if use_async_tensor_parallel:
             enable_symm_mem_for_group(ProcessGroupManager.get_tensor_parallel_group().group_name)
@@ -346,31 +353,19 @@ class ProcessGroupManager:
     # data loading
     @staticmethod
     def get_data_loading_mesh() -> DeviceMesh:
-        return _DATA_LOADING_MESH
+        return _DATA_LOADING_MESH.get_mesh()
 
     @staticmethod
     def get_data_loading_group() -> ProcessGroup:
-        global _DATA_LOADING_GROUP
-
-        if _DATA_LOADING_GROUP is None:
-            _DATA_LOADING_GROUP = ProcessGroupManager.get_data_loading_mesh().get_group()
-        return _DATA_LOADING_GROUP
+        return _DATA_LOADING_MESH.get_group()
 
     @staticmethod
     def get_data_loading_rank() -> int:
-        global _DATA_LOADING_RANK
-
-        if _DATA_LOADING_RANK is None:
-            _DATA_LOADING_RANK = ProcessGroupManager.get_data_loading_mesh().get_local_rank()
-        return _DATA_LOADING_RANK
+        return _DATA_LOADING_MESH.get_local_rank()
 
     @staticmethod
     def get_data_loading_world_size() -> int:
-        global _DATA_LOADING_WORLD_SIZE
-
-        if _DATA_LOADING_WORLD_SIZE is None:
-            _DATA_LOADING_WORLD_SIZE = ProcessGroupManager.get_data_loading_mesh().size()
-        return _DATA_LOADING_WORLD_SIZE
+        return _DATA_LOADING_MESH.get_world_size()
 
     # data parallel
     @staticmethod
@@ -409,66 +404,34 @@ class ProcessGroupManager:
         with _DATA_PARALLEL_MESH.set_dummy_world_size(world_size):
             yield
 
-    @staticmethod
-    def get_dataloading_mesh() -> DeviceMesh:
-        return _DATA_LOADING_MESH
-
     # context parallel
     @staticmethod
     def get_context_parallel_mesh() -> DeviceMesh:
-        global _CONTEXT_PARALLEL_MESH
-
-        if _CONTEXT_PARALLEL_MESH is None:
-            _CONTEXT_PARALLEL_MESH = ProcessGroupManager.get_dataloading_mesh()["cp"]
-        return _CONTEXT_PARALLEL_MESH
+        return _CONTEXT_PARALLEL_MESH.get_mesh()
 
     @staticmethod
     def get_context_parallel_group() -> ProcessGroup:
-        global _CONTEXT_PARALLEL_GROUP
-
-        if _CONTEXT_PARALLEL_GROUP is None:
-            _CONTEXT_PARALLEL_GROUP = ProcessGroupManager.get_context_parallel_mesh().get_group()
-        return _CONTEXT_PARALLEL_GROUP
+        return _CONTEXT_PARALLEL_MESH.get_group()
 
     @staticmethod
     def get_context_parallel_rank() -> int:
-        global _CONTEXT_PARALLEL_RANK
-
-        if _CONTEXT_PARALLEL_RANK is None:
-            _CONTEXT_PARALLEL_RANK = ProcessGroupManager.get_context_parallel_mesh().get_local_rank()
-        return _CONTEXT_PARALLEL_RANK
+        return _CONTEXT_PARALLEL_MESH.get_local_rank()
 
     @contextmanager
     @staticmethod
     def set_dummy_context_parallel_rank(rank: int):
-        global _CONTEXT_PARALLEL_RANK
-
-        original_rank = _CONTEXT_PARALLEL_RANK
-        _CONTEXT_PARALLEL_RANK = rank
-
-        yield
-
-        _CONTEXT_PARALLEL_RANK = original_rank
+        with _CONTEXT_PARALLEL_MESH.set_dummy_local_rank(rank):
+            yield
 
     @staticmethod
     def get_context_parallel_world_size() -> int:
-        global _CONTEXT_PARALLEL_WORLD_SIZE
-
-        if _CONTEXT_PARALLEL_WORLD_SIZE is None:
-            _CONTEXT_PARALLEL_WORLD_SIZE = ProcessGroupManager.get_context_parallel_mesh().size()
-        return _CONTEXT_PARALLEL_WORLD_SIZE
+        return _CONTEXT_PARALLEL_MESH.get_world_size()
 
     @contextmanager
     @staticmethod
     def set_dummy_context_parallel_world_size(world_size: int):
-        global _CONTEXT_PARALLEL_WORLD_SIZE
-
-        original_world_size = _CONTEXT_PARALLEL_WORLD_SIZE
-        _CONTEXT_PARALLEL_WORLD_SIZE = world_size
-
-        yield
-
-        _CONTEXT_PARALLEL_WORLD_SIZE = original_world_size
+        with _CONTEXT_PARALLEL_MESH.set_dummy_world_size(world_size):
+            yield
 
     @staticmethod
     def is_context_parallel_enabled() -> bool:
