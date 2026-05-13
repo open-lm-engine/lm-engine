@@ -95,6 +95,7 @@ _PIPELINE_PARALLEL_MESH: _Mesh | None = None
 _DATA_PARALLEL_MESH: _Mesh | None = None
 _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
+_CPU_GROUP: ProcessGroup | None = None
 
 
 class ProcessGroupManager:
@@ -212,7 +213,10 @@ class ProcessGroupManager:
 
     @staticmethod
     def get_dense_mesh() -> DeviceMesh:
-        return _DENSE_MESH.get_mesh()
+        if ProcessGroupManager.is_initialized():
+            return _DENSE_MESH.get_mesh()
+
+        return None
 
     @staticmethod
     def get_global_rank() -> int:
