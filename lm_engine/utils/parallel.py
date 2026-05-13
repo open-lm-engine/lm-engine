@@ -145,6 +145,9 @@ class ProcessGroupManager:
             == data_loading_world_size * context_parallel_world_size
         )
 
+        assert data_parallel_replication_world_size is not None
+        assert data_parallel_sharding_world_size is not None
+
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 

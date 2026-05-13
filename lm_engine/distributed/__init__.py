@@ -302,17 +302,14 @@ def wrap_model_container_for_distributed_training(
             log_rank_0(logging.INFO, "using FSDP-2")
 
             def _sharding_function(parameter: nn.Parameter) -> Shard:
-                dps = (
-                    ProcessGroupManager.get_data_parallel_world_size()
-                    if data_parallel_sharding_world_size is None
-                    else data_parallel_sharding_world_size
-                )
-
-                if parameter.size(0) > dps or parameter.dim() == 1:
+                if parameter.size(0) > data_parallel_sharding_world_size or parameter.dim() == 1:
                     return Shard(0)
                 else:
                     for dim in range(1, parameter.dim()):
-                        if parameter.size(dim) > dps and parameter.size(dim) % dps == 0:
+                        if (
+                            parameter.size(dim) > data_parallel_sharding_world_size
+                            and parameter.size(dim) % data_parallel_sharding_world_size == 0
+                        ):
                             return Shard(dim)
 
                     log_rank_0(logging.WARN, "sharding along dim=0 since no suitable sharding dimension was found")
