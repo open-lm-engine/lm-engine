@@ -114,25 +114,36 @@ class ProcessGroupManager:
 
         Accelerator.set_device(_LOCAL_RANK)
 
-        data_parallel_size = _WORLD_SIZE // (tensor_parallel_world_size * pipeline_parallel_world_size)
+        data_loading_world_size = _WORLD_SIZE // (
+            tensor_parallel_world_size * pipeline_parallel_world_size * context_parallel_world_size
+        )
 
-        assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == _WORLD_SIZE
+        assert (
+            tensor_parallel_world_size
+            * pipeline_parallel_world_size
+            * data_loading_world_size
+            * context_parallel_world_size
+            == _WORLD_SIZE
+        )
 
         if zero_stage == 0:
             assert data_parallel_sharding_world_size is None or data_parallel_sharding_world_size == 1
 
-            data_parallel_replication_world_size = data_parallel_size
+            data_parallel_replication_world_size = data_loading_world_size * context_parallel_world_size
             data_parallel_sharding_world_size = 1
         else:
             if data_parallel_replication_world_size is None:
                 assert data_parallel_sharding_world_size is None
 
                 data_parallel_replication_world_size = 1
-                data_parallel_sharding_world_size = data_parallel_size
+                data_parallel_sharding_world_size = data_loading_world_size * context_parallel_world_size
             else:
                 assert data_parallel_sharding_world_size is not None
 
-        assert data_parallel_replication_world_size * data_parallel_sharding_world_size == data_parallel_size
+        assert (
+            data_parallel_replication_world_size * data_parallel_sharding_world_size
+            == data_loading_world_size * context_parallel_world_size
+        )
 
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
@@ -157,7 +168,7 @@ class ProcessGroupManager:
             device_type,
             (
                 pipeline_parallel_world_size,
-                data_parallel_replication_world_size * data_parallel_sharding_world_size,
+                data_loading_world_size,
                 context_parallel_world_size,
                 tensor_parallel_world_size,
             ),
@@ -527,6 +538,7 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
 def is_tracking_rank() -> bool:
     return (
         ProcessGroupManager.get_data_parallel_rank() == 0
+        and ProcessGroupManager.get_context_parallel_rank() == 0
         and ProcessGroupManager.is_tensor_parallel_first_rank()
         and ProcessGroupManager.get_pipeline_parallel_rank()
         == ProcessGroupManager.get_pipeline_parallel_world_size() - 1
