@@ -79,7 +79,7 @@ class ProcessGroupManager:
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
         global _DENSE_MESH
-        global _DATALOADING_MESH
+        global _DATA_LOADING_MESH
         global _TENSOR_PARALLEL_FIRST_RANK
         global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
         global _DATA_PARALLEL_SHARDING_WORLD_SIZE
@@ -171,7 +171,7 @@ class ProcessGroupManager:
         )
 
         # separate mesh that exposes the cp dimension explicitly, used to form the CP process group
-        _DATALOADING_MESH = init_device_mesh(
+        _DATA_LOADING_MESH = init_device_mesh(
             device_type,
             (
                 pipeline_parallel_world_size,
