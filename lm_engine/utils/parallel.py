@@ -49,7 +49,7 @@ class _Mesh:
 
     def get_local_rank(self) -> int:
         if self.local_rank is None:
-            self.local_rank = self.mesh._flatten().get_local_rank()
+            self.local_rank = self.mesh.get_local_rank()
 
         return self.local_rank
 
@@ -352,11 +352,11 @@ class ProcessGroupManager:
 
     @staticmethod
     def get_data_loading_rank() -> int:
-        return _DATA_LOADING_MESH.get_local_rank()
+        return _DATA_LOADING_MESH.get_mesh()["batch"].get_local_rank()
 
     @staticmethod
     def get_data_loading_world_size() -> int:
-        return _DATA_LOADING_MESH.get_world_size()
+        return _DATA_LOADING_MESH.get_mesh()["batch"].size()
 
     # data parallel
     @staticmethod
