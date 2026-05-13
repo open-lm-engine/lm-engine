@@ -165,7 +165,7 @@ def _log_dataset(
     log_rank_0(logging.INFO, f"{'-' * 25} {split.value} {'-' * 25}")
     log_rank_0(logging.INFO, blended_dataset)
 
-    dp_world_size = ProcessGroupManager.get_data_parallel_world_size()
+    dp_world_size = ProcessGroupManager.get_data_loading_world_size()
 
     if split == DatasetSplit.train:
         total_samples_seen = num_training_steps * gradient_accumulation_steps * micro_batch_size * dp_world_size
