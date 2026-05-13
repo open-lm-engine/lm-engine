@@ -350,15 +350,6 @@ class ProcessGroupManager:
         with _PIPELINE_PARALLEL_MESH.set_dummy_world_size(world_size):
             yield
 
-    # data loading
-    @staticmethod
-    def get_data_loading_mesh() -> DeviceMesh:
-        return _DATA_LOADING_MESH.get_mesh()
-
-    @staticmethod
-    def get_data_loading_group() -> ProcessGroup:
-        return _DATA_LOADING_MESH.get_group()
-
     @staticmethod
     def get_data_loading_rank() -> int:
         return _DATA_LOADING_MESH.get_local_rank()
@@ -445,7 +436,7 @@ class ProcessGroupManager:
         return ProcessGroupManager.get_context_parallel_rank() == 0
 
     def __str__(self) -> str:
-        return str(self.get_dense_mesh())
+        return {"dense_mesh": (self.get_dense_mesh()), "dataloading_mesh": _DATA_LOADING_MESH}
 
     @staticmethod
     def destroy_process_groups() -> None:
