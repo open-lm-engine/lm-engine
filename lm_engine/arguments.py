@@ -256,6 +256,8 @@ class DistributedArgs(BaseArgs):
     sequence_parallel: bool = False
     # pipeline parallel world size
     pipeline_parallel_world_size: int = 1
+    # context parallel world size
+    context_parallel_world_size: int = 1
     # distributed timeout for NCCL in minutes
     timeout_minutes: int | None = None
     # fsdp algorithm
