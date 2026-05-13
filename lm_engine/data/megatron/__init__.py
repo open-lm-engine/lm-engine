@@ -82,8 +82,8 @@ def get_megatron_gpt_dataloaders(
                 micro_batch_size=(
                     micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
                 ),
-                num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
-                rank=ProcessGroupManager.get_data_parallel_rank(),
+                num_replicas=ProcessGroupManager.get_data_loading_world_size(),
+                rank=ProcessGroupManager.get_data_loading_rank(),
             ),
             multiprocessing_context="fork" if accelerator == Accelerator.tpu else None,
             num_workers=(
@@ -108,7 +108,7 @@ def _get_train_val_test_samples(
     eval_interval: int,
     eval_steps: int,
 ) -> tuple[int, int, int]:
-    dp_world_size = ProcessGroupManager.get_data_parallel_world_size()
+    dp_world_size = ProcessGroupManager.get_data_loading_world_size()
 
     train_samples = num_training_steps * micro_batch_size * gradient_accumulation_steps * dp_world_size
     val_samples = (

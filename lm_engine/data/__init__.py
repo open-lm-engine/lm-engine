@@ -107,8 +107,8 @@ def get_finetuning_dataloader(
     sampler = BlendedDistributedSampler(
         dataset=blended_dataset,
         data_sampling_ratios=[1] if len(datasets_list) == 1 else data_sampling_ratios,
-        num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
-        rank=ProcessGroupManager.get_data_parallel_rank(),
+        num_replicas=ProcessGroupManager.get_data_loading_world_size(),
+        rank=ProcessGroupManager.get_data_loading_rank(),
         ignore_sampling_proportion_for_validation=args.training_parameters.ignore_sampling_proportion_for_validation,
         shuffle=split == DatasetSplit.train,
         seed=args.random_args.seed,

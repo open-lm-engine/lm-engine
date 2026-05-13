@@ -351,6 +351,39 @@ class ProcessGroupManager:
 
         _PIPELINE_PARALLEL_WORLD_SIZE = original_world_size
 
+    # data loading
+    @staticmethod
+    def get_data_loading_mesh() -> DeviceMesh:
+        global _DATA_LOADING_MESH
+
+        if _DATA_LOADING_MESH is None:
+            _DATA_LOADING_MESH = ProcessGroupManager.get_dense_mesh()["batch"]
+        return _DATA_LOADING_MESH
+
+    @staticmethod
+    def get_data_loading_group() -> ProcessGroup:
+        global _DATA_LOADING_GROUP
+
+        if _DATA_LOADING_GROUP is None:
+            _DATA_LOADING_GROUP = ProcessGroupManager.get_data_loading_mesh().get_group()
+        return _DATA_LOADING_GROUP
+
+    @staticmethod
+    def get_data_loading_rank() -> int:
+        global _DATA_LOADING_RANK
+
+        if _DATA_LOADING_RANK is None:
+            _DATA_LOADING_RANK = ProcessGroupManager.get_data_loading_mesh().get_local_rank()
+        return _DATA_LOADING_RANK
+
+    @staticmethod
+    def get_data_loading_world_size() -> int:
+        global _DATA_LOADING_WORLD_SIZE
+
+        if _DATA_LOADING_WORLD_SIZE is None:
+            _DATA_LOADING_WORLD_SIZE = ProcessGroupManager.get_data_loading_mesh().size()
+        return _DATA_LOADING_WORLD_SIZE
+
     # data parallel
     @staticmethod
     def get_data_parallel_mesh() -> DeviceMesh:
