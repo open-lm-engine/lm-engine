@@ -28,7 +28,7 @@ if is_torch_xla_available():
 
 
 @dataclass
-class Mesh:
+class _Mesh:
     mesh: DeviceMesh | None = None
     group: ProcessGroup | None = None
     rank: int | None = None
@@ -88,11 +88,11 @@ class Mesh:
         self.world_size = original_world_size
 
 
-_DENSE_MESH: Mesh | None = None
-_TENSOR_PARALLEL_MESH: Mesh | None = None
+_DENSE_MESH: _Mesh | None = None
+_TENSOR_PARALLEL_MESH: _Mesh | None = None
 _TENSOR_PARALLEL_FIRST_RANK: int | None = None
-_PIPELINE_PARALLEL_MESH: Mesh | None = None
-_DATA_PARALLEL_MESH: Mesh | None = None
+_PIPELINE_PARALLEL_MESH: _Mesh | None = None
+_DATA_PARALLEL_MESH: _Mesh | None = None
 _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
 
@@ -169,7 +169,7 @@ class ProcessGroupManager:
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
-        _DENSE_MESH = Mesh(
+        _DENSE_MESH = _Mesh(
             mesh=init_device_mesh(
                 "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
                 (
@@ -185,14 +185,12 @@ class ProcessGroupManager:
             world_size=world_size,
         )
 
-        _TENSOR_PARALLEL_MESH = Mesh(mesh=_DENSE_MESH.get_mesh()["tp"])
-        _PIPELINE_PARALLEL_MESH = Mesh(mesh=_DENSE_MESH.get_mesh()["pp"])
+        _TENSOR_PARALLEL_MESH = _Mesh(mesh=_DENSE_MESH.get_mesh()["tp"])
+        _PIPELINE_PARALLEL_MESH = _Mesh(mesh=_DENSE_MESH.get_mesh()["pp"])
 
         dp_submesh = _DENSE_MESH.get_mesh()["ddp", "fsdp"]
-        _DATA_PARALLEL_MESH = Mesh(
-            mesh=dp_submesh,
-            group=dp_submesh._flatten().get_group(),
-            local_rank=dp_submesh._flatten().get_local_rank(),
+        _DATA_PARALLEL_MESH = _Mesh(
+            mesh=dp_submesh, group=dp_submesh._flatten().get_group(), local_rank=dp_submesh._flatten().get_local_rank()
         )
 
         if use_async_tensor_parallel:
