@@ -211,8 +211,8 @@ class ProcessGroupManager:
         return torch.distributed.is_initialized()
 
     @staticmethod
-    def get_dense_mesh() -> Mesh:
-        return _DENSE_MESH
+    def get_dense_mesh() -> DeviceMesh:
+        return _DENSE_MESH.get_mesh()
 
     @staticmethod
     def get_global_rank() -> int:
