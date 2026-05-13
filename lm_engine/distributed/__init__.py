@@ -247,10 +247,7 @@ def wrap_model_container_for_distributed_training(
         assert not ProcessGroupManager.is_tensor_parallel_enabled()
         assert ProcessGroupManager.get_pipeline_parallel_world_size() == 1
         assert ProcessGroupManager.get_context_parallel_world_size() == 1
-        assert (
-            ProcessGroupManager.get_data_parallel_world_size()
-            == ProcessGroupManager.get_data_parallel_sharding_world_size()
-        )
+        assert ProcessGroupManager.get_data_parallel_world_size() == data_parallel_sharding_world_size
 
         assert num_pipeline_stages == 1
         assert fsdp_algorithm == 1
