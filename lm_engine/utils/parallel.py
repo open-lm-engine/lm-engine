@@ -49,7 +49,7 @@ class _Mesh:
 
     def get_local_rank(self) -> int:
         if self.local_rank is None:
-            self.local_rank = self.mesh.get_local_rank()
+            self.local_rank = self.mesh._flatten().get_local_rank()
 
         return self.local_rank
 
