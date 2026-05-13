@@ -244,10 +244,10 @@ def wrap_model_container_for_distributed_training(
     accelerator = Accelerator.get_accelerator()
 
     if accelerator == Accelerator.tpu:
-        assert (
-            ProcessGroupManager.get_data_parallel_world_size()
-            == ProcessGroupManager.get_data_parallel_sharding_world_size()
-        )
+        assert not ProcessGroupManager.is_tensor_parallel_enabled()
+        assert ProcessGroupManager.get_pipeline_parallel_world_size() == 1
+        assert ProcessGroupManager.get_context_parallel_world_size() == 1
+        assert ProcessGroupManager.get_data_parallel_world_size() == data_parallel_sharding_world_size
 
         assert num_pipeline_stages == 1
         assert fsdp_algorithm == 1
@@ -277,6 +277,7 @@ def wrap_model_container_for_distributed_training(
 
         if fsdp_algorithm == 3:
             log_rank_0(logging.INFO, "using simple FSDP")
+
             assert num_pipeline_stages == 1, "simple FSDP does not support pipeline parallelism"
             assert not cpu_offload, "simple FSDP does not support CPU offload"
             assert not efficient_initialization, "simple FSDP does not support efficient initialization"
@@ -301,17 +302,14 @@ def wrap_model_container_for_distributed_training(
             log_rank_0(logging.INFO, "using FSDP-2")
 
             def _sharding_function(parameter: nn.Parameter) -> Shard:
-                dps = (
-                    ProcessGroupManager.get_data_parallel_world_size()
-                    if data_parallel_sharding_world_size is None
-                    else data_parallel_sharding_world_size
-                )
-
-                if parameter.size(0) > dps or parameter.dim() == 1:
+                if parameter.size(0) > data_parallel_sharding_world_size or parameter.dim() == 1:
                     return Shard(0)
                 else:
                     for dim in range(1, parameter.dim()):
-                        if parameter.size(dim) > dps and parameter.size(dim) % dps == 0:
+                        if (
+                            parameter.size(dim) > data_parallel_sharding_world_size
+                            and parameter.size(dim) % data_parallel_sharding_world_size == 0
+                        ):
                             return Shard(dim)
 
                     log_rank_0(logging.WARN, "sharding along dim=0 since no suitable sharding dimension was found")

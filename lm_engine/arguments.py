@@ -256,6 +256,8 @@ class DistributedArgs(BaseArgs):
     sequence_parallel: bool = False
     # pipeline parallel world size
     pipeline_parallel_world_size: int = 1
+    # context parallel world size
+    context_parallel_world_size: int = 1
     # distributed timeout for NCCL in minutes
     timeout_minutes: int | None = None
     # fsdp algorithm
@@ -286,6 +288,8 @@ class DistributedArgs(BaseArgs):
         assert (
             self.num_pipeline_stages % self.pipeline_parallel_world_size == 0
         ), "num_pipeline_stages should be a multiple of pipeline_parallel_world_size"
+
+        assert self.context_parallel_world_size == 1
 
         if self.num_pipeline_stages > 1:
             _check_not_None([(self.pipeline_parallel_schedule, "pipeline_parallel_schedule")])
