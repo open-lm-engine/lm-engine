@@ -277,6 +277,7 @@ def wrap_model_container_for_distributed_training(
 
         if fsdp_algorithm == 3:
             log_rank_0(logging.INFO, "using simple FSDP")
+
             assert num_pipeline_stages == 1, "simple FSDP does not support pipeline parallelism"
             assert not cpu_offload, "simple FSDP does not support CPU offload"
             assert not efficient_initialization, "simple FSDP does not support efficient initialization"
