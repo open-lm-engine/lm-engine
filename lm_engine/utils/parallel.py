@@ -45,7 +45,6 @@ class _Mesh:
         return self.group
 
     def get_rank(self) -> int:
-        assert self.rank is not None
         return self.rank
 
     def get_local_rank(self) -> int:
