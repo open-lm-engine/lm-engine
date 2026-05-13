@@ -88,7 +88,7 @@ class _Mesh:
         self.world_size = original_world_size
 
 
-_DENSE_MESH: _Mesh | None = None
+_DENSE_MESH: _Mesh | None = _Mesh()
 _TENSOR_PARALLEL_MESH: _Mesh | None = None
 _TENSOR_PARALLEL_FIRST_RANK: int | None = None
 _PIPELINE_PARALLEL_MESH: _Mesh | None = None
@@ -213,10 +213,7 @@ class ProcessGroupManager:
 
     @staticmethod
     def get_dense_mesh() -> DeviceMesh:
-        if ProcessGroupManager.is_initialized():
-            return _DENSE_MESH.get_mesh()
-
-        return None
+        return _DENSE_MESH.get_mesh()
 
     @staticmethod
     def get_global_rank() -> int:
