@@ -24,7 +24,7 @@ class StepTracker:
 
     @staticmethod
     def get_global_batch_size() -> int:
-        return StepTracker.get_local_batch_size() * ProcessGroupManager.get_data_parallel_world_size()
+        return StepTracker.get_local_batch_size() * ProcessGroupManager.get_data_loading_world_size()
 
     @staticmethod
     def get_gradient_accumulation_steps() -> int:

@@ -30,6 +30,8 @@ class ModelWrapperForFinetuning(ModelWrapper):
         if ProcessGroupManager.is_tensor_parallel_enabled():
             batch = self._broadcast_inputs_for_tensor_parallel(batch)
 
+        assert not ProcessGroupManager.is_context_parallel_enabled()
+
         if not self.is_custom_model:
             assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 

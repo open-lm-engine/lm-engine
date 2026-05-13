@@ -8,6 +8,7 @@ import torch
 
 from .accelerator import Accelerator
 from .communication import Communication
+from .cpp_extension import compile_cpp_extension
 from .environment import environment
 from .hf_hub import download_repo
 from .logger import log_environment, log_metrics, log_rank_0, print_rank_0, print_ranks_all, set_logger, warn_rank_0
@@ -49,6 +50,7 @@ def init_distributed(
     pipeline_parallel_world_size: int,
     data_parallel_replication_world_size: int,
     data_parallel_sharding_world_size: int,
+    context_parallel_world_size: int,
     zero_stage: int,
     timeout_minutes: int = None,
     use_async_tensor_parallel: bool = False,
@@ -70,6 +72,7 @@ def init_distributed(
         pipeline_parallel_world_size=pipeline_parallel_world_size,
         data_parallel_replication_world_size=data_parallel_replication_world_size,
         data_parallel_sharding_world_size=data_parallel_sharding_world_size,
+        context_parallel_world_size=context_parallel_world_size,
         zero_stage=zero_stage,
         timeout_minutes=timeout_minutes,
         use_async_tensor_parallel=use_async_tensor_parallel,
@@ -80,6 +83,7 @@ def init_distributed(
     log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
     log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
     log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"context parallel size = {process_group_manager.get_context_parallel_world_size()}")
 
     for function, message in [
         (is_flash_attention_2_available, "Flash Attention 2 is not installed"),

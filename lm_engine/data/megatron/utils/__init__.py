@@ -5,9 +5,8 @@ import os
 from enum import Enum
 
 import numpy as np
-from torch.utils.cpp_extension import load as load_cpp_extension
 
-from ....utils import Communication, ProcessGroupManager, log_rank_0
+from ....utils import compile_cpp_extension, log_rank_0
 
 
 class Split(Enum):
@@ -22,28 +21,16 @@ _HELPERS = None
 def compile_helpers() -> None:
     """Compile C++ helper functions at runtime. Make sure this is invoked on a single process."""
 
+    global _HELPERS
     log_rank_0(logging.INFO, "compiling helpers.cpp")
 
-    build_directory = os.path.join(os.path.dirname(__file__), "build")
-    os.makedirs(build_directory, exist_ok=True)
-
-    def _compile():
-        global _HELPERS
-        _HELPERS = load_cpp_extension(
-            "helpers",
-            sources=os.path.join(os.path.dirname(__file__), "helpers.cpp"),
-            extra_cflags=["-O3", "-Wall", "-shared", "-std=c++11", "-fPIC", "-fdiagnostics-color"],
-            build_directory=build_directory,
-            verbose=True,
-        )
-
-    if ProcessGroupManager.get_global_rank() == 0:
-        _compile()
-
-    Communication.barrier()
-
-    if ProcessGroupManager.get_global_rank() != 0:
-        _compile()
+    _HELPERS = compile_cpp_extension(
+        "helpers",
+        sources=os.path.join(os.path.dirname(__file__), "helpers.cpp"),
+        build_directory=os.path.join(os.path.dirname(__file__), "build"),
+        verbose=True,
+        distributed=True,
+    )
 
 
 def build_blending_indices(

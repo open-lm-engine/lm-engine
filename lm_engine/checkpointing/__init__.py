@@ -441,7 +441,7 @@ def _get_base_path(path: str, iteration: int) -> str:
 
 
 def _get_dataloader_path(path: str) -> str:
-    return os.path.join(path, "dataloader", f"dataloader-{ProcessGroupManager.get_data_parallel_rank()}.pt")
+    return os.path.join(path, "dataloader", f"dataloader-{ProcessGroupManager.get_data_loading_rank()}.pt")
 
 
 def _get_rng_state_path(path: str) -> str:
