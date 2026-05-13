@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable
 
@@ -26,19 +27,69 @@ if is_torch_xla_available():
     from torch_xla.runtime import world_size as xla_world_size
 
 
-# general
-_MESH: DeviceMesh | None = None
-_GLOBAL_RANK: int | None = None
-_LOCAL_RANK: int | None = None
-_WORLD_SIZE: int | None = None
-_CPU_GROUP: ProcessGroup | None = None
+@dataclass
+class Mesh:
+    mesh: DeviceMesh | None = None
+    group: ProcessGroup | None = None
+    rank: int | None = None
+    local_rank: int | None = None
+    world_size: int | None = None
 
-# tensor parallel
-_TENSOR_PARALLEL_MESH: DeviceMesh | None = None
-_TENSOR_PARALLEL_GROUP: ProcessGroup | None = None
-_TENSOR_PARALLEL_RANK: int | None = None
-_TENSOR_PARALLEL_WORLD_SIZE: int | None = None
-_TENSOR_PARALLEL_FIRST_RANK: int | None = None
+    def get_mesh(self) -> DeviceMesh:
+        return self.mesh
+
+    def get_group(self) -> ProcessGroup:
+        if self.group is None:
+            self.group = self.mesh.get_group()
+
+        return self.group
+
+    def get_rank(self) -> int:
+        assert self.rank is not None
+        return self.rank
+
+    def get_local_rank(self) -> int:
+        if self.local_rank is None:
+            self.local_rank = self.mesh.get_local_rank()
+
+        return self.local_rank
+
+    def get_world_size(self) -> int:
+        if self.world_size is None:
+            self.world_size = self.mesh.size()
+
+        return self.world_size
+
+    @contextmanager
+    def set_dummy_rank(self, rank: int):
+        rank = self.rank
+        self.rank = rank
+
+        yield
+
+        self.rank = rank
+
+    @contextmanager
+    def set_dummy_local_rank(self, local_rank: int):
+        original_local_rank = self.local_rank
+        self.local_rank = local_rank
+
+        yield
+
+        self.local_rank = original_local_rank
+
+    @contextmanager
+    def set_dummy_world_size(self, world_size: int):
+        original_world_size = self.world_size
+        self.world_size = world_size
+
+        yield
+
+        self.world_size = original_world_size
+
+
+_DENSE_MESH: Mesh | None = None
+_TENSOR_PARALLEL_MESH: Mesh | None = None
 
 # pipeline parallel
 _PIPELINE_PARALLEL_MESH: DeviceMesh | None = None
@@ -66,14 +117,11 @@ class ProcessGroupManager:
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
-        global _MESH
+        global _DENSE_MESH
         global _TENSOR_PARALLEL_FIRST_RANK
         global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
         global _DATA_PARALLEL_SHARDING_WORLD_SIZE
         global _CPU_GROUP
-        global _GLOBAL_RANK
-        global _LOCAL_RANK
-        global _WORLD_SIZE
         global _DATA_PARALLEL_WORLD_SIZE
 
         if timeout_minutes is not None:
@@ -85,13 +133,13 @@ class ProcessGroupManager:
             torch.distributed.init_process_group(backend="xla", init_method="xla://", timeout=timeout_minutes)
             _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
 
-            _GLOBAL_RANK = xla_global_ordinal()
-            _LOCAL_RANK = xla_local_ordinal()
-            _WORLD_SIZE = xla_world_size()
+            global_rank = xla_global_ordinal()
+            local_rank = xla_local_ordinal()
+            world_size = xla_world_size()
         else:
-            _GLOBAL_RANK = int(os.getenv("RANK", 0))
-            _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
-            _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
+            global_rank = int(os.getenv("RANK", 0))
+            local_rank = int(os.getenv("LOCAL_RANK", 0))
+            world_size = int(os.getenv("WORLD_SIZE", 1))
 
             backend = "cpu:gloo"
             if accelerator == Accelerator.cuda:
@@ -100,12 +148,12 @@ class ProcessGroupManager:
                 backend += ",neuron:neuron"
 
             torch.distributed.init_process_group(
-                backend=backend, rank=_GLOBAL_RANK, world_size=_WORLD_SIZE, timeout=timeout_minutes
+                backend=backend, rank=global_rank, world_size=world_size, timeout=timeout_minutes
             )
 
-        Accelerator.set_device(_LOCAL_RANK)
+        Accelerator.set_device(local_rank)
 
-        data_parallel_size = _WORLD_SIZE // (tensor_parallel_world_size * pipeline_parallel_world_size)
+        data_parallel_size = world_size // (tensor_parallel_world_size * pipeline_parallel_world_size)
         assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == _WORLD_SIZE
 
         if zero_stage == 0:
@@ -128,15 +176,20 @@ class ProcessGroupManager:
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
-        _MESH = init_device_mesh(
-            "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
-            (
-                pipeline_parallel_world_size,
-                data_parallel_replication_world_size,
-                data_parallel_sharding_world_size,
-                tensor_parallel_world_size,
+        _DENSE_MESH = Mesh(
+            mesh=init_device_mesh(
+                "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
+                (
+                    pipeline_parallel_world_size,
+                    data_parallel_replication_world_size,
+                    data_parallel_sharding_world_size,
+                    tensor_parallel_world_size,
+                ),
+                mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
             ),
-            mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
+            rank=global_rank,
+            local_rank=local_rank,
+            world_size=world_size,
         )
 
         if use_async_tensor_parallel:
@@ -157,49 +210,33 @@ class ProcessGroupManager:
         return torch.distributed.is_initialized()
 
     @staticmethod
-    def get_mesh() -> DeviceMesh:
-        global _MESH
-        return _MESH
+    def get_dense_mesh() -> DeviceMesh:
+        return _DENSE_MESH
 
     @staticmethod
     def get_global_rank() -> int:
-        global _GLOBAL_RANK
-        return _GLOBAL_RANK
+        return _DENSE_MESH.get_rank()
 
     @staticmethod
     def get_local_rank() -> int:
-        global _LOCAL_RANK
-        return _LOCAL_RANK
+        return _DENSE_MESH.get_local_rank()
 
     @staticmethod
     def get_world_size() -> int:
-        global _WORLD_SIZE
-        return _WORLD_SIZE
+        return _DENSE_MESH.get_world_size()
 
     # tensor parallel
     @staticmethod
     def get_tensor_parallel_mesh() -> DeviceMesh:
-        global _TENSOR_PARALLEL_MESH
-
-        if _TENSOR_PARALLEL_MESH is None:
-            _TENSOR_PARALLEL_MESH = ProcessGroupManager.get_mesh()["tp"]
-        return _TENSOR_PARALLEL_MESH
+        return _DENSE_MESH.get_mesh()["tp"]
 
     @staticmethod
     def get_tensor_parallel_group() -> ProcessGroup:
-        global _TENSOR_PARALLEL_GROUP
-
-        if _TENSOR_PARALLEL_GROUP is None:
-            _TENSOR_PARALLEL_GROUP = ProcessGroupManager.get_tensor_parallel_mesh().get_group()
-        return _TENSOR_PARALLEL_GROUP
+        return ProcessGroupManager.get_tensor_parallel_mesh().get_group()
 
     @staticmethod
     def get_tensor_parallel_rank() -> int:
-        global _TENSOR_PARALLEL_RANK
-
-        if _TENSOR_PARALLEL_RANK is None:
-            _TENSOR_PARALLEL_RANK = ProcessGroupManager.get_tensor_parallel_mesh().get_local_rank()
-        return _TENSOR_PARALLEL_RANK
+        return ProcessGroupManager.get_tensor_parallel_mesh().get_local_rank()
 
     @contextmanager
     @staticmethod
@@ -396,7 +433,6 @@ class ProcessGroupManager:
 
     @staticmethod
     def get_cpu_group() -> ProcessGroup | None:
-        global _CPU_GROUP
         return _CPU_GROUP
 
 
