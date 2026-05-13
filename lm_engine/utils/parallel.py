@@ -462,7 +462,7 @@ class ProcessGroupManager:
         global _CONTEXT_PARALLEL_MESH
 
         if _CONTEXT_PARALLEL_MESH is None:
-            _CONTEXT_PARALLEL_MESH = _DATALOADING_MESH["cp"]
+            _CONTEXT_PARALLEL_MESH = ProcessGroupManager.get_dataloading_mesh()["cp"]
         return _CONTEXT_PARALLEL_MESH
 
     @staticmethod
