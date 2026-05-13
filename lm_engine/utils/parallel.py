@@ -59,7 +59,6 @@ _DATA_LOADING_WORLD_SIZE: int | None = None
 _DATA_LOADING_MESH: DeviceMesh | None = None
 
 # context parallel
-_DATALOADING_MESH: DeviceMesh | None = None  # 4D mesh ("pp", "batch", "cp", "tp") — exposes cp dim for CP group access
 _CONTEXT_PARALLEL_MESH: DeviceMesh | None = None
 _CONTEXT_PARALLEL_GROUP: ProcessGroup | None = None
 _CONTEXT_PARALLEL_RANK: int | None = None
@@ -454,7 +453,7 @@ class ProcessGroupManager:
 
     @staticmethod
     def get_dataloading_mesh() -> DeviceMesh:
-        return _DATALOADING_MESH
+        return _DATA_LOADING_MESH
 
     # context parallel
     @staticmethod
