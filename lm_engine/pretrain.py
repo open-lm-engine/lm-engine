@@ -395,7 +395,7 @@ def train(
         / ProcessGroupManager.get_world_size()
     )
 
-    forward_context = nullcontext
+    forward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
 
     torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)

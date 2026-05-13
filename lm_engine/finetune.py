@@ -73,7 +73,7 @@ def train(
     if eval_during_training:
         evaluate(val_dataloader, model_container, starting_iteration, experiments_tracker)
 
-    forward_context = nullcontext
+    forward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
 
     torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
