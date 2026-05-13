@@ -436,7 +436,7 @@ class ProcessGroupManager:
         return ProcessGroupManager.get_context_parallel_rank() == 0
 
     def __str__(self) -> str:
-        return {"dense_mesh": (self.get_dense_mesh()), "dataloading_mesh": _DATA_LOADING_MESH}
+        return str({"dense_mesh": (self.get_dense_mesh()), "dataloading_mesh": _DATA_LOADING_MESH})
 
     @staticmethod
     def destroy_process_groups() -> None:
