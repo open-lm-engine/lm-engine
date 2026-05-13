@@ -54,6 +54,10 @@ _DATA_PARALLEL_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
 
+# data loading
+_DATA_LOADING_WORLD_SIZE: int | None = None
+_DATA_LOADING_MESH: DeviceMesh | None = None
+
 # context parallel
 _DATALOADING_MESH: DeviceMesh | None = None  # 4D mesh ("pp", "batch", "cp", "tp") — exposes cp dim for CP group access
 _CONTEXT_PARALLEL_MESH: DeviceMesh | None = None
@@ -357,10 +361,6 @@ class ProcessGroupManager:
     # data loading
     @staticmethod
     def get_data_loading_mesh() -> DeviceMesh:
-        global _DATA_LOADING_MESH
-
-        if _DATA_LOADING_MESH is None:
-            _DATA_LOADING_MESH = ProcessGroupManager.get_dense_mesh()["batch"]
         return _DATA_LOADING_MESH
 
     @staticmethod
