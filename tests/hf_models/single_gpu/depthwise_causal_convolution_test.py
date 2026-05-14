@@ -48,7 +48,6 @@ def test_prefill_shapes(
     conv.eval()
 
     x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-
     out, state = conv(x, input_state=None, attention_mask=None, output_state=output_state)
 
     assert out.size() == x.size()
@@ -74,11 +73,6 @@ def test_prefill_short_sequence_state(device: torch.device, kernel_size: int) ->
 
     assert state is not None
     assert state.shape == (_BATCH, _HIDDEN_SIZE, kernel_size)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Generation (input_state is not None, S=1)
-# ──────────────────────────────────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
@@ -119,11 +113,6 @@ def test_generation_output_state_true(device: torch.device, kernel_size: int) ->
     assert out.shape == (_BATCH, 1, _HIDDEN_SIZE)
     assert state_out is not None
     assert state_out.shape == state.shape
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Prefill + generation consistency
-# ──────────────────────────────────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
@@ -196,11 +185,6 @@ def test_short_prefill_then_generation_matches_full_sequence(device: torch.devic
     assert_close(out_gen, expected, rtol=1e-5, atol=1e-5)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Attention mask
-# ──────────────────────────────────────────────────────────────────────────────
-
-
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
 @pytest.mark.parametrize("kernel_size", [1, 4])
 def test_attention_mask_does_not_affect_non_padding_items(device: torch.device, kernel_size: int) -> None:
@@ -257,11 +241,6 @@ def test_attention_mask_non_padding_matches_zeroed_input(device: torch.device, k
     # Non-padding positions and the unaffected batch item must agree
     assert_close(out_masked[0], out_zeroed[0], rtol=1e-5, atol=1e-5)
     assert_close(out_masked[1, 3:], out_zeroed[1, 3:], rtol=1e-5, atol=1e-5)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# causal_conv1d kernel vs fallback
-# ──────────────────────────────────────────────────────────────────────────────
 
 
 @pytest.mark.skipif(not is_causal_conv1d_available(), reason="causal_conv1d not installed")
