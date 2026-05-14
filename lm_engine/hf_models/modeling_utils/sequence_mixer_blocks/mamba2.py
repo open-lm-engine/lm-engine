@@ -140,7 +140,7 @@ class Mamba2(nn.Module):
             hidden_size=self.conv_dim,
             kernel_size=self.conv_kernel_size,
             activation_function=ssm_activation_function,
-            add_bias=add_bias,
+            add_bias=use_conv_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
