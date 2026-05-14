@@ -151,4 +151,6 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 self.bias.zero_()
 
         mark_parameter_as_initialized(self.weight)
-        mark_parameter_as_initialized(self.bias)
+        mark_parameter_as_initialized(self.weight)
+        if self.bias is not None:
+            mark_parameter_as_initialized(self.bias)
