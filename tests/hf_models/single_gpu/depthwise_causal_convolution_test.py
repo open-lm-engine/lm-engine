@@ -171,12 +171,15 @@ def test_attention_mask(device: torch.device, kernel_size: int) -> None:
     assert_close(out_masked[1, 3:], out_zeroed[1, 3:], rtol=1e-5, atol=1e-5)
 
 
-@pytest.mark.skipif(not is_causal_conv1d_available(), reason="causal_conv1d not installed")
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
 @pytest.mark.parametrize("kernel_size", [1, 4])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
 def test_kernel_vs_fallback(device: torch.device, kernel_size: int, activation: str | None) -> None:
     skip_test_if_device_unavailable(device)
+
+    if device.type != "cuda" or not is_causal_conv1d_available():
+        pytest.skip("causal_conv1d unavailable")
+
     conv = _make_conv(kernel_size=kernel_size, activation=activation).to(device)
     conv.eval()
 
