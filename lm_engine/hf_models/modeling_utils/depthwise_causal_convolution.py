@@ -19,15 +19,15 @@ if is_causal_conv1d_available():
     from causal_conv1d import causal_conv1d_fn, causal_conv1d_update
 
 
-def _apply_mask_to_padding_states(hidden_states: torch.Tensor, attention_mask: torch.Tensor | None) -> torch.Tensor:
+def _apply_mask_to_padding_states(x: torch.Tensor, attention_mask: torch.Tensor | None) -> torch.Tensor:
     """
     Tunes out the hidden states for padding tokens, see https://github.com/state-spaces/mamba/issues/66
     """
     if attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1:
-        dtype = hidden_states.dtype
-        hidden_states = (hidden_states * attention_mask[:, :, None]).to(dtype)
+        dtype = x.dtype
+        x = (x * attention_mask[:, :, None]).to(dtype)
 
-    return hidden_states
+    return x
 
 
 class DepthwiseCausalConvolution(nn.Conv1d):
@@ -66,37 +66,37 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
     def forward(
         self,
-        hidden_states: torch.Tensor,
+        x: torch.Tensor,
         input_state: torch.Tensor | None,
         attention_mask: torch.Tensor | None,
         output_state: bool,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        S = hidden_states.size(1)
-        hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        S = x.size(1)
+        x = _apply_mask_to_padding_states(x, attention_mask)
 
         if is_kernel_allowed(Kernel.causal_conv1d):
             if input_state is None:
-                hidden_states = hidden_states.transpose(-1, -2)
+                x = x.transpose(-1, -2)
 
                 if output_state:
-                    # F.pad trims the hidden_states if sequence_length > kernel_size
-                    input_state = F.pad(hidden_states, (self.kernel_size - S, 0))
+                    # F.pad trims the x if sequence_length > kernel_size
+                    input_state = F.pad(x, (self.kernel_size - S, 0))
 
-                hidden_states = causal_conv1d_fn(
-                    x=hidden_states,
+                x = causal_conv1d_fn(
+                    x=x,
                     weight=self.weight.squeeze(1),
                     bias=self.bias,
                     activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
 
-                hidden_states = hidden_states.transpose(-1, -2)
+                x = x.transpose(-1, -2)
             else:
                 assert S == 1
 
                 input_state_buffer = input_state.clone()
 
-                hidden_states = causal_conv1d_update(
-                    x=hidden_states,
+                x = causal_conv1d_update(
+                    x=x,
                     conv_state=input_state_buffer,
                     weight=self.weight.squeeze(1),
                     bias=self.bias,
@@ -106,40 +106,40 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 input_state = input_state_buffer if output_state else None
 
             if not self.use_activation_inside_kernel:
-                hidden_states = self.activation_function(hidden_states)
+                x = self.activation_function(x)
         else:
             if input_state is None:
-                hidden_states = hidden_states.transpose(-1, -2)
+                x = x.transpose(-1, -2)
 
                 if output_state:
-                    # F.pad trims the hidden_states if sequence_length > kernel_size
-                    input_state = F.pad(hidden_states, (self.kernel_size - S, 0))
+                    # F.pad trims the x if sequence_length > kernel_size
+                    input_state = F.pad(x, (self.kernel_size - S, 0))
 
-                hidden_states = super().forward(hidden_states)
+                x = super().forward(x)
 
                 # removes padding on the right side of the sequence
                 # removes padding on the right side of the sequence
                 if self.kernel_size > 1:
-                    hidden_states = hidden_states[..., : 1 - self.kernel_size]
-                hidden_states = hidden_states.transpose(-1, -2)
+                    x = x[..., : 1 - self.kernel_size]
+                x = x.transpose(-1, -2)
             else:
                 assert S == 1
 
                 input_state = input_state.roll(shifts=-1, dims=-1)
-                input_state[..., -1] = hidden_states[:, 0]
+                input_state[..., -1] = x[:, 0]
 
-                hidden_states = (input_state * self.weight.squeeze(1)).sum(dim=-1)
-                hidden_states = hidden_states[:, None, :]
+                x = (input_state * self.weight.squeeze(1)).sum(dim=-1)
+                x = x[:, None, :]
                 if self.bias is not None:
-                    hidden_states = hidden_states + self.bias
+                    x = x + self.bias
 
                 if not output_state:
                     input_state = None
 
-            hidden_states = self.activation_function(hidden_states)
-            hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
+            x = self.activation_function(x)
+            x = _apply_mask_to_padding_states(x, attention_mask)
 
-        return hidden_states, input_state
+        return x, input_state
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
