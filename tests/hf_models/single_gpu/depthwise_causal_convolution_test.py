@@ -72,9 +72,13 @@ def test_prefill_shapes(
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
 @pytest.mark.parametrize("kernel_size", [1, 4])
-def test_prefill_short_sequence_state(device: torch.device, kernel_size: int) -> None:
+@pytest.mark.parametrize("kernels", [[], [Kernel.causal_conv1d]])
+def test_prefill_short_sequence_state(device: torch.device, kernel_size: int, kernels: list[Kernel]) -> None:
     """Prefill with seq_len < kernel_size still produces correct state shape (zero-padded)."""
     skip_test_if_device_unavailable(device)
+
+    if Kernel.causal_conv1d in kernels and not is_causal_conv1d_available():
+        pytest.skip("skipping test because causal_conv1d is unavailable")
 
     with torch.device(device):
         conv = _make_conv(kernel_size=kernel_size)
