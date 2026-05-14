@@ -80,6 +80,9 @@ def test_prefill_short_sequence_state(device: torch.device, kernel_size: int, ke
     if Kernel.causal_conv1d in kernels and not is_causal_conv1d_available():
         pytest.skip("skipping test because causal_conv1d is unavailable")
 
+        if kernel_size == 1:
+            pytest.skip("skipping test because causal_conv1d only supports kernel_size between 2 and 4")
+
     with torch.device(device):
         conv = _make_conv(kernel_size=kernel_size)
 
