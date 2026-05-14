@@ -118,7 +118,9 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 hidden_states = super().forward(hidden_states)
 
                 # removes padding on the right side of the sequence
-                hidden_states = hidden_states[..., : 1 - self.kernel_size]
+                # removes padding on the right side of the sequence
+                if self.kernel_size > 1:
+                    hidden_states = hidden_states[..., : 1 - self.kernel_size]
                 hidden_states = hidden_states.transpose(-1, -2)
             else:
                 assert S == 1
