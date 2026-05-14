@@ -75,7 +75,10 @@ def test_prefill_shapes(
 def test_prefill_short_sequence_state(device: torch.device, kernel_size: int) -> None:
     """Prefill with seq_len < kernel_size still produces correct state shape (zero-padded)."""
     skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size).to(device)
+
+    with torch.device(device):
+        conv = _make_conv(kernel_size=kernel_size)
+
     conv.eval()
 
     short_len = max(1, kernel_size - 1)
@@ -83,7 +86,7 @@ def test_prefill_short_sequence_state(device: torch.device, kernel_size: int) ->
     _, state = conv(x, input_state=None, attention_mask=None, output_state=True)
 
     assert state is not None
-    assert state.shape == (_BATCH, _HIDDEN_SIZE, kernel_size)
+    assert state.size() == (_BATCH, _HIDDEN_SIZE, kernel_size)
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
