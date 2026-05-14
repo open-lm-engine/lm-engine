@@ -36,7 +36,10 @@ def _make_conv(
 @pytest.mark.parametrize("kernel_size", [1, 4])
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
-def test_prefill_output_shape(device: torch.device, kernel_size: int, add_bias: bool, activation: str | None) -> None:
+@pytest.mark.parametrize("output_state", [False, True])
+def test_prefill_shapes(
+    device: torch.device, kernel_size: int, add_bias: bool, activation: str | None, output_state: bool
+) -> None:
     skip_test_if_device_unavailable(device)
 
     with torch.device(device):
@@ -45,28 +48,16 @@ def test_prefill_output_shape(device: torch.device, kernel_size: int, add_bias: 
     conv.eval()
 
     x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-    out, state = conv(x, input_state=None, attention_mask=None, output_state=False)
 
-    assert out.shape == x.shape
-    assert state is None
+    out, state = conv(x, input_state=None, attention_mask=None, output_state=output_state)
 
+    assert out.size() == x.size()
 
-@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
-def test_prefill_state_shape(device: torch.device, kernel_size: int) -> None:
-    skip_test_if_device_unavailable(device)
-
-    with torch.device(device):
-        conv = _make_conv(kernel_size=kernel_size)
-
-    conv.eval()
-
-    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-    out, state = conv(x, input_state=None, attention_mask=None, output_state=True)
-
-    assert out.shape == (_BATCH, _PREFILL_LEN, _HIDDEN_SIZE)
-    assert state is not None
-    assert state.shape == (_BATCH, _HIDDEN_SIZE, kernel_size)
+    if output_state:
+        assert state is not None
+        assert state.size() == (_BATCH, _HIDDEN_SIZE, kernel_size)
+    else:
+        assert state is None
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
