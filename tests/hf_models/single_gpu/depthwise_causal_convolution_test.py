@@ -103,40 +103,30 @@ def test_prefill_short_sequence_state(device: torch.device, kernel_size: int, ke
 @pytest.mark.parametrize("kernel_size", [1, 4])
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
-def test_generation_output_shape(
-    device: torch.device, kernel_size: int, add_bias: bool, activation: str | None
+@pytest.mark.parametrize("output_state", [False, True])
+def test_generation_shapes(
+    device: torch.device, kernel_size: int, add_bias: bool, activation: str | None, output_state: bool
 ) -> None:
     skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size, add_bias=add_bias, activation=activation).to(device)
+
+    with torch.device(device):
+        conv = _make_conv(kernel_size=kernel_size, add_bias=add_bias, activation=activation)
+
     conv.eval()
 
     x_prefill = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
     _, state = conv(x_prefill, input_state=None, attention_mask=None, output_state=True)
 
     x_gen = torch.randn(_BATCH, 1, _HIDDEN_SIZE, device=device)
-    out, state_out = conv(x_gen, input_state=state, attention_mask=None, output_state=False)
+    out, state_out = conv(x_gen, input_state=state, attention_mask=None, output_state=output_state)
 
-    assert out.shape == (_BATCH, 1, _HIDDEN_SIZE)
-    assert state_out is None
+    assert out.size() == (_BATCH, 1, _HIDDEN_SIZE)
 
-
-@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
-def test_generation_output_state_true(device: torch.device, kernel_size: int) -> None:
-    """output_state=True during generation returns an updated state of the same shape."""
-    skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size).to(device)
-    conv.eval()
-
-    x_prefill = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-    _, state = conv(x_prefill, input_state=None, attention_mask=None, output_state=True)
-
-    x_gen = torch.randn(_BATCH, 1, _HIDDEN_SIZE, device=device)
-    out, state_out = conv(x_gen, input_state=state, attention_mask=None, output_state=True)
-
-    assert out.shape == (_BATCH, 1, _HIDDEN_SIZE)
-    assert state_out is not None
-    assert state_out.shape == state.shape
+    if output_state:
+        assert state_out is not None
+        assert state_out.size() == state.size()
+    else:
+        assert state_out is None
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
