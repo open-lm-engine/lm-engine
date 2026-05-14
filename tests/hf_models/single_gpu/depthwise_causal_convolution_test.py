@@ -51,8 +51,8 @@ def test_prefill_shapes(
     if Kernel.causal_conv1d in kernels and (device.type != "cuda" or not is_causal_conv1d_available()):
         pytest.skip("skipping test because causal_conv1d is unavailable")
 
-        if kernel_size == 1:
-            pytest.skip("skipping test because causal_conv1d only supports kernel_size between 2 and 4")
+    if Kernel.causal_conv1d in kernels and kernel_size == 1:
+        pytest.skip("skipping test because causal_conv1d only supports kernel_size between 2 and 4")
 
     with torch.device(device):
         conv = _make_conv(kernel_size=kernel_size, add_bias=add_bias, activation=activation)
