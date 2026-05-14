@@ -48,7 +48,7 @@ def test_prefill_shapes(
 ) -> None:
     skip_test_if_device_unavailable(device)
 
-    if len(kernels) > 1 and kernels[0] == Kernel.causal_conv1d and not is_causal_conv1d_available():
+    if Kernel.causal_conv1d in kernels and not is_causal_conv1d_available():
         pytest.skip("skipping test because causal_conv1d is unavailable")
 
     with torch.device(device):
