@@ -112,7 +112,7 @@ class Block(nn.Module):
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
-        elif self.sequence_mixer_type in ["causal_convolution", "mamba2"]:
+        elif self.sequence_mixer_type == "mamba2":
             x = self.sequence_mixer(x, cache_params=cache_params, attention_mask=attention_mask)
         elif self.sequence_mixer_type in ["gru", "rnn", "m2rnn", "gated_deltanet"]:
             x = self.sequence_mixer(

@@ -395,7 +395,7 @@ def train(
         / ProcessGroupManager.get_world_size()
     )
 
-    forward_context = nullcontext
+    forward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
 
     torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
@@ -616,6 +616,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         pipeline_parallel_world_size=args.distributed_args.pipeline_parallel_world_size,
         data_parallel_replication_world_size=args.distributed_args.zero_topology.data_parallel_replication_world_size,
         data_parallel_sharding_world_size=args.distributed_args.zero_topology.data_parallel_sharding_world_size,
+        context_parallel_world_size=args.distributed_args.context_parallel_world_size,
         zero_stage=args.distributed_args.stage,
         timeout_minutes=args.distributed_args.timeout_minutes,
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,

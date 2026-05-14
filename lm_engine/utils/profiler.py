@@ -7,13 +7,17 @@ from __future__ import annotations
 import torch
 
 from .accelerator import Accelerator
-from .packages import is_torch_xla_available
+from .packages import is_torch_neuronx_available, is_torch_xla_available
 from .parallel import ProcessGroupManager
 
 
 if is_torch_xla_available():
     from torch_xla.debug.profiler import start_trace as xla_start_trace
     from torch_xla.debug.profiler import stop_trace as xla_stop_trace
+
+
+if is_torch_neuronx_available():
+    from torch_neuronx.profiling import NeuronConfig, NeuronProfiler, ProfileMode
 
 
 class TorchProfiler:
@@ -30,17 +34,33 @@ class TorchProfiler:
         self.accelerator = Accelerator.get_accelerator()
         self._step = 0
 
+        experimental_config = None
+        if self.accelerator == Accelerator.trainium:
+            experimental_config = NeuronConfig(
+                modes=[ProfileMode.DEVICE, ProfileMode.RUNTIME],
+                max_events_per_nc=100000,
+                profile_output_dir=path,
+                capture_enabled_for_nc="0",
+            )
+
+            exporter = NeuronProfiler(experimental_config)
+
         self._profiler = None
         if self.accelerator != Accelerator.tpu:
             self._profiler = torch.profiler.profile(
-                activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+                activities=[torch.profiler.ProfilerActivity.CPU, Accelerator.get_profiler_activity()],
                 schedule=torch.profiler.schedule(
                     wait=wait if ProcessGroupManager.get_global_rank() == 0 else 150000,
                     warmup=warmup,
                     active=active,
                     repeat=1,
                 ),
-                on_trace_ready=torch.profiler.tensorboard_trace_handler(path),
+                experimental_config=experimental_config,
+                on_trace_ready=(
+                    exporter.export_trace
+                    if self.accelerator == Accelerator.trainium
+                    else torch.profiler.tensorboard_trace_handler(path)
+                ),
                 record_shapes=True,
                 profile_memory=True,
             )

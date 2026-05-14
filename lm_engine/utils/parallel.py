@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable
 
@@ -15,6 +16,7 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
+from .accelerator import Accelerator
 from .miscellaneous import divide_if_divisible
 from .packages import is_torch_xla_available
 
@@ -25,33 +27,76 @@ if is_torch_xla_available():
     from torch_xla.runtime import world_size as xla_world_size
 
 
-# general
-_MESH: DeviceMesh | None = None
-_GLOBAL_RANK: int | None = None
-_LOCAL_RANK: int | None = None
-_WORLD_SIZE: int | None = None
-_CPU_GROUP: ProcessGroup | None = None
+@dataclass
+class _Mesh:
+    mesh: DeviceMesh | None = None
+    group: ProcessGroup | None = None
+    rank: int | None = None
+    local_rank: int | None = None
+    world_size: int | None = None
 
-# tensor parallel
-_TENSOR_PARALLEL_MESH: DeviceMesh | None = None
-_TENSOR_PARALLEL_GROUP: ProcessGroup | None = None
-_TENSOR_PARALLEL_RANK: int | None = None
-_TENSOR_PARALLEL_WORLD_SIZE: int | None = None
+    def get_mesh(self) -> DeviceMesh:
+        return self.mesh
+
+    def get_group(self) -> ProcessGroup:
+        if self.group is None:
+            self.group = self.mesh.get_group()
+
+        return self.group
+
+    def get_rank(self) -> int:
+        return self.rank
+
+    def get_local_rank(self) -> int:
+        if self.local_rank is None:
+            self.local_rank = self.mesh.get_local_rank()
+
+        return self.local_rank
+
+    def get_world_size(self) -> int:
+        if self.world_size is None:
+            self.world_size = self.mesh.size()
+
+        return self.world_size
+
+    @contextmanager
+    def set_dummy_rank(self, rank: int):
+        original_rank = self.rank
+        self.rank = rank
+
+        yield
+
+        self.rank = original_rank
+
+    @contextmanager
+    def set_dummy_local_rank(self, local_rank: int):
+        original_local_rank = self.local_rank
+        self.local_rank = local_rank
+
+        yield
+
+        self.local_rank = original_local_rank
+
+    @contextmanager
+    def set_dummy_world_size(self, world_size: int):
+        original_world_size = self.world_size
+        self.world_size = world_size
+
+        yield
+
+        self.world_size = original_world_size
+
+
+_DENSE_MESH: _Mesh | None = _Mesh()
+_TENSOR_PARALLEL_MESH: _Mesh | None = None
 _TENSOR_PARALLEL_FIRST_RANK: int | None = None
-
-# pipeline parallel
-_PIPELINE_PARALLEL_MESH: DeviceMesh | None = None
-_PIPELINE_PARALLEL_GROUP: ProcessGroup | None = None
-_PIPELINE_PARALLEL_RANK: int | None = None
-_PIPELINE_PARALLEL_WORLD_SIZE: int | None = None
-
-# data parallel
-_DATA_PARALLEL_MESH: DeviceMesh | None = None
-_DATA_PARALLEL_GROUP: ProcessGroup | None = None
-_DATA_PARALLEL_RANK: int | None = None
-_DATA_PARALLEL_WORLD_SIZE: int | None = None
+_PIPELINE_PARALLEL_MESH: _Mesh | None = None
+_DATA_PARALLEL_MESH: _Mesh | None = None
 _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
+_CPU_GROUP: ProcessGroup | None = None
+_DATA_LOADING_MESH: _Mesh | None = None
+_CONTEXT_PARALLEL_MESH: _Mesh | None = None
 
 
 class ProcessGroupManager:
@@ -61,21 +106,21 @@ class ProcessGroupManager:
         pipeline_parallel_world_size: int = 1,
         data_parallel_replication_world_size: int | None = None,
         data_parallel_sharding_world_size: int | None = None,
+        context_parallel_world_size: int = 1,
         zero_stage: int = 3,
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
     ) -> ProcessGroupManager:
-        from .accelerator import Accelerator
-
-        global _MESH
+        global _DENSE_MESH
+        global _TENSOR_PARALLEL_MESH
         global _TENSOR_PARALLEL_FIRST_RANK
+        global _PIPELINE_PARALLEL_MESH
+        global _DATA_PARALLEL_MESH
         global _DATA_PARALLEL_REPLICATION_WORLD_SIZE
         global _DATA_PARALLEL_SHARDING_WORLD_SIZE
         global _CPU_GROUP
-        global _GLOBAL_RANK
-        global _LOCAL_RANK
-        global _WORLD_SIZE
-        global _DATA_PARALLEL_WORLD_SIZE
+        global _DATA_LOADING_MESH
+        global _CONTEXT_PARALLEL_MESH
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -86,13 +131,13 @@ class ProcessGroupManager:
             torch.distributed.init_process_group(backend="xla", init_method="xla://", timeout=timeout_minutes)
             _CPU_GROUP = torch.distributed.new_group(backend="cpu:gloo")
 
-            _GLOBAL_RANK = xla_global_ordinal()
-            _LOCAL_RANK = xla_local_ordinal()
-            _WORLD_SIZE = xla_world_size()
+            global_rank = xla_global_ordinal()
+            local_rank = xla_local_ordinal()
+            world_size = xla_world_size()
         else:
-            _GLOBAL_RANK = int(os.getenv("RANK", 0))
-            _LOCAL_RANK = int(os.getenv("LOCAL_RANK", 0))
-            _WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
+            global_rank = int(os.getenv("RANK", 0))
+            local_rank = int(os.getenv("LOCAL_RANK", 0))
+            world_size = int(os.getenv("WORLD_SIZE", 1))
 
             backend = "cpu:gloo"
             if accelerator == Accelerator.cuda:
@@ -101,44 +146,90 @@ class ProcessGroupManager:
                 backend += ",neuron:neuron"
 
             torch.distributed.init_process_group(
-                backend=backend, rank=_GLOBAL_RANK, world_size=_WORLD_SIZE, timeout=timeout_minutes
+                backend=backend, rank=global_rank, world_size=world_size, timeout=timeout_minutes
             )
 
-        Accelerator.set_device(_LOCAL_RANK)
+        Accelerator.set_device(local_rank)
 
-        data_parallel_size = _WORLD_SIZE // (tensor_parallel_world_size * pipeline_parallel_world_size)
-        assert tensor_parallel_world_size * pipeline_parallel_world_size * data_parallel_size == _WORLD_SIZE
+        data_loading_world_size = world_size // (
+            tensor_parallel_world_size * pipeline_parallel_world_size * context_parallel_world_size
+        )
+
+        assert (
+            tensor_parallel_world_size
+            * pipeline_parallel_world_size
+            * data_loading_world_size
+            * context_parallel_world_size
+            == world_size
+        )
 
         if zero_stage == 0:
             assert data_parallel_sharding_world_size is None or data_parallel_sharding_world_size == 1
 
-            data_parallel_replication_world_size = data_parallel_size
+            data_parallel_replication_world_size = data_loading_world_size * context_parallel_world_size
             data_parallel_sharding_world_size = 1
         else:
             if data_parallel_replication_world_size is None:
                 assert data_parallel_sharding_world_size is None
 
                 data_parallel_replication_world_size = 1
-                data_parallel_sharding_world_size = data_parallel_size
+                data_parallel_sharding_world_size = data_loading_world_size * context_parallel_world_size
             else:
                 assert data_parallel_sharding_world_size is not None
 
-        assert data_parallel_replication_world_size * data_parallel_sharding_world_size == data_parallel_size
+        assert (
+            data_parallel_replication_world_size * data_parallel_sharding_world_size
+            == data_loading_world_size * context_parallel_world_size
+        )
+
+        assert data_parallel_replication_world_size is not None
+        assert data_parallel_sharding_world_size is not None
 
         _DATA_PARALLEL_REPLICATION_WORLD_SIZE = data_parallel_replication_world_size
         _DATA_PARALLEL_SHARDING_WORLD_SIZE = data_parallel_sharding_world_size
 
+        device_type = "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type()
+
         # FIXME unable to use XLA mesh since XLA mesh doesn't support accessing submesh
-        _MESH = init_device_mesh(
-            "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
-            (
-                pipeline_parallel_world_size,
-                data_parallel_replication_world_size,
-                data_parallel_sharding_world_size,
-                tensor_parallel_world_size,
+        _DENSE_MESH = _Mesh(
+            mesh=init_device_mesh(
+                "cpu" if accelerator in [Accelerator.mps, Accelerator.tpu] else Accelerator.get_device_type(),
+                (
+                    pipeline_parallel_world_size,
+                    data_parallel_replication_world_size,
+                    data_parallel_sharding_world_size,
+                    tensor_parallel_world_size,
+                ),
+                mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
             ),
-            mesh_dim_names=("pp", "ddp", "fsdp", "tp"),
+            rank=global_rank,
+            local_rank=local_rank,
+            world_size=world_size,
         )
+
+        _TENSOR_PARALLEL_MESH = _Mesh(mesh=_DENSE_MESH.get_mesh()["tp"])
+        _PIPELINE_PARALLEL_MESH = _Mesh(mesh=_DENSE_MESH.get_mesh()["pp"])
+
+        dp_submesh = _DENSE_MESH.get_mesh()["ddp", "fsdp"]
+        _DATA_PARALLEL_MESH = _Mesh(
+            mesh=dp_submesh, group=dp_submesh._flatten().get_group(), local_rank=dp_submesh._flatten().get_local_rank()
+        )
+
+        # separate mesh that exposes the cp dimension explicitly, used to form the CP process group
+        _DATA_LOADING_MESH = _Mesh(
+            mesh=init_device_mesh(
+                device_type,
+                (
+                    pipeline_parallel_world_size,
+                    data_loading_world_size,
+                    context_parallel_world_size,
+                    tensor_parallel_world_size,
+                ),
+                mesh_dim_names=("pp", "batch", "cp", "tp"),
+            )
+        )
+
+        _CONTEXT_PARALLEL_MESH = _Mesh(mesh=_DATA_LOADING_MESH.get_mesh()["cp"])
 
         if use_async_tensor_parallel:
             enable_symm_mem_for_group(ProcessGroupManager.get_tensor_parallel_group().group_name)
@@ -147,6 +238,7 @@ class ProcessGroupManager:
         if accelerator == Accelerator.tpu:
             assert tensor_parallel_world_size == 1
             assert pipeline_parallel_world_size == 1
+            assert context_parallel_world_size == 1
         else:
             group = ProcessGroupManager.get_tensor_parallel_group()
             ranks = torch.distributed.get_process_group_ranks(group)
@@ -158,85 +250,52 @@ class ProcessGroupManager:
         return torch.distributed.is_initialized()
 
     @staticmethod
-    def get_mesh() -> DeviceMesh:
-        global _MESH
-        return _MESH
+    def get_dense_mesh() -> DeviceMesh:
+        return _DENSE_MESH.get_mesh()
 
     @staticmethod
     def get_global_rank() -> int:
-        global _GLOBAL_RANK
-        return _GLOBAL_RANK
+        return _DENSE_MESH.get_rank()
 
     @staticmethod
     def get_local_rank() -> int:
-        global _LOCAL_RANK
-        return _LOCAL_RANK
+        return _DENSE_MESH.get_local_rank()
 
     @staticmethod
     def get_world_size() -> int:
-        global _WORLD_SIZE
-        return _WORLD_SIZE
+        return _DENSE_MESH.get_world_size()
 
     # tensor parallel
     @staticmethod
     def get_tensor_parallel_mesh() -> DeviceMesh:
-        global _TENSOR_PARALLEL_MESH
-
-        if _TENSOR_PARALLEL_MESH is None:
-            _TENSOR_PARALLEL_MESH = ProcessGroupManager.get_mesh()["tp"]
-        return _TENSOR_PARALLEL_MESH
+        return _TENSOR_PARALLEL_MESH.get_mesh()
 
     @staticmethod
     def get_tensor_parallel_group() -> ProcessGroup:
-        global _TENSOR_PARALLEL_GROUP
-
-        if _TENSOR_PARALLEL_GROUP is None:
-            _TENSOR_PARALLEL_GROUP = ProcessGroupManager.get_tensor_parallel_mesh().get_group()
-        return _TENSOR_PARALLEL_GROUP
+        return _TENSOR_PARALLEL_MESH.get_group()
 
     @staticmethod
     def get_tensor_parallel_rank() -> int:
-        global _TENSOR_PARALLEL_RANK
-
-        if _TENSOR_PARALLEL_RANK is None:
-            _TENSOR_PARALLEL_RANK = ProcessGroupManager.get_tensor_parallel_mesh().get_local_rank()
-        return _TENSOR_PARALLEL_RANK
+        return _TENSOR_PARALLEL_MESH.get_local_rank()
 
     @contextmanager
     @staticmethod
     def set_dummy_tensor_parallel_rank(rank: int):
-        global _TENSOR_PARALLEL_RANK
-
-        original_rank = _TENSOR_PARALLEL_RANK
-        _TENSOR_PARALLEL_RANK = rank
-
-        yield
-
-        _TENSOR_PARALLEL_RANK = original_rank
+        with _TENSOR_PARALLEL_MESH.set_dummy_local_rank(rank):
+            yield
 
     @staticmethod
     def get_tensor_parallel_world_size() -> int:
-        global _TENSOR_PARALLEL_WORLD_SIZE
-
-        if _TENSOR_PARALLEL_WORLD_SIZE is None:
-            _TENSOR_PARALLEL_WORLD_SIZE = ProcessGroupManager.get_tensor_parallel_mesh().size()
-        return _TENSOR_PARALLEL_WORLD_SIZE
+        return _TENSOR_PARALLEL_MESH.get_world_size()
 
     @contextmanager
     @staticmethod
     def set_dummy_tensor_parallel_world_size(world_size: int):
-        global _TENSOR_PARALLEL_WORLD_SIZE
-
-        original_world_size = _TENSOR_PARALLEL_WORLD_SIZE
-        _TENSOR_PARALLEL_WORLD_SIZE = world_size
-
-        yield
-
-        _TENSOR_PARALLEL_WORLD_SIZE = original_world_size
+        with _TENSOR_PARALLEL_MESH.set_dummy_world_size(world_size):
+            yield
 
     @staticmethod
     def get_tensor_parallel_first_rank() -> int:
-        global _TENSOR_PARALLEL_FIRST_RANK
         return _TENSOR_PARALLEL_FIRST_RANK
 
     @contextmanager
@@ -265,104 +324,62 @@ class ProcessGroupManager:
     # pipeline parallel
     @staticmethod
     def get_pipeline_parallel_mesh() -> DeviceMesh:
-        global _PIPELINE_PARALLEL_MESH
-
-        if _PIPELINE_PARALLEL_MESH is None:
-            _PIPELINE_PARALLEL_MESH = ProcessGroupManager.get_mesh()["pp"]
-        return _PIPELINE_PARALLEL_MESH
+        return _PIPELINE_PARALLEL_MESH.get_mesh()
 
     @staticmethod
     def get_pipeline_parallel_group() -> ProcessGroup:
-        global _PIPELINE_PARALLEL_GROUP
-
-        if _PIPELINE_PARALLEL_GROUP is None:
-            _PIPELINE_PARALLEL_GROUP = ProcessGroupManager.get_pipeline_parallel_mesh().get_group()
-        return _PIPELINE_PARALLEL_GROUP
+        return _PIPELINE_PARALLEL_MESH.get_group()
 
     @staticmethod
     def get_pipeline_parallel_rank() -> int:
-        global _PIPELINE_PARALLEL_RANK
-
-        if _PIPELINE_PARALLEL_RANK is None:
-            _PIPELINE_PARALLEL_RANK = ProcessGroupManager.get_pipeline_parallel_mesh().get_local_rank()
-        return _PIPELINE_PARALLEL_RANK
+        return _PIPELINE_PARALLEL_MESH.get_local_rank()
 
     @contextmanager
     @staticmethod
     def set_dummy_pipeline_parallel_rank(rank: int):
-        global _PIPELINE_PARALLEL_RANK
-
-        original_rank = _PIPELINE_PARALLEL_RANK
-        _PIPELINE_PARALLEL_RANK = rank
-
-        yield
-
-        _PIPELINE_PARALLEL_RANK = original_rank
+        with _PIPELINE_PARALLEL_MESH.set_dummy_local_rank(rank):
+            yield
 
     @staticmethod
     def get_pipeline_parallel_world_size() -> int:
-        global _PIPELINE_PARALLEL_WORLD_SIZE
-
-        if _PIPELINE_PARALLEL_WORLD_SIZE is None:
-            _PIPELINE_PARALLEL_WORLD_SIZE = ProcessGroupManager.get_pipeline_parallel_mesh().size()
-        return _PIPELINE_PARALLEL_WORLD_SIZE
+        return _PIPELINE_PARALLEL_MESH.get_world_size()
 
     @contextmanager
     @staticmethod
     def set_dummy_pipeline_parallel_world_size(world_size: int):
-        global _PIPELINE_PARALLEL_WORLD_SIZE
+        with _PIPELINE_PARALLEL_MESH.set_dummy_world_size(world_size):
+            yield
 
-        original_world_size = _PIPELINE_PARALLEL_WORLD_SIZE
-        _PIPELINE_PARALLEL_WORLD_SIZE = world_size
+    @staticmethod
+    def get_data_loading_rank() -> int:
+        return _DATA_LOADING_MESH.get_mesh()["batch"].get_local_rank()
 
-        yield
-
-        _PIPELINE_PARALLEL_WORLD_SIZE = original_world_size
+    @staticmethod
+    def get_data_loading_world_size() -> int:
+        return _DATA_LOADING_MESH.get_mesh()["batch"].size()
 
     # data parallel
     @staticmethod
     def get_data_parallel_mesh() -> DeviceMesh:
-        global _DATA_PARALLEL_MESH
-
-        if _DATA_PARALLEL_MESH is None:
-            _DATA_PARALLEL_MESH = ProcessGroupManager.get_mesh()["ddp", "fsdp"]
-        return _DATA_PARALLEL_MESH
+        return _DATA_PARALLEL_MESH.get_mesh()
 
     @staticmethod
     def get_data_parallel_group() -> ProcessGroup:
-        global _DATA_PARALLEL_GROUP
-
-        if _DATA_PARALLEL_GROUP is None:
-            _DATA_PARALLEL_GROUP = ProcessGroupManager.get_data_parallel_mesh()._flatten().get_group()
-        return _DATA_PARALLEL_GROUP
+        return _DATA_PARALLEL_MESH.get_group()
 
     @staticmethod
     def get_data_parallel_rank() -> int:
-        global _DATA_PARALLEL_RANK
-
-        if _DATA_PARALLEL_RANK is None:
-            _DATA_PARALLEL_RANK = ProcessGroupManager.get_data_parallel_mesh()._flatten().get_local_rank()
-        return _DATA_PARALLEL_RANK
+        return _DATA_PARALLEL_MESH.get_local_rank()
 
     @contextmanager
     @staticmethod
     def set_dummy_data_parallel_rank(rank: int):
-        global _DATA_PARALLEL_RANK
-
-        original_rank = _DATA_PARALLEL_RANK
-        _DATA_PARALLEL_RANK = rank
-
-        yield
-
-        _DATA_PARALLEL_RANK = original_rank
+        with _DATA_PARALLEL_MESH.set_dummy_local_rank(rank):
+            yield
 
     @staticmethod
     def get_data_parallel_world_size() -> int:
-        global _DATA_PARALLEL_WORLD_SIZE
-
-        if _DATA_PARALLEL_WORLD_SIZE is None:
-            _DATA_PARALLEL_WORLD_SIZE = ProcessGroupManager.get_data_parallel_mesh().size()
-        return _DATA_PARALLEL_WORLD_SIZE
+        return _DATA_PARALLEL_MESH.get_world_size()
 
     @staticmethod
     def get_data_parallel_replication_world_size() -> int:
@@ -375,17 +392,51 @@ class ProcessGroupManager:
     @contextmanager
     @staticmethod
     def set_dummy_data_parallel_world_size(world_size: int):
-        global _DATA_PARALLEL_WORLD_SIZE
+        with _DATA_PARALLEL_MESH.set_dummy_world_size(world_size):
+            yield
 
-        original_world_size = _DATA_PARALLEL_WORLD_SIZE
-        _DATA_PARALLEL_WORLD_SIZE = world_size
+    # context parallel
+    @staticmethod
+    def get_context_parallel_mesh() -> DeviceMesh:
+        return _CONTEXT_PARALLEL_MESH.get_mesh()
 
-        yield
+    @staticmethod
+    def get_context_parallel_group() -> ProcessGroup:
+        return _CONTEXT_PARALLEL_MESH.get_group()
 
-        _DATA_PARALLEL_WORLD_SIZE = original_world_size
+    @staticmethod
+    def get_context_parallel_rank() -> int:
+        return _CONTEXT_PARALLEL_MESH.get_local_rank()
+
+    @contextmanager
+    @staticmethod
+    def set_dummy_context_parallel_rank(rank: int):
+        with _CONTEXT_PARALLEL_MESH.set_dummy_local_rank(rank):
+            yield
+
+    @staticmethod
+    def get_context_parallel_world_size() -> int:
+        return _CONTEXT_PARALLEL_MESH.get_world_size()
+
+    @contextmanager
+    @staticmethod
+    def set_dummy_context_parallel_world_size(world_size: int):
+        with _CONTEXT_PARALLEL_MESH.set_dummy_world_size(world_size):
+            yield
+
+    @staticmethod
+    def is_context_parallel_enabled() -> bool:
+        try:
+            return ProcessGroupManager.is_initialized() and ProcessGroupManager.get_context_parallel_world_size() > 1
+        except:
+            return False
+
+    @staticmethod
+    def is_context_parallel_first_rank() -> bool:
+        return ProcessGroupManager.get_context_parallel_rank() == 0
 
     def __str__(self) -> str:
-        return str(self.get_mesh())
+        return str({"dense_mesh": (self.get_dense_mesh()), "dataloading_mesh": _DATA_LOADING_MESH})
 
     @staticmethod
     def destroy_process_groups() -> None:
@@ -397,7 +448,6 @@ class ProcessGroupManager:
 
     @staticmethod
     def get_cpu_group() -> ProcessGroup | None:
-        global _CPU_GROUP
         return _CPU_GROUP
 
 
@@ -435,6 +485,7 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
 def is_tracking_rank() -> bool:
     return (
         ProcessGroupManager.get_data_parallel_rank() == 0
+        and ProcessGroupManager.get_context_parallel_rank() == 0
         and ProcessGroupManager.is_tensor_parallel_first_rank()
         and ProcessGroupManager.get_pipeline_parallel_rank()
         == ProcessGroupManager.get_pipeline_parallel_world_size() - 1
