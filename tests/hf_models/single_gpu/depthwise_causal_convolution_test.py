@@ -37,10 +37,19 @@ def _make_conv(
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
 @pytest.mark.parametrize("output_state", [False, True])
+@pytest.mark.parametrize("kernels", [[], [Kernel.causal_conv1d]])
 def test_prefill_shapes(
-    device: torch.device, kernel_size: int, add_bias: bool, activation: str | None, output_state: bool
+    device: torch.device,
+    kernel_size: int,
+    add_bias: bool,
+    activation: str | None,
+    output_state: bool,
+    kernels: list[Kernel],
 ) -> None:
     skip_test_if_device_unavailable(device)
+
+    if len(kernels) > 1 and kernels[0] == Kernel.causal_conv1d and not is_causal_conv1d_available():
+        pytest.skip("skipping test because causal_conv1d is unavailable")
 
     with torch.device(device):
         conv = _make_conv(kernel_size=kernel_size, add_bias=add_bias, activation=activation)
@@ -48,7 +57,9 @@ def test_prefill_shapes(
     conv.eval()
 
     x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-    out, state = conv(x, input_state=None, attention_mask=None, output_state=output_state)
+
+    with enable_kernels(kernels):
+        out, state = conv(x, input_state=None, attention_mask=None, output_state=output_state)
 
     assert out.size() == x.size()
 
