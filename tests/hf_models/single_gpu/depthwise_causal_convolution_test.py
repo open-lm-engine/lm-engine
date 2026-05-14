@@ -180,6 +180,9 @@ def test_kernel_vs_fallback(device: torch.device, kernel_size: int, activation: 
     if device.type != "cuda" or not is_causal_conv1d_available():
         pytest.skip("causal_conv1d unavailable")
 
+    if kernel_size == 1:
+        pytest.skip("causal_conv1d only supports kernel_size between 2 and 4")
+
     conv = _make_conv(kernel_size=kernel_size, activation=activation).to(device)
     conv.eval()
 
