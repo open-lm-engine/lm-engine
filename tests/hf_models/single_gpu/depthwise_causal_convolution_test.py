@@ -38,6 +38,7 @@ def _make_conv(
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
 @pytest.mark.parametrize("output_state", [False, True])
 @pytest.mark.parametrize("kernels", [[], [Kernel.causal_conv1d]])
+@pytest.mark.parametrize("short_seq", [False, True])
 def test_prefill_shapes(
     device: torch.device,
     kernel_size: int,
@@ -45,21 +46,23 @@ def test_prefill_shapes(
     activation: str | None,
     output_state: bool,
     kernels: list[Kernel],
+    short_seq: bool,
 ) -> None:
     skip_test_if_device_unavailable(device)
 
     if Kernel.causal_conv1d in kernels and (device.type != "cuda" or not is_causal_conv1d_available()):
-        pytest.skip("skipping test because causal_conv1d is unavailable")
+        pytest.skip("causal_conv1d unavailable")
 
     if Kernel.causal_conv1d in kernels and kernel_size == 1:
-        pytest.skip("skipping test because causal_conv1d only supports kernel_size between 2 and 4")
+        pytest.skip("causal_conv1d only supports kernel_size between 2 and 4")
 
     with torch.device(device):
         conv = _make_conv(kernel_size=kernel_size, add_bias=add_bias, activation=activation)
 
     conv.eval()
 
-    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
+    seq_len = max(1, kernel_size - 1) if short_seq else _PREFILL_LEN
+    x = torch.randn(_BATCH, seq_len, _HIDDEN_SIZE, device=device)
 
     with enable_kernels(kernels):
         out, state = conv(x, input_state=None, attention_mask=None, output_state=output_state)
@@ -71,32 +74,6 @@ def test_prefill_shapes(
         assert state.size() == (_BATCH, _HIDDEN_SIZE, kernel_size)
     else:
         assert state is None
-
-
-@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
-@pytest.mark.parametrize("kernels", [[], [Kernel.causal_conv1d]])
-def test_prefill_short_sequence_state(device: torch.device, kernel_size: int, kernels: list[Kernel]) -> None:
-    """Prefill with seq_len < kernel_size still produces correct state shape (zero-padded)."""
-    skip_test_if_device_unavailable(device)
-
-    if Kernel.causal_conv1d in kernels and (device.type != "cuda" or not is_causal_conv1d_available()):
-        pytest.skip("skipping test because causal_conv1d is unavailable")
-
-    if Kernel.causal_conv1d in kernels and kernel_size == 1:
-        pytest.skip("skipping test because causal_conv1d only supports kernel_size between 2 and 4")
-
-    with torch.device(device):
-        conv = _make_conv(kernel_size=kernel_size)
-
-    conv.eval()
-
-    short_len = max(1, kernel_size - 1)
-    x = torch.randn(_BATCH, short_len, _HIDDEN_SIZE, device=device)
-    _, state = conv(x, input_state=None, attention_mask=None, output_state=True)
-
-    assert state is not None
-    assert state.size() == (_BATCH, _HIDDEN_SIZE, kernel_size)
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
@@ -133,126 +110,63 @@ def test_generation_shapes(
 @pytest.mark.parametrize("kernel_size", [1, 4])
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
-def test_prefill_then_generation_matches_full_sequence(
-    device: torch.device, kernel_size: int, add_bias: bool, activation: str | None
+@pytest.mark.parametrize("n_gen_steps", [1, 2])
+@pytest.mark.parametrize("short_prefill", [False, True])
+def test_consistency(
+    device: torch.device,
+    kernel_size: int,
+    add_bias: bool,
+    activation: str | None,
+    n_gen_steps: int,
+    short_prefill: bool,
 ) -> None:
-    """prefill(L) → generation(1) must equal position L of prefill(L+1)."""
+    """prefill → N generation steps must match the same positions in a full-sequence forward pass."""
     skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size, add_bias=add_bias, activation=activation).to(device)
+
+    with torch.device(device):
+        conv = _make_conv(kernel_size=kernel_size, add_bias=add_bias, activation=activation)
+
     conv.eval()
 
-    x_full = torch.randn(_BATCH, _PREFILL_LEN + 1, _HIDDEN_SIZE, device=device)
-    x_prefill = x_full[:, :_PREFILL_LEN]
-    x_gen = x_full[:, _PREFILL_LEN:]
-
-    out_full, _ = conv(x_full, input_state=None, attention_mask=None, output_state=False)
-    expected = out_full[:, -1:]
-
-    _, state = conv(x_prefill, input_state=None, attention_mask=None, output_state=True)
-    out_gen, _ = conv(x_gen, input_state=state, attention_mask=None, output_state=False)
-
-    assert_close(out_gen, expected, rtol=1e-5, atol=1e-5)
-
-
-@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
-def test_multi_step_generation_matches_full_sequence(device: torch.device, kernel_size: int) -> None:
-    """Two sequential generation steps must agree with the full-sequence prefill."""
-    skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size).to(device)
-    conv.eval()
-
-    x_full = torch.randn(_BATCH, _PREFILL_LEN + 2, _HIDDEN_SIZE, device=device)
-    x_prefill = x_full[:, :_PREFILL_LEN]
-    x_gen1 = x_full[:, _PREFILL_LEN : _PREFILL_LEN + 1]
-    x_gen2 = x_full[:, _PREFILL_LEN + 1 :]
+    prefill_len = max(1, kernel_size - 1) if short_prefill else _PREFILL_LEN
+    x_full = torch.randn(_BATCH, prefill_len + n_gen_steps, _HIDDEN_SIZE, device=device)
 
     out_full, _ = conv(x_full, input_state=None, attention_mask=None, output_state=False)
 
-    _, state = conv(x_prefill, input_state=None, attention_mask=None, output_state=True)
-    out1, state = conv(x_gen1, input_state=state, attention_mask=None, output_state=True)
-    out2, _ = conv(x_gen2, input_state=state, attention_mask=None, output_state=False)
+    _, state = conv(x_full[:, :prefill_len], input_state=None, attention_mask=None, output_state=True)
 
-    assert_close(out1, out_full[:, _PREFILL_LEN : _PREFILL_LEN + 1], rtol=1e-5, atol=1e-5)
-    assert_close(out2, out_full[:, _PREFILL_LEN + 1 :], rtol=1e-5, atol=1e-5)
-
-
-@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
-def test_short_prefill_then_generation_matches_full_sequence(device: torch.device, kernel_size: int) -> None:
-    """seq_len < kernel_size at prefill: generation still matches full-sequence output."""
-    skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size).to(device)
-    conv.eval()
-
-    short_len = max(1, kernel_size - 1)
-    x_full = torch.randn(_BATCH, short_len + 1, _HIDDEN_SIZE, device=device)
-    x_prefill = x_full[:, :short_len]
-    x_gen = x_full[:, short_len:]
-
-    out_full, _ = conv(x_full, input_state=None, attention_mask=None, output_state=False)
-    expected = out_full[:, -1:]
-
-    _, state = conv(x_prefill, input_state=None, attention_mask=None, output_state=True)
-    out_gen, _ = conv(x_gen, input_state=state, attention_mask=None, output_state=False)
-
-    assert_close(out_gen, expected, rtol=1e-5, atol=1e-5)
+    for step in range(n_gen_steps):
+        x_step = x_full[:, prefill_len + step : prefill_len + step + 1]
+        is_last = step == n_gen_steps - 1
+        out_step, state = conv(x_step, input_state=state, attention_mask=None, output_state=not is_last)
+        assert_close(out_step, out_full[:, prefill_len + step : prefill_len + step + 1], rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
 @pytest.mark.parametrize("kernel_size", [1, 4])
-def test_attention_mask_does_not_affect_non_padding_items(device: torch.device, kernel_size: int) -> None:
-    """A batch item with no padding should produce the same output regardless of mask."""
-    skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size).to(device)
-    conv.eval()
-
-    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-    mask_all_ones = torch.ones(_BATCH, _PREFILL_LEN, dtype=x.dtype, device=device)
-
-    out_no_mask, _ = conv(x, input_state=None, attention_mask=None, output_state=False)
-    out_ones_mask, _ = conv(x, input_state=None, attention_mask=mask_all_ones, output_state=False)
-
-    assert_close(out_no_mask, out_ones_mask, rtol=1e-5, atol=1e-5)
-
-
-@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
-def test_attention_mask_zeroes_padding_output(device: torch.device, kernel_size: int) -> None:
-    """Output at masked (padding) positions must be exactly zero."""
+def test_attention_mask(device: torch.device, kernel_size: int) -> None:
     skip_test_if_device_unavailable(device)
     conv = _make_conv(kernel_size=kernel_size, activation=None).to(device)
     conv.eval()
 
     x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-    mask = torch.ones(_BATCH, _PREFILL_LEN, dtype=x.dtype, device=device)
-    mask[1, :3] = 0  # batch item 1: first 3 tokens are padding
 
+    # all-ones mask is a no-op
+    mask_ones = torch.ones(_BATCH, _PREFILL_LEN, dtype=x.dtype, device=device)
+    out_no_mask, _ = conv(x, input_state=None, attention_mask=None, output_state=False)
+    out_ones, _ = conv(x, input_state=None, attention_mask=mask_ones, output_state=False)
+    assert_close(out_no_mask, out_ones, rtol=1e-5, atol=1e-5)
+
+    # padding positions in the output must be exactly zero
+    mask = mask_ones.clone()
+    mask[1, :3] = 0
     out_masked, _ = conv(x, input_state=None, attention_mask=mask, output_state=False)
-
-    # Padding positions in the output must be zeroed
     assert (out_masked[1, :3] == 0).all()
 
-
-@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
-def test_attention_mask_non_padding_matches_zeroed_input(device: torch.device, kernel_size: int) -> None:
-    """Non-padding output positions must equal the output from a manually zeroed input (no mask)."""
-    skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size, activation=None).to(device)
-    conv.eval()
-
-    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-    mask = torch.ones(_BATCH, _PREFILL_LEN, dtype=x.dtype, device=device)
-    mask[1, :3] = 0  # batch item 1: first 3 tokens are padding
-
+    # non-padding positions must match a manually zeroed input (no mask)
     x_zeroed = x.clone()
     x_zeroed[1, :3] = 0
-
-    out_masked, _ = conv(x, input_state=None, attention_mask=mask, output_state=False)
     out_zeroed, _ = conv(x_zeroed, input_state=None, attention_mask=None, output_state=False)
-
-    # Non-padding positions and the unaffected batch item must agree
     assert_close(out_masked[0], out_zeroed[0], rtol=1e-5, atol=1e-5)
     assert_close(out_masked[1, 3:], out_zeroed[1, 3:], rtol=1e-5, atol=1e-5)
 
@@ -261,41 +175,21 @@ def test_attention_mask_non_padding_matches_zeroed_input(device: torch.device, k
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
 @pytest.mark.parametrize("kernel_size", [1, 4])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
-def test_kernel_path_matches_fallback_prefill(device: torch.device, kernel_size: int, activation: str | None) -> None:
+def test_kernel_vs_fallback(device: torch.device, kernel_size: int, activation: str | None) -> None:
     skip_test_if_device_unavailable(device)
     conv = _make_conv(kernel_size=kernel_size, activation=activation).to(device)
     conv.eval()
 
     x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-
-    with enable_kernels([Kernel.causal_conv1d]):
-        out_kernel, state_kernel = conv(x, input_state=None, attention_mask=None, output_state=True)
-
-    out_fallback, state_fallback = conv(x, input_state=None, attention_mask=None, output_state=True)
-
-    assert_close(out_kernel, out_fallback, rtol=1e-5, atol=1e-5)
-    assert_close(state_kernel, state_fallback, rtol=1e-5, atol=1e-5)
-
-
-@pytest.mark.skipif(not is_causal_conv1d_available(), reason="causal_conv1d not installed")
-@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
-@pytest.mark.parametrize("activation", [None, "silu", "gelu"])
-def test_kernel_path_matches_fallback_generation(
-    device: torch.device, kernel_size: int, activation: str | None
-) -> None:
-    skip_test_if_device_unavailable(device)
-    conv = _make_conv(kernel_size=kernel_size, activation=activation).to(device)
-    conv.eval()
-
-    x_prefill = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
     x_gen = torch.randn(_BATCH, 1, _HIDDEN_SIZE, device=device)
 
     with enable_kernels([Kernel.causal_conv1d]):
-        _, state_k = conv(x_prefill, input_state=None, attention_mask=None, output_state=True)
-        out_kernel, _ = conv(x_gen, input_state=state_k, attention_mask=None, output_state=False)
+        out_k, state_k = conv(x, input_state=None, attention_mask=None, output_state=True)
+        out_gen_k, _ = conv(x_gen, input_state=state_k, attention_mask=None, output_state=False)
 
-    _, state_f = conv(x_prefill, input_state=None, attention_mask=None, output_state=True)
-    out_fallback, _ = conv(x_gen, input_state=state_f, attention_mask=None, output_state=False)
+    out_f, state_f = conv(x, input_state=None, attention_mask=None, output_state=True)
+    out_gen_f, _ = conv(x_gen, input_state=state_f, attention_mask=None, output_state=False)
 
-    assert_close(out_kernel, out_fallback, rtol=1e-5, atol=1e-5)
+    assert_close(out_k, out_f, rtol=1e-5, atol=1e-5)
+    assert_close(state_k, state_f, rtol=1e-5, atol=1e-5)
+    assert_close(out_gen_k, out_gen_f, rtol=1e-5, atol=1e-5)
