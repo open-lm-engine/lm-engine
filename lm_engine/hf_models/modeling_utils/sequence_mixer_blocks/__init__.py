@@ -9,7 +9,6 @@ from .attention import (
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,
 )
-from .causal_convolution import CausalConvolution
 from .gated_deltanet import GatedDeltaNet
 from .gru import GRU
 from .m2rnn import M2RNN
@@ -18,7 +17,7 @@ from .rnn import RNN
 from .utils import flash_attention
 
 
-SEQUENCE_MIXER_TYPE = Attention | CausalConvolution | GRU | Mamba2 | RNN | GatedDeltaNet
+SEQUENCE_MIXER_TYPE = Attention | GRU | Mamba2 | RNN | GatedDeltaNet
 
 
 def get_sequence_mixer(
@@ -29,25 +28,7 @@ def get_sequence_mixer(
 
     is_tp_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
 
-    if sequence_mixer_type == "causal_convolution":
-        assert not is_tp_enabled
-        return CausalConvolution(
-            hidden_size=config.hidden_size,
-            in_channels=block.in_channels,
-            out_channels=block.out_channels,
-            kernel_size=block.kernel_size,
-            num_groups=block.num_groups,
-            activation_function=block.activation_function,
-            add_bias=block.add_bias,
-            initializer_range=config.initializer_range,
-            m_width=config.m_width,
-            init_method=config.init_method,
-            num_layers=config.num_layers,
-            layer_idx=layer_idx,
-            use_depth_scaled_init=config.use_depth_scaled_init,
-            use_padding_free_transformer=use_padding_free_transformer,
-        )
-    elif sequence_mixer_type == "gru":
+    if sequence_mixer_type == "gru":
         assert not is_tp_enabled
         return GRU(
             input_size=config.hidden_size,
