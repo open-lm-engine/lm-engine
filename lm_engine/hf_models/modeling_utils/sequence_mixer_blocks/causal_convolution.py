@@ -5,18 +5,12 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import divide_if_divisible, is_causal_conv1d_available
-from ...cache import ConstantCache, GenerationCache, GenerationState
-from ...parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_no_weight_decay
-from ..activations import get_activation_function, is_glu
-from ..convolution import ParameterizedConv1d
-from ..init_utils import _get_std_for_linear
-from ..linear import ParameterizedLinear
+from ....utils import is_causal_conv1d_available
+from ..activations import get_activation_function
 
 
 if is_causal_conv1d_available():
@@ -129,133 +123,3 @@ def causal_convolution(
         hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
 
     return hidden_states, input_state
-
-
-class CausalConvolution(nn.Module):
-    def __init__(
-        self,
-        hidden_size: int,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        num_groups: int,
-        activation_function: str,
-        add_bias: bool,
-        initializer_range: float | None,
-        m_width: float,
-        init_method: str,
-        num_layers: int,
-        layer_idx: int,
-        use_depth_scaled_init: bool,
-        use_padding_free_transformer: bool,
-    ) -> CausalConvolution:
-        super().__init__()
-
-        if use_padding_free_transformer:
-            raise NotImplementedError()
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.num_groups = num_groups
-        self.layer_idx = layer_idx
-        self.activation_string = activation_function
-
-        self.input_projection = ParameterizedLinear(
-            hidden_size,
-            in_channels,
-            bias=add_bias,
-            std=_get_std_for_linear(
-                initializer_range=initializer_range,
-                init_method=init_method,
-                m_width=m_width,
-                fan_in=hidden_size,
-                num_layers=num_layers,
-                use_depth_scaled_init=False,
-            ),
-        )
-
-        divide_if_divisible(in_channels, num_groups, "")
-        divide_if_divisible(out_channels, num_groups, "")
-
-        if is_glu(self.activation_string):
-            intermediate_size = divide_if_divisible(out_channels, 2, "")
-        else:
-            intermediate_size = out_channels
-
-        self.conv1d = ParameterizedConv1d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            bias=add_bias,
-            padding=kernel_size - 1,
-            groups=num_groups,
-            std=_get_std_for_linear(
-                initializer_range=initializer_range,
-                init_method=init_method,
-                m_width=m_width,
-                fan_in=kernel_size,
-                num_layers=num_layers,
-                use_depth_scaled_init=False,
-            ),
-        )
-
-        self.activation_function = get_activation_function(self.activation_string)
-
-        self.output_projection = ParameterizedLinear(
-            intermediate_size,
-            hidden_size,
-            bias=add_bias,
-            std=_get_std_for_linear(
-                initializer_range=initializer_range,
-                init_method=init_method,
-                m_width=m_width,
-                fan_in=intermediate_size,
-                num_layers=num_layers,
-                use_depth_scaled_init=use_depth_scaled_init,
-            ),
-        )
-
-        self.casual_conv1d_compatible = self.num_groups == self.in_channels == self.out_channels
-        self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
-
-        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
-        mark_parameter_as_mup_learning_rate(self.conv1d.weight)
-        mark_parameter_as_mup_learning_rate(self.output_projection.weight)
-
-        mark_parameter_as_no_weight_decay(self.input_projection.bias)
-        mark_parameter_as_no_weight_decay(self.conv1d.bias)
-        mark_parameter_as_no_weight_decay(self.output_projection.bias)
-
-    def forward(
-        self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
-    ) -> torch.Tensor:
-        input_state = (
-            None if cache_params is None else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=None)
-        )
-
-        S = x.size(1)
-        x = self.input_projection(x)
-
-        x, input_state = causal_convolution(
-            hidden_states=x,
-            input_state=input_state,
-            attention_mask=attention_mask,
-            conv1d_weight=self.conv1d.weight,
-            conv1d_bias=self.conv1d.bias,
-            conv1d_num_groups=self.num_groups,
-            return_cache_state=cache_params is not None,
-            activation_string=self.activation_string,
-            conv1d_padding=self.kernel_size - 1,
-            conv1d_stride=1,
-        )
-
-        if cache_params is not None:
-            cache_params.update(
-                states=(GenerationState(state=input_state, method=ConstantCache, num_tokens_added=S),),
-                layer_idx=self.layer_idx,
-            )
-
-        x = self.output_projection(x)
-
-        return x

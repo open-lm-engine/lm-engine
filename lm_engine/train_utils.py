@@ -121,21 +121,7 @@ def get_model_tflops(
         sequence_mixer_type = block.sequence_mixer_type
         gradient_checkpointing_enabled = layer_idx < num_layers_checkpointed
 
-        if sequence_mixer_type == "causal_convolution":
-            sequence_mixer_flops = _get_linear_flops(
-                b * s, h, block.in_channels, gradient_checkpointing=gradient_checkpointing_enabled
-            )
-            sequence_mixer_flops += divide_if_divisible(
-                _get_linear_flops(
-                    b * s, block.in_channels, block.out_channels, gradient_checkpointing=gradient_checkpointing_enabled
-                ),
-                block.num_groups,
-                "",
-            )
-            sequence_mixer_flops += _get_linear_flops(
-                b * s, block.out_channels, h, gradient_checkpointing=gradient_checkpointing_enabled
-            )
-        elif sequence_mixer_type == "softmax_attention":
+        if sequence_mixer_type == "softmax_attention":
             # QKV projection FLOPs
             sequence_mixer_flops = _get_linear_flops(
                 b * s,
