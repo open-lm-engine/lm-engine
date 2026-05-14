@@ -96,13 +96,14 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 input_state_buffer = input_state.clone()
 
                 x = causal_conv1d_update(
-                    x=x,
+                    x=x.squeeze(1),
                     conv_state=input_state_buffer,
                     weight=self.weight.squeeze(1),
                     bias=self.bias,
                     activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
 
+                x = x[:, None, :]
                 input_state = input_state_buffer if output_state else None
 
             if not self.use_activation_inside_kernel:
