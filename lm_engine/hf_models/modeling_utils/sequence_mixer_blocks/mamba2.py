@@ -269,7 +269,7 @@ class Mamba2(nn.Module):
                     )
 
             hidden_states_B_C, conv_state = self.conv1d(
-                hidden_states=hidden_states_B_C,
+                x=hidden_states_B_C,
                 input_state=None,
                 attention_mask=attention_mask,
                 output_state=cache_params is not None,

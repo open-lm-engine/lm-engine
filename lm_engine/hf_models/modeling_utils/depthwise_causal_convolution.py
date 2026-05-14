@@ -118,7 +118,6 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 x = super().forward(x)
 
                 # removes padding on the right side of the sequence
-                # removes padding on the right side of the sequence
                 if self.kernel_size > 1:
                     x = x[..., : 1 - self.kernel_size]
                 x = x.transpose(-1, -2)
