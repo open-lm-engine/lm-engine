@@ -3,7 +3,7 @@
 # **************************************************
 
 from .activations import get_activation_function, is_glu
-from .convolution import ParameterizedConv1d
+from .depthwise_causal_convolution import DepthwiseCausalConvolution
 from .dropout import Dropout
 from .dtensor_module import DTensorModule
 from .embedding import ParameterizedEmbedding, get_tensor_parallel_vocab_info

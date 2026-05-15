@@ -79,9 +79,11 @@ class MLP(nn.Module):
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
-        set_optimizer_split_function(
-            self.c_fc.weight, partial(split_up_gate_tensor_for_mlp, is_interleaved=self.use_interleaved_weights)
-        )
+        if self.is_glu:
+            set_optimizer_split_function(
+                self.c_fc.weight,
+                partial(_split_up_gate_tensor_for_mlp_for_optimizer, is_interleaved=self.use_interleaved_weights),
+            )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.c_fc(x)
@@ -119,19 +121,30 @@ def interleave_up_gate_tensor_for_mlp(
     return W
 
 
-def split_up_gate_tensor_for_mlp(
+def _split_up_gate_tensor_for_mlp_for_optimizer(
     c_fc_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
 ) -> tuple[torch.Tensor, torch.Tensor]:
     if is_interleaved:
         if dim == 0:
-            u = c_fc_weight[1::2].contiguous()
-            g = c_fc_weight[::2].contiguous()
+            u = c_fc_weight[1::2]
+            g = c_fc_weight[::2]
         elif dim == 1:
-            u = c_fc_weight[:, 1::2].contiguous()
-            g = c_fc_weight[:, ::2].contiguous()
+            u = c_fc_weight[:, 1::2]
+            g = c_fc_weight[:, ::2]
         else:
             raise ValueError
     else:
         u, g = c_fc_weight.chunk(2, dim=dim)
+
+    return u, g
+
+
+def split_up_gate_tensor_for_mlp(
+    c_fc_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
+) -> tuple[torch.Tensor, torch.Tensor]:
+    u, g = _split_up_gate_tensor_for_mlp_for_optimizer(c_fc_weight=c_fc_weight, is_interleaved=is_interleaved, dim=dim)
+    if is_interleaved:
+        u = u.contiguous()
+        g = g.contiguous()
 
     return u, g

@@ -71,6 +71,7 @@ class _Mamba2Args(_SoftPlusDecayArgs):
     normalization_function: str | None = "rmsnorm"
 
     def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
         assert self.sequence_mixer_type == "mamba2"
 
 
@@ -108,7 +109,7 @@ class _RNNArgs(BaseArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
-class _M2RNNArgs(BaseArgs):
+class _M2RNNArgs(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "m2rnn"
     k_head_dim: int = 16
     v_head_dim: int = 16
@@ -124,27 +125,10 @@ class _M2RNNArgs(BaseArgs):
     add_bias: bool = False
     gradient_clipping: float | None = None
     normalization_function: str | None = None
-    A_init_min: float = 0
-    A_init_max: float = 16
-    dt_init_min: float = 1e-3
-    dt_init_max: float = 0.1
-    dt_init_floor: float = 1e-4
 
     def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
         assert self.sequence_mixer_type == "m2rnn"
-
-
-class _CausalConvolution(BaseArgs):
-    sequence_mixer_type: str = "causal_convolution"
-    activation_function: str = "silu"
-    in_channels: int
-    out_channels: int
-    kernel_size: int
-    num_groups: int
-    add_bias: bool = False
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "causal_convolution"
 
 
 class _GatedDeltaNetArgs(_SoftPlusDecayArgs):
@@ -159,4 +143,5 @@ class _GatedDeltaNetArgs(_SoftPlusDecayArgs):
     kernel_size: int
 
     def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
         assert self.sequence_mixer_type == "gated_deltanet"
