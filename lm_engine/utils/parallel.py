@@ -87,16 +87,16 @@ class _Mesh:
         self.world_size = original_world_size
 
 
-_DENSE_MESH: _Mesh | None = _Mesh()
-_TENSOR_PARALLEL_MESH: _Mesh | None = None
+_DENSE_MESH = _Mesh()
+_TENSOR_PARALLEL_MESH = _Mesh()
 _TENSOR_PARALLEL_FIRST_RANK: int | None = None
-_PIPELINE_PARALLEL_MESH: _Mesh | None = None
-_DATA_PARALLEL_MESH: _Mesh | None = None
+_PIPELINE_PARALLEL_MESH = _Mesh()
+_DATA_PARALLEL_MESH = _Mesh()
 _DATA_PARALLEL_REPLICATION_WORLD_SIZE: int | None = None
 _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
 _CPU_GROUP: ProcessGroup | None = None
-_DATA_LOADING_MESH: _Mesh | None = None
-_CONTEXT_PARALLEL_MESH: _Mesh | None = None
+_DATA_LOADING_MESH = _Mesh()
+_CONTEXT_PARALLEL_MESH = _Mesh()
 
 
 class ProcessGroupManager:
