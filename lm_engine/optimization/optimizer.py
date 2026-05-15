@@ -97,9 +97,9 @@ class _MuonWithAdamW(Optimizer):
         }
 
     def load_state_dict(self, state_dict: dict) -> None:
-        if self.muon is not None and state_dict["muon"] is not None:
+        if self.muon is not None and state_dict.get("muon") is not None:
             self.muon.load_state_dict(state_dict["muon"])
-        if self.adamw is not None and state_dict["adamw"] is not None:
+        if self.adamw is not None and state_dict.get("adamw") is not None:
             self.adamw.load_state_dict(state_dict["adamw"])
 
     def __repr__(self) -> str:
