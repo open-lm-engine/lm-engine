@@ -18,12 +18,11 @@ from .....utils import divide_if_divisible, is_fla_available
 from ....cache import GenerationCache
 from ....parameter import mark_parameter_as_mup_learning_rate
 from ...activations import get_activation_function
-from ...convolution import ParameterizedConv1d
 from ...decay_gate import SoftplusDecayGate
+from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import LowRankLinear, ParameterizedLinear
 from ...normalization import get_normalization_function
-from ...sequence_mixer_blocks.causal_convolution import causal_convolution
 from ...sequence_mixer_blocks.utils import (
     compute_cu_seqlens_and_max_seqlen_from_attention_mask,
     pack_sequence,
@@ -209,13 +208,11 @@ class DeltaMLP(nn.Module):
         )
 
         if self.use_shortconv:
-            self.kv_conv1d = ParameterizedConv1d(
-                in_channels=kv_size,
-                out_channels=kv_size,
+            self.kv_conv1d = DepthwiseCausalConvolution(
+                hidden_size=kv_size,
                 kernel_size=conv_size,
-                padding=conv_size - 1,
-                groups=kv_size,
-                bias=False,
+                activation_function=None,
+                add_bias=False,
                 std=_get_std_for_linear(
                     initializer_range=initializer_range,
                     init_method=init_method,
@@ -224,6 +221,7 @@ class DeltaMLP(nn.Module):
                     num_layers=num_layers,
                     use_depth_scaled_init=False,
                 ),
+                use_padding_free_transformer=use_padding_free_transformer,
             )
 
         if self.use_output_norm:
@@ -295,17 +293,11 @@ class DeltaMLP(nn.Module):
 
         if self.use_shortconv:
             kv = torch.cat([k, v], dim=-1)
-            kv, conv_state = causal_convolution(
-                hidden_states=kv,
+            kv, conv_state = self.kv_conv1d(
+                x=kv,
                 input_state=conv_state,
                 attention_mask=attention_mask,
-                conv1d_weight=self.kv_conv1d.weight,
-                conv1d_bias=self.kv_conv1d.bias,
-                conv1d_num_groups=kv.size(-1),
-                return_cache_state=cache_params is not None,
-                activation_string=self.activation_function if self.use_v_silu else None,
-                conv1d_padding=self.conv_size - 1,
-                conv1d_stride=1,
+                output_state=cache_params is not None,
             )
 
             k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
