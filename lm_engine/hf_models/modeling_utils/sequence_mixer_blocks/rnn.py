@@ -175,7 +175,7 @@ class RNN(nn.Module):
             x = self.activation_function(x)
         else:
             x, c = self.conv1d(
-                hidden_states=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None
+                x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None
             )
 
         x = x.view(*x.size()[:-1], -1, self.state_head_dim)

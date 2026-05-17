@@ -250,7 +250,7 @@ class Mamba2(nn.Module):
         # 2. Convolution sequence transformation
         if use_precomputed_states:
             hidden_states_B_C, conv_state = self.conv1d(
-                hidden_states=hidden_states_B_C,
+                x=hidden_states_B_C,
                 input_state=conv_state,
                 attention_mask=attention_mask,
                 output_state=True,
@@ -495,7 +495,7 @@ class Mamba2(nn.Module):
 
             # 2. Convolution sequence transformation
             hidden_states_B_C, conv_state = self.conv1d(
-                hidden_states=hidden_states_B_C[:, None, :],
+                x=hidden_states_B_C[:, None, :],
                 input_state=conv_state,
                 attention_mask=None,
                 output_state=cache_params is not None,
@@ -577,7 +577,7 @@ class Mamba2(nn.Module):
 
                 # 2. Convolution sequence transformation
                 hidden_states_B_C, conv_state = self.conv1d(
-                    hidden_states=hidden_states_B_C,
+                    x=hidden_states_B_C,
                     input_state=None,
                     attention_mask=attention_mask,
                     output_state=cache_params is not None,
