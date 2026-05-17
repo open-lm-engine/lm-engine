@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -210,7 +210,7 @@ class M2RNN(nn.Module):
 
         if self.kernel_size is not None:
             x, c = self.conv1d(
-                hidden_states=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None
+                x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None
             )
 
         q, k, v = x.split((self.q_shape, self.k_shape, self.v_shape), dim=-1)
