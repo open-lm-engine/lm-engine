@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Jyo Pari
+# Copyright (c) 2026, Zhonglin, Jyo Pari, Mayank Mishra
 # **************************************************
 
 from typing import Callable
@@ -81,7 +81,6 @@ class MuonHyperball(Optimizer):
         lr: learning rate (step size on the hypersphere for hyperball params)
         momentum: SGD momentum coefficient for Muon's internal momentum buffer
         nesterov: whether to use Nesterov-style momentum (recommended)
-        ns_steps: number of Newton-Schulz iterations (5 is sufficient)
         betas: (beta1, beta2) for the AdamW fallback on non-hyperball params
         eps: epsilon for AdamW numerical stability
         weight_decay: weight decay coefficient (applied only to non-hyperball groups)
@@ -96,6 +95,7 @@ class MuonHyperball(Optimizer):
         betas: tuple[float, float] = (0.9, 0.95),
         eps: float = 1e-8,
         weight_decay: float = 0.1,
+        maximize: bool = False,
     ) -> None:
         defaults = dict(
             lr=lr,
@@ -104,6 +104,7 @@ class MuonHyperball(Optimizer):
             betas=betas,
             eps=eps,
             weight_decay=weight_decay,
+            maximize=maximize,
             hyperball=False,
             foreach=None,
             capturable=False,

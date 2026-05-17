@@ -16,6 +16,7 @@ authors = [
 ]
 dependencies = [
     "datasets>=4.4.1",
+    "einops>=0.8.0",
     "gitpython>=3.1.45",
     "multi-storage-client[google-cloud-storage]>=0.36.0",
     "ninja>=1.13.0",
@@ -56,6 +57,12 @@ torch = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["lm_engine"]
+
+[tool.pytest.ini_options]
+markers = [
+    "gpu: tests that require CUDA GPUs",
+    "slow: long-running tests",
+]
 
 [tool.isort]
 ensure_newline_before_comments = true
