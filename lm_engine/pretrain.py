@@ -366,13 +366,13 @@ def train(
 
     model_container.train()
     global_step = starting_iteration
+    global_batch_size = StepTracker.get_global_batch_size()
 
     if tuning_method == TuningMethod.full_finetuning:
         train_dataloader_infinite = custom_iterator(train_dataloader, infinite=True)
     else:
         micro_batch_size = args.training_parameters.micro_batch_size
         sequence_length = args.datasets[0].class_args.get("sequence_length")
-        global_batch_size = StepTracker.get_global_batch_size()
         tokens_per_batch = global_batch_size * sequence_length
         global_step_in_tokens = global_step * tokens_per_batch
 
@@ -706,6 +706,8 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
             val_dataloaders = [
                 get_finetuning_dataloader(args, split=DatasetSplit.val, use_output=True, tokenizer=tokenizer)
             ]
+
+        test_dataloaders = None
 
     if args.load_args is not None:
         starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
