@@ -709,10 +709,6 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
     if tuning_method != TuningMethod.full_finetuning:
-        # metadata field contains the dataloader state so we need to reset it here
-        if not args.load_args.load_dataloader_state:
-            metadata["consumed_samples"] = 0
-
         train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
             args, tokenizer, metadata.get("consumed_samples", 0)
         )
