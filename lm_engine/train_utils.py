@@ -136,16 +136,30 @@ def get_model_tflops(
 
             sequence_mixer_flops += _get_attention_flops(b, s, h, block.sliding_window)
         elif sequence_mixer_type == "mamba2":
-            # NOTE taken from NexaAI's fork (might be incorrect)
-            # Mamba2 FLOP calculation based on its specific architecture
-            # Core components: projection, convolution, SSM operations
-            # Input projection + convolution + SSM computation + output projection
-            # TODO fix this for gradient checkpointing
-            projection_flops = 4 * b * s * h * block.intermediate_size
-            ssm_flops = 4 * b * s * block.intermediate_size * block.state_size
+            # input projection FLOPs
+            sequence_mixer_flops = (
+                2
+                * b
+                * s
+                * h
+                * (2 * block.intermediate_size + block.num_heads + 2 * block.num_groups * block.state_size)
+            )
 
-            sequence_mixer_flops = projection_flops + ssm_flops
-            sequence_mixer_flops *= 2
+            # output projection FLOPs
+            sequence_mixer_flops += 2 * b * s * h * block.intermediate_size
+
+            # state passing
+            ssm_flops_per_chunk = 2 * block.intermediate_size * block.state_size * s
+            # query readout
+            # L(2NCK + NC + 2CI + 2K^2 I)
+            ssm_flops_per_chunk += s * (
+                2 * block.num_heads * block.chunk_size * block.state_size
+                + block.num_heads * block.chunk_size
+                + 2 * block.chunk_size * block.intermediate_size
+                + 2 * (block.state_size**2) * block.intermediate_size
+            )
+
+            sequence_mixer_flops += ssm_flops_per_chunk
         elif sequence_mixer_type == "rnn":
             num_heads = max(block.num_input_heads, block.num_weight_heads)
             # input projection FLOPs
