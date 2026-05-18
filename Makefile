@@ -20,5 +20,5 @@ update-precommit:
 	uv run --extra dev --no-default-groups pre-commit autoupdate
 
 style:
-	uv run --extra dev --no-default-groups python copyright/copyright.py --repo ./ --exclude copyright-exclude.txt --header "Copyright (c) $$(date +%Y), __authors__"
+	uv run --extra dev --no-default-groups python copyright/copyright.py --repo ./ --exclude copyright-exclude.txt --header "Copyright (c) $$(date +%Y), __authors__" --extra-name "Mayank Mishra"
 	uv run --extra dev --no-default-groups pre-commit run --all-files

@@ -23,12 +23,12 @@ class RoPE(nn.Module):
 
         self.reset_parameters()
 
-    def forward(self, seq_len: int, dtype: torch.dtype) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, seq_len: int) -> tuple[torch.Tensor, torch.Tensor]:
         if seq_len > self.max_seq_len_cached:
-            self._set_cos_sin_cache(seq_len=seq_len, dtype=dtype)
+            self._set_cos_sin_cache(seq_len)
 
-        cos = self.cos_cached[:seq_len].to(dtype)
-        sin = self.sin_cached[:seq_len].to(dtype)
+        cos = self.cos_cached[:seq_len]
+        sin = self.sin_cached[:seq_len]
 
         return cos, sin
 
@@ -107,23 +107,29 @@ class YaRNScaledRoPE(RoPE):
 
 def apply_rotary_pos_emb(x: torch.Tensor, cos_sin: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
     cos, sin = cos_sin
+    original_dtype = x.dtype
 
     head_dim = x.size(-1)
     rope_dim = cos.size(-1)
+
+    assert rope_dim <= head_dim
 
     cos = cos[..., None, :]
     sin = sin[..., None, :]
 
     if head_dim == rope_dim:
-        x = (x * cos) + (_rotate_half(x) * sin)
-    elif rope_dim < head_dim:
-        x_nope, x_rope = x.split((head_dim - rope_dim, rope_dim), dim=-1)
-        x_rope = (x_rope * cos) + (_rotate_half(x_rope) * sin)
-        x = torch.cat([x_nope, x_rope], dim=-1)
+        x_rope = x
     else:
-        raise ValueError("rope_dim should be less than head_dim")
+        x_nope, x_rope = x.split((head_dim - rope_dim, rope_dim), dim=-1)
 
-    return x
+    x_rope = (x_rope.float() * cos) + (_rotate_half(x_rope).float() * sin)
+
+    if head_dim == rope_dim:
+        x = x_rope
+    else:
+        x = torch.cat([x_nope, x_rope], dim=-1)
+
+    return x.to(original_dtype)
 
 
 def _rotate_half(x: torch.Tensor) -> torch.Tensor:
