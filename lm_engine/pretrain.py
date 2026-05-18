@@ -708,6 +708,9 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
             args, args_class, model_container, optimizer_container, lr_scheduler_container, train_dataloader
         )
 
+        if not args.load_args.load_dataloader_state:
+            metadata["consumed_samples"] = 0
+
     if tuning_method != TuningMethod.full_finetuning:
         train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
             args, tokenizer, metadata.get("consumed_samples", 0)
