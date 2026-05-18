@@ -436,7 +436,7 @@ def wrap_model_container_for_distributed_training(
     pipeline_schedule = None
 
     for model in model_container:
-        if not model.is_custom_model:
+        if model.is_custom_model:
             for param_name, parameter in model.named_parameters():
                 assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
 
