@@ -397,17 +397,20 @@ def train(
     if not is_pipeline_parallel_enabled:
         assert len(model_container) == 1
 
-    # model flops per accelerator
-    model_flops = (
-        get_model_tflops(
-            config=model_container[0].config,
-            batch_size=global_batch_size,
-            sequence_length=sequence_length,
-            gradient_checkpointing_method=args.distributed_args.gradient_checkpointing_method,
-            gradient_checkpointing_args=args.distributed_args.gradient_checkpointing_args,
+    if tuning_method == TuningMethod.full_finetuning:
+        model_flops = None
+    else:
+        # model flops per accelerator
+        model_flops = (
+            get_model_tflops(
+                config=model_container[0].config,
+                batch_size=global_batch_size,
+                sequence_length=sequence_length,
+                gradient_checkpointing_method=args.distributed_args.gradient_checkpointing_method,
+                gradient_checkpointing_args=args.distributed_args.gradient_checkpointing_args,
+            )
+            / ProcessGroupManager.get_world_size()
         )
-        / ProcessGroupManager.get_world_size()
-    )
 
     forward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
