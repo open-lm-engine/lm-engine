@@ -19,6 +19,7 @@ from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from .data import (
     DatasetSplit,
     ResumableDataLoader,
+    custom_iterator,
     get_finetuning_dataloader,
     get_next_batch,
     get_pretraining_dataloaders,
@@ -356,34 +357,41 @@ def train(
     save_interval = args.save_args.save_interval
     log_interval = args.logging_args.log_interval
 
+    tuning_method = args.tuning_args.tuning_method
+
     val_weighted_split_paths = args.datasets[0].class_args.get("val_weighted_split_paths")
     group_names = [None]
     if val_weighted_split_paths is not None:
         group_names = [key for key in val_weighted_split_paths.keys()[0]]
 
     model_container.train()
-
-    micro_batch_size = args.training_parameters.micro_batch_size
-    sequence_length = args.datasets[0].class_args.get("sequence_length")
-    global_batch_size = StepTracker.get_global_batch_size()
-    tokens_per_batch = global_batch_size * sequence_length
-
     global_step = starting_iteration
-    global_step_in_tokens = global_step * tokens_per_batch
+
+    if tuning_method == TuningMethod.full_finetuning:
+        train_dataloader_infinite = custom_iterator(train_dataloader, infinite=True)
+    else:
+        micro_batch_size = args.training_parameters.micro_batch_size
+        sequence_length = args.datasets[0].class_args.get("sequence_length")
+        global_batch_size = StepTracker.get_global_batch_size()
+        tokens_per_batch = global_batch_size * sequence_length
+        global_step_in_tokens = global_step * tokens_per_batch
 
     if eval_during_training:
-        eval_steps = args.datasets[0].class_args.get("eval_steps")
-        evaluate(
-            val_dataloaders=val_dataloaders,
-            model_container=model_container,
-            global_step=global_step,
-            global_step_in_tokens=global_step_in_tokens,
-            experiments_tracker=experiments_tracker,
-            eval_steps=eval_steps,
-            group_names=group_names,
-            lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
-            context="val",
-        )
+        if tuning_method == TuningMethod.full_finetuning:
+            evaluate(val_dataloader, model_container, starting_iteration, experiments_tracker)
+        else:
+            eval_steps = args.datasets[0].class_args.get("eval_steps")
+            evaluate(
+                val_dataloaders=val_dataloaders,
+                model_container=model_container,
+                global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
+                experiments_tracker=experiments_tracker,
+                eval_steps=eval_steps,
+                group_names=group_names,
+                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                context="val",
+            )
 
     is_pipeline_parallel_enabled = args.distributed_args.num_pipeline_stages > 1
     if not is_pipeline_parallel_enabled:
@@ -484,35 +492,43 @@ def train(
             )
 
         if global_step % save_interval == 0 or global_step == num_training_steps:
+            if tuning_method == TuningMethod.full_finetuning:
+                metadata = {}
+            else:
+                metadata = {
+                    "consumed_samples": global_step * global_batch_size,
+                    "commit_id": Repo(Path(__file__).parents[1]).git.rev_parse("HEAD"),
+                }
+
             save_checkpoint(
                 args=args,
                 model_container=model_container,
                 optimizer_container=optimizer_container,
                 lr_scheduler_container=lr_scheduler_container,
-                train_dataloader=None,
+                train_dataloader=train_dataloader if tuning_method == TuningMethod.full_finetuning else None,
                 experiments_tracker=experiments_tracker,
                 iteration=global_step,
-                metadata={
-                    "consumed_samples": global_step * global_batch_size,
-                    "commit_id": Repo(Path(__file__).parents[1]).git.rev_parse("HEAD"),
-                },
+                metadata=metadata,
             )
 
             start_time = time.perf_counter()
             steps_since_start_time = 0
 
     if eval_during_training:
-        evaluate(
-            val_dataloaders=test_dataloaders,
-            model_container=model_container,
-            global_step=global_step,
-            global_step_in_tokens=global_step_in_tokens,
-            experiments_tracker=experiments_tracker,
-            eval_steps=eval_steps,
-            group_names=group_names,
-            lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
-            context="test",
-        )
+        if tuning_method == TuningMethod.full_finetuning:
+            assert False
+        else:
+            evaluate(
+                val_dataloaders=test_dataloaders,
+                model_container=model_container,
+                global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
+                experiments_tracker=experiments_tracker,
+                eval_steps=eval_steps,
+                group_names=group_names,
+                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                context="test",
+            )
 
     ensure_last_checkpoint_is_saved()
     torch_profiler.__exit__(None, None, None)
