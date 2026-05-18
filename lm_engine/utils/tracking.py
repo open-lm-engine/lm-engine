@@ -70,7 +70,7 @@ class ExperimentsTracker:
         aim_args: BaseArgs,
         wandb_args: BaseArgs,
         checkpoint_metadata: dict,
-    ) -> None:
+    ) -> ExperimentsTracker:
         self.is_tracking_rank = is_tracking_rank()
         self.experiments_tracker_name = experiments_tracker_name
         self.tracking_enabled = experiments_tracker_name is not None
