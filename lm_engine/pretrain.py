@@ -16,7 +16,13 @@ from torch.utils.data import DataLoader
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
-from .data import ResumableDataLoader, get_next_batch, get_pretraining_dataloaders
+from .data import (
+    DatasetSplit,
+    ResumableDataLoader,
+    get_finetuning_dataloader,
+    get_next_batch,
+    get_pretraining_dataloaders,
+)
 from .distributed import wrap_model_container_for_distributed_training
 from .dtensors import dtensor_to_tensor
 from .enums import TuningMethod
@@ -598,17 +604,17 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     setup_tf32()
 
     args: TrainingArgs | DistillationArgs = get_args(args_class)
+    tuning_method = args.tuning_args.tuning_method
 
     if args_class == TrainingArgs:
-        assert (
-            args.tuning_args.tuning_method == TuningMethod.pretraining
-        ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
+        assert tuning_method in [
+            TuningMethod.pretraining,
+            TuningMethod.full_finetuning,
+        ], f"unexpected tuning method ({tuning_method})"
     elif args_class == DistillationArgs:
         assert args.distributed_args.fsdp_algorithm == 2, "Distillation is only supported with FSDP-2"
 
-        assert (
-            args.tuning_args.tuning_method == TuningMethod.distillation
-        ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
+        assert tuning_method == TuningMethod.distillation, f"unexpected tuning method ({tuning_method})"
 
     # initialize distributed with nccl for multi-node communications
     init_distributed(
@@ -632,8 +638,8 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
 
     set_seed(args.random_args.seed)
 
-    if args_class == DistillationArgs:
-        assert args.distributed_args.num_pipeline_stages == 1, "pipeline parallel is not supported with distillation"
+    if tuning_method in [TuningMethod.distillation, TuningMethod.full_finetuning]:
+        assert args.distributed_args.num_pipeline_stages == 1
 
     model_container = get_model_container(
         args, efficient_initialization=args.model_args.efficient_initialization, keep_in_fp32=True
@@ -669,20 +675,31 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     log_model_optimizer_container(model_container, optimizer_container)
 
     starting_iteration = 0
-    metadata = {}
     experiments_tracker_state_dict = None
+    metadata = {}
+    train_dataloader = None
+    tokenizer = model_container[0].tokenizer
+
+    if tuning_method == TuningMethod.full_finetuning:
+        train_dataloader = get_finetuning_dataloader(args, split=DatasetSplit.train, tokenizer=tokenizer)
+
+        val_dataloader = None
+        if args.training_parameters.eval_during_training:
+            val_dataloader = get_finetuning_dataloader(args, split=DatasetSplit.val, tokenizer=tokenizer)
+
     if args.load_args is not None:
         starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
-            args, args_class, model_container, optimizer_container, lr_scheduler_container, None
+            args, args_class, model_container, optimizer_container, lr_scheduler_container, train_dataloader
         )
 
+    if tuning_method != TuningMethod.full_finetuning:
         # metadata field contains the dataloader state so we need to reset it here
         if not args.load_args.load_dataloader_state:
             metadata["consumed_samples"] = 0
 
-    train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
-        args, model_container[0].tokenizer, metadata.get("consumed_samples", 0)
-    )
+        train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
+            args, tokenizer, metadata.get("consumed_samples", 0)
+        )
 
     experiments_tracker = ExperimentsTracker(
         args.logging_args.experiments_tracker_name,

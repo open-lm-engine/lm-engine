@@ -7,30 +7,15 @@ from contextlib import nullcontext
 import torch
 from torch.distributed.tensor.parallel import loss_parallel
 
-from .arguments import TrainingArgs, get_args
-from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
-from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
-from .data import ResumableDataLoader, custom_iterator, get_finetuning_dataloader, get_next_batch
-from .distributed import wrap_model_container_for_distributed_training
+from .arguments import TrainingArgs
+from .checkpointing import ensure_last_checkpoint_is_saved, save_checkpoint
+from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
+from .data import ResumableDataLoader, custom_iterator, get_next_batch
 from .dtensors import dtensor_to_tensor
-from .enums import DatasetSplit, TuningMethod
-from .hf_models import disable_generation_cache
-from .kernels import enable_kernels
-from .model_wrapper import get_model_container
-from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
+from .optimization import get_learning_rate
 from .pretrain import train_step_without_pipeline_parallel
 from .train_utils import all_reduce_metrics_tracker, track_metrics
-from .utils import (
-    Accelerator,
-    ExperimentsTracker,
-    MetricsTrackingDict,
-    ProcessGroupManager,
-    StepTracker,
-    TorchProfiler,
-    init_distributed,
-    set_seed,
-    setup_tf32,
-)
+from .utils import Accelerator, ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager, TorchProfiler
 
 
 def train(
@@ -200,111 +185,6 @@ def evaluate(
     model_container.train()
 
     return metrics_tracker
-
-
-def main() -> None:
-    """main program"""
-
-    setup_tf32()
-
-    args: TrainingArgs = get_args(TrainingArgs)
-
-    assert (
-        args.tuning_args.tuning_method == TuningMethod.full_finetuning
-    ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
-
-    # initialize distributed with nccl for multi-node communications
-    init_distributed(
-        tensor_parallel_world_size=args.distributed_args.tensor_parallel_world_size,
-        pipeline_parallel_world_size=args.distributed_args.pipeline_parallel_world_size,
-        data_parallel_replication_world_size=args.distributed_args.zero_topology.data_parallel_replication_world_size,
-        data_parallel_sharding_world_size=args.distributed_args.zero_topology.data_parallel_sharding_world_size,
-        context_parallel_world_size=args.distributed_args.context_parallel_world_size,
-        zero_stage=args.distributed_args.stage,
-        timeout_minutes=args.distributed_args.timeout_minutes,
-        use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
-    )
-
-    StepTracker(
-        micro_batch_size=args.training_parameters.micro_batch_size,
-        gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
-    )
-
-    set_seed(args.random_args.seed)
-
-    assert args.distributed_args.num_pipeline_stages == 1, "pipeline parallel is not supported with finetuning"
-
-    model_container = get_model_container(
-        args, efficient_initialization=args.model_args.efficient_initialization, keep_in_fp32=True
-    )
-
-    train_dataloader = get_finetuning_dataloader(
-        args, split=DatasetSplit.train, tokenizer=model_container[0].tokenizer
-    )
-
-    val_dataloader = None
-    if args.training_parameters.eval_during_training:
-        val_dataloader = get_finetuning_dataloader(
-            args, split=DatasetSplit.val, tokenizer=model_container[0].tokenizer
-        )
-
-    model_container, _ = wrap_model_container_for_distributed_training(args, model_container)
-
-    optimizer_container = get_optimizer_container(
-        optimizer_class_name=args.optimizer_args.class_name,
-        optimizer_class_args=args.optimizer_args.class_args,
-        model_container=model_container,
-        params_group_method=args.optimizer_args.params_group_method,
-        use_optimizer_with_backward_hook=args.optimizer_args.use_optimizer_with_backward_hook,
-        split_params_for_optimizer=args.optimizer_args.split_params_for_optimizer,
-    )
-
-    lr_scheduler_container = get_scheduler_container(
-        model_container=model_container,
-        optimizer_container=optimizer_container,
-        num_warmup_steps=args.lr_scheduler_args.num_warmup_steps,
-        num_constant_steps=args.lr_scheduler_args.num_constant_steps,
-        num_decay_steps=args.lr_scheduler_args.num_decay_steps,
-        num_training_steps=args.training_parameters.num_training_steps,
-        lr_decay_style=args.lr_scheduler_args.lr_decay_style,
-        lr_decay_factor=args.lr_scheduler_args.lr_decay_factor,
-        extra_lr_scheduler_args=args.lr_scheduler_args.extra_lr_scheduler_args,
-        use_optimizer_with_backward_hook=args.optimizer_args.use_optimizer_with_backward_hook,
-    )
-
-    assert len(model_container) == len(optimizer_container)
-    assert len(optimizer_container) == len(lr_scheduler_container)
-
-    log_model_optimizer_container(model_container, optimizer_container)
-
-    starting_iteration = 0
-    experiments_tracker_state_dict = None
-    if args.load_args is not None:
-        starting_iteration, _, experiments_tracker_state_dict = load_checkpoint_for_training(
-            args, TrainingArgs, model_container, optimizer_container, lr_scheduler_container, train_dataloader
-        )
-
-    experiments_tracker = ExperimentsTracker(
-        args.logging_args.experiments_tracker_name,
-        args.logging_args.aim_args,
-        args.logging_args.wandb_args,
-        checkpoint_metadata=experiments_tracker_state_dict,
-    )
-    # track all hyperparams in args
-    experiments_tracker.log_args(args)
-
-    # main training loop
-    with disable_generation_cache(), enable_kernels(args.kernel_args.kernels):
-        train(
-            args,
-            model_container=model_container,
-            optimizer_container=optimizer_container,
-            lr_scheduler_container=lr_scheduler_container,
-            train_dataloader=train_dataloader,
-            val_dataloader=val_dataloader,
-            experiments_tracker=experiments_tracker,
-            starting_iteration=starting_iteration,
-        )
 
 
 if __name__ == "__main__":
