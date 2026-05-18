@@ -697,11 +697,15 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     tokenizer = model_container[0].tokenizer
 
     if tuning_method == TuningMethod.full_finetuning:
-        train_dataloader = get_finetuning_dataloader(args, split=DatasetSplit.train, tokenizer=tokenizer)
+        train_dataloader = get_finetuning_dataloader(
+            args, split=DatasetSplit.train, use_output=True, tokenizer=tokenizer
+        )
 
         val_dataloader = None
         if args.training_parameters.eval_during_training:
-            val_dataloader = get_finetuning_dataloader(args, split=DatasetSplit.val, tokenizer=tokenizer)
+            val_dataloader = get_finetuning_dataloader(
+                args, split=DatasetSplit.val, use_output=True, tokenizer=tokenizer
+            )
 
     if args.load_args is not None:
         starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
