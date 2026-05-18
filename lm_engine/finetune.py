@@ -185,7 +185,3 @@ def evaluate(
     model_container.train()
 
     return metrics_tracker
-
-
-if __name__ == "__main__":
-    main()
