@@ -148,10 +148,9 @@ def get_model_tflops(
             # output projection FLOPs
             sequence_mixer_flops += 2 * b * s * h * block.intermediate_size
 
-            # state passing
+            # state passing (H = H + K^T V)
             ssm_flops_per_chunk = 2 * block.intermediate_size * block.state_size * s
-            # query readout
-            # L(2NCK + NC + 2CI + 2K^2 I)
+            # query readout (Y = QH + (QK^T . M)V)
             ssm_flops_per_chunk += s * (
                 2 * block.num_heads * block.chunk_size * block.state_size
                 + block.num_heads * block.chunk_size
