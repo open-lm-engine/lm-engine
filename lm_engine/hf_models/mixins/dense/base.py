@@ -217,10 +217,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             )
 
             position_ids = position_ids.unsqueeze(0).view(-1, query_length)
-
-            rope_cos_sin = (
-                self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype) if self.use_rope else None
-            )
+            rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids) if self.use_rope else None
 
         if is_generation_cache_enabled() and use_cache and cache_params is None:
             cache_params = GenerationCache()
@@ -279,10 +276,8 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         return position_ids
 
-    def _get_rope_cos_sin(
-        self, key_length: int, position_ids: torch.Tensor, dtype: torch.dtype
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        cos, sin = self.rope(key_length, dtype=dtype)
+    def _get_rope_cos_sin(self, key_length: int, position_ids: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        cos, sin = self.rope(key_length)
         cos = cos[position_ids]
         sin = sin[position_ids]
         return cos, sin
@@ -383,9 +378,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         if self.m_emb is not None:
             hidden_states = hidden_states * self.m_emb
 
-        rope_cos_sin = (
-            self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype) if self.use_rope else None
-        )
+        rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids) if self.use_rope else None
 
         attention_mask = self._get_maybe_causal_mask(
             attention_mask, batch_size, query_length, key_length, hidden_states.dtype, input_ids.device
