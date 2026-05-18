@@ -742,7 +742,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
 
-def xla_main(*args):
+def _xla_main(*args):
     main()
 
 
@@ -750,6 +750,6 @@ if __name__ == "__main__":
     accelerator = Accelerator.get_accelerator()
 
     if accelerator == Accelerator.tpu:
-        xla_launch(xla_main)
+        xla_launch(_xla_main)
     else:
         main()
