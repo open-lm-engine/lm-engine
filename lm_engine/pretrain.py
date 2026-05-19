@@ -365,13 +365,15 @@ def train(
         group_names = [key for key in val_weighted_split_paths.keys()[0]]
 
     model_container.train()
+    micro_batch_size = args.training_parameters.micro_batch_size
     global_step = starting_iteration
     global_batch_size = StepTracker.get_global_batch_size()
 
     if tuning_method == TuningMethod.full_finetuning:
         train_dataloader_infinite = custom_iterator(train_dataloader, infinite=True)
+        tokens_per_batch = 0
+        global_step_in_tokens = 0
     else:
-        micro_batch_size = args.training_parameters.micro_batch_size
         sequence_length = args.datasets[0].class_args.get("sequence_length")
         tokens_per_batch = global_batch_size * sequence_length
         global_step_in_tokens = global_step * tokens_per_batch
