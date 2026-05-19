@@ -351,6 +351,9 @@ class KernelArgs(BaseArgs):
     # custom kernels
     kernels: list[Kernel] = []
 
+    def model_post_init(self, __context: Any) -> None:
+        Kernel.validate_enabled(self.kernels)
+
 
 class TeacherArgs(BaseArgs):
     # model name on huggingface hub

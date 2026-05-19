@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Huanzhi Mao
+# Copyright (c) 2026, Mayank Mishra, Huanzhi Mao, Zhonglin
 # **************************************************
 
 import logging
@@ -25,6 +25,7 @@ from .packages import (
     is_flash_attention_4_available,
     is_mamba_2_ssm_available,
     is_multi_storage_client_available,
+    is_quack_available,
     is_ray_available,
     is_sonicmoe_available,
     is_torch_xla_available,
@@ -94,8 +95,7 @@ def init_distributed(
         (is_triton_available, "OpenAI triton is not installed"),
         (
             is_xma_available,
-            "accelerated-model-architectures is not installed, install from "
-            "https://github.com/open-lm-engine/accelerated-model-architectures",
+            "accelerated-model-architectures is not installed, install lm-engine with the xma extra",
         ),
         (is_causal_conv1d_available, "causal-conv1d is not installed"),
         (is_mamba_2_ssm_available, "mamba-ssm is not installed"),
@@ -103,6 +103,7 @@ def init_distributed(
         (is_zstandard_available, "zstandard is not available"),
         (is_torch_xla_available, "torch_xla is not available"),
         (is_multi_storage_client_available, "multi-storage-client is not available"),
+        (is_quack_available, "quack-kernels is not installed"),
     ]:
         if not function():
             warn_rank_0(message)
