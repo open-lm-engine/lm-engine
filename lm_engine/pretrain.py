@@ -165,7 +165,8 @@ def train_step_without_pipeline_parallel(
     forward_context: AbstractContextManager,
     backward_context: AbstractContextManager,
     sync_every_gradient_accumulation_step: bool,
-    lm_loss_multiplier: float,
+    micro_batch_size: int,
+    sequence_length: int,
     tuning_method: TuningMethod,
 ) -> MetricsTrackingDict:
     """runs backpropagation and applies the gradient if at the edge of gradient accumulation boundary
@@ -215,6 +216,7 @@ def train_step_without_pipeline_parallel(
         lm_loss_multiplier = gradient_accumulation_steps / sum([(batch["labels"] != -100).sum() for batch in batches])
     else:
         batches = None
+        lm_loss_multiplier = 1 / (micro_batch_size * sequence_length)
 
     accelerator = Accelerator.get_accelerator()
 
@@ -449,7 +451,8 @@ def train(
                 forward_context=forward_context,
                 backward_context=backward_context,
                 sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
-                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                micro_batch_size=micro_batch_size,
+                sequence_length=sequence_length,
                 tuning_method=args.tuning_args.tuning_method,
             )
 
