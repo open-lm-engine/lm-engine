@@ -375,6 +375,7 @@ def train(
         train_dataloader_infinite = custom_iterator(train_dataloader, infinite=True)
         tokens_per_batch = 0
         global_step_in_tokens = 0
+        sequence_length = None
     else:
         sequence_length = args.datasets[0].class_args.get("sequence_length")
         tokens_per_batch = global_batch_size * sequence_length
