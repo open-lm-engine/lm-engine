@@ -1,5 +1,5 @@
 <!-- **************************************************
-Copyright (c) 2026, Mayank Mishra, Mehant Kammakomati, Shawn Tan, berserkr, mayank31398
+Copyright (c) 2026, Mayank Mishra, Mehant Kammakomati, Shawn Tan, Zhonglin, berserkr, mayank31398
 ************************************************** -->
 
 <h1 align="center">LM Engine</h1>
@@ -28,7 +28,7 @@ Copyright (c) 2026, Mayank Mishra, Mehant Kammakomati, Shawn Tan, berserkr, maya
 - 🔧 **Flexible Model Architectures** — Transformer variants, MoE, Mamba2, RNNs, and hybrid architectures
 - 📦 **HuggingFace Integration** — Seamless import/export with the HuggingFace ecosystem
 - 🎯 **Training Modes** — Pretraining from scratch, full finetuning, and knowledge distillation
-- 🔥 **Custom Kernels** — High-performance Triton, CUDA, and Pallas kernels via [XMA](./accelerated-model-architectures/)
+- 🔥 **Custom Kernels** — High-performance Triton, CUDA, and Pallas kernels via [XMA](./submodules/accelerated-model-architectures/)
 - 📊 **Experiment Tracking** — Native Weights & Biases and Aim integration
 - 💾 **Efficient Checkpointing** — Async checkpointing with full state resumability
 
