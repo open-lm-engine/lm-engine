@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Huanzhi Mao
+# Copyright (c) 2026, Mayank Mishra, Huanzhi Mao, Zhonglin
 # **************************************************
 
 import torch
@@ -123,6 +123,18 @@ except ImportError:
 
 def is_ray_available() -> bool:
     return _IS_RAY_AVAILABLE
+
+
+try:
+    from quack.rmsnorm import rmsnorm
+
+    _IS_QUACK_AVAILABLE = True
+except ImportError:
+    _IS_QUACK_AVAILABLE = False
+
+
+def is_quack_available() -> bool:
+    return _IS_QUACK_AVAILABLE
 
 
 try:
