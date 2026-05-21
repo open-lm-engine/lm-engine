@@ -209,8 +209,6 @@ def train_step_without_pipeline_parallel(
     gradient_accumulation_steps = StepTracker.get_gradient_accumulation_steps()
 
     if tuning_method == TuningMethod.full_finetuning:
-        assert lm_loss_multiplier is None
-
         # note the effect of gradient accumulation division is already in the lm_loss_multiplier
         batches = [get_next_batch(train_dataloader) for _ in range(gradient_accumulation_steps)]
         lm_loss_multiplier = gradient_accumulation_steps / sum([(batch["labels"] != -100).sum() for batch in batches])
