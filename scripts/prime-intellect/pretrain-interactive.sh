@@ -4,5 +4,5 @@ TOKENIZERS_PARALLELISM=false \
 torchrun --nnodes=1 \
     --node_rank=0 \
     --nproc_per_node=8 \
-    -m lm_engine.pretrain \
+    -m lm_engine.train \
     --config ${1}

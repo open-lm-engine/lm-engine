@@ -81,15 +81,15 @@ Launch training using a sample pretraining config in [configs folder](configs/).
 
 ```bash
 # Single GPU
-python -m lm_engine.pretrain --config config.yml
+python -m lm_engine.train --config config.yml
 
 # Multi-GPU with torchrun
-torchrun --nproc_per_node=8 -m lm_engine.pretrain --config config.yml
+torchrun --nproc_per_node=8 -m lm_engine.train --config config.yml
 
 # Multi-node
 torchrun --nnodes=2 --nproc_per_node=8 --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
-    -m lm_engine.pretrain --config config.yml
+    -m lm_engine.train --config config.yml
 ```
 
 ---
