@@ -372,9 +372,9 @@ def train(
     if tuning_method == TuningMethod.full_finetuning:
         train_dataloader_iterator = custom_iterator(train_dataloader, infinite=True)
 
+        sequence_length = None
         tokens_per_batch = 0
         global_step_in_tokens = 0
-        sequence_length = None
     else:
         # train_dataloader is used for saving the state and we set it to None since we load using consumed_samples in
         # metadata during pretraining or distillation
