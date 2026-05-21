@@ -372,11 +372,17 @@ def train(
     global_batch_size = StepTracker.get_global_batch_size()
 
     if tuning_method == TuningMethod.full_finetuning:
-        train_dataloader_infinite = custom_iterator(train_dataloader, infinite=True)
+        train_dataloader_iterator = custom_iterator(train_dataloader, infinite=True)
+
         tokens_per_batch = 0
         global_step_in_tokens = 0
         sequence_length = None
     else:
+        # train_dataloader is used for saving the state and we set it to None since we load using consumed_samples in
+        # metadata during pretraining or distillation
+        train_dataloader_iterator = train_dataloader
+        train_dataloader = None
+
         sequence_length = args.datasets[0].class_args.get("sequence_length")
         tokens_per_batch = global_batch_size * sequence_length
         global_step_in_tokens = global_step * tokens_per_batch
@@ -438,7 +444,7 @@ def train(
                 pipeline_schedule=pipeline_schedule,
                 optimizer_container=optimizer_container,
                 lr_scheduler_container=lr_scheduler_container,
-                train_dataloader=train_dataloader,
+                train_dataloader=train_dataloader_iterator,
                 gradient_clipping=gradient_clipping,
                 sequence_length=sequence_length,
             )
@@ -447,7 +453,7 @@ def train(
                 model_container=model_container,
                 optimizer_container=optimizer_container,
                 lr_scheduler_container=lr_scheduler_container,
-                train_dataloader=train_dataloader,
+                train_dataloader=train_dataloader_iterator,
                 gradient_clipping=gradient_clipping,
                 forward_context=forward_context,
                 backward_context=backward_context,
@@ -514,7 +520,7 @@ def train(
                 model_container=model_container,
                 optimizer_container=optimizer_container,
                 lr_scheduler_container=lr_scheduler_container,
-                train_dataloader=train_dataloader if tuning_method == TuningMethod.full_finetuning else None,
+                train_dataloader=train_dataloader,
                 experiments_tracker=experiments_tracker,
                 iteration=global_step,
                 metadata=metadata,
