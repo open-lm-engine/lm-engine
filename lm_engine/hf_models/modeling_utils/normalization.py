@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Huanzhi Mao, Zhonglin
+# Copyright (c) 2026, Mayank Mishra, Huanzhi Mao, Zhonglin Han
 # **************************************************
 
 from __future__ import annotations
