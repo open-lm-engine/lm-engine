@@ -9,10 +9,17 @@ from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
+from torch.distributed.tensor import Replicate
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
+from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
-from ..hf_models import is_custom_model
+from ..hf_models import (
+    CausalLMOutputWithPast,
+    get_autoregressive_language_modeling_loss,
+    is_aux_loss_zero,
+    is_custom_model,
+)
 from ..kernels import is_kernel_allowed
 from ..tokenizers import get_tokenizer
 from ..utils import ProcessGroupManager, SafeTensorsWeightsManager, log_rank_0, string_to_torch_dtype
@@ -291,3 +298,15 @@ def _remove_first_occurance(string: str, substring: str) -> str:
         string = string[len(substring) :]
 
     return string
+
+
+class _F(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, lm_loss: torch.Tensor, aux_loss: torch.Tensor, router_aux_loss_coef: float) -> torch.Tensor:
+        ctx.router_aux_loss_coef = router_aux_loss_coef
+        return lm_loss + router_aux_loss_coef * aux_loss
+
+    @staticmethod
+    @torch._dynamo.disable
+    def backward(ctx, grad_output: torch.Tensor) -> tuple[torch.Tensor | None]:
+        return grad_output, ctx.router_aux_loss_coef * grad_output, None

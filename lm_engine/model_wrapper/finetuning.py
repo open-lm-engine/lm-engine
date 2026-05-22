@@ -6,15 +6,12 @@ from __future__ import annotations
 
 import torch
 import torch.distributed
-from torch.distributed._tensor.placement_types import Replicate
 
-from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
-from ..hf_models import CausalLMOutputWithPast, get_autoregressive_language_modeling_loss, is_aux_loss_zero
+from ..hf_models import CausalLMOutputWithPast
 from ..kernels import is_kernel_allowed
 from ..utils import Accelerator, Communication, MetricsTrackingDict, ProcessGroupManager
 from .base import ModelWrapper
-from .pretraining import _F
 
 
 class ModelWrapperForFinetuning(ModelWrapper):

@@ -5,15 +5,12 @@
 from __future__ import annotations
 
 import torch
-from torch.distributed._tensor.placement_types import Replicate
 
-from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..hf_models import (
     CausalLMOutputWithPast,
     PipelineParallelInput,
     PipelineParallelOutput,
-    get_autoregressive_language_modeling_loss,
     is_aux_loss_zero,
     mark_parameter_as_initialized,
 )
@@ -263,15 +260,3 @@ class ModelWrapperForPretraining(ModelWrapper):
             assert (
                 not self.reset_position_ids
             ), "currently reset_position_ids is only implemented for padding free transformer"
-
-
-class _F(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, lm_loss: torch.Tensor, aux_loss: torch.Tensor, router_aux_loss_coef: float) -> torch.Tensor:
-        ctx.router_aux_loss_coef = router_aux_loss_coef
-        return lm_loss + router_aux_loss_coef * aux_loss
-
-    @staticmethod
-    @torch._dynamo.disable
-    def backward(ctx, grad_output: torch.Tensor) -> tuple[torch.Tensor | None]:
-        return grad_output, ctx.router_aux_loss_coef * grad_output, None
