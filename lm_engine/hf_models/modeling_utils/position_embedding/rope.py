@@ -127,8 +127,7 @@ def apply_rotary_pos_emb(x: torch.Tensor, cos_sin: tuple[torch.Tensor, torch.Ten
     else:
         x_nope, x_rope = x.split((head_dim - rope_dim, rope_dim), dim=-1)
 
-    x_rope = x_rope.float()
-    x_rope = (x_rope * cos) + (_rotate_half(x_rope) * sin)
+    x_rope = (x_rope.float() * cos) + (_rotate_half(x_rope).float() * sin)
 
     if head_dim == rope_dim:
         x = x_rope
