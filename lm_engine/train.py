@@ -395,6 +395,9 @@ def train(
             experiments_tracker=experiments_tracker,
             eval_steps=eval_steps,
             group_names=group_names,
+            tuning_method=tuning_method,
+            micro_batch_size=micro_batch_size,
+            sequence_length=sequence_length,
             context="val",
         )
 
@@ -496,7 +499,9 @@ def train(
                 experiments_tracker=experiments_tracker,
                 eval_steps=eval_steps,
                 group_names=group_names,
-                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                tuning_method=tuning_method,
+                micro_batch_size=micro_batch_size,
+                sequence_length=sequence_length,
                 context="val",
             )
 
@@ -535,7 +540,9 @@ def train(
                 experiments_tracker=experiments_tracker,
                 eval_steps=eval_steps,
                 group_names=group_names,
-                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                tuning_method=tuning_method,
+                micro_batch_size=micro_batch_size,
+                sequence_length=sequence_length,
                 context="test",
             )
 
@@ -553,6 +560,8 @@ def evaluate(
     eval_steps: int | None,
     group_names: list[str],
     tuning_method: TuningMethod,
+    micro_batch_size: int,
+    sequence_length: int,
     context: str,
 ) -> None:
     """main validation loop for the program
@@ -603,14 +612,24 @@ def evaluate(
         if val_dataloader is None:
             continue
 
+        lm_loss_multiplier = 1 / eval_steps
+        if tuning_method == TuningMethod.full_finetuning:
+            val_dataloader = custom_iterator(val_dataloader, infinite=False)
+        else:
+            lm_loss_multiplier /= micro_batch_size * sequence_length
+
         metrics_tracker = MetricsTrackingDict({})
+        loss_tokens = 0 if tuning_method == TuningMethod.full_finetuning else 1
 
         for _ in range(eval_steps):
             batch = get_next_batch(val_dataloader)
+            if tuning_method == TuningMethod.full_finetuning:
+                loss_tokens += (batch["labels"] != -100).sum()
+
             loss_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
             metrics_tracker = metrics_tracker + loss_step_dict
 
-        metrics_tracker = metrics_tracker / eval_steps
+        metrics_tracker = metrics_tracker / loss_tokens
 
         for key in metrics_tracker:
             metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
