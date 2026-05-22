@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Zhonglin
+# Copyright (c) 2026, Mayank Mishra, Zhonglin Han
 # **************************************************
 
 from enum import Enum

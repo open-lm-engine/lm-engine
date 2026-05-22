@@ -13,12 +13,12 @@
 # -----------------------------------------------------------------------------
 #SBATCH --job-name=pt-ddp-train           # Set the job name
 #SBATCH --account=research                # Specify the account to charge
-#SBATCH --nodes=1                         # Number of nodes to use
+#SBATCH --nodes=32                         # Number of nodes to use
 #SBATCH --gpus-per-node=8                 # Number of GPUs per node
 #SBATCH --ntasks-per-node=1               # Number of tasks per node, meaning one srun command per node
-#SBATCH --cpus-per-task=64                # CPU cores per task, per each srun command, 8 cpu cores per GPU
-#SBATCH --mem=640G                        # Memory per node, 10G per CPU core is a good rule of thumb to start with
-#SBATCH --time=02:00:00                   # (2 hours) Wall time limit, days-hours:minutes:seconds
+#SBATCH --cpus-per-task=96                # CPU cores per task, per each srun command, 8 cpu cores per GPU
+#SBATCH --mem=1000G                        # Memory per node, 10G per CPU core is a good rule of thumb to start with
+#SBATCH --time=2000:00:00                   # (2 hours) Wall time limit, days-hours:minutes:seconds
 # -----------------------------------------------------------------------------
 # NOTE: The --output/--error are set dynamically from submit.sh via command-line:
 #   sbatch --export=ALL \
@@ -80,5 +80,5 @@ srun torchrun \
     --rdzv_id=$SLURM_JOB_ID \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
-    -m lm_engine.pretrain \
+    -m lm_engine.train \
     --config ${1}

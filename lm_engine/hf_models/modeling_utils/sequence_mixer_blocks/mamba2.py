@@ -127,6 +127,7 @@ class Mamba2(nn.Module):
         self.intermediate_size = ssm_intermediate_size
         self.layer_idx = layer_idx
         self.use_conv_bias = use_conv_bias
+        self.activation_string = ssm_activation_function
 
         self.n_groups = num_groups
         self.head_dim = divide_if_divisible(ssm_intermediate_size, ssm_num_heads, "")

@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Aditya Prasad, Shawn Tan, Zhonglin
+# Copyright (c) 2026, Mayank Mishra, Aditya Prasad, Shawn Tan, Zhonglin Han
 # **************************************************
 
 accelerator=cuda
