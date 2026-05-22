@@ -41,6 +41,12 @@ dev = [
 mamba2 = [
     "mamba-ssm>=2.2.6.post3",
 ]
+quack = [
+    "quack-kernels>=0.4.1",
+]
+xma = [
+    "accelerated-model-architectures",
+]
 tpu = [
     "torch==2.10.0",
     "torch-xla[pallas,tpu]==2.9.0",
@@ -63,6 +69,8 @@ markers = [
     "gpu: tests that require CUDA GPUs",
     "slow: long-running tests",
 ]
+[tool.uv.sources]
+accelerated-model-architectures = { path = "submodules/accelerated-model-architectures", editable = true, extra = "xma" }
 
 [tool.isort]
 ensure_newline_before_comments = true

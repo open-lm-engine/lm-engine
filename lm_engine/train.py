@@ -16,7 +16,14 @@ from torch.utils.data import DataLoader
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
-from .data import ResumableDataLoader, get_next_batch, get_pretraining_dataloaders
+from .data import (
+    DatasetSplit,
+    ResumableDataLoader,
+    custom_iterator,
+    get_finetuning_dataloader,
+    get_next_batch,
+    get_pretraining_dataloaders,
+)
 from .distributed import wrap_model_container_for_distributed_training
 from .dtensors import dtensor_to_tensor
 from .enums import TuningMethod
@@ -158,7 +165,8 @@ def train_step_without_pipeline_parallel(
     forward_context: AbstractContextManager,
     backward_context: AbstractContextManager,
     sync_every_gradient_accumulation_step: bool,
-    lm_loss_multiplier: float,
+    micro_batch_size: int,
+    sequence_length: int,
     tuning_method: TuningMethod,
 ) -> MetricsTrackingDict:
     """runs backpropagation and applies the gradient if at the edge of gradient accumulation boundary
@@ -201,13 +209,12 @@ def train_step_without_pipeline_parallel(
     gradient_accumulation_steps = StepTracker.get_gradient_accumulation_steps()
 
     if tuning_method == TuningMethod.full_finetuning:
-        assert lm_loss_multiplier is None
-
         # note the effect of gradient accumulation division is already in the lm_loss_multiplier
         batches = [get_next_batch(train_dataloader) for _ in range(gradient_accumulation_steps)]
         lm_loss_multiplier = gradient_accumulation_steps / sum([(batch["labels"] != -100).sum() for batch in batches])
     else:
         batches = None
+        lm_loss_multiplier = 1 / (micro_batch_size * sequence_length)
 
     accelerator = Accelerator.get_accelerator()
 
@@ -350,50 +357,69 @@ def train(
     save_interval = args.save_args.save_interval
     log_interval = args.logging_args.log_interval
 
+    tuning_method = args.tuning_args.tuning_method
+
     val_weighted_split_paths = args.datasets[0].class_args.get("val_weighted_split_paths")
     group_names = [None]
     if val_weighted_split_paths is not None:
         group_names = [key for key in val_weighted_split_paths.keys()[0]]
 
     model_container.train()
-
     micro_batch_size = args.training_parameters.micro_batch_size
-    sequence_length = args.datasets[0].class_args.get("sequence_length")
-    global_batch_size = StepTracker.get_global_batch_size()
-    tokens_per_batch = global_batch_size * sequence_length
-
     global_step = starting_iteration
-    global_step_in_tokens = global_step * tokens_per_batch
+    global_batch_size = StepTracker.get_global_batch_size()
+
+    if tuning_method == TuningMethod.full_finetuning:
+        train_dataloader_iterator = custom_iterator(train_dataloader, infinite=True)
+
+        sequence_length = None
+        tokens_per_batch = 0
+        global_step_in_tokens = 0
+    else:
+        # train_dataloader is used for saving the state and we set it to None since we load using consumed_samples in
+        # metadata during pretraining or distillation
+        train_dataloader_iterator = train_dataloader
+        train_dataloader = None
+
+        sequence_length = args.datasets[0].class_args.get("sequence_length")
+        tokens_per_batch = global_batch_size * sequence_length
+        global_step_in_tokens = global_step * tokens_per_batch
 
     if eval_during_training:
-        eval_steps = args.datasets[0].class_args.get("eval_steps")
-        evaluate(
-            val_dataloaders=val_dataloaders,
-            model_container=model_container,
-            global_step=global_step,
-            global_step_in_tokens=global_step_in_tokens,
-            experiments_tracker=experiments_tracker,
-            eval_steps=eval_steps,
-            group_names=group_names,
-            lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
-            context="val",
-        )
+        if tuning_method == TuningMethod.full_finetuning:
+            evaluate(val_dataloader, model_container, starting_iteration, experiments_tracker)
+        else:
+            eval_steps = args.datasets[0].class_args.get("eval_steps")
+            evaluate(
+                val_dataloaders=val_dataloaders,
+                model_container=model_container,
+                global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
+                experiments_tracker=experiments_tracker,
+                eval_steps=eval_steps,
+                group_names=group_names,
+                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                context="val",
+            )
 
     is_pipeline_parallel_enabled = args.distributed_args.num_pipeline_stages > 1
     if not is_pipeline_parallel_enabled:
         assert len(model_container) == 1
 
-    # model flops per accelerator
-    model_flops = (
-        get_model_tflops(
-            config=model_container[0].config,
-            batch_size=global_batch_size,
-            sequence_length=sequence_length,
-            gradient_checkpointing_method=args.distributed_args.gradient_checkpointing_method,
-            gradient_checkpointing_args=args.distributed_args.gradient_checkpointing_args,
+    if tuning_method == TuningMethod.full_finetuning:
+        model_flops = None
+    else:
+        # model flops per accelerator
+        model_flops = (
+            get_model_tflops(
+                config=model_container[0].config,
+                batch_size=global_batch_size,
+                sequence_length=sequence_length,
+                gradient_checkpointing_method=args.distributed_args.gradient_checkpointing_method,
+                gradient_checkpointing_args=args.distributed_args.gradient_checkpointing_args,
+            )
+            / ProcessGroupManager.get_world_size()
         )
-        / ProcessGroupManager.get_world_size()
-    )
 
     forward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
     backward_context = loss_parallel if ProcessGroupManager.is_tensor_parallel_enabled() else nullcontext
@@ -416,7 +442,7 @@ def train(
                 pipeline_schedule=pipeline_schedule,
                 optimizer_container=optimizer_container,
                 lr_scheduler_container=lr_scheduler_container,
-                train_dataloader=train_dataloader,
+                train_dataloader=train_dataloader_iterator,
                 gradient_clipping=gradient_clipping,
                 sequence_length=sequence_length,
             )
@@ -425,12 +451,13 @@ def train(
                 model_container=model_container,
                 optimizer_container=optimizer_container,
                 lr_scheduler_container=lr_scheduler_container,
-                train_dataloader=train_dataloader,
+                train_dataloader=train_dataloader_iterator,
                 gradient_clipping=gradient_clipping,
                 forward_context=forward_context,
                 backward_context=backward_context,
                 sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
-                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                micro_batch_size=micro_batch_size,
+                sequence_length=sequence_length,
                 tuning_method=args.tuning_args.tuning_method,
             )
 
@@ -478,35 +505,43 @@ def train(
             )
 
         if global_step % save_interval == 0 or global_step == num_training_steps:
+            if tuning_method == TuningMethod.full_finetuning:
+                metadata = {}
+            else:
+                metadata = {
+                    "consumed_samples": global_step * global_batch_size,
+                    "commit_id": Repo(Path(__file__).parents[1]).git.rev_parse("HEAD"),
+                }
+
             save_checkpoint(
                 args=args,
                 model_container=model_container,
                 optimizer_container=optimizer_container,
                 lr_scheduler_container=lr_scheduler_container,
-                train_dataloader=None,
+                train_dataloader=train_dataloader,
                 experiments_tracker=experiments_tracker,
                 iteration=global_step,
-                metadata={
-                    "consumed_samples": global_step * global_batch_size,
-                    "commit_id": Repo(Path(__file__).parents[1]).git.rev_parse("HEAD"),
-                },
+                metadata=metadata,
             )
 
             start_time = time.perf_counter()
             steps_since_start_time = 0
 
     if eval_during_training:
-        evaluate(
-            val_dataloaders=test_dataloaders,
-            model_container=model_container,
-            global_step=global_step,
-            global_step_in_tokens=global_step_in_tokens,
-            experiments_tracker=experiments_tracker,
-            eval_steps=eval_steps,
-            group_names=group_names,
-            lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
-            context="test",
-        )
+        if tuning_method == TuningMethod.full_finetuning:
+            assert False
+        else:
+            evaluate(
+                val_dataloaders=test_dataloaders,
+                model_container=model_container,
+                global_step=global_step,
+                global_step_in_tokens=global_step_in_tokens,
+                experiments_tracker=experiments_tracker,
+                eval_steps=eval_steps,
+                group_names=group_names,
+                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                context="test",
+            )
 
     ensure_last_checkpoint_is_saved()
     torch_profiler.__exit__(None, None, None)
@@ -598,17 +633,17 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     setup_tf32()
 
     args: TrainingArgs | DistillationArgs = get_args(args_class)
+    tuning_method = args.tuning_args.tuning_method
 
     if args_class == TrainingArgs:
-        assert (
-            args.tuning_args.tuning_method == TuningMethod.pretraining
-        ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
+        assert tuning_method in [
+            TuningMethod.pretraining,
+            TuningMethod.full_finetuning,
+        ], f"unexpected tuning method ({tuning_method})"
     elif args_class == DistillationArgs:
         assert args.distributed_args.fsdp_algorithm == 2, "Distillation is only supported with FSDP-2"
 
-        assert (
-            args.tuning_args.tuning_method == TuningMethod.distillation
-        ), f"unexpected tuning method ({args.tuning_args.tuning_method})"
+        assert tuning_method == TuningMethod.distillation, f"unexpected tuning method ({tuning_method})"
 
     # initialize distributed with nccl for multi-node communications
     init_distributed(
@@ -632,8 +667,8 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
 
     set_seed(args.random_args.seed)
 
-    if args_class == DistillationArgs:
-        assert args.distributed_args.num_pipeline_stages == 1, "pipeline parallel is not supported with distillation"
+    if tuning_method in [TuningMethod.distillation, TuningMethod.full_finetuning]:
+        assert args.distributed_args.num_pipeline_stages == 1
 
     model_container = get_model_container(
         args, efficient_initialization=args.model_args.efficient_initialization, keep_in_fp32=True
@@ -669,27 +704,44 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     log_model_optimizer_container(model_container, optimizer_container)
 
     starting_iteration = 0
-    metadata = {}
     experiments_tracker_state_dict = None
-    if args.load_args is not None:
-        starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
-            args, args_class, model_container, optimizer_container, lr_scheduler_container, None
+    metadata = {}
+    train_dataloader = None
+    tokenizer = model_container[0].tokenizer
+
+    if tuning_method == TuningMethod.full_finetuning:
+        train_dataloader = get_finetuning_dataloader(
+            args, split=DatasetSplit.train, use_output=True, tokenizer=tokenizer
         )
 
-        # metadata field contains the dataloader state so we need to reset it here
+        val_dataloaders = None
+        if args.training_parameters.eval_during_training:
+            val_dataloaders = [
+                get_finetuning_dataloader(args, split=DatasetSplit.val, use_output=True, tokenizer=tokenizer)
+            ]
+
+        test_dataloaders = None
+
+    if args.load_args is not None:
+        starting_iteration, metadata, experiments_tracker_state_dict = load_checkpoint_for_training(
+            args, args_class, model_container, optimizer_container, lr_scheduler_container, train_dataloader
+        )
+
         if not args.load_args.load_dataloader_state:
             metadata["consumed_samples"] = 0
 
-    train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
-        args, model_container[0].tokenizer, metadata.get("consumed_samples", 0)
-    )
+    if tuning_method != TuningMethod.full_finetuning:
+        train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
+            args, tokenizer, metadata.get("consumed_samples", 0)
+        )
 
     experiments_tracker = ExperimentsTracker(
-        args.logging_args.experiments_tracker_name,
-        args.logging_args.aim_args,
-        args.logging_args.wandb_args,
+        experiments_tracker_name=args.logging_args.experiments_tracker_name,
+        aim_args=args.logging_args.aim_args,
+        wandb_args=args.logging_args.wandb_args,
         checkpoint_metadata=experiments_tracker_state_dict,
     )
+
     # track all hyperparams in args
     experiments_tracker.log_args(args, **model_container[0].calculate_num_parameters(return_dict=True))
 
@@ -709,7 +761,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
 
-def xla_main(*args):
+def _xla_main(*args):
     main()
 
 
@@ -717,6 +769,6 @@ if __name__ == "__main__":
     accelerator = Accelerator.get_accelerator()
 
     if accelerator == Accelerator.tpu:
-        xla_launch(xla_main)
+        xla_launch(_xla_main)
     else:
         main()

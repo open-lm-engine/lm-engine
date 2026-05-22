@@ -10,10 +10,11 @@ from torch.distributed._tensor.placement_types import Replicate
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
-from ..hf_models import CausalLMOutputWithPast, get_autoregressive_language_modeling_loss
+from ..hf_models import CausalLMOutputWithPast, get_autoregressive_language_modeling_loss, is_aux_loss_zero
 from ..kernels import is_kernel_allowed
 from ..utils import Accelerator, Communication, MetricsTrackingDict, ProcessGroupManager
 from .base import ModelWrapper
+from .pretraining import _F
 
 
 class ModelWrapperForFinetuning(ModelWrapper):
@@ -70,14 +71,17 @@ class ModelWrapperForFinetuning(ModelWrapper):
         lm_loss = lm_loss * lm_loss_multiplier
         aux_loss = getattr(model_outputs, "aux_loss", 0)
 
-        if aux_loss == 0:
+        if is_aux_loss_zero(aux_loss):
             loss = lm_loss
-            output = {"loss": loss}
+            output = {"loss": loss, "lm_loss": loss}
         else:
+            if self.is_pipeline_parallel_enabled:
+                self._extra_metrics = self._extra_metrics + {"aux_loss": aux_loss}
+
             if tensor_parallel_enabled:
                 aux_loss = tensor_to_dtensor(aux_loss, device_mesh=self.tp_mesh, current_placement=Replicate())
 
-            loss = lm_loss + self.router_aux_loss_coef * aux_loss
+            loss = _F.apply(lm_loss, aux_loss, self.router_aux_loss_coef)
             output = {"loss": loss, "lm_loss": lm_loss, "aux_loss": aux_loss}
 
         return output

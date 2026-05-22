@@ -126,6 +126,18 @@ def is_ray_available() -> bool:
 
 
 try:
+    from quack.rmsnorm import rmsnorm
+
+    _IS_QUACK_AVAILABLE = True
+except ImportError:
+    _IS_QUACK_AVAILABLE = False
+
+
+def is_quack_available() -> bool:
+    return _IS_QUACK_AVAILABLE
+
+
+try:
     import sonicmoe
 
     _IS_SONIC_MOE_AVAILABLE = True

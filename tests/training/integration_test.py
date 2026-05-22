@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Zhonglin
+# Copyright (c) 2026, Mayank Mishra, Zhonglin Han
 # **************************************************
 
 """E2E training smoke tests.

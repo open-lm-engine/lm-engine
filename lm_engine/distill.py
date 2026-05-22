@@ -3,7 +3,7 @@
 # **************************************************
 
 from .arguments import DistillationArgs
-from .pretrain import main
+from .train import main
 
 
 if __name__ == "__main__":

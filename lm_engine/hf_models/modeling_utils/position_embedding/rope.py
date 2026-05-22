@@ -33,13 +33,13 @@ class RoPE(nn.Module):
         return cos, sin
 
     def reset_parameters(self) -> None:
-        self._set_cos_sin_cache(seq_len=self.max_position_embeddings, dtype=torch.float32)
+        self._set_cos_sin_cache(seq_len=self.max_position_embeddings)
 
         mark_parameter_as_initialized(self.cos_cached)
         mark_parameter_as_initialized(self.sin_cached)
 
     @torch.no_grad()
-    def _set_cos_sin_cache(self, seq_len: int, dtype: torch.dtype) -> None:
+    def _set_cos_sin_cache(self, seq_len: int) -> None:
         self.max_seq_len_cached = seq_len
 
         inv_freq = self._get_inv_freq()
@@ -52,8 +52,13 @@ class RoPE(nn.Module):
 
         device = self.cos_cached.device if hasattr(self, "cos_cached") else None
 
-        self.register_buffer("cos_cached", (emb.cos() * self.mscale).to(device=device, dtype=dtype), persistent=False)
-        self.register_buffer("sin_cached", (emb.sin() * self.mscale).to(device=device, dtype=dtype), persistent=False)
+        self.register_buffer(
+            "cos_cached", (emb.cos() * self.mscale).to(device=device, dtype=torch.float32), persistent=False
+        )
+
+        self.register_buffer(
+            "sin_cached", (emb.sin() * self.mscale).to(device=device, dtype=torch.float32), persistent=False
+        )
 
     def _get_inv_freq(self) -> torch.Tensor:
         return 1.0 / (self.base ** (torch.arange(0, self.head_dim, 2, dtype=torch.float32) * (1 / self.head_dim)))
