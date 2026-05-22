@@ -386,21 +386,17 @@ def train(
         global_step_in_tokens = global_step * tokens_per_batch
 
     if eval_during_training:
-        if tuning_method == TuningMethod.full_finetuning:
-            evaluate(val_dataloader, model_container, starting_iteration, experiments_tracker)
-        else:
-            eval_steps = args.datasets[0].class_args.get("eval_steps")
-            evaluate(
-                val_dataloaders=val_dataloaders,
-                model_container=model_container,
-                global_step=global_step,
-                global_step_in_tokens=global_step_in_tokens,
-                experiments_tracker=experiments_tracker,
-                eval_steps=eval_steps,
-                group_names=group_names,
-                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
-                context="val",
-            )
+        eval_steps = args.datasets[0].class_args.get("eval_steps")
+        evaluate(
+            val_dataloaders=val_dataloaders,
+            model_container=model_container,
+            global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
+            experiments_tracker=experiments_tracker,
+            eval_steps=eval_steps,
+            group_names=group_names,
+            context="val",
+        )
 
     is_pipeline_parallel_enabled = args.distributed_args.num_pipeline_stages > 1
     if not is_pipeline_parallel_enabled:
@@ -556,7 +552,6 @@ def evaluate(
     experiments_tracker: ExperimentsTracker,
     eval_steps: int,
     group_names: list[str],
-    lm_loss_multiplier: float,
     context: str,
 ) -> None:
     """main validation loop for the program
@@ -569,12 +564,13 @@ def evaluate(
         experiments_tracker (ExperimentsTracker): metrics tracker
         eval_steps (int): number of steps to run eval for
         group_names (list[str]): names of the datasets in validation/test group
-        lm_loss_multiplier (float): lm loss multiplier
         context (str): context
     """
 
     assert len(model_container) == 1
     model = model_container[0]
+
+    lm_loss_multiplier = (1 / (micro_batch_size * sequence_length),)
 
     if ProcessGroupManager.is_tensor_parallel_enabled():
         # other tensor parallel ranks need to be told if val dataloader is None or not
@@ -594,7 +590,7 @@ def evaluate(
     if is_val_dataloader_none:
         return
 
-    model.eval()
+    model_container.eval()
 
     for group_name, val_dataloader in zip(group_names, val_dataloaders):
         if val_dataloader is None:
@@ -624,7 +620,7 @@ def evaluate(
             context=context,
         )
 
-    model.train()
+    model_container.train()
 
 
 def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> None:

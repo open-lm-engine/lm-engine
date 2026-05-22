@@ -6,30 +6,11 @@ import torch
 
 from .containers import ModelContainer
 from .data import ResumableDataLoader, custom_iterator, get_next_batch
-from .dtensors import dtensor_to_tensor
-from .train_utils import all_reduce_metrics_tracker, track_metrics
-from .utils import Accelerator, ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager
+from .utils import Accelerator, MetricsTrackingDict, ProcessGroupManager
 
 
 @torch.no_grad()
-def evaluate(
-    val_dataloader: ResumableDataLoader,
-    model_container: ModelContainer,
-    global_step: int,
-    experiments_tracker: ExperimentsTracker,
-) -> MetricsTrackingDict:
-    """main validation loop for the program
-
-    Args:
-        val_dataloader (ResumableDataLoader): validation dataloader
-        model_container (ModelContainer): model container
-        global_step (int): global step during training
-        experiments_tracker (ExperimentsTracker): metrics tracker
-
-    Returns:
-        MetricsTrackingDict: metrics tracker
-    """
-
+def evaluate(val_dataloader: ResumableDataLoader, model_container: ModelContainer) -> MetricsTrackingDict:
     if ProcessGroupManager.is_tensor_parallel_enabled():
         if ProcessGroupManager.is_tensor_parallel_first_rank():
             num_steps = 0 if val_dataloader is None else len(val_dataloader)
@@ -63,19 +44,3 @@ def evaluate(
         metrics_tracker = metrics_tracker + loss_step_dict
 
     metrics_tracker = metrics_tracker / loss_tokens.item()
-
-    for key in metrics_tracker:
-        metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
-
-    metrics_tracker = all_reduce_metrics_tracker(metrics_tracker)
-
-    track_metrics(
-        global_step=global_step,
-        experiments_tracker=experiments_tracker,
-        metrics_tracker=metrics_tracker,
-        context="val",
-    )
-
-    model_container.train()
-
-    return metrics_tracker
