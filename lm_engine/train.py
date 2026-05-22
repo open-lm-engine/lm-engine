@@ -550,8 +550,9 @@ def evaluate(
     global_step: int,
     global_step_in_tokens: int,
     experiments_tracker: ExperimentsTracker,
-    eval_steps: int,
+    eval_steps: int | None,
     group_names: list[str],
+    tuning_method: TuningMethod,
     context: str,
 ) -> None:
     """main validation loop for the program
@@ -570,26 +571,32 @@ def evaluate(
     assert len(model_container) == 1
     model = model_container[0]
 
-    lm_loss_multiplier = (1 / (micro_batch_size * sequence_length),)
+    is_val_dataloader_none = val_dataloaders is None or len(val_dataloaders) == 0
 
     if ProcessGroupManager.is_tensor_parallel_enabled():
-        # other tensor parallel ranks need to be told if val dataloader is None or not
-        is_val_dataloader_none = (
-            val_dataloaders is None or len(val_dataloaders) == 0
-            if ProcessGroupManager.is_tensor_parallel_first_rank()
-            else None
-        )
+        if not ProcessGroupManager.is_tensor_parallel_first_rank():
+            is_val_dataloader_none = None
+
         is_val_dataloader_none = Communication.broadcast_object(
             is_val_dataloader_none,
             src=ProcessGroupManager.get_tensor_parallel_first_rank(),
             group=ProcessGroupManager.get_tensor_parallel_group(),
         )
-    else:
-        is_val_dataloader_none = val_dataloaders is None or len(val_dataloaders) == 0
 
     if is_val_dataloader_none:
         return
 
+    if eval_steps is None and tuning_method == TuningMethod.full_finetuning:
+        eval_steps = torch.tensor(
+            len(val_dataloader),
+            device=Accelerator.get_current_device(),
+            dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.long,
+        )
+
+        torch.distributed.all_reduce(eval_steps, group=ProcessGroupManager.get_tensor_parallel_group())
+        eval_steps = eval_steps.item()
+
+    assert eval_steps is not None
     model_container.eval()
 
     for group_name, val_dataloader in zip(group_names, val_dataloaders):

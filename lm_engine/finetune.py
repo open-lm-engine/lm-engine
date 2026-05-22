@@ -11,26 +11,6 @@ from .utils import Accelerator, MetricsTrackingDict, ProcessGroupManager
 
 @torch.no_grad()
 def evaluate(val_dataloader: ResumableDataLoader, model_container: ModelContainer) -> MetricsTrackingDict:
-    if ProcessGroupManager.is_tensor_parallel_enabled():
-        if ProcessGroupManager.is_tensor_parallel_first_rank():
-            num_steps = 0 if val_dataloader is None else len(val_dataloader)
-        else:
-            num_steps = 0
-
-        num_steps = torch.tensor(
-            num_steps,
-            device=Accelerator.get_current_device(),
-            dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.long,
-        )
-
-        torch.distributed.all_reduce(num_steps, group=ProcessGroupManager.get_tensor_parallel_group())
-        num_steps = num_steps.item()
-    else:
-        num_steps = 0 if val_dataloader is None else len(val_dataloader)
-
-    if num_steps == 0:
-        return
-
     model_container.eval()
 
     metrics_tracker = MetricsTrackingDict({})
