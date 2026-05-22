@@ -497,9 +497,8 @@ def wrap_model_container_for_distributed_training(
                 aux_loss=aux_loss,
                 last_hidden_state=input if use_fused_linear_cross_entropy else None,
             )
-            loss = model.get_loss(output, target, lm_loss_multiplier)
 
-            return loss
+            return model.get_loss(output, target, lm_loss_multiplier)
 
         pipeline_schedule = _get_pipeline_parallel_schedule(
             pipeline_parallel_schedule=args.distributed_args.pipeline_parallel_schedule,

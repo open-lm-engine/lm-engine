@@ -46,46 +46,6 @@ class ModelWrapperForFinetuning(ModelWrapper):
             lm_loss_multiplier=lm_loss_multiplier,
         )
 
-    def get_loss(
-        self,
-        model_outputs: CausalLMOutputWithPast,
-        labels: torch.Tensor,
-        cu_seqlens: torch.Tensor | None,
-        lm_loss_multiplier: float = 1,
-    ) -> torch.Tensor | dict:
-        tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
-
-        lm_loss = get_autoregressive_language_modeling_loss(
-            lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
-            labels=labels,
-            hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
-            vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
-            cu_seqlens=cu_seqlens,
-            use_padding_free_transformer=self.use_padding_free_transformer,
-            reduction="sum",
-            shift_logits_and_labels=True,
-            tensor_parallel_enabled=tensor_parallel_enabled,
-        )
-
-        lm_loss = lm_loss * lm_loss_multiplier
-        aux_loss = getattr(model_outputs, "aux_loss", 0)
-
-        if is_aux_loss_zero(aux_loss):
-            loss = lm_loss
-            output = {"loss": loss, "lm_loss": loss}
-        else:
-            if self.is_pipeline_parallel_enabled:
-                self._extra_metrics = self._extra_metrics + {"aux_loss": aux_loss}
-
-            if tensor_parallel_enabled:
-                aux_loss = tensor_to_dtensor(aux_loss, device_mesh=self.tp_mesh, current_placement=Replicate())
-
-            loss = _F.apply(lm_loss, aux_loss, self.router_aux_loss_coef)
-            output = {"loss": loss, "lm_loss": lm_loss, "aux_loss": aux_loss}
-
-        return output
-
     def _broadcast_inputs_for_tensor_parallel(self, batch: dict) -> dict:
         device = Accelerator.get_current_device()
 
