@@ -7,13 +7,14 @@ from typing import Any
 import torch.distributed
 from torch.distributed import ProcessGroup
 
-from ..parallel import ProcessGroupManager
 from .accelerator import Accelerator
 
 
 class Communication:
     @staticmethod
     def broadcast_object(obj: Any, src: int, group: ProcessGroup) -> Any:
+        from ..parallel import ProcessGroupManager
+
         if ProcessGroupManager.get_global_rank() != src:
             obj = None
 
@@ -25,6 +26,8 @@ class Communication:
 
     @staticmethod
     def barrier() -> None:
+        from ..parallel import ProcessGroupManager
+
         torch.distributed.barrier()
 
         if Accelerator.get_accelerator() == Accelerator.tpu:

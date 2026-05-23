@@ -2,26 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-import logging
-
-from ..logging_utils import log_environment, log_rank_0, warn_rank_0
-from ..utils import (
-    is_aim_available,
-    is_causal_conv1d_available,
-    is_colorlog_available,
-    is_flash_attention_2_available,
-    is_flash_attention_3_available,
-    is_flash_attention_4_available,
-    is_mamba_2_ssm_available,
-    is_multi_storage_client_available,
-    is_quack_available,
-    is_torch_xla_available,
-    is_torchao_available,
-    is_triton_available,
-    is_wandb_available,
-    is_xma_available,
-    is_zstandard_available,
-)
 from .manager import ProcessGroupManager, run_rank_n
 
 
@@ -46,6 +26,27 @@ def init_distributed(
         timeout_minutes (int, optional): distributed timeout in minutes. Defaults to None.
         use_async_tensor_parallel (bool): whether to use async-TP. Defaults to False.
     """
+
+    import logging
+
+    from ..logging_utils import log_environment, log_rank_0, warn_rank_0
+    from ..utils import (
+        is_aim_available,
+        is_causal_conv1d_available,
+        is_colorlog_available,
+        is_flash_attention_2_available,
+        is_flash_attention_3_available,
+        is_flash_attention_4_available,
+        is_mamba_2_ssm_available,
+        is_multi_storage_client_available,
+        is_quack_available,
+        is_torch_xla_available,
+        is_torchao_available,
+        is_triton_available,
+        is_wandb_available,
+        is_xma_available,
+        is_zstandard_available,
+    )
 
     process_group_manager = ProcessGroupManager(
         tensor_parallel_world_size=tensor_parallel_world_size,

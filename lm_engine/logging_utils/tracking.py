@@ -10,7 +10,8 @@ import torch
 from tqdm import tqdm
 
 from ..enums import ExperimentsTrackerName
-from ..utils import BaseArgs, ProcessGroupManager, is_aim_available, is_wandb_available
+from ..parallel import ProcessGroupManager
+from ..utils import BaseArgs, is_aim_available, is_wandb_available
 
 
 if is_aim_available():

@@ -16,8 +16,8 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
-from .accelerator import Accelerator, Communication
-from .utils import divide_if_divisible, is_torch_xla_available
+from ..accelerator import Accelerator, Communication
+from ..utils import divide_if_divisible, is_torch_xla_available
 
 
 if is_torch_xla_available():
