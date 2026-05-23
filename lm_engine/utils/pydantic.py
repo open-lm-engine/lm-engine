@@ -54,7 +54,6 @@ class BaseArgs(BaseModel):
         setattr(self, name, original_value)
 
     def log_args(self) -> None:
-
         def _iterate_args_recursively(args: BaseArgs, prefix: str = "") -> None:
             result = []
 
