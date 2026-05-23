@@ -26,6 +26,7 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
 )
 
+from ..accelerator import Accelerator
 from ..arguments import TrainingArgs
 from ..containers import ModelContainer
 from ..enums import Kernel
