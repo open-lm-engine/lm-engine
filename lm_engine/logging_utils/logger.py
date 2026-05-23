@@ -8,6 +8,7 @@ from warnings import warn
 
 from ..parallel import ProcessGroupManager, run_rank_n
 from ..utils import is_colorlog_available
+from .tracking import is_tracking_rank
 
 
 if is_colorlog_available():

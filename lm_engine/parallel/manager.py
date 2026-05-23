@@ -479,16 +479,6 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
     return func_rank_n
 
 
-def is_tracking_rank() -> bool:
-    return (
-        ProcessGroupManager.get_data_parallel_rank() == 0
-        and ProcessGroupManager.get_context_parallel_rank() == 0
-        and ProcessGroupManager.is_tensor_parallel_first_rank()
-        and ProcessGroupManager.get_pipeline_parallel_rank()
-        == ProcessGroupManager.get_pipeline_parallel_world_size() - 1
-    )
-
-
 def get_pipeline_stage_ids_on_current_rank(num_pipeline_stages: int) -> int:
     pp_rank = ProcessGroupManager.get_pipeline_parallel_rank()
     pp_world_size = ProcessGroupManager.get_pipeline_parallel_world_size()
