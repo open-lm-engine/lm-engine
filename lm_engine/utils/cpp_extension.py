@@ -9,8 +9,6 @@ import types
 
 from torch.utils.cpp_extension import load
 
-from ..parallel import ProcessGroupManager
-
 
 def compile_cpp_extension(
     name: str,
@@ -27,6 +25,7 @@ def compile_cpp_extension(
 
     if distributed:
         from ..accelerator import Communication
+        from ..parallel import ProcessGroupManager
 
         if ProcessGroupManager.get_global_rank() == 0:
             module = _compile()
