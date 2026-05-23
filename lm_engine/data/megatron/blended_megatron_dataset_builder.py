@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 
+from ...accelerator import Accelerator
 from ...defaults import MSC_PREFIX
 from ...logging_utils import log_rank_0
 from ...parallel import ProcessGroupManager
