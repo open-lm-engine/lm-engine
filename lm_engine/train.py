@@ -13,6 +13,7 @@ from torch.distributed.pipelining.schedules import _PipelineSchedule
 from torch.distributed.tensor.parallel import loss_parallel
 from torch.utils.data import DataLoader
 
+from .accelerator import Accelerator, Communication, set_seed
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
@@ -33,8 +34,6 @@ from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
 from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import (
-    Accelerator,
-    Communication,
     ExperimentsTracker,
     MetricsTrackingDict,
     ProcessGroupManager,
@@ -45,7 +44,6 @@ from .utils import (
     is_torchao_available,
     log_environment,
     log_rank_0,
-    set_seed,
     setup_tf32,
 )
 

@@ -7,9 +7,10 @@ import itertools
 import pytest
 import torch
 
+from lm_engine.accelerator import set_seed
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, set_seed
+from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available
 
 from ...utils import (
     assert_equal_tensors,

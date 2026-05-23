@@ -5,9 +5,9 @@
 import pytest
 import torch
 
+from lm_engine.accelerator import set_seed
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import set_seed
 
 from ...utils import (
     assert_equal_tensors,

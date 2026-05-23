@@ -9,16 +9,11 @@ import torch
 import torch.distributed
 from transformers import AutoModelForCausalLM
 
+from lm_engine.accelerator import Communication, set_seed
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import (
-    Communication,
-    ProcessGroupManager,
-    SafeTensorsWeightsManager,
-    set_seed,
-    string_to_torch_dtype,
-)
+from lm_engine.utils import ProcessGroupManager, SafeTensorsWeightsManager, string_to_torch_dtype
 
 from ....utils import from_config
 

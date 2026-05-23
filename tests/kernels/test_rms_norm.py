@@ -6,11 +6,12 @@ import pytest
 import torch
 from torch.testing import assert_close
 
+from lm_engine.accelerator import set_seed
 from lm_engine.arguments import KernelArgs
 from lm_engine.enums import Kernel
 from lm_engine.hf_models.modeling_utils.normalization import RMSNorm
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import is_quack_available, is_xma_available, set_seed
+from lm_engine.utils import is_quack_available, is_xma_available
 from tests.utils import skip_test_if_device_unavailable
 
 
