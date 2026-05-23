@@ -2,9 +2,16 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import logging
 from functools import partial
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+
+if TYPE_CHECKING:
+    from ...arguments import TrainingArgs
+    from ...containers import ModelContainer
 
 import torch
 import torch.nn as nn
@@ -26,22 +33,12 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
 )
 
-from ..accelerator import Accelerator
-from ..arguments import TrainingArgs
-from ..containers import ModelContainer
-from ..enums import Kernel
-from ..gradient_checkpointing import apply_gradient_checkpointing
-from ..hf_models import (
-    _INIT_MARKER,
-    CausalLMOutputWithPast,
-    get_parameter_marker_maps,
-    is_parameter_initialized,
-    set_parameter_marker_maps,
-)
-from ..kernels import is_kernel_allowed
-from ..logging_utils import log_rank_0
-from ..parallel import ProcessGroupManager
-from ..utils import get_module_class_from_name, is_torch_xla_available, is_torchao_available, string_to_torch_dtype
+from ...accelerator import Accelerator
+from ...enums import Kernel
+from ...gradient_checkpointing import apply_gradient_checkpointing
+from ...kernels import is_kernel_allowed
+from ...utils import get_module_class_from_name, is_torch_xla_available, is_torchao_available, string_to_torch_dtype
+from ..manager import ProcessGroupManager
 from .simple_fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
 from .simple_fsdp import data_parallel as simple_fsdp_data_parallel
 from .simple_fsdp import get_simple_fsdp_compile_backend
@@ -55,7 +52,7 @@ if is_torch_xla_available():
 if is_torchao_available():
     from torchao.float8 import ScalingType
 
-    from ..fp8 import FP8Manager
+    from ...fp8 import FP8Manager
 
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
@@ -139,6 +136,15 @@ def wrap_model_container_for_distributed_training(
     Returns:
         tuple[ModelContainer, _PipelineSchedule]: container of parallelized models and pipeline schedule
     """
+
+    from ...hf_models import (
+        _INIT_MARKER,
+        CausalLMOutputWithPast,
+        get_parameter_marker_maps,
+        is_parameter_initialized,
+        set_parameter_marker_maps,
+    )
+    from ...logging_utils import log_rank_0
 
     stage = args.distributed_args.stage
     zero3 = stage == 3

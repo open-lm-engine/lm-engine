@@ -8,8 +8,6 @@ import logging
 
 import torch.nn as nn
 
-from .logging_utils import log_rank_0
-
 
 class _Container:
     def __init__(self, model_list: list[nn.Module]) -> _Container:
@@ -71,6 +69,8 @@ def log_model_optimizer_container(model_container: ModelContainer, optimizer_con
         model_container (ModelContainer): container of models to print
         optimizer_container (OptimizerContainer): container of optimizers to print
     """
+
+    from .logging_utils import log_rank_0
 
     log_rank_0(logging.INFO, "------------------------ model & optimizer list ------------------------")
     for model, optimizer in zip(model_container, optimizer_container):
