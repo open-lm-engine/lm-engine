@@ -21,8 +21,10 @@ from ..hf_models import (
     is_custom_model,
 )
 from ..kernels import is_kernel_allowed
+from ..logging_utils import log_rank_0
+from ..parallel import ProcessGroupManager
 from ..tokenizers import get_tokenizer
-from ..utils import ProcessGroupManager, SafeTensorsWeightsManager, log_rank_0, string_to_torch_dtype
+from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
 
 class ModelWrapper(nn.Module):

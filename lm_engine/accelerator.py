@@ -4,14 +4,16 @@
 
 from __future__ import annotations
 
+import random
 from enum import Enum
 from functools import lru_cache
 from typing import Any
 
+import numpy as np
 import torch
 from torch.profiler import ProfilerActivity
 
-from .packages import is_torch_neuronx_available, is_torch_xla_available
+from .utils import is_torch_neuronx_available, is_torch_xla_available
 
 
 if is_torch_xla_available():
@@ -138,6 +140,20 @@ class Accelerator(Enum):
 
         return ProfilerActivity.CUDA
 
+    @staticmethod
+    def set_seed(seed: int) -> None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
+        accelerator = Accelerator.get_accelerator()
+
+        if accelerator in [Accelerator.cuda, Accelerator.rocm]:
+            torch.cuda.manual_seed_all(seed)
+        elif accelerator == Accelerator.mps:
+            torch.mps.manual_seed(seed)
+
+    @staticmethod
     def get_torch_compile_backend() -> str:
         if Accelerator.get_accelerator() == Accelerator.trainium:
             return "neuron"

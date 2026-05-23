@@ -7,9 +7,10 @@ import itertools
 import pytest
 import torch
 
+from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, set_seed
+from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available
 
 from ...utils import (
     assert_equal_tensors,
@@ -40,7 +41,7 @@ def test_sdpa_padding_free_transformer_equivalence(
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     config = get_dense_test_config(position_embedding_type, num_layers=1)
 
@@ -95,7 +96,7 @@ def test_sdpa_flash_attention_equivalence(
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     input_ids, attention_mask, labels = get_dummy_inputs(device)
     config = get_dense_test_config(position_embedding_type, num_layers=1)
@@ -146,7 +147,7 @@ def test_padding_free_transformer_with_list_and_tensor(
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     config = get_dense_test_config(position_embedding_type, num_layers=1)
 
@@ -186,7 +187,7 @@ def test_padding_free_transformer_with_list_and_tensor(
 def test_sdpa_flash_enabled(device: torch.device, position_embedding_type: str, dtype: torch.dtype) -> None:
     skip_test_if_device_unavailable(device)
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     config = get_dense_test_config(position_embedding_type, num_layers=1)
 
@@ -234,7 +235,7 @@ def test_flash_attention_equivalence_with_and_without_attention_masks(
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     input_ids, _, labels = get_dummy_inputs(device)
     config = get_dense_test_config(position_embedding_type, num_layers=1)

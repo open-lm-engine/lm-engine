@@ -13,9 +13,10 @@ from torch.distributed.pipelining.schedules import _PipelineSchedule
 from torch.distributed.tensor.parallel import loss_parallel
 from torch.utils.data import DataLoader
 
+from .accelerator import Accelerator
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
-from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
+from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from .data import (
     DatasetSplit,
     ResumableDataLoader,
@@ -29,25 +30,19 @@ from .dtensors import dtensor_to_tensor
 from .enums import TuningMethod
 from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
-from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
-from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
-from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
-from .utils import (
-    Accelerator,
-    Communication,
+from .logging_utils import (
     ExperimentsTracker,
     MetricsTrackingDict,
-    ProcessGroupManager,
     StepTracker,
     TorchProfiler,
-    init_distributed,
-    is_torch_xla_available,
-    is_torchao_available,
     log_environment,
     log_rank_0,
-    set_seed,
-    setup_tf32,
 )
+from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
+from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
+from .parallel import ProcessGroupManager
+from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
+from .utils import is_torch_xla_available, is_torchao_available, setup_tf32
 
 
 if is_torch_xla_available():
@@ -56,7 +51,7 @@ if is_torch_xla_available():
     from torch_xla import sync as xla_sync
 
 if is_torchao_available():
-    from .distributed import FP8Manager
+    from .fp8 import FP8Manager
 
 
 def train_step_with_pipeline_parallel(
@@ -589,7 +584,7 @@ def evaluate(
             if not ProcessGroupManager.is_tensor_parallel_first_rank():
                 is_val_dataloader_none = None
 
-            is_val_dataloader_none = Communication.broadcast_object(
+            is_val_dataloader_none = ProcessGroupManager.broadcast_object(
                 is_val_dataloader_none,
                 src=ProcessGroupManager.get_tensor_parallel_first_rank(),
                 group=ProcessGroupManager.get_tensor_parallel_group(),
@@ -666,7 +661,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         assert tuning_method == TuningMethod.distillation, f"unexpected tuning method ({tuning_method})"
 
     # initialize distributed with nccl for multi-node communications
-    init_distributed(
+    process_group_manager = ProcessGroupManager(
         tensor_parallel_world_size=args.distributed_args.tensor_parallel_world_size,
         pipeline_parallel_world_size=args.distributed_args.pipeline_parallel_world_size,
         data_parallel_replication_world_size=args.distributed_args.zero_topology.data_parallel_replication_world_size,
@@ -677,6 +672,13 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
     )
 
+    log_rank_0(logging.INFO, process_group_manager)
+    log_rank_0(logging.INFO, f"total accelerators = {process_group_manager.get_world_size()}")
+    log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"context parallel size = {process_group_manager.get_context_parallel_world_size()}")
+
     args.log_args()
     log_environment()
 
@@ -685,7 +687,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
     )
 
-    set_seed(args.random_args.seed)
+    Accelerator.set_seed(args.random_args.seed)
 
     if tuning_method in [TuningMethod.distillation, TuningMethod.full_finetuning]:
         assert args.distributed_args.num_pipeline_stages == 1
@@ -721,7 +723,11 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     assert len(model_container) == len(optimizer_container)
     assert len(optimizer_container) == len(lr_scheduler_container)
 
-    log_model_optimizer_container(model_container, optimizer_container)
+    log_rank_0(logging.INFO, "------------------------ model & optimizer list ------------------------")
+    for model, optimizer in zip(model_container, optimizer_container):
+        log_rank_0(logging.INFO, model)
+        log_rank_0(logging.INFO, optimizer)
+    log_rank_0(logging.INFO, "-------------------- end of model & optimizer list ---------------------")
 
     starting_iteration = 0
     experiments_tracker_state_dict = None

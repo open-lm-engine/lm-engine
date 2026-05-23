@@ -5,9 +5,9 @@
 import pytest
 import torch
 
+from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import set_seed
 
 from ...utils import (
     assert_equal_tensors,
@@ -26,7 +26,7 @@ def test_scattermoe(dtype: torch.dtype) -> None:
     device = torch.device("cuda")
     skip_test_if_device_unavailable(device)
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     input_ids, attention_mask, _ = get_dummy_inputs(device)
 

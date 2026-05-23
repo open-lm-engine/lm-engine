@@ -5,15 +5,19 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
 import torch
 from tqdm import tqdm
 
+from ..accelerator import Accelerator
 from ..enums import ExperimentsTrackerName
-from .accelerator import Accelerator
-from .packages import is_aim_available, is_wandb_available
-from .parallel import is_tracking_rank
-from .pydantic import BaseArgs
+from ..parallel import ProcessGroupManager
+from ..utils import is_aim_available, is_wandb_available
+
+
+if TYPE_CHECKING:
+    from ..arguments import BaseArgs
 
 
 if is_aim_available():
@@ -21,6 +25,16 @@ if is_aim_available():
 
 if is_wandb_available():
     import wandb
+
+
+def is_tracking_rank() -> bool:
+    return (
+        ProcessGroupManager.get_data_parallel_rank() == 0
+        and ProcessGroupManager.get_context_parallel_rank() == 0
+        and ProcessGroupManager.is_tensor_parallel_first_rank()
+        and ProcessGroupManager.get_pipeline_parallel_rank()
+        == ProcessGroupManager.get_pipeline_parallel_world_size() - 1
+    )
 
 
 # to track the LSF/Slurm job in W&B per run - bobcalio

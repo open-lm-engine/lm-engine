@@ -2,9 +2,11 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 import logging
 from functools import partial
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import torch
 import torch.nn as nn
@@ -26,30 +28,24 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
 )
 
-from ..arguments import TrainingArgs
-from ..containers import ModelContainer
-from ..enums import Kernel
-from ..gradient_checkpointing import apply_gradient_checkpointing
-from ..hf_models import (
+from .accelerator import Accelerator
+from .containers import ModelContainer
+from .enums import Kernel
+from .gradient_checkpointing import apply_gradient_checkpointing
+from .hf_models import (
     _INIT_MARKER,
     CausalLMOutputWithPast,
     get_parameter_marker_maps,
     is_parameter_initialized,
     set_parameter_marker_maps,
 )
-from ..kernels import is_kernel_allowed
-from ..utils import (
-    Accelerator,
-    ProcessGroupManager,
-    get_module_class_from_name,
-    is_torch_xla_available,
-    is_torchao_available,
-    log_rank_0,
-    string_to_torch_dtype,
-)
-from .simple_fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
-from .simple_fsdp import data_parallel as simple_fsdp_data_parallel
-from .simple_fsdp import get_simple_fsdp_compile_backend
+from .kernels import is_kernel_allowed
+from .logging_utils import log_rank_0
+from .parallel import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
+from .parallel import ProcessGroupManager
+from .parallel import data_parallel as simple_fsdp_data_parallel
+from .parallel import get_simple_fsdp_compile_backend
+from .utils import get_module_class_from_name, is_torch_xla_available, is_torchao_available, string_to_torch_dtype
 
 
 if is_torch_xla_available():
@@ -60,7 +56,10 @@ if is_torch_xla_available():
 if is_torchao_available():
     from torchao.float8 import ScalingType
 
-    from ..fp8 import FP8Manager
+    from .fp8 import FP8Manager
+
+if TYPE_CHECKING:
+    from .arguments import TrainingArgs
 
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
@@ -222,6 +221,8 @@ def wrap_model_container_for_distributed_training(
         assert len(block_names) == 1
 
         for model in model_container:
+            log_rank_0(logging.INFO, "using activation checkpointing")
+
             apply_gradient_checkpointing(
                 model,
                 args.distributed_args.gradient_checkpointing_method,

@@ -22,7 +22,7 @@ from torch.optim import Rprop as TorchRprop
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from ..enums import ParamsGroupMethod
 from ..hf_models import get_optimizer_split_function
-from ..utils import log_rank_0
+from ..logging_utils import log_rank_0
 from .params_group import _ParamsGroupsList, get_param_groups_list
 from .split_param_optimizer import SplitParamOptimizer
 
