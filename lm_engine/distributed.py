@@ -32,7 +32,15 @@ from .accelerator import Accelerator
 from .containers import ModelContainer
 from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
+from .hf_models import (
+    _INIT_MARKER,
+    CausalLMOutputWithPast,
+    get_parameter_marker_maps,
+    is_parameter_initialized,
+    set_parameter_marker_maps,
+)
 from .kernels import is_kernel_allowed
+from .logging_utils import log_rank_0
 from .parallel import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
 from .parallel import ProcessGroupManager
 from .parallel import data_parallel as simple_fsdp_data_parallel
@@ -135,15 +143,6 @@ def wrap_model_container_for_distributed_training(
     Returns:
         tuple[ModelContainer, _PipelineSchedule]: container of parallelized models and pipeline schedule
     """
-
-    from ..hf_models import (
-        _INIT_MARKER,
-        CausalLMOutputWithPast,
-        get_parameter_marker_maps,
-        is_parameter_initialized,
-        set_parameter_marker_maps,
-    )
-    from ..logging_utils import log_rank_0
 
     stage = args.distributed_args.stage
     zero3 = stage == 3
