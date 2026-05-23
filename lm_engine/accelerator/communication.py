@@ -7,7 +7,7 @@ from typing import Any
 import torch.distributed
 from torch.distributed import ProcessGroup
 
-from ..utils.parallel import ProcessGroupManager
+from ..parallel import ProcessGroupManager
 from .accelerator import Accelerator
 
 
