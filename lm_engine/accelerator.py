@@ -11,9 +11,11 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.distributed
+from torch.distributed import ProcessGroup
 from torch.profiler import ProfilerActivity
 
-from ..utils import is_torch_neuronx_available, is_torch_xla_available
+from .utils import is_torch_neuronx_available, is_torch_xla_available
 
 
 if is_torch_xla_available():
@@ -159,3 +161,25 @@ class Accelerator(Enum):
             return "neuron"
 
         return "inductor"
+
+    @staticmethod
+    def broadcast_object(obj: Any, src: int, group: ProcessGroup) -> Any:
+        from ..parallel import ProcessGroupManager
+
+        if ProcessGroupManager.get_global_rank() != src:
+            obj = None
+
+        object_list = [obj]
+        torch.distributed.broadcast_object_list(object_list, src=src, group=group)
+        obj = object_list[0]
+
+        return obj
+
+    @staticmethod
+    def barrier() -> None:
+        from ..parallel import ProcessGroupManager
+
+        torch.distributed.barrier()
+
+        if Accelerator.get_accelerator() == Accelerator.tpu:
+            torch.distributed.barrier(ProcessGroupManager.get_cpu_group())
