@@ -30,11 +30,12 @@ class TorchProfiler:
             self._profiler = None
             return
 
-        self.accelerator = Accelerator.get_accelerator()
         self._step = 0
 
+        accelerator = Accelerator.get_accelerator()
         experimental_config = None
-        if self.accelerator == Accelerator.trainium:
+
+        if accelerator == Accelerator.trainium:
             experimental_config = NeuronConfig(
                 modes=[ProfileMode.DEVICE, ProfileMode.RUNTIME],
                 max_events_per_nc=100000,
@@ -45,7 +46,7 @@ class TorchProfiler:
             exporter = NeuronProfiler(experimental_config)
 
         self._profiler = None
-        if self.accelerator != Accelerator.tpu:
+        if accelerator != Accelerator.tpu:
             self._profiler = torch.profiler.profile(
                 activities=[torch.profiler.ProfilerActivity.CPU, Accelerator.get_profiler_activity()],
                 schedule=torch.profiler.schedule(
@@ -57,7 +58,7 @@ class TorchProfiler:
                 experimental_config=experimental_config,
                 on_trace_ready=(
                     exporter.export_trace
-                    if self.accelerator == Accelerator.trainium
+                    if accelerator == Accelerator.trainium
                     else torch.profiler.tensorboard_trace_handler(path)
                 ),
                 record_shapes=True,
@@ -73,7 +74,7 @@ class TorchProfiler:
             self._profiler.__exit__(exc_type, exc_val, exc_tb)
 
     def step(self) -> None:
-        if self.path is not None and self.accelerator == Accelerator.tpu:
+        if self.path is not None and Accelerator.get_accelerator() == Accelerator.tpu:
             self._step += 1
             if self._step == self.start_step:
                 xla_start_trace(self.path)
