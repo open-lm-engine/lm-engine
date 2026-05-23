@@ -50,7 +50,7 @@ if is_torch_xla_available():
     from torch_xla import sync as xla_sync
 
 if is_torchao_available():
-    from .parallel import FP8Manager
+    from .fp8 import FP8Manager
 
 
 def train_step_with_pipeline_parallel(
