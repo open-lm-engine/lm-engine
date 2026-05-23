@@ -148,7 +148,7 @@ class Accelerator(Enum):
 
         accelerator = Accelerator.get_accelerator()
 
-        if accelerator == Accelerator.cuda:
+        if accelerator in [Accelerator.cuda, Accelerator.rocm]:
             torch.cuda.manual_seed_all(seed)
         elif accelerator == Accelerator.mps:
             torch.mps.manual_seed(seed)
