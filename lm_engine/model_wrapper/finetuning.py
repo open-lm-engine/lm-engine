@@ -78,7 +78,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
             keys = ["input_ids", "attention_mask", "labels"]
 
             batch_shape = batch["input_ids"].shape if is_tp_first_rank else None
-            batch_shape = Accelerator.broadcast_object(batch_shape, src=tp_source_rank, group=tp_group)
+            batch_shape = ProcessGroupManager.broadcast_object(batch_shape, src=tp_source_rank, group=tp_group)
 
             if not is_tp_first_rank:
                 batch = {key: torch.empty(batch_shape, dtype=torch.long, device=device) for key in keys}

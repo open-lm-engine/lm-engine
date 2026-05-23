@@ -583,7 +583,7 @@ def evaluate(
             if not ProcessGroupManager.is_tensor_parallel_first_rank():
                 is_val_dataloader_none = None
 
-            is_val_dataloader_none = Accelerator.broadcast_object(
+            is_val_dataloader_none = ProcessGroupManager.broadcast_object(
                 is_val_dataloader_none,
                 src=ProcessGroupManager.get_tensor_parallel_first_rank(),
                 group=ProcessGroupManager.get_tensor_parallel_group(),
