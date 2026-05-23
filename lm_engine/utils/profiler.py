@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import torch
 
-from .accelerator import Accelerator
+from ..accelerator import Accelerator
 from .packages import is_torch_neuronx_available, is_torch_xla_available
 from .parallel import ProcessGroupManager
 

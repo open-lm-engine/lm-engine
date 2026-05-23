@@ -6,8 +6,6 @@ import logging
 
 import torch
 
-from .accelerator import Accelerator
-from .communication import Communication
 from .cpp_extension import compile_cpp_extension
 from .environment import environment
 from .hf_hub import download_repo
@@ -28,6 +26,7 @@ from .packages import (
     is_quack_available,
     is_ray_available,
     is_sonicmoe_available,
+    is_torch_neuronx_available,
     is_torch_xla_available,
     is_torchao_available,
     is_triton_available,

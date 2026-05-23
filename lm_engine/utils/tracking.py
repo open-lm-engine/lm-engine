@@ -9,8 +9,8 @@ import os
 import torch
 from tqdm import tqdm
 
+from ..accelerator import Accelerator
 from ..enums import ExperimentsTrackerName
-from .accelerator import Accelerator
 from .packages import is_aim_available, is_wandb_available
 from .parallel import is_tracking_rank
 from .pydantic import BaseArgs

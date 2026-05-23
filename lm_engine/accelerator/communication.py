@@ -7,8 +7,8 @@ from typing import Any
 import torch.distributed
 from torch.distributed import ProcessGroup
 
+from ..utils import ProcessGroupManager
 from .accelerator import Accelerator
-from .parallel import ProcessGroupManager
 
 
 class Communication:

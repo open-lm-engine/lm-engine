@@ -9,7 +9,7 @@ import types
 
 from torch.utils.cpp_extension import load
 
-from .communication import Communication
+from ..accelerator import Communication
 from .parallel import ProcessGroupManager
 
 

@@ -7,7 +7,7 @@ import random
 import numpy as np
 import torch
 
-from .accelerator import Accelerator
+from ..accelerator import Accelerator
 
 
 def set_seed(seed: int) -> None:
