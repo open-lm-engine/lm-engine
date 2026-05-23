@@ -8,9 +8,10 @@ import torch
 import torch.nn as nn
 from transformers import GenerationConfig, PreTrainedModel
 
+from ....accelerator import Accelerator
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible
+from ....utils import ProcessGroupManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
