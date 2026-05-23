@@ -15,7 +15,6 @@ from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig, fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
 from lm_engine.kernels import enable_kernels
 from lm_engine.parallel import ProcessGroupManager
-from lm_engine.utils import Communication
 
 from ....utils import from_config
 
