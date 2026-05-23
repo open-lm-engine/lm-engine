@@ -48,10 +48,10 @@ if is_torch_xla_available():
 if is_torchao_available():
     from torchao.float8 import ScalingType
 
-    from ..fp8 import FP8Manager
+    from .fp8 import FP8Manager
 
 if TYPE_CHECKING:
-    from ..arguments import TrainingArgs
+    from .arguments import TrainingArgs
 
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
