@@ -11,7 +11,8 @@ from ..accelerator import Accelerator, Communication
 from ..enums import Kernel
 from ..hf_models import CausalLMOutputWithPast
 from ..kernels import is_kernel_allowed
-from ..utils import MetricsTrackingDict, ProcessGroupManager
+from ..logging_utils import MetricsTrackingDict
+from ..utils import ProcessGroupManager
 from .base import ModelWrapper
 
 

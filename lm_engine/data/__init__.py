@@ -7,8 +7,9 @@ from functools import partial
 
 from ..arguments import DatasetArgs, TrainingArgs
 from ..enums import DatasetSplit
+from ..logging_utils import log_rank_0
 from ..tokenizers import TOKENIZER_TYPE
-from ..utils import ProcessGroupManager, log_rank_0, run_rank_n
+from ..utils import ProcessGroupManager, run_rank_n
 from .base import BaseDataset, BlendedDatasets
 from .dataloader import ResumableDataLoader
 from .debug import DebugDataset

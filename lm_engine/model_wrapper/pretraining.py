@@ -16,7 +16,8 @@ from ..hf_models import (
     mark_parameter_as_initialized,
 )
 from ..kernels import is_kernel_allowed
-from ..utils import MetricsTrackingDict, ProcessGroupManager
+from ..logging_utils import MetricsTrackingDict
+from ..utils import ProcessGroupManager
 from .base import ModelWrapper
 from .utils import broadcast_tensor_parallel_input
 
