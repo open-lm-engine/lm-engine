@@ -5,13 +5,18 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
 import torch
 from tqdm import tqdm
 
 from ..enums import ExperimentsTrackerName
 from ..parallel import ProcessGroupManager
-from ..utils import BaseArgs, is_aim_available, is_wandb_available
+from ..utils import is_aim_available, is_wandb_available
+
+
+if TYPE_CHECKING:
+    from ..utils import BaseArgs
 
 
 if is_aim_available():
