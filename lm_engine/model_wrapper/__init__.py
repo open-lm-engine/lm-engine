@@ -11,7 +11,6 @@ from .base import ModelWrapper
 from .distillation import ModelWrapperForDistillation
 from .finetuning import ModelWrapperForFinetuning
 from .pretraining import ModelWrapperForPretraining
-from .utils import broadcast_tensor_parallel_input
 
 
 _MODEL_CLASS_MAPPING = {
