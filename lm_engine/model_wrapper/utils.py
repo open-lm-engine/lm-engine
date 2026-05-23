@@ -4,7 +4,8 @@
 
 import torch
 
-from ..utils import Accelerator, ProcessGroupManager
+from ..accelerator import Accelerator
+from ..utils import ProcessGroupManager
 
 
 def broadcast_tensor_parallel_input(tokens: dict, shape: tuple[int]) -> torch.Tensor:

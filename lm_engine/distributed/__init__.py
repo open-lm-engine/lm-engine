@@ -39,7 +39,6 @@ from ..hf_models import (
 )
 from ..kernels import is_kernel_allowed
 from ..utils import (
-    Accelerator,
     ProcessGroupManager,
     get_module_class_from_name,
     is_torch_xla_available,

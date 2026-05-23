@@ -7,10 +7,11 @@ from __future__ import annotations
 import torch
 import torch.distributed
 
+from ..accelerator import Accelerator, Communication
 from ..enums import Kernel
 from ..hf_models import CausalLMOutputWithPast
 from ..kernels import is_kernel_allowed
-from ..utils import Accelerator, Communication, MetricsTrackingDict, ProcessGroupManager
+from ..utils import MetricsTrackingDict, ProcessGroupManager
 from .base import ModelWrapper
 
 

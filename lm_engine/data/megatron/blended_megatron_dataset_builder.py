@@ -9,9 +9,10 @@ from typing import Any
 
 import numpy as np
 
+from ...accelerator import Communication
 from ...defaults import MSC_PREFIX
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import Communication, ProcessGroupManager, is_multi_storage_client_available, log_rank_0
+from ...utils import ProcessGroupManager, is_multi_storage_client_available, log_rank_0
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .gpt_dataset import GPTDataset

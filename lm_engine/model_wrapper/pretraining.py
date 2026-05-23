@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import torch
 
+from ..accelerator import Accelerator
 from ..enums import Kernel
 from ..hf_models import (
     CausalLMOutputWithPast,
@@ -15,7 +16,7 @@ from ..hf_models import (
     mark_parameter_as_initialized,
 )
 from ..kernels import is_kernel_allowed
-from ..utils import Accelerator, MetricsTrackingDict, ProcessGroupManager
+from ..utils import MetricsTrackingDict, ProcessGroupManager
 from .base import ModelWrapper
 from .utils import broadcast_tensor_parallel_input
 
