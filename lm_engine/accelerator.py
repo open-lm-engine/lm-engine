@@ -164,7 +164,7 @@ class Accelerator(Enum):
 
     @staticmethod
     def broadcast_object(obj: Any, src: int, group: ProcessGroup) -> Any:
-        from ..parallel import ProcessGroupManager
+        from .parallel import ProcessGroupManager
 
         if ProcessGroupManager.get_global_rank() != src:
             obj = None
@@ -177,7 +177,7 @@ class Accelerator(Enum):
 
     @staticmethod
     def barrier() -> None:
-        from ..parallel import ProcessGroupManager
+        from .parallel import ProcessGroupManager
 
         torch.distributed.barrier()
 
