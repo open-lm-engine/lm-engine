@@ -17,7 +17,7 @@ from ..utils import is_aim_available, is_wandb_available
 
 
 if TYPE_CHECKING:
-    from ..utils import BaseArgs
+    from ..arguments import BaseArgs
 
 
 if is_aim_available():
