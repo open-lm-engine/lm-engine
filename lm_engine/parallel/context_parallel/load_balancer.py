@@ -10,7 +10,7 @@
 
 import torch
 
-from ..utils import divide_if_divisible
+from ...utils import divide_if_divisible
 
 
 class _HeadTailLoadBalancer:
