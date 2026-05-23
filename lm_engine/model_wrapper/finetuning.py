@@ -36,13 +36,15 @@ class ModelWrapperForFinetuning(ModelWrapper):
         labels = batch.pop("labels")
         model_outputs: CausalLMOutputWithPast = self.model(**batch)
 
-        return self.get_loss(
+        output = self.get_loss(
             model_outputs=model_outputs,
             labels=labels,
             shift_logits_and_labels=True,
             cu_seqlens=batch.get("cu_seqlens", None),
             lm_loss_multiplier=lm_loss_multiplier,
         )
+
+        return output
 
     def _broadcast_inputs_for_tensor_parallel(self, batch: dict) -> dict:
         device = Accelerator.get_current_device()
