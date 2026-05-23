@@ -12,7 +12,8 @@ from transformers import StoppingCriteriaList
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
+from ....parallel import ProcessGroupManager
+from ....utils import SafeTensorsWeightsManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import (

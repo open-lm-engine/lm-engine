@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from .parallel import ProcessGroupManager
+from ..parallel import ProcessGroupManager
 
 
 _MICRO_BATCH_SIZE: int | None = None

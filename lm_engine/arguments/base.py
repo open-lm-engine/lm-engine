@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from .logger import log_rank_0
+from ..logging_utils import log_rank_0
 
 
 class BaseArgs(BaseModel):

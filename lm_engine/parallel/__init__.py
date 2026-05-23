@@ -8,7 +8,7 @@ import os
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Callable
+from typing import Any, Callable
 
 import torch
 import torch.distributed
@@ -16,9 +16,9 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
-from .accelerator import Accelerator
-from .miscellaneous import divide_if_divisible
-from .packages import is_torch_xla_available
+from ..accelerator import Accelerator
+from ..utils import divide_if_divisible, is_torch_xla_available
+from .simple_fsdp import MixedPrecisionPolicy, data_parallel, get_simple_fsdp_compile_backend
 
 
 if is_torch_xla_available():
@@ -441,14 +441,30 @@ class ProcessGroupManager:
     @staticmethod
     def destroy_process_groups() -> None:
         if ProcessGroupManager.is_initialized():
-            from .communication import Communication
-
-            Communication.barrier()
+            ProcessGroupManager.barrier()
             torch.distributed.destroy_process_group()
 
     @staticmethod
     def get_cpu_group() -> ProcessGroup | None:
         return _CPU_GROUP
+
+    @staticmethod
+    def broadcast_object(obj: Any, src: int, group: ProcessGroup) -> Any:
+        if ProcessGroupManager.get_global_rank() != src:
+            obj = None
+
+        object_list = [obj]
+        torch.distributed.broadcast_object_list(object_list, src=src, group=group)
+        obj = object_list[0]
+
+        return obj
+
+    @staticmethod
+    def barrier() -> None:
+        torch.distributed.barrier()
+
+        if Accelerator.get_accelerator() == Accelerator.tpu:
+            torch.distributed.barrier(ProcessGroupManager.get_cpu_group())
 
 
 def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable:
@@ -473,23 +489,11 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
         output = func(*args, **kwargs) if global_rank == rank else None
 
         if barrier:
-            from .communication import Communication
-
-            Communication.barrier()
+            ProcessGroupManager.barrier()
 
         return output
 
     return func_rank_n
-
-
-def is_tracking_rank() -> bool:
-    return (
-        ProcessGroupManager.get_data_parallel_rank() == 0
-        and ProcessGroupManager.get_context_parallel_rank() == 0
-        and ProcessGroupManager.is_tensor_parallel_first_rank()
-        and ProcessGroupManager.get_pipeline_parallel_rank()
-        == ProcessGroupManager.get_pipeline_parallel_world_size() - 1
-    )
 
 
 def get_pipeline_stage_ids_on_current_rank(num_pipeline_stages: int) -> int:

@@ -6,7 +6,8 @@ from enum import Enum
 
 import numpy as np
 
-from ....utils import compile_cpp_extension, log_rank_0
+from ....logging_utils import log_rank_0
+from ....utils import compile_cpp_extension
 
 
 class Split(Enum):
