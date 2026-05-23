@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import torch
 
-from ..accelerator import Accelerator
 from .packages import is_torch_neuronx_available, is_torch_xla_available
 from .parallel import ProcessGroupManager
 
@@ -22,6 +21,8 @@ if is_torch_neuronx_available():
 
 class TorchProfiler:
     def __init__(self, path: str | None, wait: int = 5, active: int = 1, warmup: int = 5) -> TorchProfiler:
+        from ..accelerator import Accelerator
+
         self.path = path
 
         self.start_step = wait + warmup
@@ -74,6 +75,8 @@ class TorchProfiler:
             self._profiler.__exit__(exc_type, exc_val, exc_tb)
 
     def step(self) -> None:
+        from ..accelerator import Accelerator
+
         if self.path is not None and self.accelerator == Accelerator.tpu:
             self._step += 1
             if self._step == self.start_step:

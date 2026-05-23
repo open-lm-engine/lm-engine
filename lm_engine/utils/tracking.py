@@ -9,7 +9,6 @@ import os
 import torch
 from tqdm import tqdm
 
-from ..accelerator import Accelerator
 from ..enums import ExperimentsTrackerName
 from .packages import is_aim_available, is_wandb_available
 from .parallel import is_tracking_rank
@@ -159,6 +158,8 @@ class ExperimentsTracker:
 
             # FIXME this is needed to prevent TPU from getting stuck
             # on GPU, only 1 rank needs to call this but on TPUs, every rank needs to call this
+            from ..accelerator import Accelerator
+
             if Accelerator.get_accelerator() == Accelerator.tpu:
                 values = {k: v.to("cpu") if isinstance(v, torch.Tensor) else v for k, v in values.items()}
 
