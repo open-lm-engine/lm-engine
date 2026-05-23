@@ -10,8 +10,6 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from ..logging_utils.logger import log_rank_0
-
 
 class BaseArgs(BaseModel):
     model_config = ConfigDict(extra="forbid", protected_namespaces=())
@@ -54,6 +52,8 @@ class BaseArgs(BaseModel):
         setattr(self, name, original_value)
 
     def log_args(self) -> None:
+        from ..logging_utils import log_rank_0
+
         def _iterate_args_recursively(args: BaseArgs, prefix: str = "") -> None:
             result = []
 
