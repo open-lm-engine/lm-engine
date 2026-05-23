@@ -17,9 +17,8 @@ from ..hf_models import (
 )
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
-from ..parallel import ProcessGroupManager
+from ..parallel import ProcessGroupManager, broadcast_tensor_parallel_input
 from .base import ModelWrapper
-from .utils import broadcast_tensor_parallel_input
 
 
 class ModelWrapperForPretraining(ModelWrapper):
