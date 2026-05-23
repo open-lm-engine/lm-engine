@@ -13,7 +13,7 @@ from torch.distributed.pipelining.schedules import _PipelineSchedule
 from torch.distributed.tensor.parallel import loss_parallel
 from torch.utils.data import DataLoader
 
-from .accelerator import Accelerator, Communication, set_seed
+from .accelerator import Accelerator, Communication
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
@@ -683,7 +683,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
     )
 
-    set_seed(args.random_args.seed)
+    Accelerator.set_seed(args.random_args.seed)
 
     if tuning_method in [TuningMethod.distillation, TuningMethod.full_finetuning]:
         assert args.distributed_args.num_pipeline_stages == 1

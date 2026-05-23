@@ -4,4 +4,3 @@
 
 from .accelerator import Accelerator
 from .communication import Communication
-from .random import set_seed

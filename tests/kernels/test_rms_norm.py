@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from lm_engine.accelerator import set_seed
+from lm_engine.accelerator import Accelerator
 from lm_engine.arguments import KernelArgs
 from lm_engine.enums import Kernel
 from lm_engine.hf_models.modeling_utils.normalization import RMSNorm
@@ -51,7 +51,7 @@ def test_xma_rmsnorm_equivalence(device: torch.device, dtype: torch.dtype) -> No
     if not is_xma_available():
         pytest.skip("skipping test because accelerated-model-architectures is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     x = torch.randn(*SHAPE, device=device, dtype=dtype)
     grad = torch.randn_like(x)
@@ -75,7 +75,7 @@ def test_xma_memory_efficient_rmsnorm_equivalence(device: torch.device, dtype: t
     if not is_xma_available():
         pytest.skip("skipping test because accelerated-model-architectures is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     x = torch.randn(*SHAPE, device=device, dtype=dtype)
     grad = torch.randn_like(x)
@@ -99,7 +99,7 @@ def test_quack_rmsnorm_equivalence(device: torch.device, dtype: torch.dtype) -> 
     if not is_quack_available():
         pytest.skip("skipping test because quack-kernels is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     x = torch.randn(*SHAPE, device=device, dtype=dtype)
     grad = torch.randn_like(x)

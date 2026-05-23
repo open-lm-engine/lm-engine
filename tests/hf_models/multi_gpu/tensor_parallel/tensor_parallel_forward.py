@@ -9,7 +9,7 @@ import torch
 import torch.distributed
 from transformers import AutoModelForCausalLM
 
-from lm_engine.accelerator import Communication, set_seed
+from lm_engine.accelerator import Accelerator, Communication
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig
 from lm_engine.kernels import enable_kernels
@@ -27,7 +27,7 @@ parser.add_argument("--use-padding-free-transformer", action="store_true")
 parser.add_argument("--sequence-parallel", action="store_true")
 args = parser.parse_args()
 
-set_seed(42)
+Accelerator.set_seed(42)
 
 ProcessGroupManager(tensor_parallel_world_size=int(os.getenv("WORLD_SIZE")))
 
@@ -103,7 +103,7 @@ with enable_kernels(kernels):
     model_tp = model_tp.to(dtype)
     model_tp.eval()
 
-    set_seed(42)
+    Accelerator.set_seed(42)
 
     batch_size = 4
     sequence_length = 512
