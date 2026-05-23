@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from .accelerator import Accelerator
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
-from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
+from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from .data import (
     DatasetSplit,
     ResumableDataLoader,
@@ -722,7 +722,11 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     assert len(model_container) == len(optimizer_container)
     assert len(optimizer_container) == len(lr_scheduler_container)
 
-    log_model_optimizer_container(model_container, optimizer_container)
+    log_rank_0(logging.INFO, "------------------------ model & optimizer list ------------------------")
+    for model, optimizer in zip(model_container, optimizer_container):
+        log_rank_0(logging.INFO, model)
+        log_rank_0(logging.INFO, optimizer)
+    log_rank_0(logging.INFO, "-------------------- end of model & optimizer list ---------------------")
 
     starting_iteration = 0
     experiments_tracker_state_dict = None

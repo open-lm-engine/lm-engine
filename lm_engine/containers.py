@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import logging
-
 import torch.nn as nn
 
 
@@ -60,20 +58,3 @@ class BackwardHookOptimizerContainer(OptimizerContainer):
 
     def zero_grad(self) -> None:
         return
-
-
-def log_model_optimizer_container(model_container: ModelContainer, optimizer_container: OptimizerContainer) -> None:
-    """print model and optimizer
-
-    Args:
-        model_container (ModelContainer): container of models to print
-        optimizer_container (OptimizerContainer): container of optimizers to print
-    """
-
-    from .logging_utils import log_rank_0
-
-    log_rank_0(logging.INFO, "------------------------ model & optimizer list ------------------------")
-    for model, optimizer in zip(model_container, optimizer_container):
-        log_rank_0(logging.INFO, model)
-        log_rank_0(logging.INFO, optimizer)
-    log_rank_0(logging.INFO, "-------------------- end of model & optimizer list ---------------------")
