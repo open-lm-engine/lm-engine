@@ -12,8 +12,9 @@ import numpy as np
 from ...accelerator import Communication
 from ...defaults import MSC_PREFIX
 from ...logging_utils import log_rank_0
+from ...parallel import ProcessGroupManager
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import ProcessGroupManager, is_multi_storage_client_available
+from ...utils import is_multi_storage_client_available
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .gpt_dataset import GPTDataset

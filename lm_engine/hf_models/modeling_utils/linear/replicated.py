@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch.distributed._tensor.placement_types import Replicate
 
 from ....dtensors import tensor_to_dtensor
-from ....utils import ProcessGroupManager
+from ....parallel import ProcessGroupManager
 from ..dtensor_module import DTensorModule
 from .base import ParameterizedLinear
 

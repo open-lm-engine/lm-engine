@@ -2,7 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from ....utils import ProcessGroupManager
+from ....parallel import ProcessGroupManager
 from ...config import CommonConfig
 from .attention import (
     Attention,

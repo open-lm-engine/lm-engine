@@ -4,8 +4,8 @@ from ...accelerator import Accelerator
 from ...arguments import TrainingArgs
 from ...defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ...logging_utils import log_rank_0
+from ...parallel import ProcessGroupManager
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import ProcessGroupManager
 from ..dataloader import ResumableDataLoader
 from .blended_megatron_dataset_builder import build
 from .blended_megatron_dataset_config import GPTDatasetConfig

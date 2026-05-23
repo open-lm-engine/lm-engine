@@ -40,13 +40,8 @@ from ..hf_models import (
 )
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
-from ..utils import (
-    ProcessGroupManager,
-    get_module_class_from_name,
-    is_torch_xla_available,
-    is_torchao_available,
-    string_to_torch_dtype,
-)
+from ..parallel import ProcessGroupManager
+from ..utils import get_module_class_from_name, is_torch_xla_available, is_torchao_available, string_to_torch_dtype
 from .simple_fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
 from .simple_fsdp import data_parallel as simple_fsdp_data_parallel
 from .simple_fsdp import get_simple_fsdp_compile_backend

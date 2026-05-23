@@ -6,7 +6,7 @@ from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import ModelContainer
 from ..enums import TuningMethod
 from ..kernels import enable_kernels
-from ..utils import get_pipeline_stage_ids_on_current_rank
+from ..parallel import get_pipeline_stage_ids_on_current_rank
 from .base import ModelWrapper
 from .distillation import ModelWrapperForDistillation
 from .finetuning import ModelWrapperForFinetuning

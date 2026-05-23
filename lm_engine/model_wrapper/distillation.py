@@ -14,7 +14,8 @@ from ..enums import Kernel, KLDivergenceMethod
 from ..hf_models import CausalLMOutputWithPast, PipelineParallelOutput, get_autoregressive_language_modeling_loss
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
-from ..utils import ProcessGroupManager, string_to_torch_dtype
+from ..parallel import ProcessGroupManager
+from ..utils import string_to_torch_dtype
 from .pretraining import ModelWrapperForPretraining
 
 
