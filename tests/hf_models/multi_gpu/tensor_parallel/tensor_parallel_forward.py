@@ -13,7 +13,8 @@ from lm_engine.accelerator import Accelerator, Communication
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import ProcessGroupManager, SafeTensorsWeightsManager, string_to_torch_dtype
+from lm_engine.parallel import ProcessGroupManager
+from lm_engine.utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
 from ....utils import from_config
 
