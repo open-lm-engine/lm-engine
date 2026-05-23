@@ -9,6 +9,7 @@ import torch
 from torch.distributed._tensor.api import DTensor
 from transformers import AutoModelForCausalLM
 
+from lm_engine.accelerator import Communication
 from lm_engine.dtensors import dtensor_to_tensor
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig, fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
