@@ -45,7 +45,8 @@ class TorchProfiler:
             )
 
             exporter = NeuronProfiler(experimental_config)
-        elif accelerator != Accelerator.tpu:
+
+        if accelerator != Accelerator.tpu:
             self._profiler = torch.profiler.profile(
                 activities=[torch.profiler.ProfilerActivity.CPU, Accelerator.get_profiler_activity()],
                 schedule=torch.profiler.schedule(
