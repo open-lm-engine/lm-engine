@@ -25,6 +25,7 @@ from .data import (
     get_next_batch,
     get_pretraining_dataloaders,
 )
+from .distributed import wrap_model_container_for_distributed_training
 from .dtensors import dtensor_to_tensor
 from .enums import TuningMethod
 from .hf_models import disable_generation_cache
@@ -39,7 +40,7 @@ from .logging_utils import (
 )
 from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
-from .parallel import ProcessGroupManager, wrap_model_container_for_distributed_training
+from .parallel import ProcessGroupManager
 from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import is_torch_xla_available, is_torchao_available, setup_tf32
 
