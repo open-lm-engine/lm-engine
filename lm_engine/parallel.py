@@ -16,8 +16,8 @@ from torch.distributed import ProcessGroup
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
-from .miscellaneous import divide_if_divisible
-from .packages import is_torch_xla_available
+from .accelerator import Accelerator, Communication
+from .utils import divide_if_divisible, is_torch_xla_available
 
 
 if is_torch_xla_available():
@@ -120,8 +120,6 @@ class ProcessGroupManager:
         global _CPU_GROUP
         global _DATA_LOADING_MESH
         global _CONTEXT_PARALLEL_MESH
-
-        from ..accelerator import Accelerator
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -474,8 +472,6 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
         output = func(*args, **kwargs) if global_rank == rank else None
 
         if barrier:
-            from ..accelerator import Communication
-
             Communication.barrier()
 
         return output
