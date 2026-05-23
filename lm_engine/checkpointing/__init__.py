@@ -15,14 +15,13 @@ from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
+from ..accelerator import Accelerator, Communication
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
 from ..hf_models import fix_unsharded_state_dict
 from ..model_wrapper import ModelWrapper, get_model_container
 from ..utils import (
-    Accelerator,
-    Communication,
     ExperimentsTracker,
     ProcessGroupManager,
     is_torch_xla_available,
