@@ -11,7 +11,8 @@ from .accelerator import Accelerator
 from .enums import GradientCheckpointingMethod
 from .hf_models import CommonConfig, is_custom_model
 from .hf_models.modeling_utils import is_glu
-from .utils import ExperimentsTracker, MetricsTrackingDict, ProcessGroupManager, log_metrics
+from .logging_utils import ExperimentsTracker, MetricsTrackingDict, log_metrics
+from .parallel import ProcessGroupManager
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
