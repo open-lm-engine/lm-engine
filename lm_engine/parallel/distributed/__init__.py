@@ -223,6 +223,8 @@ def wrap_model_container_for_distributed_training(
         assert len(block_names) == 1
 
         for model in model_container:
+            log_rank_0(logging.INFO, "using activation checkpointing")
+
             apply_gradient_checkpointing(
                 model,
                 args.distributed_args.gradient_checkpointing_method,
