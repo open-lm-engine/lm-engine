@@ -6,7 +6,8 @@ import logging
 from importlib.metadata import distributions
 from warnings import warn
 
-from ..utils import ProcessGroupManager, is_colorlog_available, run_rank_n
+from ..parallel import ProcessGroupManager
+from ..utils import is_colorlog_available, run_rank_n
 
 
 if is_colorlog_available():

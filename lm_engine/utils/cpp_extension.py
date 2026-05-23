@@ -9,7 +9,7 @@ import types
 
 from torch.utils.cpp_extension import load
 
-from .parallel import ProcessGroupManager
+from ..parallel import ProcessGroupManager
 
 
 def compile_cpp_extension(
