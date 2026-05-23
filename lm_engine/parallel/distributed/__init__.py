@@ -8,11 +8,6 @@ import logging
 from functools import partial
 from typing import TYPE_CHECKING, Callable
 
-
-if TYPE_CHECKING:
-    from ...arguments import TrainingArgs
-    from ...containers import ModelContainer
-
 import torch
 import torch.nn as nn
 from torch.distributed._composable.fsdp import CPUOffloadPolicy
@@ -34,6 +29,7 @@ from torch.distributed.pipelining.schedules import (
 )
 
 from ...accelerator import Accelerator
+from ...containers import ModelContainer
 from ...enums import Kernel
 from ...gradient_checkpointing import apply_gradient_checkpointing
 from ...kernels import is_kernel_allowed
@@ -53,6 +49,9 @@ if is_torchao_available():
     from torchao.float8 import ScalingType
 
     from ...fp8 import FP8Manager
+
+if TYPE_CHECKING:
+    from ...arguments import TrainingArgs
 
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
