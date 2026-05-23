@@ -16,7 +16,8 @@ from .enums import (
     ParamsGroupMethod,
     TuningMethod,
 )
-from .utils import BaseArgs, load_yaml, normalize_dtype_string, set_logger
+from .logging_utils import set_logger
+from .utils import BaseArgs, load_yaml, normalize_dtype_string
 
 
 def _check_not_None(object_name_list: list[tuple[Any, str]]) -> None:

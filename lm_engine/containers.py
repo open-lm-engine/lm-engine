@@ -8,7 +8,7 @@ import logging
 
 import torch.nn as nn
 
-from .utils import log_rank_0
+from .logging_utils import log_rank_0
 
 
 class _Container:

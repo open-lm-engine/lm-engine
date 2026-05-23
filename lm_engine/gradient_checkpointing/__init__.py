@@ -7,7 +7,7 @@ import logging
 import torch.nn as nn
 
 from ..enums import GradientCheckpointingMethod
-from ..utils import log_rank_0
+from ..logging_utils import log_rank_0
 from .block import block_checkpointing
 
 
