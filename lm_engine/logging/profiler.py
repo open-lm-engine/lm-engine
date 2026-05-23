@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import torch
 
-from .packages import is_torch_neuronx_available, is_torch_xla_available
-from .parallel import ProcessGroupManager
+from ..utils import ProcessGroupManager, is_torch_neuronx_available, is_torch_xla_available
 
 
 if is_torch_xla_available():

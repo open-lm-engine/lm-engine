@@ -10,9 +10,7 @@ import torch
 from tqdm import tqdm
 
 from ..enums import ExperimentsTrackerName
-from .packages import is_aim_available, is_wandb_available
-from .parallel import is_tracking_rank
-from .pydantic import BaseArgs
+from ..utils import BaseArgs, ProcessGroupManager, is_aim_available, is_wandb_available
 
 
 if is_aim_available():
@@ -20,6 +18,16 @@ if is_aim_available():
 
 if is_wandb_available():
     import wandb
+
+
+def is_tracking_rank() -> bool:
+    return (
+        ProcessGroupManager.get_data_parallel_rank() == 0
+        and ProcessGroupManager.get_context_parallel_rank() == 0
+        and ProcessGroupManager.is_tensor_parallel_first_rank()
+        and ProcessGroupManager.get_pipeline_parallel_rank()
+        == ProcessGroupManager.get_pipeline_parallel_world_size() - 1
+    )
 
 
 # to track the LSF/Slurm job in W&B per run - bobcalio
