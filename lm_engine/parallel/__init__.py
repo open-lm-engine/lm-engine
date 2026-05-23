@@ -4,7 +4,7 @@
 
 import logging
 
-from ..logging import log_environment, log_rank_0, warn_rank_0
+from ..logging_utils import log_environment, log_rank_0, warn_rank_0
 from ..utils import (
     ProcessGroupManager,
     is_aim_available,
