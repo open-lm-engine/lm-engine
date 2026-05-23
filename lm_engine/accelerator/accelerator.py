@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from torch.profiler import ProfilerActivity
 
-from ..utils.packages import is_torch_neuronx_available, is_torch_xla_available
+from ..utils import is_torch_neuronx_available, is_torch_xla_available
 
 
 if is_torch_xla_available():
