@@ -28,16 +28,16 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
 )
 
-from ..accelerator import Accelerator
-from ..containers import ModelContainer
-from ..enums import Kernel
-from ..gradient_checkpointing import apply_gradient_checkpointing
-from ..kernels import is_kernel_allowed
-from ..parallel import ProcessGroupManager
-from ..utils import get_module_class_from_name, is_torch_xla_available, is_torchao_available, string_to_torch_dtype
-from .simple_fsdp import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
-from .simple_fsdp import data_parallel as simple_fsdp_data_parallel
-from .simple_fsdp import get_simple_fsdp_compile_backend
+from .accelerator import Accelerator
+from .containers import ModelContainer
+from .enums import Kernel
+from .gradient_checkpointing import apply_gradient_checkpointing
+from .kernels import is_kernel_allowed
+from .parallel import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
+from .parallel import ProcessGroupManager
+from .parallel import data_parallel as simple_fsdp_data_parallel
+from .parallel import get_simple_fsdp_compile_backend
+from .utils import get_module_class_from_name, is_torch_xla_available, is_torchao_available, string_to_torch_dtype
 
 
 if is_torch_xla_available():
