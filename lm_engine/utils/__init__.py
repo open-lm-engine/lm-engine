@@ -31,7 +31,6 @@ from .packages import (
     is_xma_available,
     is_zstandard_available,
 )
-from .pydantic import BaseArgs
 from .safetensors import SafeTensorsWeightsManager
 from .wrapper import get_module_class_from_name
 from .yaml import load_yaml

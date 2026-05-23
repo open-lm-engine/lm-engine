@@ -6,7 +6,8 @@ from transformers import AutoTokenizer
 
 from lm_engine.arguments import DatasetArgs, DistributedArgs, RandomArgs, TrainingParameters
 from lm_engine.data import get_megatron_gpt_dataloaders
-from lm_engine.utils import ProcessGroupManager, set_logger
+from lm_engine.logging_utils import set_logger
+from lm_engine.parallel import ProcessGroupManager
 
 
 # this is needed to print logs during preparation of dataloader
