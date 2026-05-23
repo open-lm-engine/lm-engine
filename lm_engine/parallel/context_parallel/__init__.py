@@ -20,11 +20,7 @@ _LOAD_BALANCERS = {"headtail": _HeadTailLoadBalancer}
 
 
 def prepare_context_parallel_input(
-    inputs: torch.Tensor,
-    labels: torch.Tensor,
-    extra_kwargs: dict[str, Any],
-    cp_mesh: DeviceMesh,
-    load_balancer_type: str | None = "headtail",
+    inputs: tuple[torch.Tensor, ...], cp_mesh: DeviceMesh, load_balancer_type: str | None = "headtail"
 ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
     """
     Shard inputs, labels, positions, and attention masks for Context Parallel.
@@ -50,19 +46,9 @@ def prepare_context_parallel_input(
             - updated_extra_kwargs: Dict with sharded 'positions' and optionally
               sharded 'attention_masks'
     """
-    attention_masks = extra_kwargs.get("attention_masks", None)
-    positions = extra_kwargs["positions"]
-    (inputs, labels, positions), attention_masks = cp_shard(
-        cp_mesh,
-        (inputs, labels, positions),
-        attention_masks,
-        load_balancer_type,
-    )
-    extra_kwargs["positions"] = positions
-    if attention_masks is not None:
-        extra_kwargs["attention_masks"] = attention_masks
+    inputs, _ = cp_shard(cp_mesh=cp_mesh, inputs=inputs, load_balancer_type=load_balancer_type)
 
-    return inputs, labels, extra_kwargs
+    return inputs
 
 
 def cp_shard(
@@ -101,10 +87,13 @@ def cp_shard(
         ValueError: If load_balancer_type is "ptrr" and attention_masks
             is None or a dict
     """
-    seq_len = inputs[0].size(input_seq_dim)
+
+    assert isinstance(inputs, tuple)
+
+    S = inputs[0].size(input_seq_dim)
     cp_world_size = cp_mesh.size(0)
 
-    load_balancer = _LOAD_BALANCERS[load_balancer_type](seq_len, cp_world_size, cp_mesh.device_type)
+    load_balancer = _LOAD_BALANCERS[load_balancer_type](S, cp_world_size, cp_mesh.device_type)
 
     inputs = _context_parallel_shard(
         mesh=cp_mesh, buffers=inputs, seq_dims=tuple(input_seq_dim for _ in inputs), load_balancer=load_balancer
