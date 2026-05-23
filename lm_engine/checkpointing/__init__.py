@@ -181,7 +181,7 @@ def save_checkpoint(
                 master_only=False,
             )
 
-        Accelerator.barrier()
+        ProcessGroupManager.barrier()
 
         run_rank_n(json.dump)(
             {"latest_checkpointed_iteration": iteration},

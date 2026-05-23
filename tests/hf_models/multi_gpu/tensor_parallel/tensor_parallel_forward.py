@@ -81,7 +81,7 @@ with enable_kernels(kernels):
         model.save_pretrained(args.tmp_path, safe_serialization=True)
         model = model.to(dtype)
 
-    Accelerator.barrier()
+    ProcessGroupManager.barrier()
 
     # use dummy tensors to avoid initializing model here
     with torch.device("meta"):

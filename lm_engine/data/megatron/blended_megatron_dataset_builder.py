@@ -9,7 +9,6 @@ from typing import Any
 
 import numpy as np
 
-from ...accelerator import Accelerator
 from ...defaults import MSC_PREFIX
 from ...logging_utils import log_rank_0
 from ...parallel import ProcessGroupManager
@@ -194,7 +193,7 @@ def _build_megatron_dataset_splits(
         ):
             msc.download_file(remote_idx_path, idx_path)
 
-        Accelerator.barrier()
+        ProcessGroupManager.barrier()
 
         assert os.path.exists(idx_path)
 
@@ -263,7 +262,7 @@ def _build_generic_dataset(
                 )
                 raise Exception(log) from err
 
-        Accelerator.barrier()
+        ProcessGroupManager.barrier()
 
         # After, build on other ranks
         if not caching_allowed and ProcessGroupManager.is_tensor_parallel_first_rank():

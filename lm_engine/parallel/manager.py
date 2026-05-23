@@ -8,7 +8,7 @@ import os
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Callable
+from typing import Any, Callable
 
 import torch
 import torch.distributed
@@ -440,12 +440,30 @@ class ProcessGroupManager:
     @staticmethod
     def destroy_process_groups() -> None:
         if ProcessGroupManager.is_initialized():
-            Accelerator.barrier()
+            ProcessGroupManager.barrier()
             torch.distributed.destroy_process_group()
 
     @staticmethod
     def get_cpu_group() -> ProcessGroup | None:
         return _CPU_GROUP
+
+    @staticmethod
+    def broadcast_object(obj: Any, src: int, group: ProcessGroup) -> Any:
+        if ProcessGroupManager.get_global_rank() != src:
+            obj = None
+
+        object_list = [obj]
+        torch.distributed.broadcast_object_list(object_list, src=src, group=group)
+        obj = object_list[0]
+
+        return obj
+
+    @staticmethod
+    def barrier() -> None:
+        torch.distributed.barrier()
+
+        if Accelerator.get_accelerator() == Accelerator.tpu:
+            torch.distributed.barrier(ProcessGroupManager.get_cpu_group())
 
 
 def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable:
@@ -470,7 +488,7 @@ def run_rank_n(func: Callable, rank: int = 0, barrier: bool = False) -> Callable
         output = func(*args, **kwargs) if global_rank == rank else None
 
         if barrier:
-            Accelerator.barrier()
+            ProcessGroupManager.barrier()
 
         return output
 
