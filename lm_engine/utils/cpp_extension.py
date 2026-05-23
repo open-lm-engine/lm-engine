@@ -24,13 +24,13 @@ def compile_cpp_extension(
         return load(name, sources=sources, extra_cflags=extra_cflags, build_directory=build_directory, verbose=verbose)
 
     if distributed:
-        from ..accelerator import Communication
+        from ..accelerator import Accelerator
         from ..parallel import ProcessGroupManager
 
         if ProcessGroupManager.get_global_rank() == 0:
             module = _compile()
 
-        Communication.barrier()
+        Accelerator.barrier()
 
         if ProcessGroupManager.get_global_rank() != 0:
             module = _compile()

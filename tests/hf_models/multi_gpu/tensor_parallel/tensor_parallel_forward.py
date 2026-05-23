@@ -9,7 +9,7 @@ import torch
 import torch.distributed
 from transformers import AutoModelForCausalLM
 
-from lm_engine.accelerator import Accelerator, Communication
+from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig
 from lm_engine.kernels import enable_kernels
@@ -81,7 +81,7 @@ with enable_kernels(kernels):
         model.save_pretrained(args.tmp_path, safe_serialization=True)
         model = model.to(dtype)
 
-    Communication.barrier()
+    Accelerator.barrier()
 
     # use dummy tensors to avoid initializing model here
     with torch.device("meta"):

@@ -9,7 +9,7 @@ import torch
 from torch.distributed._tensor.api import DTensor
 from transformers import AutoModelForCausalLM
 
-from lm_engine.accelerator import Communication
+from lm_engine.accelerator import Accelerator
 from lm_engine.dtensors import dtensor_to_tensor
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig, fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
@@ -62,7 +62,7 @@ if is_tp_first_rank:
 
     model.save_pretrained(args.tmp_path, safe_serialization=True)
 
-Communication.barrier()
+Accelerator.barrier()
 
 model_tp = AutoModelForCausalLM.from_pretrained(args.tmp_path)
 tp_state_dict = model_tp.state_dict()
@@ -85,7 +85,7 @@ def run_check(fix: bool):
         )
         del cpu_state_dict
 
-        Communication.barrier()
+        Accelerator.barrier()
 
         tensor_parallel_state_dicts = [
             torch.load(os.path.join(args.tmp_path, f"tp-{i}.pt"), weights_only=False)
@@ -96,7 +96,7 @@ def run_check(fix: bool):
             config, tensor_parallel_state_dicts=tensor_parallel_state_dicts
         )
 
-    Communication.barrier()
+    Accelerator.barrier()
 
     if is_tp_first_rank:
         original_state_dict = model.state_dict()

@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 import torch.distributed
 
-from ..accelerator import Accelerator, Communication
+from ..accelerator import Accelerator
 from ..enums import Kernel
 from ..hf_models import CausalLMOutputWithPast
 from ..kernels import is_kernel_allowed
@@ -78,7 +78,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
             keys = ["input_ids", "attention_mask", "labels"]
 
             batch_shape = batch["input_ids"].shape if is_tp_first_rank else None
-            batch_shape = Communication.broadcast_object(batch_shape, src=tp_source_rank, group=tp_group)
+            batch_shape = Accelerator.broadcast_object(batch_shape, src=tp_source_rank, group=tp_group)
 
             if not is_tp_first_rank:
                 batch = {key: torch.empty(batch_shape, dtype=torch.long, device=device) for key in keys}

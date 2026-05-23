@@ -5,7 +5,7 @@
 import argparse
 import os
 
-from lm_engine.accelerator import Communication
+from lm_engine.accelerator import Accelerator
 from lm_engine.arguments import TrainingArgs, UnshardingArgs
 from lm_engine.checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_and_unshard, save_checkpoint
 from lm_engine.distributed import wrap_model_container_for_distributed_training
@@ -63,7 +63,7 @@ if global_rank == 0:
 
         train_config.distributed_args.num_pipeline_stages = original_num_stages
 
-Communication.barrier()
+Accelerator.barrier()
 
 # modify args to load the saved single_rank checkpoint
 train_config.model_args.pretrained_config = None
@@ -94,7 +94,7 @@ save_checkpoint(
 
 ensure_last_checkpoint_is_saved()
 
-Communication.barrier()
+Accelerator.barrier()
 
 if global_rank == 0:
     with (

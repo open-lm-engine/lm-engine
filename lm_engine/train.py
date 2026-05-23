@@ -13,7 +13,7 @@ from torch.distributed.pipelining.schedules import _PipelineSchedule
 from torch.distributed.tensor.parallel import loss_parallel
 from torch.utils.data import DataLoader
 
-from .accelerator import Accelerator, Communication
+from .accelerator import Accelerator
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer, log_model_optimizer_container
@@ -584,7 +584,7 @@ def evaluate(
             if not ProcessGroupManager.is_tensor_parallel_first_rank():
                 is_val_dataloader_none = None
 
-            is_val_dataloader_none = Communication.broadcast_object(
+            is_val_dataloader_none = Accelerator.broadcast_object(
                 is_val_dataloader_none,
                 src=ProcessGroupManager.get_tensor_parallel_first_rank(),
                 group=ProcessGroupManager.get_tensor_parallel_group(),

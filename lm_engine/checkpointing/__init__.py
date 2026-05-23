@@ -15,7 +15,7 @@ from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
-from ..accelerator import Accelerator, Communication
+from ..accelerator import Accelerator
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
@@ -181,7 +181,7 @@ def save_checkpoint(
                 master_only=False,
             )
 
-        Communication.barrier()
+        Accelerator.barrier()
 
         run_rank_n(json.dump)(
             {"latest_checkpointed_iteration": iteration},
