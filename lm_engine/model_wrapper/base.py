@@ -77,7 +77,6 @@ class ModelWrapper(nn.Module):
         self.is_first_stage = self.pipeline_stage_id == 0
         self.is_last_stage = self.pipeline_stage_id == self.num_pipeline_stages - 1
         self.is_pipeline_parallel_enabled = self.num_pipeline_stages > 1
-        self.shift_logits_and_labels = False
 
         use_model_parallelism = ProcessGroupManager.is_tensor_parallel_enabled() or self.is_pipeline_parallel_enabled
 
@@ -111,6 +110,7 @@ class ModelWrapper(nn.Module):
         self,
         model_outputs: CausalLMOutputWithPast,
         labels: torch.Tensor,
+        shift_logits_and_labels: bool,
         cu_seqlens: torch.Tensor | None = None,
         lm_loss_multiplier: float = 1,
     ) -> dict[str, torch.Tensor]:
@@ -125,7 +125,7 @@ class ModelWrapper(nn.Module):
             cu_seqlens=cu_seqlens,
             use_padding_free_transformer=self.use_padding_free_transformer,
             reduction="sum",
-            shift_logits_and_labels=self.shift_logits_and_labels,
+            shift_logits_and_labels=shift_logits_and_labels,
             tensor_parallel_enabled=tensor_parallel_enabled,
         )
 

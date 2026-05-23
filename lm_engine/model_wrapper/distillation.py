@@ -122,7 +122,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
             cu_seqlens=None,
             use_padding_free_transformer=self.use_padding_free_transformer,
             reduction="sum",
-            shift_logits_and_labels=self.shift_logits_and_labels,
+            shift_logits_and_labels=False,
             tensor_parallel_enabled=False,
         )
 

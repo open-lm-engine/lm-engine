@@ -81,8 +81,6 @@ class ModelWrapperForPretraining(ModelWrapper):
             keep_in_fp32=keep_in_fp32,
         )
 
-        self.shift_logits_and_labels = True
-
         if self.is_pipeline_parallel_enabled:
             assert not self.reset_attention_mask, "reset_attention_mask is not supported with pipeline parallelism"
             assert not self.reset_position_ids, "reset_position_ids is not supported with pipeline parallelism"
@@ -137,7 +135,9 @@ class ModelWrapperForPretraining(ModelWrapper):
             if use_aux_loss:
                 output = (output, aux_loss)
         else:
-            output = self.get_loss(output, labels, lm_loss_multiplier=lm_loss_multiplier)
+            output = self.get_loss(
+                output, labels, shift_logits_and_labels=False, lm_loss_multiplier=lm_loss_multiplier
+            )
 
         return output
 

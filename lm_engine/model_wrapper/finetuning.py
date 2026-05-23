@@ -39,6 +39,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
         return self.get_loss(
             model_outputs=model_outputs,
             labels=labels,
+            shift_logits_and_labels=True,
             cu_seqlens=batch.get("cu_seqlens", None),
             lm_loss_multiplier=lm_loss_multiplier,
         )
