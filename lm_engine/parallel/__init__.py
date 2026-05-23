@@ -22,6 +22,7 @@ from ..utils import (
     is_xma_available,
     is_zstandard_available,
 )
+from .manager import ProcessGroupManager, run_rank_n
 
 
 def init_distributed(
