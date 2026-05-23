@@ -2,10 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-# **************************************************
-# Copyright (c) 2026, Mayank Mishra
-# **************************************************
-
 from argparse import ArgumentParser
 from typing import Any
 
