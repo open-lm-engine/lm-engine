@@ -39,7 +39,7 @@ from .logging_utils import (
 )
 from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
-from .parallel import ProcessGroupManager, init_distributed
+from .parallel import ProcessGroupManager
 from .parallel.distributed import wrap_model_container_for_distributed_training
 from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import is_torch_xla_available, is_torchao_available, setup_tf32
@@ -661,7 +661,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         assert tuning_method == TuningMethod.distillation, f"unexpected tuning method ({tuning_method})"
 
     # initialize distributed with nccl for multi-node communications
-    init_distributed(
+    process_group_manager = ProcessGroupManager(
         tensor_parallel_world_size=args.distributed_args.tensor_parallel_world_size,
         pipeline_parallel_world_size=args.distributed_args.pipeline_parallel_world_size,
         data_parallel_replication_world_size=args.distributed_args.zero_topology.data_parallel_replication_world_size,
@@ -671,6 +671,13 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         timeout_minutes=args.distributed_args.timeout_minutes,
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
     )
+
+    log_rank_0(logging.INFO, process_group_manager)
+    log_rank_0(logging.INFO, f"total accelerators = {process_group_manager.get_world_size()}")
+    log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"context parallel size = {process_group_manager.get_context_parallel_world_size()}")
 
     args.log_args()
     log_environment()
