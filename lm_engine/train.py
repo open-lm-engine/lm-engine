@@ -386,21 +386,20 @@ def train(
         global_step_in_tokens = global_step * tokens_per_batch
 
     if eval_during_training:
-        if tuning_method == TuningMethod.full_finetuning:
-            evaluate(val_dataloader, model_container, starting_iteration, experiments_tracker)
-        else:
-            eval_steps = args.datasets[0].class_args.get("eval_steps")
-            evaluate(
-                val_dataloaders=val_dataloaders,
-                model_container=model_container,
-                global_step=global_step,
-                global_step_in_tokens=global_step_in_tokens,
-                experiments_tracker=experiments_tracker,
-                eval_steps=eval_steps,
-                group_names=group_names,
-                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
-                context="val",
-            )
+        eval_steps = args.datasets[0].class_args.get("eval_steps")
+        evaluate(
+            val_dataloaders=val_dataloaders,
+            model_container=model_container,
+            global_step=global_step,
+            global_step_in_tokens=global_step_in_tokens,
+            experiments_tracker=experiments_tracker,
+            eval_steps=eval_steps,
+            group_names=group_names,
+            tuning_method=tuning_method,
+            micro_batch_size=micro_batch_size,
+            sequence_length=sequence_length,
+            context="val",
+        )
 
     is_pipeline_parallel_enabled = args.distributed_args.num_pipeline_stages > 1
     if not is_pipeline_parallel_enabled:
@@ -500,7 +499,9 @@ def train(
                 experiments_tracker=experiments_tracker,
                 eval_steps=eval_steps,
                 group_names=group_names,
-                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                tuning_method=tuning_method,
+                micro_batch_size=micro_batch_size,
+                sequence_length=sequence_length,
                 context="val",
             )
 
@@ -539,7 +540,9 @@ def train(
                 experiments_tracker=experiments_tracker,
                 eval_steps=eval_steps,
                 group_names=group_names,
-                lm_loss_multiplier=1 / (micro_batch_size * sequence_length),
+                tuning_method=tuning_method,
+                micro_batch_size=micro_batch_size,
+                sequence_length=sequence_length,
                 context="test",
             )
 
@@ -554,9 +557,11 @@ def evaluate(
     global_step: int,
     global_step_in_tokens: int,
     experiments_tracker: ExperimentsTracker,
-    eval_steps: int,
+    eval_steps: int | None,
     group_names: list[str],
-    lm_loss_multiplier: float,
+    tuning_method: TuningMethod,
+    micro_batch_size: int,
+    sequence_length: int,
     context: str,
 ) -> None:
     """main validation loop for the program
@@ -569,45 +574,60 @@ def evaluate(
         experiments_tracker (ExperimentsTracker): metrics tracker
         eval_steps (int): number of steps to run eval for
         group_names (list[str]): names of the datasets in validation/test group
-        lm_loss_multiplier (float): lm loss multiplier
         context (str): context
     """
+
+    model_container.eval()
 
     assert len(model_container) == 1
     model = model_container[0]
 
-    if ProcessGroupManager.is_tensor_parallel_enabled():
-        # other tensor parallel ranks need to be told if val dataloader is None or not
-        is_val_dataloader_none = (
-            val_dataloaders is None or len(val_dataloaders) == 0
-            if ProcessGroupManager.is_tensor_parallel_first_rank()
-            else None
-        )
-        is_val_dataloader_none = Communication.broadcast_object(
-            is_val_dataloader_none,
-            src=ProcessGroupManager.get_tensor_parallel_first_rank(),
-            group=ProcessGroupManager.get_tensor_parallel_group(),
-        )
-    else:
-        is_val_dataloader_none = val_dataloaders is None or len(val_dataloaders) == 0
-
-    if is_val_dataloader_none:
-        return
-
-    model.eval()
-
     for group_name, val_dataloader in zip(group_names, val_dataloaders):
-        if val_dataloader is None:
+        is_val_dataloader_none = val_dataloader is None or len(val_dataloader) == 0
+
+        if ProcessGroupManager.is_tensor_parallel_enabled():
+            if not ProcessGroupManager.is_tensor_parallel_first_rank():
+                is_val_dataloader_none = None
+
+            is_val_dataloader_none = Communication.broadcast_object(
+                is_val_dataloader_none,
+                src=ProcessGroupManager.get_tensor_parallel_first_rank(),
+                group=ProcessGroupManager.get_tensor_parallel_group(),
+            )
+
+        if is_val_dataloader_none:
             continue
 
+        if eval_steps is None and tuning_method == TuningMethod.full_finetuning:
+            eval_steps = torch.tensor(
+                len(val_dataloader),
+                device=Accelerator.get_current_device(),
+                dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.long,
+            )
+
+            torch.distributed.all_reduce(eval_steps, group=ProcessGroupManager.get_tensor_parallel_group())
+            eval_steps = eval_steps.item()
+
+        assert eval_steps is not None
+
+        lm_loss_multiplier = 1 / eval_steps
+        if tuning_method == TuningMethod.full_finetuning:
+            val_dataloader = custom_iterator(val_dataloader, infinite=False)
+        else:
+            lm_loss_multiplier /= micro_batch_size * sequence_length
+
         metrics_tracker = MetricsTrackingDict({})
+        loss_tokens = 0 if tuning_method == TuningMethod.full_finetuning else 1
 
         for _ in range(eval_steps):
             batch = get_next_batch(val_dataloader)
+            if tuning_method == TuningMethod.full_finetuning:
+                loss_tokens += (batch["labels"] != -100).sum()
+
             loss_step_dict = model(batch, lm_loss_multiplier=lm_loss_multiplier)
             metrics_tracker = metrics_tracker + loss_step_dict
 
-        metrics_tracker = metrics_tracker / eval_steps
+        metrics_tracker = metrics_tracker / loss_tokens
 
         for key in metrics_tracker:
             metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
@@ -624,7 +644,7 @@ def evaluate(
             context=context,
         )
 
-    model.train()
+    model_container.train()
 
 
 def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> None:
