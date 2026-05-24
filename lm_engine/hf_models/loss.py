@@ -29,7 +29,12 @@ def get_autoregressive_language_modeling_loss(
     shift_logits_and_labels: bool = True,
     tensor_parallel_enabled: bool = False,
 ) -> torch.Tensor | DTensor:
+    print(lm_logits.size())
+    print(labels.size())
+    exit()
     if shift_logits_and_labels:
+        assert not ProcessGroupManager.is_context_parallel_enabled()
+
         if lm_logits is not None:
             lm_logits = lm_logits[..., :-1, :]
 
@@ -39,6 +44,8 @@ def get_autoregressive_language_modeling_loss(
         labels = labels[..., 1:]
 
     if use_padding_free_transformer:
+        assert not ProcessGroupManager.is_context_parallel_enabled()
+
         if shift_logits_and_labels:
             assert cu_seqlens is not None
 
