@@ -176,21 +176,16 @@ class BaseModelMixin(PreTrainedModelMixin):
         max_seqlen: int | None = None,
     ) -> BaseModelOutputWithPast:
         if self.is_first_stage:
-            (
-                use_cache,
-                hidden_states,
-                causal_mask,
-                position_ids,
-                rope_cos_sin,
-                cache_params,
-            ) = self._prepare_a_bunch_of_stuff(
-                input_ids=input_ids,
-                cache_params=cache_params,
-                attention_mask=attention_mask,
-                position_ids=position_ids,
-                use_cache=use_cache,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
+            use_cache, hidden_states, causal_mask, position_ids, rope_cos_sin, cache_params = (
+                self._prepare_a_bunch_of_stuff(
+                    input_ids=input_ids,
+                    cache_params=cache_params,
+                    attention_mask=attention_mask,
+                    position_ids=position_ids,
+                    use_cache=use_cache,
+                    cu_seqlens=cu_seqlens,
+                    max_seqlen=max_seqlen,
+                )
             )
         else:
             assert not ProcessGroupManager.is_context_parallel_enabled()
