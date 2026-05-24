@@ -251,6 +251,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         self, attention_mask: torch.Tensor, past_length: int, query_length: int, key_length: int, device: torch.device
     ) -> torch.Tensor:
         if attention_mask is not None and attention_mask.dim() == 2:
+            assert not ProcessGroupManager.is_context_parallel_enabled()
             # create position_ids on the fly for batch generation
             position_ids = (
                 attention_mask.to(
@@ -359,8 +360,8 @@ class BaseModelMixin(PreTrainedModelMixin):
             key_length = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
         else:
             past_length = 0 if cache_params is None else cache_params.get_seq_length()
-            query_length = input_shape[-1]
-            key_length = past_length + query_length * ProcessGroupManager.get_context_parallel_world_size()
+            query_length = input_shape[-1] * ProcessGroupManager.get_context_parallel_world_size()
+            key_length = past_length + query_length
 
         hidden_states = self.wte(input_ids)
 
