@@ -116,7 +116,7 @@ def _ring_attention_forward(
             k,
             v,
             softmax_scale=softmax_scale,
-            causal=is_causal_behavior.value,
+            causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
             is_causal=is_causal_behavior.value,
             window_size=window_size,
             softcap=softcap,
