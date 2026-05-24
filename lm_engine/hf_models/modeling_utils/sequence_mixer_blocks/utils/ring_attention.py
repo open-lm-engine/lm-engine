@@ -23,7 +23,7 @@ def _ring_attention_forward(
     softcap: float,
     group: ProcessGroup,
 ) -> tuple[torch.Tensor, ...]:
-    _flash_attention_function, _flash_attention_varlen_function = _get_flash_attention_function(dropout=dropout)
+    _flash_attention_function, _ = _get_flash_attention_function(dropout=dropout)
 
     if causal and (q.size(1) != k.size(1)):
         raise NotImplementedError("is_causal requires the same query and context sequence lengths")
