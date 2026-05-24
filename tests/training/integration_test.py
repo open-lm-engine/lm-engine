@@ -28,7 +28,8 @@ import torch
 
 import lm_engine.hf_models  # noqa: F401
 from lm_engine.arguments import TrainingArgs
-from lm_engine.utils import load_yaml, log_rank_0
+from lm_engine.logging_utils import log_rank_0
+from lm_engine.utils import load_yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

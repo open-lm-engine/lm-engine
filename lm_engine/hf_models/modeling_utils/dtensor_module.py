@@ -9,7 +9,7 @@ from typing import Any, Mapping
 import torch.nn as nn
 
 from ...dtensors import modify_state_dict_to_dtensor_dict
-from ...utils import ProcessGroupManager
+from ...parallel import ProcessGroupManager
 
 
 class DTensorModule(nn.Module):

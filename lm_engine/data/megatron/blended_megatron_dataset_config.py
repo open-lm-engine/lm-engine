@@ -4,7 +4,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from ...utils import log_rank_0
+from ...logging_utils import log_rank_0
 from .utils import Split, normalize
 
 

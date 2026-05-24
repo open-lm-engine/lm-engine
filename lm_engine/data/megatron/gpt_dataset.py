@@ -12,8 +12,8 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
+from ...logging_utils import log_rank_0
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import log_rank_0
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
 from .utils import Split, build_sample_idx

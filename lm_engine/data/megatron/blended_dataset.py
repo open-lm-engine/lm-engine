@@ -12,7 +12,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from ...utils import log_rank_0
+from ...logging_utils import log_rank_0
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .gpt_dataset import GPTDataset
 from .utils import build_blending_indices, normalize

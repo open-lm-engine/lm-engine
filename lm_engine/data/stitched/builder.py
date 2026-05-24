@@ -18,7 +18,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from ...utils import log_rank_0
+from ...logging_utils import log_rank_0
 from ..megatron import Split
 from ..megatron.indexed_dataset import MMapIndexedDataset
 from .config import StitchedDatasetConfig

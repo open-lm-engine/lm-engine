@@ -15,22 +15,15 @@ from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
+from ..accelerator import Accelerator
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
 from ..hf_models import fix_unsharded_state_dict
+from ..logging_utils import ExperimentsTracker, log_rank_0
 from ..model_wrapper import ModelWrapper, get_model_container
-from ..utils import (
-    Accelerator,
-    Communication,
-    ExperimentsTracker,
-    ProcessGroupManager,
-    is_torch_xla_available,
-    load_yaml,
-    log_rank_0,
-    run_rank_n,
-    string_to_torch_dtype,
-)
+from ..parallel import ProcessGroupManager, run_rank_n
+from ..utils import is_torch_xla_available, load_yaml, string_to_torch_dtype
 from .lr_scheduler import _get_lr_scheduler_path, _LRSchedulerSaver, _resume_learning_rate
 from .model import _get_model_path, _ModelSaver
 from .model_optimizer import _get_model_optimizer_path, _ModelOptimizerSaver
@@ -188,7 +181,7 @@ def save_checkpoint(
                 master_only=False,
             )
 
-        Communication.barrier()
+        ProcessGroupManager.barrier()
 
         run_rank_n(json.dump)(
             {"latest_checkpointed_iteration": iteration},

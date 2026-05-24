@@ -10,7 +10,8 @@ from torch.distributed._tensor.placement_types import Replicate, Shard
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
-from ..utils import ProcessGroupManager, is_xma_available
+from ..parallel import ProcessGroupManager
+from ..utils import is_xma_available
 
 
 if is_xma_available():

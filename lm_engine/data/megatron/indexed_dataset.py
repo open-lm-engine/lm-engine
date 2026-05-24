@@ -20,7 +20,8 @@ import numpy as np
 import torch
 
 from ...defaults import MSC_PREFIX
-from ...utils import is_multi_storage_client_available, log_rank_0
+from ...logging_utils import log_rank_0
+from ...utils import is_multi_storage_client_available
 from .bin import _MMapBinReader, _MultiStorageClientBinReader
 from .dtype import DType
 

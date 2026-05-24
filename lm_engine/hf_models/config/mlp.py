@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from ...utils import BaseArgs
+from ...arguments import BaseArgs
 from .sequence_mixer import _SoftPlusDecayArgs
 
 
