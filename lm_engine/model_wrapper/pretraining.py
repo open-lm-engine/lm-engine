@@ -180,7 +180,7 @@ class ModelWrapperForPretraining(ModelWrapper):
 
             input_ids, labels = prepare_context_parallel_input(inputs=(input_ids, labels))
 
-            batch = {"labels": tokens[:, 1:]}
+            batch = {"labels": labels}
 
         if self.use_padding_free_transformer:
             assert not ProcessGroupManager.is_context_parallel_enabled()
