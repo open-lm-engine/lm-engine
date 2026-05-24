@@ -206,10 +206,10 @@ class BaseModelMixin(PreTrainedModelMixin):
                 query_length = key_length - past_length
             else:
                 key_length = (
-                    hidden_states.size(1) * ProcessGroupManager.get_tensor_parallel_world_size()
-                    if self.sequence_parallel
-                    else hidden_states.size(1)
-                ) * ProcessGroupManager.get_context_parallel_world_size()
+                    hidden_states.size(1)
+                    * (ProcessGroupManager.get_tensor_parallel_world_size() if self.self.sequence_parallel else 1)
+                    * ProcessGroupManager.get_context_parallel_world_size()
+                )
                 query_length = key_length - past_length
 
             position_ids = torch.arange(
