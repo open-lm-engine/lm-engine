@@ -170,13 +170,10 @@ class ModelWrapperForPretraining(ModelWrapper):
 
             batch = {"labels": None, "pipeline_parallel_input": pipeline_parallel_input}
         else:
-            if ProcessGroupManager.is_tensor_parallel_enabled():
-                tokens = broadcast_tensor_parallel_input(
-                    None if batch is None else batch["text"], (self.micro_batch_size, self.sequence_length + 1)
-                )
-            else:
-                tokens = batch["text"]
-                tokens = tokens.to(Accelerator.get_current_device())
+            tokens = None if batch is None else batch["text"]
+            tokens = broadcast_tensor_parallel_input(
+                tokens=tokens, shape=(self.micro_batch_size, self.sequence_length + 1)
+            )
 
             input_ids = tokens[:, :-1]
             batch = {"labels": tokens[:, 1:]}
