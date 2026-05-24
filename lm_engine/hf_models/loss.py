@@ -85,6 +85,7 @@ def get_autoregressive_language_modeling_loss(
             input=lm_logits.reshape(-1, lm_logits.size(-1)), target=labels.reshape(-1), reduction=reduction
         )
 
+    # TODO actually dont need this
     if ProcessGroupManager.is_context_parallel_enabled():
         loss = DTensor.from_local(
             loss,
