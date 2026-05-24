@@ -2,6 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
+from enum import Enum
 from typing import Any
 
 import torch
@@ -10,6 +11,31 @@ from torch.distributed import ProcessGroup
 from .....parallel import ProcessGroupManager
 from .communication import AllGatherRotater, AllToAllRotater, RingRotater
 from .flash_attention_utils import _get_flash_attention_function
+from .merge import _Merger
+
+
+class _CausalBehavior(Enum):
+    SKIP = None
+    NOT_IS_CAUSAL = False
+    IS_CAUSAL = True
+
+
+def _is_causal_behavior(rank: int, world_size: int, i: int, causal: bool) -> _CausalBehavior:
+    """
+    Calculate is_causal behavior for each KV block. The attention can either be
+    calculated in full, not at all or with the causal mask applied.
+    """
+    if not causal:
+        return _CausalBehavior.NOT_IS_CAUSAL
+
+    if i == 0:
+        return _CausalBehavior.IS_CAUSAL
+
+    source_rank = (rank - i) % world_size
+    if source_rank < rank or ProcessGroupManager.get_load_balancing_method() is not None:
+        return _CausalBehavior.NOT_IS_CAUSAL
+    else:
+        return _CausalBehavior.SKIP
 
 
 def _ring_attention_forward(
@@ -28,7 +54,7 @@ def _ring_attention_forward(
     if causal and (q.size(1) != k.size(1)):
         raise NotImplementedError("is_causal requires the same query and context sequence lengths")
 
-    if not causal and ProcessGroupManager.get_load_balancing_method() is not None:
+    if not causal and ProcessGroupManager.get_load_balancing_method() is None:
         raise RuntimeError("Load balancing requires `is_causal=True`.")
 
     rank = torch.distributed.get_rank(group)
@@ -59,15 +85,12 @@ def _ring_attention_forward(
             next_kv = torch.cat([k.flatten(), v.flatten()])
             next_kv = rotater.exchange_buffers(next_kv)
 
-        is_causal_behavior = _is_causal_behavior(rank=rank, world_size=size, i=i, is_causal=causal)
+        is_causal_behavior = _is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
-        # For a detailed understanding of the load balancing algorithm, see
-        # Note [Context parallelism load balance algorithm for causal masking]
         if is_causal_behavior == _CausalBehavior.SKIP:
-            # If i > rank and load balancing is not turned on.
             continue
 
-        if i == 0 or (not _cp_options.enable_load_balance or not causal):
+        if i == 0 or (ProcessGroupManager.get_load_balancing_method() is None or not causal):
             # When local balance is enabled, we still need to do SDPA with
             # the both local chunks of q, k, v for the first iteration.
             partial = False
@@ -92,9 +115,9 @@ def _ring_attention_forward(
             q,
             k,
             v,
-            is_causal=is_causal_behavior.value,
             softmax_scale=softmax_scale,
-            causal=causal,
+            causal=is_causal_behavior.value,
+            is_causal=is_causal_behavior.value,
             window_size=window_size,
             softcap=softcap,
         )

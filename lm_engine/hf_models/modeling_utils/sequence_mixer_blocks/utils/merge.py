@@ -64,11 +64,7 @@ class _Merger:
     def step(self, out: torch.Tensor, lse: torch.Tensor, partial: bool) -> None:
         self._out_dtype = out.dtype
         self._lse_dtype = lse.dtype
-
-        out = out.to(torch.float32)
-        lse = lse.to(torch.float32)
-
-        self._merge_one(out, lse, partial)
+        self._merge_one(out.float(), lse.float(), partial)
 
     def results(self) -> tuple[torch.Tensor, torch.Tensor]:
         assert self._out is not None
