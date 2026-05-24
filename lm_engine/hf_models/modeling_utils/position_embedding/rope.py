@@ -40,11 +40,10 @@ class RoPE(nn.Module):
     def _set_cos_sin_cache(self, seq_len: int) -> None:
         self.max_seq_len_cached = seq_len
 
-        inv_freq = self._get_inv_freq()
         t = torch.arange(self.max_seq_len_cached, dtype=torch.float32)
         t = prepare_context_parallel_input(inputs=(t,), input_seq_dim=0)[0]
 
-        freqs = torch.outer(t, inv_freq)
+        freqs = torch.outer(t, self._get_inv_freq())
 
         # Different from paper, but it uses a different permutation in order to obtain the same calculation
         emb = torch.cat((freqs, freqs), dim=-1)
