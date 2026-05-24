@@ -3,6 +3,7 @@
 # **************************************************
 
 from functools import partial
+from typing import Callable
 
 import torch
 
@@ -23,6 +24,33 @@ if is_flash_attention_3_available():
 if is_flash_attention_4_available():
     from flash_attn.cute import flash_attn_func as flash_attention_4
     from flash_attn.cute import flash_attn_varlen_func as flash_attention_4_varlen
+
+
+def _get_flash_attention_function(dropout: float) -> Callable:
+    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
+    use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
+    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
+
+    assert (
+        use_flash_attention_4 or use_flash_attention_3 or use_flash_attention_2
+    ), "enable flash_attention_2, flash_attention_3, or flash_attention_4"
+
+    if use_flash_attention_4 or use_flash_attention_3:
+        assert dropout == 0
+
+    if use_flash_attention_4:
+        _flash_attention_function = flash_attention_4
+        _flash_attention_varlen_function = flash_attention_4_varlen
+    elif use_flash_attention_3:
+        _flash_attention_function = flash_attention_3
+        _flash_attention_varlen_function = flash_attention_3_varlen
+    elif use_flash_attention_2:
+        _flash_attention_function = partial(flash_attention_2, dropout_p=dropout)
+        _flash_attention_varlen_function = partial(flash_attention_2_varlen, dropout_p=dropout)
+    else:
+        raise ValueError("unexpected flash_attention method")
+
+    return _flash_attention_function, _flash_attention_varlen_function
 
 
 def unpad_input(
@@ -71,25 +99,7 @@ def flash_attention(
     softcap: float = 0,
 ) -> torch.Tensor:
     use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
-    use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
-
-    assert (
-        use_flash_attention_4 or use_flash_attention_3 or use_flash_attention_2
-    ), "enable flash_attention_2, flash_attention_3, or flash_attention_4"
-
-    if use_flash_attention_4 or use_flash_attention_3:
-        assert dropout == 0
-
-    if use_flash_attention_4:
-        _flash_attention_function = flash_attention_4
-        _flash_attention_varlen_function = flash_attention_4_varlen
-    elif use_flash_attention_3:
-        _flash_attention_function = flash_attention_3
-        _flash_attention_varlen_function = flash_attention_3_varlen
-    else:
-        _flash_attention_function = partial(flash_attention_2, dropout_p=dropout)
-        _flash_attention_varlen_function = partial(flash_attention_2_varlen, dropout_p=dropout)
+    _flash_attention_function, _flash_attention_varlen_function = _get_flash_attention_function(dropout=dropout)
 
     window_size = (-1, -1)
     if sliding_window is not None and k.size(1) > sliding_window:
