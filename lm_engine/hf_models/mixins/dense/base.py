@@ -277,7 +277,7 @@ class BaseModelMixin(PreTrainedModelMixin):
 
             position_ids = position_ids.unsqueeze(0).view(-1, query_length)
 
-        position_ids = prepare_context_parallel_input(inputs=(position_ids,))
+        position_ids = prepare_context_parallel_input(inputs=(position_ids,))[0]
 
         return position_ids
 
