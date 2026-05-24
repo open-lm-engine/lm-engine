@@ -204,15 +204,12 @@ def train_step_without_pipeline_parallel(
     gradient_accumulation_steps = StepTracker.get_gradient_accumulation_steps()
 
     if tuning_method == TuningMethod.full_finetuning:
-        assert not ProcessGroupManager.is_context_parallel_enabled()
         # note the effect of gradient accumulation division is already in the lm_loss_multiplier
         batches = [get_next_batch(train_dataloader) for _ in range(gradient_accumulation_steps)]
         lm_loss_multiplier = gradient_accumulation_steps / sum([(batch["labels"] != -100).sum() for batch in batches])
     else:
         batches = None
-        lm_loss_multiplier = ProcessGroupManager.get_context_parallel_world_size() / (
-            micro_batch_size * sequence_length
-        )
+        lm_loss_multiplier = 1 / (micro_batch_size * sequence_length)
 
     accelerator = Accelerator.get_accelerator()
 
@@ -610,12 +607,9 @@ def evaluate(
 
         lm_loss_multiplier = 1 / eval_steps
         if tuning_method == TuningMethod.full_finetuning:
-            assert not ProcessGroupManager.is_context_parallel_enabled()
             val_dataloader = custom_iterator(val_dataloader, infinite=False)
         else:
-            lm_loss_multiplier *= ProcessGroupManager.get_context_parallel_world_size() / (
-                micro_batch_size * sequence_length
-            )
+            lm_loss_multiplier /= micro_batch_size * sequence_length
 
         metrics_tracker = MetricsTrackingDict({})
         loss_tokens = 0 if tuning_method == TuningMethod.full_finetuning else 1
