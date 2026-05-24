@@ -9,6 +9,7 @@ import math
 import torch
 import torch.nn as nn
 
+from ....parallel import prepare_context_parallel_input
 from ...parameter import mark_parameter_as_initialized
 
 
@@ -41,6 +42,7 @@ class RoPE(nn.Module):
 
         inv_freq = self._get_inv_freq()
         t = torch.arange(self.max_seq_len_cached, dtype=torch.float32)
+        t = prepare_context_parallel_input(inputs=(t,))[0]
 
         freqs = torch.outer(t, inv_freq)
 
