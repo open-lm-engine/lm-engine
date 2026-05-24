@@ -9,6 +9,7 @@ import torch
 
 from .....enums import Kernel
 from .....kernels import is_kernel_allowed
+from .....parallel import ProcessGroupManager
 from .....utils import is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available
 from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
@@ -106,6 +107,7 @@ def flash_attention(
         window_size = (sliding_window, sliding_window)
 
     if use_padding_free_transformer:
+        assert not ProcessGroupManager.is_context_parallel_enabled()
         assert sliding_window is None
 
         x = _flash_attention_varlen_function(
@@ -126,21 +128,25 @@ def flash_attention(
             assert isinstance(x, tuple)
             x = x[0]
     elif attention_mask is None:
-        x = _flash_attention_function(
-            q=q,
-            k=k,
-            v=v,
-            softmax_scale=softmax_scale,
-            causal=causal,
-            window_size=window_size,
-            softcap=softcap,
-        )
+        if ProcessGroupManager.is_context_parallel_enabled():
+            ...
+        else:
+            x = _flash_attention_function(
+                q=q,
+                k=k,
+                v=v,
+                softmax_scale=softmax_scale,
+                causal=causal,
+                window_size=window_size,
+                softcap=softcap,
+            )
 
-        if use_flash_attention_4:
-            assert isinstance(x, tuple)
-            x = x[0]
+            if use_flash_attention_4:
+                assert isinstance(x, tuple)
+                x = x[0]
     else:
         B, S, N, H = q.size()
+        assert not ProcessGroupManager.is_context_parallel_enabled()
 
         q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k = unpad_input(q, k, v, attention_mask, S)
 
