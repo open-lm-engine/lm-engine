@@ -5,7 +5,7 @@
 import torch
 import torch.nn.functional as F
 from torch.distributed._tensor.api import DTensor
-from torch.distributed._tensor.placement_types import Replicate, Shard
+from torch.distributed._tensor.placement_types import Partial, Replicate, Shard
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
@@ -84,6 +84,14 @@ def get_autoregressive_language_modeling_loss(
         loss = F.cross_entropy(
             input=lm_logits.reshape(-1, lm_logits.size(-1)), target=labels.reshape(-1), reduction=reduction
         )
+
+    if ProcessGroupManager.is_context_parallel_enabled():
+        loss = tensor_to_dtensor(
+            loss,
+            device_mesh=ProcessGroupManager.get_context_parallel_mesh(),
+            current_placement=[Partial(reduction)],
+            desired_placement=[Replicate()],
+        ).to_local()
 
     return loss
 
