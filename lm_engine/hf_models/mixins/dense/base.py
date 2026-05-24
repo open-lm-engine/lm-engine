@@ -200,6 +200,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             past_length = 0
 
             if self.use_padding_free_transformer:
+                assert not ProcessGroupManager.is_context_parallel_enabled()
                 key_length = max_seqlen
                 # query length will change if cache_params is not None
                 query_length = key_length - past_length
@@ -208,7 +209,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                     hidden_states.size(1) * ProcessGroupManager.get_tensor_parallel_world_size()
                     if self.sequence_parallel
                     else hidden_states.size(1)
-                )
+                ) * ProcessGroupManager.get_context_parallel_world_size()
                 query_length = key_length - past_length
 
             position_ids = torch.arange(
