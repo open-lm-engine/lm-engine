@@ -99,38 +99,38 @@ def flash_attention(
     sliding_window: int | None = None,
     softcap: float = 0,
 ) -> torch.Tensor:
-    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
-    _flash_attention_function, _flash_attention_varlen_function = _get_flash_attention_function(dropout=dropout)
-
     window_size = (-1, -1)
     if sliding_window is not None and k.size(1) > sliding_window:
         window_size = (sliding_window, sliding_window)
 
-    if use_padding_free_transformer:
-        assert not ProcessGroupManager.is_context_parallel_enabled()
-        assert sliding_window is None
+    if ProcessGroupManager.is_context_parallel_enabled():
+        ...
+    else:
+        use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
+        _flash_attention_function, _flash_attention_varlen_function = _get_flash_attention_function(dropout=dropout)
 
-        x = _flash_attention_varlen_function(
-            q=q,
-            k=k,
-            v=v,
-            softmax_scale=softmax_scale,
-            causal=causal,
-            cu_seqlens_q=cu_seqlens,
-            cu_seqlens_k=cu_seqlens,
-            max_seqlen_q=max_seqlen,
-            max_seqlen_k=max_seqlen,
-            window_size=window_size,
-            softcap=softcap,
-        )
+        if use_padding_free_transformer:
+            assert not ProcessGroupManager.is_context_parallel_enabled()
+            assert sliding_window is None
 
-        if use_flash_attention_4:
-            assert isinstance(x, tuple)
-            x = x[0]
-    elif attention_mask is None:
-        if ProcessGroupManager.is_context_parallel_enabled():
-            ...
-        else:
+            x = _flash_attention_varlen_function(
+                q=q,
+                k=k,
+                v=v,
+                softmax_scale=softmax_scale,
+                causal=causal,
+                cu_seqlens_q=cu_seqlens,
+                cu_seqlens_k=cu_seqlens,
+                max_seqlen_q=max_seqlen,
+                max_seqlen_k=max_seqlen,
+                window_size=window_size,
+                softcap=softcap,
+            )
+
+            if use_flash_attention_4:
+                assert isinstance(x, tuple)
+                x = x[0]
+        elif attention_mask is None:
             x = _flash_attention_function(
                 q=q,
                 k=k,
@@ -144,30 +144,30 @@ def flash_attention(
             if use_flash_attention_4:
                 assert isinstance(x, tuple)
                 x = x[0]
-    else:
-        B, S, N, H = q.size()
-        assert not ProcessGroupManager.is_context_parallel_enabled()
+        else:
+            B, S, N, H = q.size()
+            assert not ProcessGroupManager.is_context_parallel_enabled()
 
-        q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k = unpad_input(q, k, v, attention_mask, S)
+            q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k = unpad_input(q, k, v, attention_mask, S)
 
-        x = _flash_attention_varlen_function(
-            q=q,
-            k=k,
-            v=v,
-            softmax_scale=softmax_scale,
-            causal=causal,
-            cu_seqlens_q=cu_seqlens_q,
-            cu_seqlens_k=cu_seqlens_k,
-            max_seqlen_q=max_seqlen_q,
-            max_seqlen_k=max_seqlen_k,
-            window_size=window_size,
-            softcap=softcap,
-        )
+            x = _flash_attention_varlen_function(
+                q=q,
+                k=k,
+                v=v,
+                softmax_scale=softmax_scale,
+                causal=causal,
+                cu_seqlens_q=cu_seqlens_q,
+                cu_seqlens_k=cu_seqlens_k,
+                max_seqlen_q=max_seqlen_q,
+                max_seqlen_k=max_seqlen_k,
+                window_size=window_size,
+                softcap=softcap,
+            )
 
-        if use_flash_attention_4:
-            assert isinstance(x, tuple)
-            x = x[0]
+            if use_flash_attention_4:
+                assert isinstance(x, tuple)
+                x = x[0]
 
-        x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens_q, output_shape=(B, S, N, H))
+            x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens_q, output_shape=(B, S, N, H))
 
     return x
