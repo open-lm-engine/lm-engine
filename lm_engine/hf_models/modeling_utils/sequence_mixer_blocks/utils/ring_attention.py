@@ -8,6 +8,7 @@ import torch
 from torch.distributed import ProcessGroup
 
 from .....parallel import ProcessGroupManager
+from .communication import _Merger
 from .flash_attention_utils import _get_flash_attention_function
 
 
@@ -115,7 +116,7 @@ def _ring_attention_forward(
     k = k.contiguous()
     v = v.contiguous()
 
-    sdpa_merger = _SDPAMerger(_cp_options.convert_to_f32, seq_dim=seq_dim)
+    sdpa_merger = _Merger(seq_dim=1)
     rest: list[Any]
     out: torch.Tensor
     logsumexp: torch.Tensor
