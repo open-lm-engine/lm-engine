@@ -14,10 +14,10 @@ import torch
 from torch.distributed import DeviceMesh
 from torch.distributed.tensor.experimental._attention import _context_parallel_shard
 
-from .load_balancer import _HeadTailLoadBalancer
+from .load_balancer import _HeadTailLoadBalancer, _IdentityLoadBalancer
 
 
-_LOAD_BALANCERS = {"headtail": _HeadTailLoadBalancer}
+_LOAD_BALANCERS = {"identity": _IdentityLoadBalancer, "headtail": _HeadTailLoadBalancer}
 
 
 def prepare_context_parallel_input(
