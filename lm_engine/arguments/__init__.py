@@ -291,8 +291,6 @@ class DistributedArgs(BaseArgs):
             self.num_pipeline_stages % self.pipeline_parallel_world_size == 0
         ), "num_pipeline_stages should be a multiple of pipeline_parallel_world_size"
 
-        assert self.context_parallel_world_size == 1
-
         if self.num_pipeline_stages > 1:
             _check_not_None([(self.pipeline_parallel_schedule, "pipeline_parallel_schedule")])
 
