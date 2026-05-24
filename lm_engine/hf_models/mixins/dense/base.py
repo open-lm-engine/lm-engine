@@ -11,7 +11,7 @@ from transformers import GenerationConfig, PreTrainedModel
 from ....accelerator import Accelerator
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....parallel import ProcessGroupManager
+from ....parallel import ProcessGroupManager, prepare_context_parallel_input
 from ....utils import divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
@@ -254,7 +254,7 @@ class BaseModelMixin(PreTrainedModelMixin):
     def _get_position_ids(
         self, attention_mask: torch.Tensor, past_length: int, query_length: int, key_length: int, device: torch.device
     ) -> torch.Tensor:
-        if attention_mask is not None and len(attention_mask.shape) == 2:
+        if attention_mask is not None and attention_mask.dim() == 2:
             # create position_ids on the fly for batch generation
             position_ids = (
                 attention_mask.to(
@@ -275,6 +275,8 @@ class BaseModelMixin(PreTrainedModelMixin):
             )
 
             position_ids = position_ids.unsqueeze(0).view(-1, query_length)
+
+        position_ids = prepare_context_parallel_input(inputs=(position_ids,))
 
         return position_ids
 
