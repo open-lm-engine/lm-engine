@@ -42,7 +42,7 @@ class RoPE(nn.Module):
 
         inv_freq = self._get_inv_freq()
         t = torch.arange(self.max_seq_len_cached, dtype=torch.float32)
-        t = prepare_context_parallel_input(inputs=(t,))[0]
+        t = prepare_context_parallel_input(inputs=(t,), input_seq_dim=0)[0]
 
         freqs = torch.outer(t, inv_freq)
 
