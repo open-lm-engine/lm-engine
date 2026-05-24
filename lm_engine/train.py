@@ -674,9 +674,17 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
 
     log_rank_0(logging.INFO, process_group_manager)
     log_rank_0(logging.INFO, f"total accelerators = {process_group_manager.get_world_size()}")
-    log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
     log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
+    log_rank_0(
+        logging.INFO,
+        f"data parallel replication size = {process_group_manager.get_data_parallel_replication_world_size()}",
+    )
+    log_rank_0(
+        logging.INFO, f"data parallel sharding size = {process_group_manager.get_data_parallel_sharding_world_size()}"
+    )
     log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"data loading size = {process_group_manager.get_data_loading_world_size()}")
     log_rank_0(logging.INFO, f"context parallel size = {process_group_manager.get_context_parallel_world_size()}")
 
     args.log_args()
