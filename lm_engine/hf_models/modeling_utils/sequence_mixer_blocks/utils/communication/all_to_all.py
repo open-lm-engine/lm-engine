@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import torch
+from torch.distributed._functional_collectives import AsyncCollectiveTensor, permute_tensor
 
 from ......parallel import ProcessGroupManager
 
@@ -20,8 +21,12 @@ class AllToAllRotater:
         curr_buffer = curr_buffer.contiguous()
         world_size = ProcessGroupManager.get_context_parallel_world_size()
         dsts = list(range(1, world_size)) + [0]
-        self._buffer = ft_c.permute_tensor(curr_buffer, dsts, self._pg)
+        self._buffer = permute_tensor(curr_buffer, dsts, self._pg)
 
     def next_buffer(self) -> torch.Tensor:
         assert self._buffer is not None
-        return _maybe_wait(self._buffer)
+
+        if isinstance(self._buffer, AsyncCollectiveTensor):
+            self._buffer = self._buffer.wait()
+
+        return self._buffer

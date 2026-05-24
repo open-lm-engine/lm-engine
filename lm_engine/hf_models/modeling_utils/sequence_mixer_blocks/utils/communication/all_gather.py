@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import torch
+from torch.distributed._functional_collectives import AsyncCollectiveTensor, all_gather_tensor
 
 from ......parallel import ProcessGroupManager
 
@@ -24,7 +25,7 @@ class AllGatherRotater:
         # We only need to perform allgather once.
         self._idx += 1
         if self._aggregated_buffer is None:
-            self._aggregated_buffer = ft_c.all_gather_tensor(curr_buffer.contiguous(), gather_dim=0, group=self._pg)
+            self._aggregated_buffer = all_gather_tensor(curr_buffer.contiguous(), gather_dim=0, group=self._pg)
 
     def next_buffer(self) -> torch.Tensor:
         world_size = ProcessGroupManager.get_context_parallel_world_size()
@@ -32,5 +33,8 @@ class AllGatherRotater:
         idx = rank - self._idx
 
         assert self._aggregated_buffer is not None
-        self._aggregated_buffer = _maybe_wait(self._aggregated_buffer)
+
+        if isinstance(self._aggregated_buffer, AsyncCollectiveTensor):
+            self._aggregated_buffer = self._aggregated_buffer.wait()
+
         return self._aggregated_buffer.chunk(world_size)[idx]
