@@ -8,7 +8,7 @@ import torch
 from torch.distributed import ProcessGroup
 
 from .....parallel import ProcessGroupManager
-from .communication import RingComm, _Merger
+from .communication import AllGatherRotater, AllToAllRotater, RingRotater
 from .flash_attention_utils import _get_flash_attention_function
 
 
