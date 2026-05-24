@@ -19,9 +19,8 @@ class AllToAllRotater:
 
     def exchange_buffers(self, curr_buffer: torch.Tensor) -> None:
         curr_buffer = curr_buffer.contiguous()
-        world_size = ProcessGroupManager.get_context_parallel_world_size()
-        dsts = list(range(1, world_size)) + [0]
-        self._buffer = permute_tensor(curr_buffer, dsts, self._pg)
+        dsts = list(range(1, ProcessGroupManager.get_context_parallel_world_size())) + [0]
+        self._buffer = permute_tensor(curr_buffer, dsts, ProcessGroupManager.get_context_parallel_group())
 
     def next_buffer(self) -> torch.Tensor:
         assert self._buffer is not None

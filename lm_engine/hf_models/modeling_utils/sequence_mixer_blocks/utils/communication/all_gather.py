@@ -28,13 +28,11 @@ class AllGatherRotater:
             self._aggregated_buffer = all_gather_tensor(curr_buffer.contiguous(), gather_dim=0, group=self._pg)
 
     def next_buffer(self) -> torch.Tensor:
-        world_size = ProcessGroupManager.get_context_parallel_world_size()
-        rank = ProcessGroupManager.get_context_parallel_rank()
-        idx = rank - self._idx
+        idx = ProcessGroupManager.get_context_parallel_rank() - self._idx
 
         assert self._aggregated_buffer is not None
 
         if isinstance(self._aggregated_buffer, AsyncCollectiveTensor):
             self._aggregated_buffer = self._aggregated_buffer.wait()
 
-        return self._aggregated_buffer.chunk(world_size)[idx]
+        return self._aggregated_buffer.chunk(ProcessGroupManager.get_context_parallel_world_size())[idx]
