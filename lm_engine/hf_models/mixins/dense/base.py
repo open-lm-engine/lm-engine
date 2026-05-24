@@ -360,7 +360,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         else:
             past_length = 0 if cache_params is None else cache_params.get_seq_length()
             query_length = input_shape[-1]
-            key_length = past_length + query_length
+            key_length = past_length + query_length * ProcessGroupManager.get_context_parallel_world_size()
 
         hidden_states = self.wte(input_ids)
 
