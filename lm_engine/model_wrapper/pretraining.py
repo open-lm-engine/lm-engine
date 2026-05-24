@@ -17,7 +17,7 @@ from ..hf_models import (
 )
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
-from ..parallel import ProcessGroupManager, broadcast_tensor_parallel_input
+from ..parallel import ProcessGroupManager, broadcast_tensor_parallel_input, prepare_context_parallel_input
 from .base import ModelWrapper
 
 
@@ -176,9 +176,15 @@ class ModelWrapperForPretraining(ModelWrapper):
             )
 
             input_ids = tokens[:, :-1]
+            labels = tokens[:, 1:]
+
+            input_ids, labels = prepare_context_parallel_input(inputs=(input_ids, labels))
+
             batch = {"labels": tokens[:, 1:]}
 
         if self.use_padding_free_transformer:
+            assert not ProcessGroupManager.is_context_parallel_enabled()
+
             batch_size, sequence_length = input_ids.shape
             input_ids = input_ids.reshape(-1)
 
