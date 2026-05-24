@@ -86,15 +86,14 @@ def get_autoregressive_language_modeling_loss(
         )
 
     if ProcessGroupManager.is_context_parallel_enabled():
-        loss = (
-            DTensor.from_local(
-                loss,
-                device_mesh=ProcessGroupManager.get_context_parallel_mesh(),
-                placements=[Partial(reduction)],
-            )
-            .redistribute(placements=[Replicate()])
-            .to_local()
+        loss = DTensor.from_local(
+            loss,
+            device_mesh=ProcessGroupManager.get_context_parallel_mesh(),
+            placements=[Partial(reduction)],
         )
+
+        loss = loss.redistribute(placements=[Replicate()])
+        loss = loss.to_local()
 
     return loss
 
