@@ -118,7 +118,7 @@ class _HeadTailLoadBalancer(_IdentityLoadBalancer):
             # combine the indices for this rank
             all_indices.extend(first_chunk_indices + second_chunk_indices)
 
-        all_indices_tensor = torch.tensor(all_indices, dtype=torch.int, device=self.device)
+        all_indices_tensor = torch.tensor(all_indices, dtype=torch.long, device=self.device)
         if restore:
             all_indices_tensor = torch.argsort(all_indices_tensor)
 
