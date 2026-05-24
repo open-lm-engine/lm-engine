@@ -30,7 +30,7 @@ def flash_attention(
         window_size = (sliding_window, sliding_window)
 
     if ProcessGroupManager.is_context_parallel_enabled():
-        ...
+        raise ValueError
     else:
         use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
         _flash_attention_function, _flash_attention_varlen_function = _get_flash_attention_function(dropout=dropout)
