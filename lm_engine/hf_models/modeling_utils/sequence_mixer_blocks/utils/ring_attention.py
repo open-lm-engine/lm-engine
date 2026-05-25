@@ -47,7 +47,7 @@ def _ring_attention_forward(
     window_size: int | None,
     softcap: float,
 ) -> tuple[torch.Tensor, ...]:
-    _flash_attention_function, _ = _get_flash_attention_function(dropout=dropout)
+    _, _, _flash_attention_forward, _flash_attention_backward = _get_flash_attention_function(dropout=dropout)
 
     if causal and (q.size(1) != k.size(1)):
         raise NotImplementedError("is_causal requires the same query and context sequence lengths")
@@ -120,7 +120,7 @@ def _ring_attention_forward(
 
         # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
         # for the SDPA kernel definitions.
-        out, logsumexp, *rest = _flash_attention_function(
+        out, logsumexp, *rest = _flash_attention_forward(
             local_q,
             local_k,
             local_v,
