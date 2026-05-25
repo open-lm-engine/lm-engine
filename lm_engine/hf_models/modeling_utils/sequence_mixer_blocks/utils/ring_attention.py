@@ -70,8 +70,8 @@ def _ring_attention_forward(
     k_size = k.size()
     v_size = v.size()
 
-    rotater = AllToAllRotater(seq_dim=1)
-    sdpa_merger = _Merger(seq_dim=1)
+    rotater = AllToAllRotater(1)
+    sdpa_merger = _Merger(1)
 
     for i in range(world_size):
         if i > 0:
@@ -164,8 +164,9 @@ def _ring_attention_backward(
     k_size = k.size()
     v_size = v.size()
 
-    kv_rotater = _create_rotater(group, 2)
-    dkv_rotater = _create_rotater(group, 2, method=_RotateMethod.ALL_TO_ALL)
+    kv_rotater = AllToAllRotater(1)
+    dkv_rotater = AllToAllRotater(1)
+
     for i in range(world_size):
         if i > 0:
             # Wait for the kv from the (cp_rank - 1) rank.
@@ -181,7 +182,7 @@ def _ring_attention_backward(
         is_causal_behavior = _is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
         if is_causal_behavior != _CausalBehavior.SKIP:
-            if i == 0 or (not _cp_options.enable_load_balance or not causal):
+            if i == 0 or (ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal):
                 # We need to do SDPA with the full local q, k, v.
                 local_q = q
                 local_k = k
