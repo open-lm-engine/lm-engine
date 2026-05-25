@@ -25,7 +25,7 @@ parser.add_argument("--position-embedding-type", type=str)
 parser.add_argument("--attention-implementation", type=str)
 parser.add_argument("--dtype", type=str)
 parser.add_argument("--tmp-path", type=str)
-parser.add_argument("--load-balancing-method", type=ContextParallelLoadBalancerMethod)
+parser.add_argument("--load-balancing-method", type=ContextParallelLoadBalancerMethod, default=None)
 args = parser.parse_args()
 
 Accelerator.set_seed(42)

@@ -21,13 +21,13 @@ from ....utils import skip_test_if_device_unavailable, slow_test
 @pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
 @pytest.mark.parametrize("attention_implementation", ["flash_attention_2", "flash_attention_3", "flash_attention_4"])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("load_balancing_method", ["identity", "headtail"])
+@pytest.mark.parametrize("load_balancing_method", [None, "headtail"])
 @slow_test
 def test_context_parallel_forward(
     position_embedding_type: str,
     attention_implementation: str,
     dtype: torch.dtype,
-    load_balancing_method: str,
+    load_balancing_method: str | None,
 ) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
 
@@ -61,8 +61,9 @@ def test_context_parallel_forward(
             attention_implementation,
             "--tmp-path",
             tmp_path,
-            "--load-balancing-method",
-            load_balancing_method,
         ]
+
+        if load_balancing_method is not None:
+            command.extend(["--load-balancing-method", load_balancing_method])
 
         subprocess.run(command, check=True)
