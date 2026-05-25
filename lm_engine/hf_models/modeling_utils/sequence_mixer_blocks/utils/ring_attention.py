@@ -149,10 +149,9 @@ def _ring_attention_backward(
     rest: list[Any]
     grad_query_, grad_key_, grad_value_ = None, None, None
 
-    accum_dtype = torch.float32
-    dq = torch.zeros_like(q, dtype=accum_dtype)
-    dk = torch.zeros_like(k, dtype=accum_dtype)
-    dv = torch.zeros_like(v, dtype=accum_dtype)
+    dq = torch.zeros_like(q, dtype=torch.float32)
+    dk = torch.zeros_like(k, dtype=torch.float32)
+    dv = torch.zeros_like(v, dtype=torch.float32)
 
     k = k.contiguous()
     v = v.contiguous()
@@ -210,7 +209,20 @@ def _ring_attention_backward(
 
             # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
             # for the SDPA kernel definitions.
-            dq_, dk_, dv_, *rest = backward_function(
+            dq_, dk_, dv_ = backward_function(
+                dx=dx,
+                q=q,
+                k=k,
+                v=v,
+                x=x,
+                softmax_lse=softmax_lse,
+                dq=dq,
+                dk=dk,
+                dv=dv,
+                dropout_p=dropout,
+                softmax_scale=softmax_scale,
+                causal=causal,
+                alibi_slopes=None,
                 query=local_q,
                 key=local_k,
                 value=local_v,
@@ -219,9 +231,9 @@ def _ring_attention_backward(
                 is_causal=is_causal_behavior.value,
             )
         else:
-            dq_ = torch.zeros_like(q, dtype=accum_dtype)
-            dk_ = torch.zeros_like(k, dtype=accum_dtype)
-            dv_ = torch.zeros_like(v, dtype=accum_dtype)
+            dq_ = torch.zeros_like(q, dtype=torch.float32)
+            dk_ = torch.zeros_like(k, dtype=torch.float32)
+            dv_ = torch.zeros_like(v, dtype=torch.float32)
 
         ROUND_ROBIN_CYCLE = 2
         if i == 0:
@@ -235,7 +247,6 @@ def _ring_attention_backward(
 
             if i <= rank and ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
                 dk = _partial_update(dk, dk_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=0, add=True)
-
                 dv = _partial_update(dv, dv_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=0, add=True)
             else:
                 dk += dk_
