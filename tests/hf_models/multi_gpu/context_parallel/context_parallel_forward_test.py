@@ -31,9 +31,6 @@ def test_context_parallel_forward(
 ) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
 
-    if (attention_implementation, dtype) not in [(f"flash_attention_{i}", torch.float16) for i in range(2, 5)]:
-        pytest.skip("skipping test since running all takes too long")
-
     for i, func in zip(
         range(2, 5),
         [is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available],
