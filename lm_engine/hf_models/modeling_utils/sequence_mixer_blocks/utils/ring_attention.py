@@ -208,7 +208,6 @@ def _ring_attention_backward(
                 local_dx = dx.chunk(2, dim=1)[1]
                 local_lse = lse.chunk(2, dim=1)[1].contiguous()
 
-            kwargs[grad_out_name] = local_dx
             # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
             # for the SDPA kernel definitions.
             dq_, dk_, dv_, *rest = op(
@@ -317,7 +316,7 @@ class _RingAttention(torch.autograd.Function):
             q=q, k=k, v=v, x=x, dx=dx, lse=lse, causal=ctx.causal, backward_function=ctx.backward_function
         )
 
-        return dq, dk, dv, *[None] * 5
+        return dq, dk, dv, *[None] * 7
 
 
 def ring_attention_function(
