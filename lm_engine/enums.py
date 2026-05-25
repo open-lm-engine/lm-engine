@@ -91,3 +91,7 @@ class Kernel(Enum):
             enabled_rmsnorm_kernels = [cls.quack_rmsnorm] + enabled_xma_rmsnorm_kernels
             kernel_names = ", ".join(kernel.value for kernel in enabled_rmsnorm_kernels)
             raise ValueError(f"quack_rmsnorm cannot be enabled with XMA RMSNorm kernels, got {kernel_names}")
+
+
+class ContextParallelLoadBalancerMethod(Enum):
+    headtail = "headtail"

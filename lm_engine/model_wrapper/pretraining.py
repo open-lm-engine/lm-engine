@@ -17,9 +17,8 @@ from ..hf_models import (
 )
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
-from ..parallel import ProcessGroupManager
+from ..parallel import ProcessGroupManager, broadcast_tensor_parallel_input, prepare_context_parallel_input
 from .base import ModelWrapper
-from .utils import broadcast_tensor_parallel_input
 
 
 class ModelWrapperForPretraining(ModelWrapper):
@@ -171,18 +170,21 @@ class ModelWrapperForPretraining(ModelWrapper):
 
             batch = {"labels": None, "pipeline_parallel_input": pipeline_parallel_input}
         else:
-            if ProcessGroupManager.is_tensor_parallel_enabled():
-                tokens = broadcast_tensor_parallel_input(
-                    None if batch is None else batch["text"], (self.micro_batch_size, self.sequence_length + 1)
-                )
-            else:
-                tokens = batch["text"]
-                tokens = tokens.to(Accelerator.get_current_device())
+            tokens = None if batch is None else batch["text"]
+            tokens = broadcast_tensor_parallel_input(
+                tokens=tokens, shape=(self.micro_batch_size, self.sequence_length + 1)
+            )
 
             input_ids = tokens[:, :-1]
-            batch = {"labels": tokens[:, 1:]}
+            labels = tokens[:, 1:]
+
+            input_ids, labels = prepare_context_parallel_input(inputs=(input_ids, labels))
+
+            batch = {"labels": labels}
 
         if self.use_padding_free_transformer:
+            assert not ProcessGroupManager.is_context_parallel_enabled()
+
             batch_size, sequence_length = input_ids.shape
             input_ids = input_ids.reshape(-1)
 

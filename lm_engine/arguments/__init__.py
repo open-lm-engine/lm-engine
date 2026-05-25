@@ -7,6 +7,7 @@ from typing import Any
 
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..enums import (
+    ContextParallelLoadBalancerMethod,
     ExperimentsTrackerName,
     GradientCheckpointingMethod,
     Kernel,
@@ -260,6 +261,10 @@ class DistributedArgs(BaseArgs):
     pipeline_parallel_world_size: int = 1
     # context parallel world size
     context_parallel_world_size: int = 1
+    # load balancing method for context parallelism
+    context_parallel_load_balancing_method: ContextParallelLoadBalancerMethod | None = (
+        ContextParallelLoadBalancerMethod.headtail
+    )
     # distributed timeout for NCCL in minutes
     timeout_minutes: int | None = None
     # fsdp algorithm
@@ -290,8 +295,6 @@ class DistributedArgs(BaseArgs):
         assert (
             self.num_pipeline_stages % self.pipeline_parallel_world_size == 0
         ), "num_pipeline_stages should be a multiple of pipeline_parallel_world_size"
-
-        assert self.context_parallel_world_size == 1
 
         if self.num_pipeline_stages > 1:
             _check_not_None([(self.pipeline_parallel_schedule, "pipeline_parallel_schedule")])

@@ -3,13 +3,17 @@
 # **************************************************
 
 import torch
+import torch.distributed
 
 from ..accelerator import Accelerator
-from ..parallel import ProcessGroupManager
+from .manager import ProcessGroupManager
 
 
-def broadcast_tensor_parallel_input(tokens: dict, shape: tuple[int]) -> torch.Tensor:
+def broadcast_tensor_parallel_input(tokens: torch.Tensor, shape: tuple[int]) -> torch.Tensor:
     device = Accelerator.get_current_device()
+
+    if not ProcessGroupManager.is_tensor_parallel_enabled():
+        return tokens.to(device)
 
     if ProcessGroupManager.is_tensor_parallel_first_rank():
         tokens = tokens.to(device)
