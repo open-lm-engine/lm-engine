@@ -203,7 +203,8 @@ def _ring_attention_backward(
                 local_v = v
                 local_x = x.chunk(2, dim=1)[1]
                 local_dx = dx.chunk(2, dim=1)[1]
-                local_lse = lse.chunk(2, dim=1)[1].contiguous()
+                # lse layout is [B, H, S]; chunk along the seq dim.
+                local_lse = lse.chunk(2, dim=2)[1].contiguous()
 
             dq_ = torch.empty_like(local_q)
             dk_ = torch.empty_like(local_k)
@@ -306,6 +307,7 @@ class _RingAttention(torch.autograd.Function):
         ctx.window_size = window_size
         ctx.softcap = softcap
         ctx.backward_function = backward_function
+        ctx.head_dim = H
 
         x = x[..., :H]
 
@@ -314,6 +316,11 @@ class _RingAttention(torch.autograd.Function):
     @staticmethod
     def backward(ctx, dx: torch.Tensor) -> tuple[torch.Tensor | None, ...]:
         q, k, v, x, lse = ctx.saved_tensors
+
+        H = ctx.head_dim
+        H_padded = q.size(-1)
+        if H_padded != H:
+            dx = torch.nn.functional.pad(dx, [0, H_padded - H])
 
         dq, dk, dv = _ring_attention_backward(
             q=q,
@@ -326,6 +333,11 @@ class _RingAttention(torch.autograd.Function):
             softmax_scale=ctx.softmax_scale,
             backward_function=ctx.backward_function,
         )
+
+        if H_padded != H:
+            dq = dq[..., :H]
+            dk = dk[..., :H]
+            dv = dv[..., :H]
 
         return dq, dk, dv, *[None] * 7
 

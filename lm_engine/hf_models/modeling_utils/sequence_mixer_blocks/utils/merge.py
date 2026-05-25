@@ -42,9 +42,6 @@ class _Merger:
         self._lse_dtype = torch.float32
 
     def _merge_one(self, block_out: torch.Tensor, block_lse: torch.Tensor, partial: bool) -> None:
-        # The cuDNN backend preserves the last dimension for LSE.
-        # Apply unsqueeze only if the input does not already have
-        # the required dimensionality.
         block_lse = block_lse.transpose(1, 2)[..., None]
         assert block_lse.dim() == block_out.dim()
 
@@ -95,6 +92,8 @@ class _Merger:
         assert self._lse is not None
 
         out = self._out.to(self._out_dtype)
-        lse = self._lse.to(self._lse_dtype)
+        # Internally lse is kept as [B, S, H, 1] so it broadcasts against
+        # out [B, S, H, D]. flash-attn's backward expects [B, H, S].
+        lse = self._lse.squeeze(-1).transpose(1, 2).contiguous().to(self._lse_dtype)
 
         return out, lse
