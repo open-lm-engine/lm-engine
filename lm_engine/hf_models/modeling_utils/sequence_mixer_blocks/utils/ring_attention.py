@@ -117,8 +117,6 @@ def _ring_attention_forward(
             local_v = v
             partial = True
 
-        # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
-        # for the SDPA kernel definitions.
         out, logsumexp, _, _ = _flash_attention_forward(
             q=local_q,
             k=local_k,
@@ -132,7 +130,6 @@ def _ring_attention_forward(
 
         sdpa_merger.step(out, logsumexp, partial)
 
-    # pyrefly: ignore [unbound-name]
     return sdpa_merger.results()
 
 
