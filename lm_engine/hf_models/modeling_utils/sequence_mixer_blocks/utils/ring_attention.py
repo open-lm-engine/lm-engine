@@ -81,7 +81,7 @@ def _ring_attention_forward(
         if i < world_size - 1:
             # Send the k, v to the next rank
             next_kv = torch.cat([k.flatten(), v.flatten()])
-            next_kv = rotater.exchange_buffers(next_kv)
+            rotater.exchange_buffers(next_kv)
 
         is_causal_behavior = _is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
