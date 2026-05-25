@@ -46,6 +46,9 @@ def _ring_attention_forward(
     softcap: float,
     forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
+    # TODO support sliding window attention
+    assert window_size == (-1, -1)
+
     if causal and (q.size(1) != k.size(1)):
         raise NotImplementedError("is_causal requires the same query and context sequence lengths")
 
@@ -112,6 +115,7 @@ def _ring_attention_forward(
             local_v = v
             partial = True
 
+        # TODO use SM margin for better overlapping of communication
         x, lse, _, _ = forward_function(
             q=local_q,
             k=local_k,
