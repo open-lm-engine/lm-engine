@@ -38,7 +38,6 @@ class _Merger:
         self._seq_dim = seq_dim
         self._out: torch.Tensor | None = None
         self._lse: torch.Tensor | None = None
-        self._should_lse_squeeze = False
         self._out_dtype = torch.float32
         self._lse_dtype = torch.float32
 
@@ -47,10 +46,7 @@ class _Merger:
         # Apply unsqueeze only if the input does not already have
         # the required dimensionality.
         block_lse = block_lse.transpose(1, 2)[..., None]
-        if len(block_lse.shape) < len(block_out.shape):
-            block_lse = block_lse.unsqueeze(dim=-1)
-            self._should_lse_squeeze = True
-        assert len(block_lse.shape) == len(block_out.shape)
+        assert block_lse.dim() == block_out.dim()
 
         if self._lse is None:
             self._lse = block_lse
@@ -96,9 +92,8 @@ class _Merger:
     def results(self) -> tuple[torch.Tensor, torch.Tensor]:
         assert self._out is not None
         assert self._lse is not None
+
         out = self._out.to(self._out_dtype)
-        if self._should_lse_squeeze:
-            lse = self._lse.squeeze(-1).to(self._lse_dtype)
-        else:
-            lse = self._lse.to(self._lse_dtype)
+        lse = self._lse.to(self._lse_dtype)
+
         return out, lse

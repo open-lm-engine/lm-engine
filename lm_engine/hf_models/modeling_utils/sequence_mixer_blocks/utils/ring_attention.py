@@ -72,7 +72,6 @@ def _ring_attention_forward(
 
     rotater = AllToAllRotater(seq_dim=1)
     sdpa_merger = _Merger(seq_dim=1)
-    rest: list[Any]
     out: torch.Tensor
     logsumexp: torch.Tensor
 
