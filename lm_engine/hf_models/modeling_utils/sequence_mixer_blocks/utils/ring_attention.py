@@ -72,8 +72,6 @@ def _ring_attention_forward(
 
     rotater = AllToAllRotater(seq_dim=1)
     sdpa_merger = _Merger(seq_dim=1)
-    out: torch.Tensor
-    logsumexp: torch.Tensor
 
     for i in range(world_size):
         if i > 0:
@@ -117,7 +115,7 @@ def _ring_attention_forward(
             local_v = v
             partial = True
 
-        out, logsumexp, _, _ = _flash_attention_forward(
+        x, lse, _, _ = _flash_attention_forward(
             q=local_q,
             k=local_k,
             v=local_v,
@@ -128,26 +126,27 @@ def _ring_attention_forward(
             softcap=softcap,
         )
 
-        sdpa_merger.step(out, logsumexp, partial)
+        sdpa_merger.step(x, lse, partial)
 
-    out, logsumexp = sdpa_merger.results()
+    x, lse = sdpa_merger.results()
 
-    return out, logsumexp
+    return x, lse
 
 
 def _ring_attention_backward(
     grad_out: torch.Tensor,
     grad_out_name: str,
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
     out: torch.Tensor,
     logsumexp: torch.Tensor,
     is_causal: bool,
-    rank: int,
-    world_size: int,
     **kwargs: Any,
 ) -> tuple[torch.Tensor, ...]:
+    rank = ProcessGroupManager.get_context_parallel_rank()
+    world_size = ProcessGroupManager.get_context_parallel_world_size()
+
     next_kv = None
     next_grad_kv = None
     rest: list[Any]
@@ -162,7 +161,7 @@ def _ring_attention_backward(
     value = value.contiguous()
     kv_rotater = _create_rotater(group, 2)
     dkv_rotater = _create_rotater(group, 2, method=_RotateMethod.ALL_TO_ALL)
-    for i in range(size):
+    for i in range(world_size):
         if i > 0:
             # Wait for the kv from the (cp_rank - 1) rank.
             buffer = kv_rotater.next_buffer()
@@ -307,7 +306,7 @@ class _RingAttention(torch.autograd.Function):
             k = torch.nn.functional.pad(k, [0, pad])
             v = torch.nn.functional.pad(v, [0, pad])
 
-        out, logsumexp = _ring_attention_forward(
+        x, lse = _ring_attention_forward(
             q=q,
             k=k,
             v=v,
@@ -318,15 +317,15 @@ class _RingAttention(torch.autograd.Function):
             softcap=softcap,
         )
 
-        ctx.save_for_backward(q, k, v, out, logsumexp)
+        ctx.save_for_backward(q, k, v, x, lse)
         ctx.dropout = dropout
         ctx.softmax_scale = softmax_scale
         ctx.causal = causal
         ctx.window_size = window_size
         ctx.softcap = softcap
-        out = out[..., :H]
+        x = x[..., :H]
 
-        return out
+        return x
 
     @staticmethod
     def backward(ctx, *grad_outputs):
