@@ -275,7 +275,6 @@ class _RingAttention(torch.autograd.Function):
         k: torch.Tensor,
         v: torch.Tensor,
         causal: bool,
-        dropout: float,
         softmax_scale: float | None,
         window_size: tuple[int, int],
         softcap: float,
@@ -301,7 +300,6 @@ class _RingAttention(torch.autograd.Function):
         )
 
         ctx.save_for_backward(q, k, v, x, lse)
-        ctx.dropout = dropout
         ctx.softmax_scale = softmax_scale
         ctx.causal = causal
         ctx.window_size = window_size
@@ -347,7 +345,6 @@ def ring_attention_function(
     k: torch.Tensor,
     v: torch.Tensor,
     causal: bool,
-    dropout: float,
     softmax_scale: float | None,
     window_size: tuple[int, int],
     softcap: float,
@@ -355,5 +352,5 @@ def ring_attention_function(
     backward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
     return _RingAttention.apply(
-        q, k, v, causal, dropout, softmax_scale, window_size, softcap, forward_function, backward_function
+        q, k, v, causal, softmax_scale, window_size, softcap, forward_function, backward_function
     )

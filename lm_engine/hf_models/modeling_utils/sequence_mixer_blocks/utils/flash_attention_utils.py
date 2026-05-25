@@ -39,12 +39,13 @@ def flash_attention(
     ) = _get_flash_attention_function(dropout=dropout)
 
     if ProcessGroupManager.is_context_parallel_enabled():
+        assert dropout == 0
+
         x = ring_attention_function(
             q=q,
             k=k,
             v=v,
             causal=causal,
-            dropout=dropout,
             softmax_scale=softmax_scale,
             window_size=window_size,
             softcap=softcap,
