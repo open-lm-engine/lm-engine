@@ -124,7 +124,6 @@ def _ring_attention_forward(
             q=local_q,
             k=local_k,
             v=local_v,
-            dropout_p=dropout,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
             window_size_left=window_size[0],
@@ -134,6 +133,9 @@ def _ring_attention_forward(
             return_softmax=False,
             window_size=window_size,
         )
+
+        print(out)
+        exit()
 
         sdpa_merger.step(out, logsumexp, partial)
 
