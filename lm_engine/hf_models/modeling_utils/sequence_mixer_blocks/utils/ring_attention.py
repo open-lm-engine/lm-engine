@@ -130,7 +130,9 @@ def _ring_attention_forward(
 
         sdpa_merger.step(out, logsumexp, partial)
 
-    return sdpa_merger.results()
+    out, logsumexp = sdpa_merger.results()
+
+    return out, logsumexp
 
 
 def _ring_attention_backward(
