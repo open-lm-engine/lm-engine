@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra, Shawn Tan
 # **************************************************
 
 import argparse
@@ -32,7 +32,8 @@ Accelerator.set_seed(42)
 
 cp_world_size = int(os.getenv("WORLD_SIZE"))
 ProcessGroupManager(
-    context_parallel_world_size=cp_world_size, context_parallel_load_balancing_method=args.load_balancing_method
+    context_parallel_world_size=cp_world_size,
+    context_parallel_load_balancing_method=args.load_balancing_method,
 )
 
 dtype = string_to_torch_dtype(args.dtype)
@@ -112,7 +113,13 @@ with enable_kernels(kernels):
         0, 50255, (batch_size, sequence_length), device=torch.cuda.current_device(), requires_grad=False
     )
 
-    # shard inputs across CP ranks using the chosen load-balancing strategy
+    # _context_parallel_buffers (called inside prepare_context_parallel_input) reorders the tensors
+    # in-place via buffer[i] = index_select(...). Clone before the call so the rank-0 reference
+    # comparison still sees the original token order.
+    input_ids_ref = input_ids_full.clone()
+    labels_ref = labels_full.clone()
+
+    # shard inputs across CP ranks — uses the load-balancing method from ProcessGroupManager
     input_ids_cp, labels_cp = prepare_context_parallel_input(inputs=(input_ids_full, labels_full))
 
     # forward pass — labels must NOT be passed when CP is enabled
@@ -144,11 +151,11 @@ with enable_kernels(kernels):
         # run full-sequence model on rank 0 without CP active;
         # loss computation must also be inside the context manager to avoid DTensor CP reduction
         with ProcessGroupManager.set_dummy_context_parallel_world_size(1):
-            output = model(input_ids=input_ids_full)
+            output = model(input_ids=input_ids_ref)
             logits = output.logits[..., : config.vocab_size]
             loss = get_autoregressive_language_modeling_loss(
                 lm_logits=logits,
-                labels=labels_full,
+                labels=labels_ref,
                 shift_logits_and_labels=False,
                 reduction="mean",
             )
