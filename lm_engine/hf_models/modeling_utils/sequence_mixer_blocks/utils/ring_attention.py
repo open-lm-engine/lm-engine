@@ -133,7 +133,7 @@ def _ring_attention_forward(
         sdpa_merger.step(out, logsumexp, partial)
 
     # pyrefly: ignore [unbound-name]
-    return out, logsumexp
+    return sdpa_merger.results()
 
 
 def _ring_attention_backward(
