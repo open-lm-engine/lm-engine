@@ -21,7 +21,7 @@ from ....utils import skip_test_if_device_unavailable, slow_test
 @pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
 @pytest.mark.parametrize("attention_implementation", ["flash_attention_2", "flash_attention_3", "flash_attention_4"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("load_balancing_method", [None])
+@pytest.mark.parametrize("load_balancing_method", [None, "headtail"])
 @slow_test
 def test_context_parallel_forward(
     position_embedding_type: str,
