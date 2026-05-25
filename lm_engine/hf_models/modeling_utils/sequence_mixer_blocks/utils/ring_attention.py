@@ -6,12 +6,11 @@ from enum import Enum
 from typing import Any
 
 import torch
-from torch.distributed import ProcessGroup
 
 from .....parallel import ProcessGroupManager
 from .communication import AllToAllRotater
-from .flash_attention_utils import _get_flash_attention_function
 from .merge import _Merger
+from .utils import _get_flash_attention_function
 
 
 class _CausalBehavior(Enum):
