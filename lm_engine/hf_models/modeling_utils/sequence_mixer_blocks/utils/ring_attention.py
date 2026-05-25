@@ -222,10 +222,9 @@ def _ring_attention_backward(
                 dk=dk_,
                 dv=dv_,
                 softmax_scale=softmax_scale,
-                causal=causal,
+                is_causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
                 alibi_slopes=None,
                 logsumexp=local_lse,
-                is_causal=is_causal_behavior.value,
             )
         else:
             dq_ = torch.zeros_like(q, dtype=torch.float32)
