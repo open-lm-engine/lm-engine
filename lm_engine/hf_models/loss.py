@@ -90,7 +90,7 @@ def get_autoregressive_language_modeling_loss(
         loss = DTensor.from_local(
             loss,
             device_mesh=ProcessGroupManager.get_context_parallel_mesh(),
-            placements=[Partial(reduction)],
+            placements=[Partial("avg" if reduction == "mean" else reduction)],
         )
 
         loss = loss.redistribute(placements=[Replicate()])
