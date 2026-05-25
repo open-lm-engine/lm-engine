@@ -113,10 +113,7 @@ with enable_kernels(kernels):
     )
 
     # shard inputs across CP ranks using the chosen load-balancing strategy
-    input_ids_cp, labels_cp = prepare_context_parallel_input(
-        inputs=(input_ids_full, labels_full),
-        load_balancer_type=args.load_balancing_method,
-    )
+    input_ids_cp, labels_cp = prepare_context_parallel_input(inputs=(input_ids_full, labels_full))
 
     # forward pass — labels must NOT be passed when CP is enabled
     output_cp = model_cp(input_ids=input_ids_cp)

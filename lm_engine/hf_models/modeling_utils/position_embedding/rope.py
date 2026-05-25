@@ -41,8 +41,6 @@ class RoPE(nn.Module):
         self.max_seq_len_cached = seq_len
 
         t = torch.arange(self.max_seq_len_cached, dtype=torch.float32)
-        # t = prepare_context_parallel_input(inputs=(t,), input_seq_dim=0)[0]
-
         freqs = torch.outer(t, self._get_inv_freq())
 
         # Different from paper, but it uses a different permutation in order to obtain the same calculation
