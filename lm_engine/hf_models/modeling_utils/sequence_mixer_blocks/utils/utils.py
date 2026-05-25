@@ -16,6 +16,8 @@ from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack
 if is_flash_attention_2_available():
     from flash_attn import flash_attn_func as flash_attention_2
     from flash_attn import flash_attn_varlen_func as flash_attention_2_varlen
+    from flash_attn.flash_attn_interface import _flash_attn_backward as _flash_attn_2_backward
+    from flash_attn.flash_attn_interface import _flash_attn_forward as _flash_attn_2_forward
 
 if is_flash_attention_3_available():
     from flash_attn_interface import flash_attn_func as flash_attention_3
@@ -26,7 +28,7 @@ if is_flash_attention_4_available():
     from flash_attn.cute import flash_attn_varlen_func as flash_attention_4_varlen
 
 
-def _get_flash_attention_function(dropout: float) -> Callable:
+def _get_flash_attention_function(dropout: float) -> tuple[Callable, ...]:
     use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
     use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
     use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
@@ -47,10 +49,17 @@ def _get_flash_attention_function(dropout: float) -> Callable:
     elif use_flash_attention_2:
         _flash_attention_function = partial(flash_attention_2, dropout_p=dropout)
         _flash_attention_varlen_function = partial(flash_attention_2_varlen, dropout_p=dropout)
+        _flash_attention_forward = _flash_attn_2_forward
+        _flash_attention_backward = _flash_attn_2_backward
     else:
         raise ValueError("unexpected flash_attention method")
 
-    return _flash_attention_function, _flash_attention_varlen_function
+    return (
+        _flash_attention_function,
+        _flash_attention_varlen_function,
+        _flash_attention_forward,
+        _flash_attention_backward,
+    )
 
 
 def _unpad_input(
