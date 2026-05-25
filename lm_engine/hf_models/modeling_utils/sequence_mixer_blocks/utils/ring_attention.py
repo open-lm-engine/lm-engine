@@ -3,7 +3,7 @@
 # **************************************************
 
 from enum import Enum
-from typing import Any, Callable
+from typing import Callable
 
 import torch
 
@@ -146,8 +146,6 @@ def _ring_attention_backward(
 
     next_kv = None
     next_grad_kv = None
-    rest: list[Any]
-    grad_query_, grad_key_, grad_value_ = None, None, None
 
     dq = torch.zeros_like(q, dtype=torch.float32)
     dk = torch.zeros_like(k, dtype=torch.float32)
@@ -209,16 +207,16 @@ def _ring_attention_backward(
 
             # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
             # for the SDPA kernel definitions.
-            dq_, dk_, dv_ = backward_function(
-                dx=dx,
-                q=q,
-                k=k,
-                v=v,
-                x=x,
-                softmax_lse=softmax_lse,
-                dq=dq,
-                dk=dk,
-                dv=dv,
+            backward_function(
+                dx=local_dx,
+                q=local_q,
+                k=local_k,
+                v=local_v,
+                x=local_x,
+                softmax_lse=local_lse,
+                dq=dq_,
+                dk=dk_,
+                dv=dv_,
                 dropout_p=dropout,
                 softmax_scale=softmax_scale,
                 causal=causal,
@@ -269,7 +267,7 @@ def _ring_attention_backward(
     dk = next_grad_kv[: dk.numel()].reshape(dk.size())
     dv = next_grad_kv[dk.numel() :].reshape(dv.size())
 
-    return dq, dk, dv, *rest
+    return dq, dk, dv
 
 
 class _RingAttention(torch.autograd.Function):
