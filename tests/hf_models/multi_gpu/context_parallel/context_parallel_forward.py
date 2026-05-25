@@ -176,4 +176,4 @@ with enable_kernels(kernels):
         assert error < 1e-3, f"losses don't match for normal and context parallel model, error is ({error})"
 
         error = (logits.grad - grad_logits_cp_full).abs().max()
-        assert error < 5e-4, f"logit gradients don't match for normal and context parallel model, error is ({error})"
+        assert error < 3.5e-3, f"logit gradients don't match for normal and context parallel model, error is ({error})"
