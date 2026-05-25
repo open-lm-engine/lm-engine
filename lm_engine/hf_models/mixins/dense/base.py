@@ -360,7 +360,11 @@ class BaseModelMixin(PreTrainedModelMixin):
             key_length = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
         else:
             past_length = 0 if cache_params is None else cache_params.get_seq_length()
-            query_length = input_shape[-1] * ProcessGroupManager.get_context_parallel_world_size()
+            query_length = input_shape[-1] * (
+                ProcessGroupManager.get_context_parallel_world_size()
+                if ProcessGroupManager.is_context_parallel_enabled()
+                else 1
+            )
             key_length = past_length + query_length
 
         hidden_states = self.wte(input_ids)
