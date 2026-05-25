@@ -120,14 +120,19 @@ def _ring_attention_forward(
 
         # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
         # for the SDPA kernel definitions.
-        out, logsumexp, *rest = _flash_attention_forward(
-            local_q,
-            local_k,
-            local_v,
+        out, softmax_lse, S_dmask, rng_state = _flash_attention_forward(
+            q=local_q,
+            k=local_k,
+            v=local_v,
+            dropout_p=dropout,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
-            window_size=window_size,
+            window_size_left=window_size[0],
+            window_size_right=window_size[1],
             softcap=softcap,
+            alibi_slopes=None,
+            return_softmax=False,
+            window_size=window_size,
         )
 
         sdpa_merger.step(out, logsumexp, partial)
