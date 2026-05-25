@@ -2,6 +2,8 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
+from __future__ import annotations
+
 from enum import Enum
 from typing import Callable
 
@@ -17,23 +19,23 @@ class _CausalBehavior(Enum):
     NOT_IS_CAUSAL = False
     IS_CAUSAL = True
 
+    @staticmethod
+    def _is_causal_behavior(rank: int, world_size: int, i: int, causal: bool) -> _CausalBehavior:
+        """
+        Calculate is_causal behavior for each KV block. The attention can either be
+        calculated in full, not at all or with the causal mask applied.
+        """
+        if not causal:
+            return _CausalBehavior.NOT_IS_CAUSAL
 
-def _is_causal_behavior(rank: int, world_size: int, i: int, causal: bool) -> _CausalBehavior:
-    """
-    Calculate is_causal behavior for each KV block. The attention can either be
-    calculated in full, not at all or with the causal mask applied.
-    """
-    if not causal:
-        return _CausalBehavior.NOT_IS_CAUSAL
+        if i == 0:
+            return _CausalBehavior.IS_CAUSAL
 
-    if i == 0:
-        return _CausalBehavior.IS_CAUSAL
-
-    source_rank = (rank - i) % world_size
-    if source_rank < rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
-        return _CausalBehavior.NOT_IS_CAUSAL
-    else:
-        return _CausalBehavior.SKIP
+        source_rank = (rank - i) % world_size
+        if source_rank < rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
+            return _CausalBehavior.NOT_IS_CAUSAL
+        else:
+            return _CausalBehavior.SKIP
 
 
 def _ring_attention_forward(
@@ -85,7 +87,7 @@ def _ring_attention_forward(
             next_kv = torch.cat([k.flatten(), v.flatten()])
             rotater.exchange_buffers(next_kv)
 
-        is_causal_behavior = _is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
+        is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
         if is_causal_behavior == _CausalBehavior.SKIP:
             continue
@@ -177,7 +179,7 @@ def _ring_attention_backward(
             next_kv = torch.cat([k.flatten(), v.flatten()])
             kv_rotater.exchange_buffers(next_kv)
 
-        is_causal_behavior = _is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
+        is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
         if is_causal_behavior != _CausalBehavior.SKIP:
             if i == 0 or (ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal):
