@@ -214,11 +214,11 @@ def _ring_attention_backward(
             # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
             # for the SDPA kernel definitions.
             backward_function(
-                dx=local_dx,
+                dout=local_dx,
                 q=local_q,
                 k=local_k,
                 v=local_v,
-                x=local_x,
+                out=local_x,
                 softmax_lse=local_lse,
                 dq=dq_,
                 dk=dk_,
