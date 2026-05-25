@@ -21,7 +21,7 @@ _LOAD_BALANCERS = {None: _NoLoadBalancer, ContextParallelLoadBalancerMethod.head
 
 
 def prepare_context_parallel_input(
-    inputs: tuple[torch.Tensor, ...], input_seq_dim: int = 1, load_balancer_type: str | None = "headtail"
+    inputs: tuple[torch.Tensor, ...], input_seq_dim: int = 1
 ) -> tuple[torch.Tensor, ...]:
     if not ProcessGroupManager.is_context_parallel_enabled():
         return inputs
@@ -32,7 +32,9 @@ def prepare_context_parallel_input(
     S = inputs[0].size(input_seq_dim)
     cp_world_size = cp_mesh.size(0)
 
-    load_balancer = _LOAD_BALANCERS[load_balancer_type](S, cp_world_size, cp_mesh.device_type)
+    load_balancer = _LOAD_BALANCERS[ProcessGroupManager.get_context_parallel_load_balancing_method()](
+        S, cp_world_size, cp_mesh.device_type
+    )
     inputs = _context_parallel_shard(
         mesh=cp_mesh, buffers=inputs, seq_dims=tuple(input_seq_dim for _ in inputs), load_balancer=load_balancer
     )
