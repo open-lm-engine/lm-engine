@@ -136,19 +136,16 @@ def _ring_attention_backward(
     out: torch.Tensor,
     logsumexp: torch.Tensor,
     is_causal: bool,
+    rank: int,
+    world_size: int,
     **kwargs: Any,
 ) -> tuple[torch.Tensor, ...]:
-    """This API implements the backward pass of the ring attention."""
-    if not is_causal and _cp_options.enable_load_balance:
-        raise RuntimeError("Load balancing requires `is_causal=True`.")
-    rank = dist.get_rank(group)
-    size = dist.get_world_size(group)
     next_kv = None
     next_grad_kv = None
     rest: list[Any]
     grad_query_, grad_key_, grad_value_ = None, None, None
 
-    accum_dtype = torch.float32 if _cp_options.convert_to_f32 else query.dtype
+    accum_dtype = torch.float32
     grad_query = torch.zeros_like(query, dtype=accum_dtype)
     grad_key = torch.zeros_like(key, dtype=accum_dtype)
     grad_value = torch.zeros_like(value, dtype=accum_dtype)
@@ -280,3 +277,45 @@ def _ring_attention_backward(
     grad_value = next_grad_kv[grad_key.numel() :].reshape(grad_value.shape)
 
     return grad_query, grad_key, grad_value, *rest
+
+
+class _RingAttention(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        causal: bool,
+        dropout: float,
+        softmax_scale: float | None,
+        sliding_window: int | None,
+        softcap: float,
+    ) -> torch.Tensor:
+        return _ring_attention_forward(
+            q=q,
+            k=k,
+            v=v,
+            causal=causal,
+            dropout=dropout,
+            softmax_scale=softmax_scale,
+            sliding_window=sliding_window,
+            softcap=softcap,
+        )
+
+    @staticmethod
+    def backward(ctx, *grad_outputs):
+        return super().backward(ctx, *grad_outputs)
+
+
+def ring_attention_function(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    causal: bool,
+    dropout: float,
+    softmax_scale: float | None,
+    sliding_window: int | None,
+    softcap: float,
+) -> tuple[torch.Tensor, ...]:
+    return _RingAttention.apply(q, k, v, causal, dropout, softmax_scale, sliding_window, softcap)
