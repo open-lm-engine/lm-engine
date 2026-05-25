@@ -44,7 +44,7 @@ def _ring_attention_forward(
     causal: bool,
     dropout: float,
     softmax_scale: float | None,
-    sliding_window: int | None,
+    window_size: int | None,
     softcap: float,
 ) -> tuple[torch.Tensor, ...]:
     _flash_attention_function, _ = _get_flash_attention_function(dropout=dropout)
@@ -288,7 +288,7 @@ class _RingAttention(torch.autograd.Function):
         causal: bool,
         dropout: float,
         softmax_scale: float | None,
-        sliding_window: int | None,
+        window_size: tuple[int, int],
         softcap: float,
     ) -> torch.Tensor:
         return _ring_attention_forward(
@@ -298,7 +298,7 @@ class _RingAttention(torch.autograd.Function):
             causal=causal,
             dropout=dropout,
             softmax_scale=softmax_scale,
-            sliding_window=sliding_window,
+            window_size=window_size,
             softcap=softcap,
         )
 
@@ -314,7 +314,7 @@ def ring_attention_function(
     causal: bool,
     dropout: float,
     softmax_scale: float | None,
-    sliding_window: int | None,
+    window_size: tuple[int, int],
     softcap: float,
 ) -> tuple[torch.Tensor, ...]:
-    return _RingAttention.apply(q, k, v, causal, dropout, softmax_scale, sliding_window, softcap)
+    return _RingAttention.apply(q, k, v, causal, dropout, softmax_scale, window_size, softcap)
