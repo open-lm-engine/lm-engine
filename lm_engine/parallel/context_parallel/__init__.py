@@ -12,11 +12,12 @@
 import torch
 from torch.distributed.tensor.experimental._attention import _context_parallel_shard
 
+from ...enums import ContextParallelLoadBalancerMethod
 from ..manager import ProcessGroupManager
-from .load_balancer import _HeadTailLoadBalancer, _IdentityLoadBalancer
+from .load_balancer import _HeadTailLoadBalancer, _NoLoadBalancer
 
 
-_LOAD_BALANCERS = {"identity": _IdentityLoadBalancer, "headtail": _HeadTailLoadBalancer}
+_LOAD_BALANCERS = {None: _NoLoadBalancer, ContextParallelLoadBalancerMethod.headtail: _HeadTailLoadBalancer}
 
 
 def prepare_context_parallel_input(

@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Shawn Tan
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import argparse
@@ -10,11 +10,11 @@ import torch.distributed
 from transformers import AutoModelForCausalLM
 
 from lm_engine.accelerator import Accelerator
-from lm_engine.enums import Kernel
+from lm_engine.enums import ContextParallelLoadBalancerMethod, Kernel
 from lm_engine.hf_models import GPTBaseConfig, get_autoregressive_language_modeling_loss
 from lm_engine.kernels import enable_kernels
 from lm_engine.parallel import ProcessGroupManager, prepare_context_parallel_input
-from lm_engine.parallel.context_parallel.load_balancer import _HeadTailLoadBalancer, _IdentityLoadBalancer
+from lm_engine.parallel.context_parallel import _HeadTailLoadBalancer, _NoLoadBalancer
 from lm_engine.utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
 from ....utils import from_config
@@ -25,13 +25,15 @@ parser.add_argument("--position-embedding-type", type=str)
 parser.add_argument("--attention-implementation", type=str)
 parser.add_argument("--dtype", type=str)
 parser.add_argument("--tmp-path", type=str)
-parser.add_argument("--load-balancing-method", type=str, default="headtail")
+parser.add_argument("--load-balancing-method", type=ContextParallelLoadBalancerMethod)
 args = parser.parse_args()
 
 Accelerator.set_seed(42)
 
 cp_world_size = int(os.getenv("WORLD_SIZE"))
-ProcessGroupManager(context_parallel_world_size=cp_world_size)
+ProcessGroupManager(
+    context_parallel_world_size=cp_world_size, context_parallel_load_balancing_method=args.load_balancing_method
+)
 
 dtype = string_to_torch_dtype(args.dtype)
 num_key_value_heads = 8
@@ -136,7 +138,7 @@ with enable_kernels(kernels):
     logits_cp_gathered = torch.cat(logits_cp_parts, dim=1)
 
     # restore the original sequence order using the load-balancer's inverse permutation
-    _LB_CLASSES = {"identity": _IdentityLoadBalancer, "headtail": _HeadTailLoadBalancer}
+    _LB_CLASSES = {None: _NoLoadBalancer, "headtail": _HeadTailLoadBalancer}
     lb = _LB_CLASSES[args.load_balancing_method](sequence_length, cp_world_size, torch.cuda.current_device())
     restore_indices = lb._generate_indices(restore=True).squeeze(0).long()
     logits_cp_full = logits_cp_gathered[:, restore_indices, :]
