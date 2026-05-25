@@ -3,14 +3,13 @@
 # **************************************************
 
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 import torch
 
 from .....parallel import ProcessGroupManager
 from .communication import AllToAllRotater
 from .merge import _Merger, _partial_update
-from .utils import _get_flash_attention_function
 
 
 class _CausalBehavior(Enum):
@@ -46,9 +45,8 @@ def _ring_attention_forward(
     softmax_scale: float | None,
     window_size: int | None,
     softcap: float,
+    forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
-    _, _, _flash_attention_forward, _flash_attention_backward = _get_flash_attention_function(dropout=dropout)
-
     if causal and (q.size(1) != k.size(1)):
         raise NotImplementedError("is_causal requires the same query and context sequence lengths")
 
@@ -115,7 +113,7 @@ def _ring_attention_forward(
             local_v = v
             partial = True
 
-        x, lse, _, _ = _flash_attention_forward(
+        x, lse, _, _ = forward_function(
             q=local_q,
             k=local_k,
             v=local_v,
@@ -134,7 +132,6 @@ def _ring_attention_forward(
 
 
 def _ring_attention_backward(
-    grad_out_name: str,
     q: torch.Tensor,
     k: torch.Tensor,
     v: torch.Tensor,
@@ -278,6 +275,8 @@ class _RingAttention(torch.autograd.Function):
         softmax_scale: float | None,
         window_size: tuple[int, int],
         softcap: float,
+        forward_function: Callable,
+        backward_function: Callable,
     ) -> torch.Tensor:
         H = q.size(-1)
         if H % 8 != 0:
@@ -295,6 +294,7 @@ class _RingAttention(torch.autograd.Function):
             softmax_scale=softmax_scale,
             window_size=window_size,
             softcap=softcap,
+            forward_function=forward_function,
         )
 
         ctx.save_for_backward(q, k, v, x, lse)
@@ -303,6 +303,8 @@ class _RingAttention(torch.autograd.Function):
         ctx.causal = causal
         ctx.window_size = window_size
         ctx.softcap = softcap
+        ctx.backward_function = backward_function
+
         x = x[..., :H]
 
         return x
@@ -312,7 +314,7 @@ class _RingAttention(torch.autograd.Function):
         q, k, v, x, lse = ctx.saved_tensors
 
         dq, dk, dv = _ring_attention_backward(
-            grad_out_name="hi", q=q, k=k, v=v, x=x, dx=dx, lse=lse, causal=ctx.causal
+            q=q, k=k, v=v, x=x, dx=dx, lse=lse, causal=ctx.causal, backward_function=ctx.backward_function
         )
 
         return dq, dk, dv, *[None] * 5
@@ -327,5 +329,9 @@ def ring_attention_function(
     softmax_scale: float | None,
     window_size: tuple[int, int],
     softcap: float,
+    forward_function: Callable,
+    backward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
-    return _RingAttention.apply(q, k, v, causal, dropout, softmax_scale, window_size, softcap)
+    return _RingAttention.apply(
+        q, k, v, causal, dropout, softmax_scale, window_size, softcap, forward_function, backward_function
+    )

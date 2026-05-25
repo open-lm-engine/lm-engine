@@ -30,6 +30,14 @@ def flash_attention(
     if sliding_window is not None and k.size(1) > sliding_window:
         window_size = (sliding_window, sliding_window)
 
+    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
+    (
+        _flash_attention_function,
+        _flash_attention_varlen_function,
+        _flash_attention_forward,
+        _flash_attention_backward,
+    ) = _get_flash_attention_function(dropout=dropout)
+
     if ProcessGroupManager.is_context_parallel_enabled():
         x = ring_attention_function(
             q=q,
@@ -40,11 +48,10 @@ def flash_attention(
             softmax_scale=softmax_scale,
             window_size=window_size,
             softcap=softcap,
+            forward_function=_flash_attention_forward,
+            backward_function=_flash_attention_backward,
         )
     else:
-        use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
-        _flash_attention_function, _flash_attention_varlen_function = _get_flash_attention_function(dropout=dropout)
-
         if use_padding_free_transformer:
             assert not ProcessGroupManager.is_context_parallel_enabled()
             assert sliding_window is None
