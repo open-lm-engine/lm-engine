@@ -139,7 +139,7 @@ def _ring_attention_backward(
     dx: torch.Tensor,
     lse: torch.Tensor,
     causal: bool,
-    **kwargs: Any,
+    backward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
@@ -210,14 +210,13 @@ def _ring_attention_backward(
 
             # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
             # for the SDPA kernel definitions.
-            dq_, dk_, dv_, *rest = op(
+            dq_, dk_, dv_, *rest = backward_function(
                 query=local_q,
                 key=local_k,
                 value=local_v,
                 out=local_x,
                 logsumexp=local_lse,
                 is_causal=is_causal_behavior.value,
-                **kwargs,
             )
         else:
             dq_ = torch.zeros_like(q, dtype=accum_dtype)
