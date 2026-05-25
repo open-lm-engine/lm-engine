@@ -134,14 +134,14 @@ def _ring_attention_forward(
 
 
 def _ring_attention_backward(
-    grad_out: torch.Tensor,
     grad_out_name: str,
     q: torch.Tensor,
     k: torch.Tensor,
     v: torch.Tensor,
-    out: torch.Tensor,
-    logsumexp: torch.Tensor,
-    is_causal: bool,
+    x: torch.Tensor,
+    dx: torch.Tensor,
+    lse: torch.Tensor,
+    causal: bool,
     **kwargs: Any,
 ) -> tuple[torch.Tensor, ...]:
     rank = ProcessGroupManager.get_context_parallel_rank()
@@ -328,7 +328,14 @@ class _RingAttention(torch.autograd.Function):
         return x
 
     @staticmethod
-    def backward(ctx, *grad_outputs): ...
+    def backward(ctx, *grad_outputs):
+        q, k, v, x, lse = ctx.saved_tensors
+
+        dq, dk, dv = _ring_attention_backward(
+            grad_out_name="hi", q=q, k=k, v=v, x=x, dx=dx, lse=lse, causal=ctx.causal
+        )
+
+        return dq, dk, dv, *[None] * 5
 
 
 def ring_attention_function(
