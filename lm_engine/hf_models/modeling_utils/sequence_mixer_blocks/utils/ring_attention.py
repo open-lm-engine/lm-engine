@@ -328,7 +328,7 @@ class _RingAttention(torch.autograd.Function):
         return x
 
     @staticmethod
-    def backward(ctx, *grad_outputs):
+    def backward(ctx, dx: torch.Tensor) -> tuple[torch.Tensor | None, ...]:
         q, k, v, x, lse = ctx.saved_tensors
 
         dq, dk, dv = _ring_attention_backward(
