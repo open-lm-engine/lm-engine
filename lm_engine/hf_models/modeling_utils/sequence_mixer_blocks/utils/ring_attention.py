@@ -302,7 +302,14 @@ class _RingAttention(torch.autograd.Function):
         window_size: tuple[int, int],
         softcap: float,
     ) -> torch.Tensor:
-        out_padded, logsumexp = _ring_attention_forward(
+        H = q.size(-1)
+        if H % 8 != 0:
+            pad = 8 - H % 8
+            q = torch.nn.functional.pad(q, [0, pad])
+            k = torch.nn.functional.pad(k, [0, pad])
+            v = torch.nn.functional.pad(v, [0, pad])
+
+        out, logsumexp = _ring_attention_forward(
             q=q,
             k=k,
             v=v,
@@ -313,14 +320,15 @@ class _RingAttention(torch.autograd.Function):
             softcap=softcap,
         )
 
-        ctx.save_for_backward(q, k, v, out_padded, logsumexp)
+        ctx.save_for_backward(q, k, v, out, logsumexp)
         ctx.dropout = dropout
         ctx.softmax_scale = softmax_scale
         ctx.causal = causal
         ctx.window_size = window_size
         ctx.softcap = softcap
+        out = out[..., :H]
 
-        return out_padded
+        return out
 
     @staticmethod
     def backward(ctx, *grad_outputs):
