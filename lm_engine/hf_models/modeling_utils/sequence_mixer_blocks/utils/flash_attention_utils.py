@@ -8,6 +8,7 @@ from .....enums import Kernel
 from .....kernels import is_kernel_allowed
 from .....parallel import ProcessGroupManager
 from .packing import unpack_sequence
+from .ring_attention import ring_attention_function
 from .utils import _get_flash_attention_function, _unpad_input
 
 
@@ -30,7 +31,16 @@ def flash_attention(
         window_size = (sliding_window, sliding_window)
 
     if ProcessGroupManager.is_context_parallel_enabled():
-        raise ValueError
+        x = ring_attention_function(
+            q=q,
+            k=k,
+            v=v,
+            causal=causal,
+            dropout=dropout,
+            softmax_scale=softmax_scale,
+            window_size=window_size,
+            softcap=softcap,
+        )
     else:
         use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
         _flash_attention_function, _flash_attention_varlen_function = _get_flash_attention_function(dropout=dropout)
