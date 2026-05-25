@@ -9,7 +9,7 @@ import torch
 
 from .....parallel import ProcessGroupManager
 from .communication import AllToAllRotater
-from .merge import _Merger
+from .merge import _Merger, _partial_update
 from .utils import _get_flash_attention_function
 
 
@@ -153,137 +153,116 @@ def _ring_attention_backward(
     grad_query_, grad_key_, grad_value_ = None, None, None
 
     accum_dtype = torch.float32
-    grad_query = torch.zeros_like(query, dtype=accum_dtype)
-    grad_key = torch.zeros_like(key, dtype=accum_dtype)
-    grad_value = torch.zeros_like(value, dtype=accum_dtype)
+    dq = torch.zeros_like(q, dtype=accum_dtype)
+    dk = torch.zeros_like(k, dtype=accum_dtype)
+    dv = torch.zeros_like(v, dtype=accum_dtype)
 
-    key = key.contiguous()
-    value = value.contiguous()
+    k = k.contiguous()
+    v = v.contiguous()
+
+    k_numel = k.numel()
+    k_size = k.size()
+    v_size = v.size()
+
     kv_rotater = _create_rotater(group, 2)
     dkv_rotater = _create_rotater(group, 2, method=_RotateMethod.ALL_TO_ALL)
     for i in range(world_size):
         if i > 0:
             # Wait for the kv from the (cp_rank - 1) rank.
             buffer = kv_rotater.next_buffer()
-            pointer = 0
-            key = buffer[pointer : pointer + key.numel()].reshape(key.shape)
-            pointer += key.numel()
-            value = buffer[pointer : pointer + value.numel()].reshape(value.shape)
-            pointer += value.numel()
+            k = buffer[:k_numel].reshape(k_size)
+            v = buffer[k_numel:].reshape(v_size)
 
-        if i != size - 1:
+        if i != world_size - 1:
             # Send the kv to the next rank.
-            next_kv = torch.cat([key.flatten(), value.flatten()])
+            next_kv = torch.cat([k.flatten(), v.flatten()])
             kv_rotater.exchange_buffers(next_kv)
 
-        is_causal_behavior = _is_causal_behavior(rank=rank, world_size=size, i=i, is_causal=is_causal)
+        is_causal_behavior = _is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
         if is_causal_behavior != _CausalBehavior.SKIP:
-            if i == 0 or (not _cp_options.enable_load_balance or not is_causal):
+            if i == 0 or (not _cp_options.enable_load_balance or not causal):
                 # We need to do SDPA with the full local q, k, v.
-                q, k, v, out_, dout, lse = (query, key, value, out, grad_out, logsumexp)
+                local_q = q
+                local_k = k
+                local_v = v
+                local_x = x
+                local_dx = dx
+                local_lse = lse
             elif i <= rank:
                 # Round-robin load balancing case, and i <= rank.
                 # We need to do SDPA with only the first half of k, v.
                 # Note that q, k, v each contains two chunks.
-                q, k, v, out_, dout, lse = (
-                    query,
-                    key.chunk(2, dim=seq_dim)[0],
-                    value.chunk(2, dim=seq_dim)[0],
-                    out,
-                    grad_out,
-                    logsumexp,
-                )
+                local_q = q
+                local_k = k.chunk(2, dim=1)[0]
+                local_v = v.chunk(2, dim=1)[0]
+                local_x = x
+                local_dx = dx
+                local_lse = lse
             else:
                 # Round-robin load balancing case, and i > rank.
                 # We need to do SDPA with only the second half of q.
                 # Note that q, k, v each contains two chunks.
-                q, k, v, out_, dout, lse = (
-                    query.chunk(2, dim=seq_dim)[1],
-                    key,
-                    value,
-                    out.chunk(2, dim=seq_dim)[1],
-                    grad_out.chunk(2, dim=seq_dim)[1],
-                    # Need to make logsumexp contiguous, otherwise there will
-                    # be numerical error.
-                    logsumexp.chunk(2, dim=seq_dim)[1].contiguous(),
-                )
+                local_q = q.chunk(2, dim=1)[1]
+                local_k = k
+                local_v = v
+                local_x = x.chunk(2, dim=1)[1]
+                local_dx = dx.chunk(2, dim=1)[1]
+                local_lse = lse.chunk(2, dim=1)[1].contiguous()
 
-            kwargs[grad_out_name] = dout
+            kwargs[grad_out_name] = local_dx
             # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
             # for the SDPA kernel definitions.
-            grad_query_, grad_key_, grad_value_, *rest = op(
-                query=q,
-                key=k,
-                value=v,
-                out=out_,
-                logsumexp=lse,
+            dq_, dk_, dv_, *rest = op(
+                query=local_q,
+                key=local_k,
+                value=local_v,
+                out=local_x,
+                logsumexp=local_lse,
                 is_causal=is_causal_behavior.value,
                 **kwargs,
             )
         else:
-            grad_query_ = torch.zeros_like(query, dtype=accum_dtype)
-            grad_key_ = torch.zeros_like(key, dtype=accum_dtype)
-            grad_value_ = torch.zeros_like(value, dtype=accum_dtype)
+            dq_ = torch.zeros_like(q, dtype=accum_dtype)
+            dk_ = torch.zeros_like(k, dtype=accum_dtype)
+            dv_ = torch.zeros_like(v, dtype=accum_dtype)
 
         ROUND_ROBIN_CYCLE = 2
         if i == 0:
-            grad_key += grad_key_
-            grad_value += grad_value_
+            dk += dk_
+            dv += dv_
         else:
-            pointer = 0
             # Wait for the kv gradient from (cp_rank - 1) rank.
             next_grad_kv = dkv_rotater.next_buffer()
-            grad_key = next_grad_kv[pointer : pointer + grad_key.numel()].reshape(grad_key.shape)
-            pointer += grad_key.numel()
-            grad_value = next_grad_kv[pointer : pointer + grad_value.numel()].reshape(grad_value.shape)
+            dk = next_grad_kv[: dk.numel()].reshape(dk.size())
+            dv = next_grad_kv[dk.numel() :].reshape(dv.size())
 
-            if i <= rank and _cp_options.enable_load_balance:
-                grad_key = _partial_update(
-                    grad_key,
-                    grad_key_,
-                    dim=seq_dim,
-                    n_chunks=ROUND_ROBIN_CYCLE,
-                    idx=0,
-                    add=True,
-                )
-                grad_value = _partial_update(
-                    grad_value,
-                    grad_value_,
-                    dim=seq_dim,
-                    n_chunks=ROUND_ROBIN_CYCLE,
-                    idx=0,
-                    add=True,
-                )
+            if i <= rank and ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
+                dk = _partial_update(dk, dk_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=0, add=True)
+
+                dv = _partial_update(dv, dv_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=0, add=True)
             else:
-                grad_key += grad_key_
-                grad_value += grad_value_
+                dk += dk_
+                dv += dv_
 
-        next_grad_kv = torch.cat([grad_key.flatten(), grad_value.flatten()])
+        next_grad_kv = torch.cat([dk.flatten(), dv.flatten()])
         # Send the grad key and grad value to the next rank.
         dkv_rotater.exchange_buffers(next_grad_kv)
 
-        if i <= rank or not _cp_options.enable_load_balance:
-            grad_query += grad_query_
+        if i <= rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
+            dq += dq_
         else:
-            grad_query = _partial_update(
-                grad_query,
-                grad_query_,
-                dim=seq_dim,
-                n_chunks=ROUND_ROBIN_CYCLE,
-                idx=1,
-                add=True,
-            )
+            dq = _partial_update(dq, dq_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=1, add=True)
 
-    assert grad_key_ is not None
-    assert grad_value_ is not None
+    assert dk_ is not None
+    assert dv_ is not None
 
-    grad_query = grad_query.to(query.dtype)
-    next_grad_kv = dkv_rotater.next_buffer().to(key.dtype)
-    grad_key = next_grad_kv[: grad_key.numel()].reshape(grad_key.shape)
-    grad_value = next_grad_kv[grad_key.numel() :].reshape(grad_value.shape)
+    dq = dq.type_as(q)
+    next_grad_kv = dkv_rotater.next_buffer().type_as(k)
+    dk = next_grad_kv[: dk.numel()].reshape(dk.size())
+    dv = next_grad_kv[dk.numel() :].reshape(dv.size())
 
-    return grad_query, grad_key, grad_value, *rest
+    return dq, dk, dv, *rest
 
 
 class _RingAttention(torch.autograd.Function):
