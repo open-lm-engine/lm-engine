@@ -122,46 +122,58 @@ with enable_kernels(kernels):
     # shard inputs across CP ranks — uses the load-balancing method from ProcessGroupManager
     input_ids_cp, labels_cp = prepare_context_parallel_input(inputs=(input_ids_full, labels_full))
 
-    # forward pass — labels must NOT be passed when CP is enabled
+    # ---- forward + backward with CP model ----
     output_cp = model_cp(input_ids=input_ids_cp)
     logits_cp = output_cp.logits[..., : config.vocab_size]
+    logits_cp.retain_grad()
 
-    # compute loss with DTensor all-reduce across CP ranks
     loss_cp = get_autoregressive_language_modeling_loss(
         lm_logits=logits_cp,
         labels=labels_cp,
         shift_logits_and_labels=False,
         reduction="mean",
     )
+    loss_cp.backward()
 
-    # gather logits from all CP ranks so we can compare with the non-CP reference
+    # ---- gather logits and their gradients from all CP ranks ----
     cp_group = ProcessGroupManager.get_context_parallel_group()
-    logits_cp_parts = [torch.zeros_like(logits_cp) for _ in range(cp_world_size)]
-    torch.distributed.all_gather(logits_cp_parts, logits_cp, group=cp_group)
-    # concatenate along the sequence dimension → [B, T, V] in sharded (reordered) order
-    logits_cp_gathered = torch.cat(logits_cp_parts, dim=1)
+
+    def _gather_and_restore(local: torch.Tensor, restore_idx: torch.Tensor) -> torch.Tensor:
+        parts = [torch.zeros_like(local) for _ in range(cp_world_size)]
+        torch.distributed.all_gather(parts, local.detach(), group=cp_group)
+        gathered = torch.cat(parts, dim=1)  # [B, T, V] in sharded (reordered) order
+        return gathered[:, restore_idx, :]
 
     # restore the original sequence order using the load-balancer's inverse permutation
     _LB_CLASSES = {None: _NoLoadBalancer, ContextParallelLoadBalancerMethod.headtail: _HeadTailLoadBalancer}
     lb = _LB_CLASSES[args.load_balancing_method](sequence_length, cp_world_size, torch.cuda.current_device())
     restore_indices = lb._generate_indices(restore=True).squeeze(0).long()
-    logits_cp_full = logits_cp_gathered[:, restore_indices, :]
+
+    logits_cp_full = _gather_and_restore(logits_cp, restore_indices)
+    grad_logits_cp_full = _gather_and_restore(logits_cp.grad, restore_indices)
 
     if torch.distributed.get_rank() == 0:
         # run full-sequence model on rank 0 without CP active;
-        # loss computation must also be inside the context manager to avoid DTensor CP reduction
+        # forward, loss, and backward must all be inside the context manager to avoid
+        # any DTensor CP operations (e.g. CP-aware position-id sharding or loss reduction)
         with ProcessGroupManager.set_dummy_context_parallel_world_size(1):
             output = model(input_ids=input_ids_ref)
             logits = output.logits[..., : config.vocab_size]
+            logits.retain_grad()
+
             loss = get_autoregressive_language_modeling_loss(
                 lm_logits=logits,
                 labels=labels_ref,
                 shift_logits_and_labels=False,
                 reduction="mean",
             )
+            loss.backward()
 
         error = (logits - logits_cp_full).abs().max()
         assert error < 5e-4, f"logits don't match for normal and context parallel model, error is ({error})"
 
         error = (loss - loss_cp).abs().max()
         assert error < 1e-3, f"losses don't match for normal and context parallel model, error is ({error})"
+
+        error = (logits.grad - grad_logits_cp_full).abs().max()
+        assert error < 5e-4, f"logit gradients don't match for normal and context parallel model, error is ({error})"
