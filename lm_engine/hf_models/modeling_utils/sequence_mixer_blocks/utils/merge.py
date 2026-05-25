@@ -25,7 +25,7 @@ def _partial_update(
     The result is a tensor that is the same size as ``original``.
     """
     chunks = list(original.chunk(n_chunks, dim=dim))
-    assert chunks[idx].shape == new.shape, (original.shape, new.shape, idx)
+    assert chunks[idx].size() == new.size(), (original.size(), new.size(), idx)
     if add:
         chunks[idx] += new
     else:
@@ -72,6 +72,7 @@ class _Merger:
                     idx=1,
                     add=False,
                 )
+
                 self._out = _partial_update(
                     self._out,
                     out,

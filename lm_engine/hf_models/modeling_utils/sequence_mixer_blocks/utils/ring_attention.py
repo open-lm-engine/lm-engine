@@ -328,9 +328,7 @@ class _RingAttention(torch.autograd.Function):
         return x
 
     @staticmethod
-    def backward(ctx, *grad_outputs):
-        raise ValueError
-        return super().backward(ctx, *grad_outputs)
+    def backward(ctx, *grad_outputs): ...
 
 
 def ring_attention_function(
