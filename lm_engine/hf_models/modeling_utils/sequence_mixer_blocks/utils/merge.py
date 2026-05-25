@@ -46,6 +46,7 @@ class _Merger:
         # The cuDNN backend preserves the last dimension for LSE.
         # Apply unsqueeze only if the input does not already have
         # the required dimensionality.
+        block_lse = block_lse.transpose(1, 2)[..., None]
         if len(block_lse.shape) < len(block_out.shape):
             block_lse = block_lse.unsqueeze(dim=-1)
             self._should_lse_squeeze = True
