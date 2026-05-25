@@ -31,7 +31,7 @@ def _is_causal_behavior(rank: int, world_size: int, i: int, causal: bool) -> _Ca
         return _CausalBehavior.IS_CAUSAL
 
     source_rank = (rank - i) % world_size
-    if source_rank < rank or ProcessGroupManager.get_load_balancing_method() is not None:
+    if source_rank < rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
         return _CausalBehavior.NOT_IS_CAUSAL
     else:
         return _CausalBehavior.SKIP
@@ -52,7 +52,7 @@ def _ring_attention_forward(
     if causal and (q.size(1) != k.size(1)):
         raise NotImplementedError("is_causal requires the same query and context sequence lengths")
 
-    if not causal and ProcessGroupManager.get_load_balancing_method() is None:
+    if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
         raise RuntimeError("Load balancing requires `is_causal=True`.")
 
     rank = ProcessGroupManager.get_context_parallel_rank()
@@ -88,7 +88,7 @@ def _ring_attention_forward(
         if is_causal_behavior == _CausalBehavior.SKIP:
             continue
 
-        if i == 0 or (ProcessGroupManager.get_load_balancing_method() is None or not causal):
+        if i == 0 or (ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal):
             # When local balance is enabled, we still need to do SDPA with
             # the both local chunks of q, k, v for the first iteration.
             partial = False

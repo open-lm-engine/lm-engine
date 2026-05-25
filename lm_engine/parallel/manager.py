@@ -17,6 +17,7 @@ from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
 from ..accelerator import Accelerator
+from ..enums import ContextParallelLoadBalancerMethod
 from ..utils import is_torch_xla_available
 
 
@@ -96,6 +97,7 @@ _DATA_PARALLEL_SHARDING_WORLD_SIZE: int | None = None
 _CPU_GROUP: ProcessGroup | None = None
 _DATA_LOADING_MESH = _Mesh()
 _CONTEXT_PARALLEL_MESH = _Mesh()
+_CONTEXT_PARALLEL_LOAD_BALANCING_METHOD: ContextParallelLoadBalancerMethod | None = None
 
 
 class ProcessGroupManager:
@@ -106,6 +108,7 @@ class ProcessGroupManager:
         data_parallel_replication_world_size: int | None = None,
         data_parallel_sharding_world_size: int | None = None,
         context_parallel_world_size: int = 1,
+        context_parallel_load_balancing_method: ContextParallelLoadBalancerMethod = ContextParallelLoadBalancerMethod.headtail,
         zero_stage: int = 3,
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,
@@ -120,6 +123,9 @@ class ProcessGroupManager:
         global _CPU_GROUP
         global _DATA_LOADING_MESH
         global _CONTEXT_PARALLEL_MESH
+        global _CONTEXT_PARALLEL_LOAD_BALANCING_METHOD
+
+        _CONTEXT_PARALLEL_LOAD_BALANCING_METHOD = context_parallel_load_balancing_method
 
         if timeout_minutes is not None:
             timeout_minutes = timedelta(timeout_minutes)
@@ -433,6 +439,10 @@ class ProcessGroupManager:
     @staticmethod
     def is_context_parallel_first_rank() -> bool:
         return ProcessGroupManager.get_context_parallel_rank() == 0
+
+    @staticmethod
+    def get_context_parallel_load_balancing_method() -> ContextParallelLoadBalancerMethod | None:
+        return _CONTEXT_PARALLEL_LOAD_BALANCING_METHOD
 
     def __str__(self) -> str:
         return str({"dense_mesh": (self.get_dense_mesh()), "dataloading_mesh": _DATA_LOADING_MESH})
