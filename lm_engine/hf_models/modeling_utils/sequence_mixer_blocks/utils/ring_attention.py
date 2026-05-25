@@ -65,6 +65,11 @@ def _ring_attention_forward(
     k = k.contiguous()
     v = v.contiguous()
 
+    # Save original shapes so buffer slicing is correct even after chunking.
+    k_numel = k.numel()
+    k_size = k.size()
+    v_size = v.size()
+
     rotater = AllToAllRotater(seq_dim=1)
     sdpa_merger = _Merger(seq_dim=1)
     rest: list[Any]
@@ -75,8 +80,8 @@ def _ring_attention_forward(
         if i > 0:
             # Wait for the kv from the (cp_rank - 1) rank.
             next_kv = rotater.next_buffer()
-            k = next_kv[: k.numel()].reshape(k.size())
-            v = next_kv[k.numel() :].reshape(v.size())
+            k = next_kv[:k_numel].reshape(k_size)
+            v = next_kv[k_numel:].reshape(v_size)
 
         if i < world_size - 1:
             # Send the k, v to the next rank
@@ -91,28 +96,34 @@ def _ring_attention_forward(
         if i == 0 or (ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal):
             # When local balance is enabled, we still need to do SDPA with
             # the both local chunks of q, k, v for the first iteration.
+            local_q = q
+            local_k = k
+            local_v = v
             partial = False
         elif i <= rank:
             # Round-robin load balancing case, and i <= rank.
             # We need to do SDPA with only the first local chunk of k, v.
             # Note that q, k, v each contains two local chunks.
-            k = k.chunk(2, dim=1)[0]
-            v = v.chunk(2, dim=1)[0]
+            local_q = q
+            local_k = k.chunk(2, dim=1)[0]
+            local_v = v.chunk(2, dim=1)[0]
             partial = False
         else:
             # Round-robin load balancing case, and i > rank.
             # We need to do SDPA with only the second half of q, and update
             # only the second part of logsumexp. So partial is True.
             # Note that q, k, v each contains two chunks.
-            q = q.chunk(2, dim=1)[1]
+            local_q = q.chunk(2, dim=1)[1]
+            local_k = k
+            local_v = v
             partial = True
 
         # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
         # for the SDPA kernel definitions.
         out, logsumexp, *rest = _flash_attention_function(
-            q,
-            k,
-            v,
+            local_q,
+            local_k,
+            local_v,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
             window_size=window_size,
