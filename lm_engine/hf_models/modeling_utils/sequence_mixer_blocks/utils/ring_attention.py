@@ -227,10 +227,6 @@ def _ring_attention_backward(
                 softmax_scale=softmax_scale,
                 causal=causal,
                 alibi_slopes=None,
-                query=local_q,
-                key=local_k,
-                value=local_v,
-                out=local_x,
                 logsumexp=local_lse,
                 is_causal=is_causal_behavior.value,
             )
