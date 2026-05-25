@@ -26,6 +26,8 @@ if is_flash_attention_3_available():
     from flash_attn_interface import flash_attn_varlen_func as flash_attention_3_varlen
 
 if is_flash_attention_4_available():
+    from flash_attn.cute import _flash_attn_backward as _flash_attn_4_backward
+    from flash_attn.cute import _flash_attn_forward as _flash_attn_4_forward
     from flash_attn.cute import flash_attn_func as flash_attention_4
     from flash_attn.cute import flash_attn_varlen_func as flash_attention_4_varlen
 
@@ -45,6 +47,8 @@ def _get_flash_attention_function(dropout: float) -> tuple[Callable, ...]:
     if use_flash_attention_4:
         _flash_attention_function = flash_attention_4
         _flash_attention_varlen_function = flash_attention_4_varlen
+        _flash_attention_forward = _flash_attn_4_forward
+        _flash_attention_backward = _flash_attn_4_backward
     elif use_flash_attention_3:
         _flash_attention_function = flash_attention_3
         _flash_attention_varlen_function = flash_attention_3_varlen
@@ -53,8 +57,8 @@ def _get_flash_attention_function(dropout: float) -> tuple[Callable, ...]:
     elif use_flash_attention_2:
         _flash_attention_function = partial(flash_attention_2, dropout_p=dropout)
         _flash_attention_varlen_function = partial(flash_attention_2_varlen, dropout_p=dropout)
-        _flash_attention_forward = _flash_attn_2_forward
-        _flash_attention_backward = _flash_attn_2_backward
+        _flash_attention_forward = partial(_flash_attn_2_forward, dropout_p=dropout)
+        _flash_attention_backward = partial(_flash_attn_2_backward, dropout_p=dropout)
     else:
         raise ValueError("unexpected flash_attention method")
 
