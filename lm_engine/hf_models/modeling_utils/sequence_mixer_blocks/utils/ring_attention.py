@@ -205,9 +205,9 @@ def _ring_attention_backward(
                 local_dx = dx.chunk(2, dim=1)[1]
                 local_lse = lse.chunk(2, dim=1)[1].contiguous()
 
-            dq_ = torch.empty_like(local_q, dtype=torch.float32)
-            dk_ = torch.empty_like(local_k, dtype=torch.float32)
-            dv_ = torch.empty_like(local_v, dtype=torch.float32)
+            dq_ = torch.empty_like(local_q)
+            dk_ = torch.empty_like(local_k)
+            dv_ = torch.empty_like(local_v)
 
             # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
             # for the SDPA kernel definitions.
