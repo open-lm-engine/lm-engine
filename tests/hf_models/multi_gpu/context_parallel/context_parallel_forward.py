@@ -135,7 +135,7 @@ with enable_kernels(kernels):
     logits_cp_gathered = torch.cat(logits_cp_parts, dim=1)
 
     # restore the original sequence order using the load-balancer's inverse permutation
-    _LB_CLASSES = {None: _NoLoadBalancer, "headtail": _HeadTailLoadBalancer}
+    _LB_CLASSES = {None: _NoLoadBalancer, ContextParallelLoadBalancerMethod.headtail: _HeadTailLoadBalancer}
     lb = _LB_CLASSES[args.load_balancing_method](sequence_length, cp_world_size, torch.cuda.current_device())
     restore_indices = lb._generate_indices(restore=True).squeeze(0).long()
     logits_cp_full = logits_cp_gathered[:, restore_indices, :]
