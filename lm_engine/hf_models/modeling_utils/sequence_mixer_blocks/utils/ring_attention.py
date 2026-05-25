@@ -139,6 +139,8 @@ def _ring_attention_backward(
     dx: torch.Tensor,
     lse: torch.Tensor,
     causal: bool,
+    dropout: float,
+    softmax_scale: float | None,
     backward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
     rank = ProcessGroupManager.get_context_parallel_rank()
@@ -204,6 +206,10 @@ def _ring_attention_backward(
                 local_x = x.chunk(2, dim=1)[1]
                 local_dx = dx.chunk(2, dim=1)[1]
                 local_lse = lse.chunk(2, dim=1)[1].contiguous()
+
+            dq_ = torch.empty_like(local_q, dtype=torch.float32)
+            dk_ = torch.empty_like(local_k, dtype=torch.float32)
+            dv_ = torch.empty_like(local_v, dtype=torch.float32)
 
             # See https://github.com/pytorch/pytorch/blob/release/2.4/aten/src/ATen/native/native_functions.yaml#L14695
             # for the SDPA kernel definitions.
@@ -321,7 +327,16 @@ class _RingAttention(torch.autograd.Function):
         q, k, v, x, lse = ctx.saved_tensors
 
         dq, dk, dv = _ring_attention_backward(
-            q=q, k=k, v=v, x=x, dx=dx, lse=lse, causal=ctx.causal, backward_function=ctx.backward_function
+            q=q,
+            k=k,
+            v=v,
+            x=x,
+            dx=dx,
+            lse=lse,
+            causal=ctx.causal,
+            dropout=ctx.dropout,
+            softmax_scale=ctx.softmax_scale,
+            backward_function=ctx.backward_function,
         )
 
         return dq, dk, dv, *[None] * 7
