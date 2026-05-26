@@ -34,6 +34,7 @@ cuda = [
     "torch==2.10.0",
 ]
 dev = [
+    "absl-py>=2.1.0",
     "pre-commit>=4.4.0",
     "pytest>=9.0.1",
 ]

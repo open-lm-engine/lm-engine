@@ -74,6 +74,8 @@ class Kernel(Enum):
     swiglu_packed = "swiglu_packed"
     unpack_sequence = "unpack_sequence"
     # quack
+    quack_gemm_act = "quack_gemm_act"
+    quack_gemm_gated = "quack_gemm_gated"
     quack_rmsnorm = "quack_rmsnorm"
     # external kernels
     flash_attention_2 = "flash_attention_2"
@@ -91,6 +93,12 @@ class Kernel(Enum):
             enabled_rmsnorm_kernels = [cls.quack_rmsnorm] + enabled_xma_rmsnorm_kernels
             kernel_names = ", ".join(kernel.value for kernel in enabled_rmsnorm_kernels)
             raise ValueError(f"quack_rmsnorm cannot be enabled with XMA RMSNorm kernels, got {kernel_names}")
+
+        if cls.quack_gemm_gated in kernels and cls.swiglu_packed in kernels:
+            raise ValueError("quack_gemm_gated cannot be enabled with swiglu_packed")
+
+        if cls.quack_gemm_act in kernels and cls.quack_gemm_gated in kernels:
+            raise ValueError("quack_gemm_act cannot be enabled with quack_gemm_gated")
 
 
 class ContextParallelLoadBalancerMethod(Enum):
