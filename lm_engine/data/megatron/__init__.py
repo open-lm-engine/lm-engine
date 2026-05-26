@@ -27,7 +27,6 @@ def get_megatron_gpt_dataloaders(
     assert args.datasets[0].output_format == OUTPUT_FORMAT
 
     micro_batch_size = args.training_parameters.micro_batch_size
-    gradient_accumulation_steps = args.training_parameters.gradient_accumulation_steps
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
 
     compile_helpers()
@@ -82,7 +81,9 @@ def get_megatron_gpt_dataloaders(
                 total_samples=len(dataset),
                 consumed_samples=consumed_samples,
                 micro_batch_size=(
-                    micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
+                    micro_batch_size
+                    if num_pipeline_stages == 1
+                    else micro_batch_size * args.training_parameters.gradient_accumulation_steps
                 ),
                 num_replicas=ProcessGroupManager.get_data_loading_world_size(),
                 rank=ProcessGroupManager.get_data_loading_rank(),
