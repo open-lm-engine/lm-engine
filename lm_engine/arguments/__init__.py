@@ -18,7 +18,8 @@ from ..enums import (
     TuningMethod,
 )
 from ..logging_utils import set_logger
-from ..utils import load_yaml, normalize_dtype_string
+from ..parallel import ProcessGroupManager
+from ..utils import divide_if_divisible, load_yaml, normalize_dtype_string
 from .base import BaseArgs
 
 
@@ -77,12 +78,14 @@ class TrainingParameters(BaseArgs):
     ignore_sampling_proportion_for_validation: bool = False
     # number of training steps
     num_training_steps: int | None = None
-    # gradient accumulation steps
-    gradient_accumulation_steps: int = 1
-    # interval for evaluation
-    eval_interval: int | None = None
     # batch size per accelerator for ZeRO-DP
     micro_batch_size: int = None
+    # gradient accumulation steps
+    gradient_accumulation_steps: int = None
+    # global batch size
+    global_batch_size: int = None
+    # interval for evaluation
+    eval_interval: int | None = None
     # whether to use val dataset for validation during training
     eval_during_training: bool = True
     # masking methodology of loss function input
@@ -96,6 +99,27 @@ class TrainingParameters(BaseArgs):
         # eval_interval
         if self.eval_during_training:
             _check_not_None([(self.eval_interval, "eval_interval")])
+
+        if self.micro_batch_size is None:
+            _check_not_None([(self.gradient_accumulation_steps, "gradient_accumulation_steps")])
+            _check_not_None([(self.global_batch_size, "global_batch_size")])
+        elif self.gradient_accumulation_steps is None:
+            _check_not_None([(self.micro_batch_size, "micro_batch_size")])
+            _check_not_None([(self.global_batch_size, "global_batch_size")])
+        else:
+            assert self.global_batch_size is None
+            _check_not_None([(self.micro_batch_size, "micro_batch_size")])
+            _check_not_None([(self.gradient_accumulation_steps, "gradient_accumulation_steps")])
+
+    def reset_training_parameters(self) -> None:
+        dp = ProcessGroupManager.get_data_loading_world_size()
+
+        if self.micro_batch_size is None:
+            self.micro_batch_size = divide_if_divisible(self.global_batch_size, self.gradient_accumulation_steps * dp)
+        elif self.gradient_accumulation_steps is None:
+            self.gradient_accumulation_steps = divide_if_divisible(self.global_batch_size, self.micro_batch_size * dp)
+        else:
+            self.global_batch_size = self.micro_batch_size * self.gradient_accumulation_steps * dp
 
 
 class SaveArgs(BaseArgs):
