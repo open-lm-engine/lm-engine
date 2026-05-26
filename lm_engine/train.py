@@ -695,11 +695,6 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
     args.log_args()
     log_environment()
 
-    StepTracker(
-        micro_batch_size=args.training_parameters.micro_batch_size,
-        gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
-    )
-
     Accelerator.set_seed(args.random_args.seed)
 
     if tuning_method in [TuningMethod.distillation, TuningMethod.full_finetuning]:
