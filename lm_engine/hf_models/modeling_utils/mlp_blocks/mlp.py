@@ -16,7 +16,7 @@ from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..init_utils import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
-from .quack_mlp import mlp_fc1_gemm_act, mlp_fc1_gemm_gated
+from ..quack import mlp_fc1_gemm_act, mlp_fc1_gemm_gated
 
 
 class MLP(nn.Module):

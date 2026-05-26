@@ -1,8 +1,8 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra, Zhonglin Han
 # **************************************************
 
-from .base import ParameterizedLinear
+from .base import ParameterizedLinear, linear_func
 from .column import ColumnParallelLinear
 from .low_rank import LowRankLinear
 from .replicated import ReplicatedLinear

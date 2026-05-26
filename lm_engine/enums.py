@@ -74,6 +74,7 @@ class Kernel(Enum):
     swiglu_packed = "swiglu_packed"
     unpack_sequence = "unpack_sequence"
     # quack
+    quack_gemm = "quack_gemm"
     quack_gemm_act = "quack_gemm_act"
     quack_gemm_gated = "quack_gemm_gated"
     quack_rmsnorm = "quack_rmsnorm"
