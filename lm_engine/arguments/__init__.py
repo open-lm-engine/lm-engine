@@ -111,15 +111,17 @@ class TrainingParameters(BaseArgs):
             _check_not_None([(self.micro_batch_size, "micro_batch_size")])
             _check_not_None([(self.gradient_accumulation_steps, "gradient_accumulation_steps")])
 
-    def reset_training_parameters(self) -> None:
-        dp = ProcessGroupManager.get_data_loading_world_size()
-
+    def reset_training_parameters(self, data_loading_world_size: int) -> None:
         if self.micro_batch_size is None:
-            self.micro_batch_size = divide_if_divisible(self.global_batch_size, self.gradient_accumulation_steps * dp)
+            self.micro_batch_size = divide_if_divisible(
+                self.global_batch_size, self.gradient_accumulation_steps * data_loading_world_size
+            )
         elif self.gradient_accumulation_steps is None:
-            self.gradient_accumulation_steps = divide_if_divisible(self.global_batch_size, self.micro_batch_size * dp)
+            self.gradient_accumulation_steps = divide_if_divisible(
+                self.global_batch_size, self.micro_batch_size * data_loading_world_size
+            )
         else:
-            self.global_batch_size = self.micro_batch_size * self.gradient_accumulation_steps * dp
+            self.global_batch_size = self.micro_batch_size * self.gradient_accumulation_steps * data_loading_world_size
 
 
 class SaveArgs(BaseArgs):
