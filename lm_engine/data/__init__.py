@@ -93,8 +93,6 @@ def get_finetuning_dataloader(
     if ProcessGroupManager.get_tensor_parallel_rank() != 0:
         return
 
-    micro_batch_size = args.training_parameters.micro_batch_size
-
     datasets_list, data_sampling_ratios = get_datasets_list(
         dataset_args_list=args.datasets, split=split, use_output=use_output, tokenizer=tokenizer
     )
@@ -119,7 +117,7 @@ def get_finetuning_dataloader(
     # dataloader is unaware of data parallel routing
     dataloader = ResumableDataLoader(
         blended_dataset,
-        batch_size=micro_batch_size,
+        batch_size=args.training_parameters.micro_batch_size,
         sampler=sampler,
         collate_fn=partial(
             collate_fn,
@@ -136,8 +134,8 @@ def get_finetuning_dataloader(
         sampler=sampler,
         split=split,
         num_training_steps=args.training_parameters.num_training_steps,
-        gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
         micro_batch_size=args.training_parameters.micro_batch_size,
+        global_batch_size=args.training_parameters.global_batch_size,
     )
 
     return dataloader
@@ -160,8 +158,8 @@ def _log_dataset(
     sampler: BlendedDistributedSampler,
     split: DatasetSplit,
     num_training_steps: int,
-    gradient_accumulation_steps: int,
     micro_batch_size: int,
+    global_batch_size: int,
 ) -> None:
     log_rank_0(logging.INFO, f"{'-' * 25} {split.value} {'-' * 25}")
     log_rank_0(logging.INFO, blended_dataset)
@@ -169,7 +167,7 @@ def _log_dataset(
     dp_world_size = ProcessGroupManager.get_data_loading_world_size()
 
     if split == DatasetSplit.train:
-        total_samples_seen = num_training_steps * gradient_accumulation_steps * micro_batch_size * dp_world_size
+        total_samples_seen = num_training_steps * global_batch_size
     else:
         num_steps = len(blended_dataset) // (micro_batch_size * dp_world_size)
         if len(blended_dataset) % (micro_batch_size * dp_world_size) != 0:
