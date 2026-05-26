@@ -117,7 +117,6 @@ def _ring_attention_forward(
             local_v = v
             partial = True
 
-        # TODO use SM margin for better overlapping of communication
         x, lse, _, _ = forward_function(
             q=local_q,
             k=local_k,
@@ -127,6 +126,7 @@ def _ring_attention_forward(
             window_size_left=window_size[0],
             window_size_right=window_size[1],
             softcap=softcap,
+            sm_margin=20,
         )
 
         sdpa_merger.step(x, lse, partial)
