@@ -22,13 +22,8 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
     tensor = [metrics_tracker[key] for key in metrics_tracker]
     tensor = torch.stack(tensor)
 
-    accelerator = Accelerator.get_accelerator()
-
-    if accelerator == Accelerator.tpu:
-        torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
-        tensor = tensor * (1 / ProcessGroupManager.get_data_parallel_world_size())
-    else:
-        torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
+    torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
+    tensor = tensor / ProcessGroupManager.get_data_loading_world_size()
 
     for i, key in enumerate(metrics_tracker):
         metrics_tracker[key] = tensor[i]

@@ -36,6 +36,7 @@ def prepare_context_parallel_input(
         S, cp_world_size, cp_mesh.device_type
     )
 
+    inputs = [i.clone() for i in inputs]
     inputs = _context_parallel_shard(
         mesh=cp_mesh, buffers=inputs, seq_dims=tuple(input_seq_dim for _ in inputs), load_balancer=load_balancer
     )
