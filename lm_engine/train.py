@@ -673,6 +673,8 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
     )
 
+    args.training_parameters.reset_training_parameters()
+
     log_rank_0(logging.INFO, process_group_manager)
     log_rank_0(logging.INFO, f"total accelerators = {process_group_manager.get_world_size()}")
     log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
