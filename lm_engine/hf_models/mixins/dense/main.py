@@ -145,6 +145,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                         lm_logits = lm_logits * (1 / self.m_width)
             else:
                 assert not self.is_pipeline_parallel_enabled
+                assert not ProcessGroupManager.is_context_parallel_enabled()
                 assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
                 lm_logits = self.get_lm_logits(hidden_states)

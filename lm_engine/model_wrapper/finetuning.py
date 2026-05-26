@@ -27,10 +27,8 @@ class ModelWrapperForFinetuning(ModelWrapper):
             MetricsTrackingDict: loss tracking dict
         """
 
-        if ProcessGroupManager.is_tensor_parallel_enabled():
-            batch = self._broadcast_inputs_for_tensor_parallel(batch)
-
         assert not ProcessGroupManager.is_context_parallel_enabled()
+        batch = self._broadcast_inputs_for_tensor_parallel(batch)
 
         if not self.is_custom_model:
             assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
@@ -49,6 +47,9 @@ class ModelWrapperForFinetuning(ModelWrapper):
         return output
 
     def _broadcast_inputs_for_tensor_parallel(self, batch: dict) -> dict:
+        if not ProcessGroupManager.is_tensor_parallel_enabled():
+            return batch
+
         device = Accelerator.get_current_device()
 
         is_tp_first_rank = ProcessGroupManager.is_tensor_parallel_first_rank()

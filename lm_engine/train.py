@@ -38,9 +38,9 @@ from .logging_utils import (
     log_environment,
     log_rank_0,
 )
-from .model_wrapper import broadcast_tensor_parallel_input, get_model_container
+from .model_wrapper import get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
-from .parallel import ProcessGroupManager
+from .parallel import ProcessGroupManager, broadcast_tensor_parallel_input
 from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import is_torch_xla_available, is_torchao_available, setup_tf32
 
@@ -667,6 +667,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         data_parallel_replication_world_size=args.distributed_args.zero_topology.data_parallel_replication_world_size,
         data_parallel_sharding_world_size=args.distributed_args.zero_topology.data_parallel_sharding_world_size,
         context_parallel_world_size=args.distributed_args.context_parallel_world_size,
+        context_parallel_load_balancing_method=args.distributed_args.context_parallel_load_balancing_method,
         zero_stage=args.distributed_args.stage,
         timeout_minutes=args.distributed_args.timeout_minutes,
         use_async_tensor_parallel=args.distributed_args.use_async_tensor_parallel,
@@ -674,9 +675,17 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
 
     log_rank_0(logging.INFO, process_group_manager)
     log_rank_0(logging.INFO, f"total accelerators = {process_group_manager.get_world_size()}")
-    log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
     log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
+    log_rank_0(
+        logging.INFO,
+        f"data parallel replication size = {process_group_manager.get_data_parallel_replication_world_size()}",
+    )
+    log_rank_0(
+        logging.INFO, f"data parallel sharding size = {process_group_manager.get_data_parallel_sharding_world_size()}"
+    )
     log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"data loading size = {process_group_manager.get_data_loading_world_size()}")
     log_rank_0(logging.INFO, f"context parallel size = {process_group_manager.get_context_parallel_world_size()}")
 
     args.log_args()
