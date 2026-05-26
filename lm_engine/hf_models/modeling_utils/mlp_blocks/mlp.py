@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra, Zhonglin Han
 # **************************************************
 
 from __future__ import annotations
@@ -9,11 +9,14 @@ from functools import partial
 import torch
 import torch.nn as nn
 
+from ....enums import Kernel
+from ....kernels import is_kernel_allowed
 from ...parameter import mark_parameter_as_mup_learning_rate, set_optimizer_split_function
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..init_utils import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
+from .quack_mlp import mlp_fc1_gemm_act, mlp_fc1_gemm_gated
 
 
 class MLP(nn.Module):
@@ -36,6 +39,7 @@ class MLP(nn.Module):
         super().__init__()
 
         self.is_glu = is_glu(activation_function)
+        self.activation_function = activation_function
         self.use_interleaved_weights = use_interleaved_weights
 
         self.c_fc = ColumnParallelLinear(
@@ -86,11 +90,29 @@ class MLP(nn.Module):
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.c_fc(x)
-        x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
+        x = self._fc1_act(x)
         x = self.c_proj(x)
         x = self.dropout(x)
         return x
+
+    def _fc1_act(self, x: torch.Tensor) -> torch.Tensor:
+        if self.is_glu and is_kernel_allowed(Kernel.quack_gemm_gated):
+            return mlp_fc1_gemm_gated(
+                x=x,
+                c_fc=self.c_fc,
+                activation_function=self.activation_function,
+                use_interleaved_weights=self.use_interleaved_weights,
+            )
+
+        if not self.is_glu and is_kernel_allowed(Kernel.quack_gemm_act):
+            return mlp_fc1_gemm_act(
+                x=x,
+                c_fc=self.c_fc,
+                activation_function=self.activation_function,
+            )
+
+        x = self.c_fc(x)
+        return self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
 
 
 def interleave_up_gate_tensor_for_mlp(
