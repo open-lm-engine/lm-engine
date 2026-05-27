@@ -323,8 +323,9 @@ def train(
         group_names = [key for key in val_weighted_split_paths.keys()[0]]
 
     model_container.train()
-    micro_batch_size = args.training_parameters.micro_batch_size
+
     global_step = starting_iteration
+    micro_batch_size = args.training_parameters.micro_batch_size
     gradient_accumulation_steps = args.training_parameters.gradient_accumulation_steps
     global_batch_size = args.training_parameters.global_batch_size
 
