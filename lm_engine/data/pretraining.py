@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Jyo Pari, Zhonglin Han
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import logging
@@ -15,23 +15,11 @@ from .megatron import GPTDataset, GPTDatasetConfig, MegatronBatchSampler, build,
 
 
 def _get_train_val_test_samples(
-    num_training_steps: int,
-    micro_batch_size: int,
-    gradient_accumulation_steps: int,
-    eval_interval: int,
-    eval_steps: int,
+    num_training_steps: int, global_batch_size: int, eval_interval: int, eval_steps: int
 ) -> tuple[int, int, int]:
-    dp_world_size = ProcessGroupManager.get_data_loading_world_size()
-
-    train_samples = num_training_steps * micro_batch_size * gradient_accumulation_steps * dp_world_size
-    val_samples = (
-        (num_training_steps // eval_interval + 1)
-        * eval_steps
-        * micro_batch_size
-        * gradient_accumulation_steps
-        * dp_world_size
-    )
-    test_samples = eval_steps * micro_batch_size * gradient_accumulation_steps * dp_world_size
+    train_samples = num_training_steps * global_batch_size
+    val_samples = (num_training_steps // eval_interval + 1) * eval_steps * global_batch_size
+    test_samples = eval_steps * global_batch_size
 
     return train_samples, val_samples, test_samples
 
