@@ -30,14 +30,7 @@ from .dtensors import dtensor_to_tensor
 from .enums import TuningMethod
 from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
-from .logging_utils import (
-    ExperimentsTracker,
-    MetricsTrackingDict,
-    StepTracker,
-    TorchProfiler,
-    log_environment,
-    log_rank_0,
-)
+from .logging_utils import ExperimentsTracker, MetricsTrackingDict, TorchProfiler, log_environment, log_rank_0
 from .model_wrapper import get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
 from .parallel import ProcessGroupManager, broadcast_tensor_parallel_input
@@ -61,23 +54,9 @@ def train_step_with_pipeline_parallel(
     lr_scheduler_container: LRSchedulerContainer,
     train_dataloader: ResumableDataLoader,
     gradient_clipping: float,
+    gradient_accumulation_steps: int,
     sequence_length: int,
 ) -> MetricsTrackingDict:
-    """runs backpropagation and applies the gradient if at the edge of gradient accumulation boundary
-
-    Args:
-        model_container (ModelContainer): container of models
-        pipeline_schedule (_PipelineSchedule): pipeline schedule
-        optimizer_container (OptimizerContainer): container of optimizers
-        lr_scheduler_container (LRSchedulerContainer): container of learning rate schedulers
-        train_dataloader (ResumableDataLoader): training dataloader
-        gradient_clipping (float): gradient clipping value
-        sequence_length (int): sequence length
-
-    Returns:
-        MetricsTrackingDict: metrics to track
-    """
-
     fsdp_algorithm = 2 if hasattr(model_container[0], "set_requires_gradient_sync") else 1
     grad_norm = []
 
@@ -138,7 +117,7 @@ def train_step_with_pipeline_parallel(
             metrics_tracker = metrics_tracker + model.get_extra_metrics()
             model.reset_extra_metrics()
 
-            metrics_tracker = metrics_tracker / StepTracker.get_gradient_accumulation_steps()
+            metrics_tracker = metrics_tracker / gradient_accumulation_steps
 
             if gradient_clipping is not None:
                 metrics_tracker["grad_norm"] = grad_norm
@@ -161,27 +140,10 @@ def train_step_without_pipeline_parallel(
     backward_context: AbstractContextManager,
     sync_every_gradient_accumulation_step: bool,
     micro_batch_size: int,
+    gradient_accumulation_steps: int,
     sequence_length: int,
     tuning_method: TuningMethod,
 ) -> MetricsTrackingDict:
-    """runs backpropagation and applies the gradient if at the edge of gradient accumulation boundary
-
-    Args:
-        model_container (ModelContainer): container of models
-        optimizer_container (OptimizerContainer): container of optimizers
-        lr_scheduler_container (LRSchedulerContainer): container of learning rate schedulers
-        train_dataloader (ResumableDataLoader): training dataloader
-        gradient_clipping (float): gradient clipping value
-        forward_context (AbstractContextManager): a context that is used for every model forward call
-        backward_context (AbstractContextManager): a context that is used for every model backward call
-        sync_every_gradient_accumulation_step (bool): whether to sync on every gradient accumulation step
-        lm_loss_multiplier (int): lm loss multiplier
-        tuning_method (TuningMethod): tuning method for the current run
-
-    Returns:
-        MetricsTrackingDict: metrics to track
-    """
-
     assert len(model_container) == 1
     model = model_container[0]
 
@@ -200,8 +162,6 @@ def train_step_without_pipeline_parallel(
 
     metrics_tracker = MetricsTrackingDict({})
     optimizer_container.zero_grad()
-
-    gradient_accumulation_steps = StepTracker.get_gradient_accumulation_steps()
 
     if tuning_method == TuningMethod.full_finetuning:
         # note the effect of gradient accumulation division is already in the lm_loss_multiplier
@@ -362,7 +322,7 @@ def train(
     model_container.train()
     micro_batch_size = args.training_parameters.micro_batch_size
     global_step = starting_iteration
-    global_batch_size = StepTracker.get_global_batch_size()
+    global_batch_size = args.training_parameters.global_batch_size
 
     if tuning_method == TuningMethod.full_finetuning:
         train_dataloader_iterator = custom_iterator(train_dataloader, infinite=True)
@@ -451,6 +411,7 @@ def train(
                 backward_context=backward_context,
                 sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
                 micro_batch_size=micro_batch_size,
+                gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
                 sequence_length=sequence_length,
                 tuning_method=args.tuning_args.tuning_method,
             )
