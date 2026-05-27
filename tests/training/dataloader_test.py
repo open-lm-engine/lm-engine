@@ -6,7 +6,7 @@ from functools import partial
 
 from transformers import AutoTokenizer
 
-from lm_engine.data import (
+from lm_engine.data.finetuning import (
     BlendedDatasets,
     BlendedDistributedSampler,
     ResumableDataLoader,
