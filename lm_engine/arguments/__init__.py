@@ -452,7 +452,11 @@ class TrainingArgs(BaseArgs):
         )
 
         # datasets
-        _check_datasets(self.datasets)
+        assert len(self.datasets) != 0, "datasets cannot be an empty list"
+        # check data_names are unique
+        assert len(self.datasets) == len(
+            set([dataset.data_name for dataset in self.datasets])
+        ), "data_name should be unique for each dataset"
 
         if self.distributed_args.num_pipeline_stages > 1 and self.training_parameters.eval_during_training:
             raise NotImplementedError("evaluation is not supported with pipeline parallel")
@@ -514,11 +518,3 @@ def get_args(
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
 
     return args
-
-
-def _check_datasets(datasets: list[DatasetArgs]) -> None:
-    assert len(datasets) != 0, "datasets cannot be an empty list"
-    # check data_names are unique
-    assert len(datasets) == len(
-        set([dataset.data_name for dataset in datasets])
-    ), "data_name should be unique for each dataset"
