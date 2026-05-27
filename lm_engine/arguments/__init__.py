@@ -93,22 +93,31 @@ class TrainingParameters(BaseArgs):
     gradient_clipping: float | None = 1
 
     def model_post_init(self, __context: Any) -> None:
-        _check_not_None([(self.num_training_steps, "num_training_steps"), (self.micro_batch_size, "micro_batch_size")])
+        _check_not_None([(self.num_training_steps, "num_training_steps")])
 
         # eval_interval
         if self.eval_during_training:
             _check_not_None([(self.eval_interval, "eval_interval")])
 
         if self.micro_batch_size is None:
-            _check_not_None([(self.gradient_accumulation_steps, "gradient_accumulation_steps")])
-            _check_not_None([(self.global_batch_size, "global_batch_size")])
+            _check_not_None(
+                [
+                    (self.gradient_accumulation_steps, "gradient_accumulation_steps"),
+                    (self.global_batch_size, "global_batch_size"),
+                ]
+            )
         elif self.gradient_accumulation_steps is None:
-            _check_not_None([(self.micro_batch_size, "micro_batch_size")])
-            _check_not_None([(self.global_batch_size, "global_batch_size")])
+            _check_not_None(
+                [(self.micro_batch_size, "micro_batch_size"), (self.global_batch_size, "global_batch_size")]
+            )
         else:
             assert self.global_batch_size is None
-            _check_not_None([(self.micro_batch_size, "micro_batch_size")])
-            _check_not_None([(self.gradient_accumulation_steps, "gradient_accumulation_steps")])
+            _check_not_None(
+                [
+                    (self.micro_batch_size, "micro_batch_size"),
+                    (self.gradient_accumulation_steps, "gradient_accumulation_steps"),
+                ]
+            )
 
     def reset_training_parameters(self, data_loading_world_size: int) -> None:
         if self.micro_batch_size is None:
