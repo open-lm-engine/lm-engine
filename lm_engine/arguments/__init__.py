@@ -18,7 +18,7 @@ from ..enums import (
     TuningMethod,
 )
 from ..logging_utils import set_logger
-from ..utils import load_yaml, normalize_dtype_string
+from ..utils import divide_if_divisible, load_yaml, normalize_dtype_string
 from .base import BaseArgs
 
 
@@ -77,12 +77,14 @@ class TrainingParameters(BaseArgs):
     ignore_sampling_proportion_for_validation: bool = False
     # number of training steps
     num_training_steps: int | None = None
+    # batch size per accelerator for ZeRO-DP
+    micro_batch_size: int | None = None
     # gradient accumulation steps
-    gradient_accumulation_steps: int = 1
+    gradient_accumulation_steps: int | None = None
+    # global batch size
+    global_batch_size: int | None = None
     # interval for evaluation
     eval_interval: int | None = None
-    # batch size per accelerator for ZeRO-DP
-    micro_batch_size: int = None
     # whether to use val dataset for validation during training
     eval_during_training: bool = True
     # masking methodology of loss function input
@@ -91,11 +93,43 @@ class TrainingParameters(BaseArgs):
     gradient_clipping: float | None = 1
 
     def model_post_init(self, __context: Any) -> None:
-        _check_not_None([(self.num_training_steps, "num_training_steps"), (self.micro_batch_size, "micro_batch_size")])
+        _check_not_None([(self.num_training_steps, "num_training_steps")])
 
         # eval_interval
         if self.eval_during_training:
             _check_not_None([(self.eval_interval, "eval_interval")])
+
+        if self.micro_batch_size is None:
+            _check_not_None(
+                [
+                    (self.gradient_accumulation_steps, "gradient_accumulation_steps"),
+                    (self.global_batch_size, "global_batch_size"),
+                ]
+            )
+        elif self.gradient_accumulation_steps is None:
+            _check_not_None(
+                [(self.micro_batch_size, "micro_batch_size"), (self.global_batch_size, "global_batch_size")]
+            )
+        else:
+            assert self.global_batch_size is None
+            _check_not_None(
+                [
+                    (self.micro_batch_size, "micro_batch_size"),
+                    (self.gradient_accumulation_steps, "gradient_accumulation_steps"),
+                ]
+            )
+
+    def reset_training_parameters(self, data_loading_world_size: int) -> None:
+        if self.micro_batch_size is None:
+            self.micro_batch_size = divide_if_divisible(
+                self.global_batch_size, self.gradient_accumulation_steps * data_loading_world_size
+            )
+        elif self.gradient_accumulation_steps is None:
+            self.gradient_accumulation_steps = divide_if_divisible(
+                self.global_batch_size, self.micro_batch_size * data_loading_world_size
+            )
+        else:
+            self.global_batch_size = self.micro_batch_size * self.gradient_accumulation_steps * data_loading_world_size
 
 
 class SaveArgs(BaseArgs):
@@ -418,7 +452,11 @@ class TrainingArgs(BaseArgs):
         )
 
         # datasets
-        _check_datasets(self.datasets)
+        assert len(self.datasets) != 0, "datasets cannot be an empty list"
+        # check data_names are unique
+        assert len(self.datasets) == len(
+            set([dataset.data_name for dataset in self.datasets])
+        ), "data_name should be unique for each dataset"
 
         if self.distributed_args.num_pipeline_stages > 1 and self.training_parameters.eval_during_training:
             raise NotImplementedError("evaluation is not supported with pipeline parallel")
@@ -461,12 +499,6 @@ class DistillationArgs(TrainingArgs):
         super().model_post_init(__context)
 
 
-def args_dict_to_pydantic_args(
-    args_class: type[TrainingArgs | DistillationArgs | UnshardingArgs], **config
-) -> TrainingArgs | UnshardingArgs | DistillationArgs:
-    return args_class(**config)
-
-
 def get_args(
     args_class: type[TrainingArgs | DistillationArgs | UnshardingArgs],
 ) -> TrainingArgs | DistillationArgs | UnshardingArgs:
@@ -475,16 +507,8 @@ def get_args(
     args = parser.parse_args()
 
     config: dict = load_yaml(args.config)
-    args: TrainingArgs | UnshardingArgs = args_dict_to_pydantic_args(args_class, **config)
+    args: TrainingArgs | UnshardingArgs = args_class(**config)
 
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
 
     return args
-
-
-def _check_datasets(datasets: list[DatasetArgs]) -> None:
-    assert len(datasets) != 0, "datasets cannot be an empty list"
-    # check data_names are unique
-    assert len(datasets) == len(
-        set([dataset.data_name for dataset in datasets])
-    ), "data_name should be unique for each dataset"

@@ -16,7 +16,7 @@ from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
 from ..accelerator import Accelerator
-from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
+from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
 from ..hf_models import fix_unsharded_state_dict
@@ -240,7 +240,7 @@ def load_checkpoint_for_training(
 
     args_file = os.path.join(load_path, f"{_TRAINING_CONFIG_PREFIX}.yml")
     args_from_checkpoint = load_yaml(args_file)
-    args_from_checkpoint = args_dict_to_pydantic_args(args_class, **args_from_checkpoint)
+    args_from_checkpoint = args_class(**args_from_checkpoint)
 
     log_rank_0(logging.INFO, f"loading checkpoint saved at {load_path}")
 
@@ -349,7 +349,7 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
         args_from_checkpoint["tuning_args"]["tuning_method"] = "pretraining"
         args_from_checkpoint.pop("teacher_args")
 
-    args_from_checkpoint = args_dict_to_pydantic_args(TrainingArgs, **args_from_checkpoint)
+    args_from_checkpoint = TrainingArgs(**args_from_checkpoint)
 
     if args.mixed_precision_args is not None:
         log_rank_0(logging.INFO, "overriding mixed precision args")

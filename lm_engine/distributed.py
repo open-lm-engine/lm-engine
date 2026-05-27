@@ -503,7 +503,7 @@ def wrap_model_container_for_distributed_training(
 
         pipeline_schedule = _get_pipeline_parallel_schedule(
             pipeline_parallel_schedule=args.distributed_args.pipeline_parallel_schedule,
-            gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
+            gradient_accumulation_steps=gradient_accumulation_steps,
             pipeline_stages=pipeline_stages,
             loss_fn=_pipeline_parallel_loss,
         )
