@@ -78,11 +78,11 @@ class TrainingParameters(BaseArgs):
     # number of training steps
     num_training_steps: int | None = None
     # batch size per accelerator for ZeRO-DP
-    micro_batch_size: int = None
+    micro_batch_size: int | None = None
     # gradient accumulation steps
-    gradient_accumulation_steps: int = None
+    gradient_accumulation_steps: int | None = None
     # global batch size
-    global_batch_size: int = None
+    global_batch_size: int | None = None
     # interval for evaluation
     eval_interval: int | None = None
     # whether to use val dataset for validation during training
