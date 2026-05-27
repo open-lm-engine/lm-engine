@@ -30,7 +30,7 @@ def _get_dataloader(
     micro_batch_size: int,
     gradient_accumulation_steps: int,
     num_pipeline_stages: int,
-    num_workers: int = 2,
+    num_workers: int,
 ):
     if dataset is None:
         return None
@@ -59,7 +59,7 @@ def _get_dataloader(
     return iter(dataloader)
 
 
-def get_pretraining_dataloaders(
+def get_megatron_gpt_dataloaders(
     args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
 ) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
     assert len(args.datasets) == 1
@@ -88,8 +88,7 @@ def get_pretraining_dataloaders(
         train_ds, val_ds, test_ds = build(
             sizes=_get_train_val_test_samples(
                 args.training_parameters.num_training_steps,
-                micro_batch_size,
-                gradient_accumulation_steps,
+                args.training_parameters.global_batch_size,
                 args.training_parameters.eval_interval,
                 class_args.get("eval_steps"),
             ),
@@ -120,37 +119,15 @@ def get_pretraining_dataloaders(
 
     log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
 
-    train_ds = _get_dataloader(
-        train_ds,
-        consumed_samples=consumed_samples,
+    kwargs = dict(
         micro_batch_size=micro_batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
         num_pipeline_stages=num_pipeline_stages,
         num_workers=num_workers,
     )
 
-    val_ds = [
-        _get_dataloader(
-            i,
-            consumed_samples=0,
-            micro_batch_size=micro_batch_size,
-            gradient_accumulation_steps=gradient_accumulation_steps,
-            num_pipeline_stages=num_pipeline_stages,
-            num_workers=num_workers,
-        )
-        for i in val_ds
-    ]
-
-    test_ds = [
-        _get_dataloader(
-            i,
-            consumed_samples=0,
-            micro_batch_size=micro_batch_size,
-            gradient_accumulation_steps=gradient_accumulation_steps,
-            num_pipeline_stages=num_pipeline_stages,
-            num_workers=num_workers,
-        )
-        for i in test_ds
-    ]
+    train_ds = _get_dataloader(train_ds, consumed_samples=consumed_samples, **kwargs)
+    val_ds = [_get_dataloader(i, consumed_samples=0, **kwargs) for i in val_ds]
+    test_ds = [_get_dataloader(i, consumed_samples=0, **kwargs) for i in test_ds]
 
     return train_ds, val_ds, test_ds
