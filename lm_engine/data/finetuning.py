@@ -107,8 +107,8 @@ def get_finetuning_dataloader(
     sampler = BlendedDistributedSampler(
         dataset=blended_dataset,
         data_sampling_ratios=[1] if len(datasets_list) == 1 else data_sampling_ratios,
-        num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
-        rank=ProcessGroupManager.get_data_parallel_rank(),
+        num_replicas=ProcessGroupManager.get_data_loading_world_size(),
+        rank=ProcessGroupManager.get_data_loading_rank(),
         ignore_sampling_proportion_for_validation=args.training_parameters.ignore_sampling_proportion_for_validation,
         shuffle=split == DatasetSplit.train,
         seed=args.random_args.seed,
@@ -154,7 +154,7 @@ def _log_dataset(
     log_rank_0(logging.INFO, f"{'-' * 25} {split.value} {'-' * 25}")
     log_rank_0(logging.INFO, blended_dataset)
 
-    dp_world_size = ProcessGroupManager.get_data_parallel_world_size()
+    dp_world_size = ProcessGroupManager.get_data_loading_world_size()
 
     if split == DatasetSplit.train:
         total_samples_seen = num_training_steps * gradient_accumulation_steps * micro_batch_size * dp_world_size

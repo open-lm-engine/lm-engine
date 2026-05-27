@@ -21,7 +21,7 @@ def _get_train_val_test_samples(
     eval_interval: int,
     eval_steps: int,
 ) -> tuple[int, int, int]:
-    dp_world_size = ProcessGroupManager.get_data_parallel_world_size()
+    dp_world_size = ProcessGroupManager.get_data_loading_world_size()
 
     train_samples = num_training_steps * micro_batch_size * gradient_accumulation_steps * dp_world_size
     val_samples = (
@@ -60,8 +60,8 @@ def _get_dataloader(
             micro_batch_size=(
                 micro_batch_size if num_pipeline_stages == 1 else micro_batch_size * gradient_accumulation_steps
             ),
-            num_replicas=ProcessGroupManager.get_data_parallel_world_size(),
-            rank=ProcessGroupManager.get_data_parallel_rank(),
+            num_replicas=ProcessGroupManager.get_data_loading_world_size(),
+            rank=ProcessGroupManager.get_data_loading_rank(),
         ),
         multiprocessing_context="fork" if accelerator == Accelerator.tpu else None,
         num_workers=num_workers,
@@ -78,7 +78,6 @@ def get_pretraining_dataloaders(
     class_args = args.datasets[0].class_args
 
     assert args.datasets[0].max_input_tokens is None
-    assert args.datasets[0].max_output_tokens is None
     assert args.datasets[0].max_output_tokens is None
     assert args.datasets[0].input_format == INPUT_FORMAT
     assert args.datasets[0].output_format == OUTPUT_FORMAT
@@ -133,77 +132,37 @@ def get_pretraining_dataloaders(
 
     log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
 
-    if is_megatron:
-        train_ds = _get_dataloader(
-            train_ds,
-            consumed_samples=consumed_samples,
+    train_ds = _get_dataloader(
+        train_ds,
+        consumed_samples=consumed_samples,
+        micro_batch_size=micro_batch_size,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        num_pipeline_stages=num_pipeline_stages,
+        num_workers=num_workers,
+    )
+
+    val_ds = [
+        _get_dataloader(
+            i,
+            consumed_samples=0,
             micro_batch_size=micro_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
             num_pipeline_stages=num_pipeline_stages,
             num_workers=num_workers,
         )
+        for i in val_ds
+    ]
 
-        val_ds = [
-            _get_dataloader(
-                i,
-                consumed_samples=0,
-                micro_batch_size=micro_batch_size,
-                gradient_accumulation_steps=gradient_accumulation_steps,
-                num_pipeline_stages=num_pipeline_stages,
-                num_workers=num_workers,
-            )
-            for i in val_ds
-        ]
-
-        test_ds = [
-            _get_dataloader(
-                i,
-                consumed_samples=0,
-                micro_batch_size=micro_batch_size,
-                gradient_accumulation_steps=gradient_accumulation_steps,
-                num_pipeline_stages=num_pipeline_stages,
-                num_workers=num_workers,
-            )
-            for i in test_ds
-        ]
-    else:
-        train_ds = _get_dataloader(
-            train_ds,
-            consumed_samples=consumed_samples,
+    test_ds = [
+        _get_dataloader(
+            i,
+            consumed_samples=0,
             micro_batch_size=micro_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
             num_pipeline_stages=num_pipeline_stages,
             num_workers=num_workers,
         )
-
-        val_ds = (
-            [
-                _get_dataloader(
-                    val_ds,
-                    consumed_samples=0,
-                    micro_batch_size=micro_batch_size,
-                    gradient_accumulation_steps=gradient_accumulation_steps,
-                    num_pipeline_stages=num_pipeline_stages,
-                    num_workers=num_workers,
-                )
-            ]
-            if val_ds is not None
-            else [None]
-        )
-
-        test_ds = (
-            [
-                _get_dataloader(
-                    test_ds,
-                    consumed_samples=0,
-                    micro_batch_size=micro_batch_size,
-                    gradient_accumulation_steps=gradient_accumulation_steps,
-                    num_pipeline_stages=num_pipeline_stages,
-                    num_workers=num_workers,
-                )
-            ]
-            if test_ds is not None
-            else [None]
-        )
+        for i in test_ds
+    ]
 
     return train_ds, val_ds, test_ds
