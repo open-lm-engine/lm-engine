@@ -59,7 +59,7 @@ def _get_dataloader(
     return iter(dataloader)
 
 
-def get_megatron_gpt_dataloaders(
+def get_pretraining_dataloaders(
     args: TrainingArgs, tokenizer: TOKENIZER_TYPE, consumed_samples: int
 ) -> tuple[ResumableDataLoader, list[ResumableDataLoader], list[ResumableDataLoader]]:
     assert len(args.datasets) == 1
