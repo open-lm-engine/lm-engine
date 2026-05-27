@@ -18,7 +18,6 @@ from ..enums import (
     TuningMethod,
 )
 from ..logging_utils import set_logger
-from ..parallel import ProcessGroupManager
 from ..utils import divide_if_divisible, load_yaml, normalize_dtype_string
 from .base import BaseArgs
 
