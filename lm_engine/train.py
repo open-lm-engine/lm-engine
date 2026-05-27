@@ -54,6 +54,7 @@ def train_step_with_pipeline_parallel(
     lr_scheduler_container: LRSchedulerContainer,
     train_dataloader: ResumableDataLoader,
     gradient_clipping: float,
+    micro_batch_size: int,
     gradient_accumulation_steps: int,
     sequence_length: int,
 ) -> MetricsTrackingDict:
@@ -69,7 +70,9 @@ def train_step_with_pipeline_parallel(
         batch = batch.to(Accelerator.get_current_device())
 
     if ProcessGroupManager.is_tensor_parallel_enabled():
-        batch = broadcast_tensor_parallel_input(batch, (StepTracker.get_local_batch_size(), sequence_length + 1))
+        batch = broadcast_tensor_parallel_input(
+            batch, (micro_batch_size * gradient_accumulation_steps, sequence_length + 1)
+        )
 
     is_first_pipeline_rank = ProcessGroupManager.get_pipeline_parallel_rank() == 0
     is_last_pipeline_rank = (
@@ -322,6 +325,7 @@ def train(
     model_container.train()
     micro_batch_size = args.training_parameters.micro_batch_size
     global_step = starting_iteration
+    gradient_accumulation_steps = args.training_parameters.gradient_accumulation_steps
     global_batch_size = args.training_parameters.global_batch_size
 
     if tuning_method == TuningMethod.full_finetuning:
@@ -398,6 +402,8 @@ def train(
                 lr_scheduler_container=lr_scheduler_container,
                 train_dataloader=train_dataloader_iterator,
                 gradient_clipping=gradient_clipping,
+                micro_batch_size=micro_batch_size,
+                gradient_accumulation_steps=gradient_accumulation_steps,
                 sequence_length=sequence_length,
             )
         else:
@@ -411,7 +417,7 @@ def train(
                 backward_context=backward_context,
                 sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
                 micro_batch_size=micro_batch_size,
-                gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
+                gradient_accumulation_steps=gradient_accumulation_steps,
                 sequence_length=sequence_length,
                 tuning_method=args.tuning_args.tuning_method,
             )
