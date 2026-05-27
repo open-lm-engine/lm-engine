@@ -499,12 +499,6 @@ class DistillationArgs(TrainingArgs):
         super().model_post_init(__context)
 
 
-def args_dict_to_pydantic_args(
-    args_class: type[TrainingArgs | DistillationArgs | UnshardingArgs], **config
-) -> TrainingArgs | UnshardingArgs | DistillationArgs:
-    return args_class(**config)
-
-
 def get_args(
     args_class: type[TrainingArgs | DistillationArgs | UnshardingArgs],
 ) -> TrainingArgs | DistillationArgs | UnshardingArgs:
@@ -513,7 +507,7 @@ def get_args(
     args = parser.parse_args()
 
     config: dict = load_yaml(args.config)
-    args: TrainingArgs | UnshardingArgs = args_dict_to_pydantic_args(args_class, **config)
+    args: TrainingArgs | UnshardingArgs = args_class(**config)
 
     set_logger(args.logging_args.logging_level, colored_log=args.logging_args.use_colored_logs)
 
