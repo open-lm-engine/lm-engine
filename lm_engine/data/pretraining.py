@@ -37,7 +37,7 @@ def _get_train_val_test_samples(
 
 
 def _get_dataloader(
-    dataset: GPTDataset | StitchedSequenceDataset | None,
+    dataset: GPTDataset | None,
     consumed_samples: int,
     micro_batch_size: int,
     gradient_accumulation_steps: int,
