@@ -122,13 +122,13 @@ def get_pretraining_dataloaders(
             node_uses_local_storage=class_args.get("node_uses_local_storage", False),
             random_seed=class_args.get("seed", args.random_args.seed),
         )
-
-        if not isinstance(val_ds, list):
-            val_ds = [val_ds]
-        if not isinstance(test_ds, list):
-            test_ds = [test_ds]
     else:
         raise ValueError
+
+    if not isinstance(val_ds, list):
+        val_ds = [val_ds]
+    if not isinstance(test_ds, list):
+        test_ds = [test_ds]
 
     log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
 
