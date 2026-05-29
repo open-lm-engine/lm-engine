@@ -645,24 +645,6 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         data_loading_world_size=ProcessGroupManager.get_data_loading_world_size()
     )
 
-    log_rank_0(logging.INFO, process_group_manager)
-    log_rank_0(logging.INFO, f"total accelerators = {process_group_manager.get_world_size()}")
-    log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
-    log_rank_0(
-        logging.INFO,
-        f"data parallel replication size = {process_group_manager.get_data_parallel_replication_world_size()}",
-    )
-    log_rank_0(
-        logging.INFO, f"data parallel sharding size = {process_group_manager.get_data_parallel_sharding_world_size()}"
-    )
-    log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
-    log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
-    log_rank_0(logging.INFO, f"data loading size = {process_group_manager.get_data_loading_world_size()}")
-    log_rank_0(logging.INFO, f"context parallel size = {process_group_manager.get_context_parallel_world_size()}")
-
-    args.log_args()
-    log_environment()
-
     Accelerator.set_seed(args.random_args.seed)
 
     if tuning_method in [TuningMethod.distillation, TuningMethod.full_finetuning]:
@@ -698,12 +680,6 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
 
     assert len(model_container) == len(optimizer_container)
     assert len(optimizer_container) == len(lr_scheduler_container)
-
-    log_rank_0(logging.INFO, "------------------------ model & optimizer list ------------------------")
-    for model, optimizer in zip(model_container, optimizer_container):
-        log_rank_0(logging.INFO, model)
-        log_rank_0(logging.INFO, optimizer)
-    log_rank_0(logging.INFO, "-------------------- end of model & optimizer list ---------------------")
 
     starting_iteration = 0
     experiments_tracker_state_dict = None
@@ -746,6 +722,30 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
 
     # track all hyperparams in args
     experiments_tracker.log_args(args, **model_container[0].calculate_num_parameters(return_dict=True))
+
+    log_rank_0(logging.INFO, process_group_manager)
+    log_rank_0(logging.INFO, f"total accelerators = {process_group_manager.get_world_size()}")
+    log_rank_0(logging.INFO, f"pipeline parallel size = {process_group_manager.get_pipeline_parallel_world_size()}")
+    log_rank_0(
+        logging.INFO,
+        f"data parallel replication size = {process_group_manager.get_data_parallel_replication_world_size()}",
+    )
+    log_rank_0(
+        logging.INFO, f"data parallel sharding size = {process_group_manager.get_data_parallel_sharding_world_size()}"
+    )
+    log_rank_0(logging.INFO, f"data parallel size = {process_group_manager.get_data_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"tensor parallel size = {process_group_manager.get_tensor_parallel_world_size()}")
+    log_rank_0(logging.INFO, f"data loading size = {process_group_manager.get_data_loading_world_size()}")
+    log_rank_0(logging.INFO, f"context parallel size = {process_group_manager.get_context_parallel_world_size()}")
+
+    args.log_args()
+    log_environment()
+
+    log_rank_0(logging.INFO, "------------------------ model & optimizer list ------------------------")
+    for model, optimizer in zip(model_container, optimizer_container):
+        log_rank_0(logging.INFO, model)
+        log_rank_0(logging.INFO, optimizer)
+    log_rank_0(logging.INFO, "-------------------- end of model & optimizer list ---------------------")
 
     # main training loop
     with disable_generation_cache(), enable_kernels(args.kernel_args.kernels):

@@ -5,16 +5,15 @@
 from __future__ import annotations
 
 import torch
-from torch.distributed._tensor.placement_types import Replicate
+from torch.distributed.tensor import DTensor
 
-from ....dtensors import dtensor_to_tensor
-from ....utils import is_quack_available
-from ..activations import get_activation_function
+from ...utils import is_quack_available
+from .activations import get_activation_function
 
 
 if is_quack_available():
     from quack.gemm_interface import gemm, gemm_act, gemm_gated
-    from quack.linear import linear_fwd_convert_type
+    from quack.linear import linear_func, linear_fwd_convert_type
 
 
 _QUACK_GEMM_ACT_MAPPING = {
@@ -36,6 +35,21 @@ def _get_quack_activation(activation_function: str, mapping: dict[str, str], ker
         raise ValueError(f"activation function ({activation_function}) is not supported by {kernel_name}")
 
     return mapping[activation_function]
+
+
+def _is_supported(input: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor | None) -> bool:
+    tensors = [input, weight]
+    if bias is not None:
+        tensors.append(bias)
+
+    return all(tensor.is_cuda and tensor.dtype in [torch.float16, torch.bfloat16] for tensor in tensors)
+
+
+def quack_linear(input: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor | None = None) -> torch.Tensor | None:
+    if _is_supported(input, weight, bias):
+        return linear_func(input, weight, bias=bias, tuned=False)
+
+    return None
 
 
 class _FusedMLPFC1ActFunc(torch.autograd.Function):
@@ -109,28 +123,22 @@ class _FusedMLPFC1ActFunc(torch.autograd.Function):
             return dx, dweight, dbias, None, None, None, None
 
 
-def _validate_mlp_fc1_gemm(c_fc) -> None:
-    if c_fc.is_tp_enabled and not isinstance(c_fc.input_placement, Replicate):
-        raise AssertionError(
-            "quack_gemm_act/gated requires replicated MLP input and does not support sequence parallel yet"
-        )
-
-
 def mlp_fc1_gemm_act(
     x: torch.Tensor,
-    c_fc,
+    weight: torch.Tensor,
+    bias: torch.Tensor | None,
     activation_function: str,
 ) -> torch.Tensor:
-    assert is_quack_available(), "quack-kernels is not installed"
+    assert not isinstance(weight, DTensor)
+    if bias is not None:
+        assert not isinstance(bias, DTensor)
+
     quack_activation = _get_quack_activation(activation_function, _QUACK_GEMM_ACT_MAPPING, "quack_gemm_act")
 
-    _validate_mlp_fc1_gemm(c_fc)
-
-    # Extract local TP shard.
     return _FusedMLPFC1ActFunc.apply(
         x,
-        dtensor_to_tensor(c_fc.weight),
-        dtensor_to_tensor(c_fc.bias),
+        weight,
+        bias,
         activation_function,
         quack_activation,
         False,
@@ -140,23 +148,24 @@ def mlp_fc1_gemm_act(
 
 def mlp_fc1_gemm_gated(
     x: torch.Tensor,
-    c_fc,
+    weight: torch.Tensor,
+    bias: torch.Tensor,
     activation_function: str,
     use_interleaved_weights: bool,
 ) -> torch.Tensor:
-    assert is_quack_available(), "quack-kernels is not installed"
+    assert not isinstance(weight, DTensor)
+    if bias is not None:
+        assert not isinstance(bias, DTensor)
+
     quack_activation = _get_quack_activation(activation_function, _QUACK_GEMM_GATED_MAPPING, "quack_gemm_gated")
 
     if not use_interleaved_weights:
         raise ValueError("quack_gemm_gated requires use_interleaved_weights=True for GLU MLP")
 
-    _validate_mlp_fc1_gemm(c_fc)
-
-    # Extract local TP shard.
     return _FusedMLPFC1ActFunc.apply(
         x,
-        dtensor_to_tensor(c_fc.weight),
-        dtensor_to_tensor(c_fc.bias),
+        weight,
+        bias,
         activation_function,
         quack_activation,
         True,
