@@ -16,7 +16,7 @@ from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..init_utils import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
-from .quack_mlp import mlp_fc1_gemm_act, mlp_fc1_gemm_gated
+from ..quack import mlp_fc1_gemm_act, mlp_fc1_gemm_gated
 
 
 class MLP(nn.Module):
@@ -89,6 +89,7 @@ class MLP(nn.Module):
                 partial(_split_up_gate_tensor_for_mlp_for_optimizer, is_interleaved=self.use_interleaved_weights),
             )
 
+    # TODO Mayank: add the full Quack MLP later
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self._fc1_act(x)
         x = self.c_proj(x)
@@ -99,7 +100,8 @@ class MLP(nn.Module):
         if self.is_glu and is_kernel_allowed(Kernel.quack_gemm_gated):
             return mlp_fc1_gemm_gated(
                 x=x,
-                c_fc=self.c_fc,
+                weight=self.c_fc.weight,
+                bias=self.c_fc.bias,
                 activation_function=self.activation_function,
                 use_interleaved_weights=self.use_interleaved_weights,
             )
@@ -107,12 +109,15 @@ class MLP(nn.Module):
         if not self.is_glu and is_kernel_allowed(Kernel.quack_gemm_act):
             return mlp_fc1_gemm_act(
                 x=x,
-                c_fc=self.c_fc,
+                weight=self.c_fc.weight,
+                bias=self.c_fc.bias,
                 activation_function=self.activation_function,
             )
 
         x = self.c_fc(x)
-        return self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
+        x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
+
+        return x
 
 
 def interleave_up_gate_tensor_for_mlp(
