@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import torch
+from torch.distributed.tensor import DTensor
 
 from ...utils import is_quack_available
 from .activations import get_activation_function
@@ -127,24 +128,22 @@ class _FusedMLPFC1ActFunc(torch.autograd.Function):
             return dx, dweight, dbias, None, None, None, None
 
 
-def _validate_mlp_fc1_gemm(c_fc) -> None:
-    assert not c_fc.is_tp_enabled, "quack_gemm_act/gated does not support tensor parallel yet"
-
-
 def mlp_fc1_gemm_act(
     x: torch.Tensor,
-    c_fc,
+    weight: torch.Tensor,
+    bias: torch.Tensor | None,
     activation_function: str,
 ) -> torch.Tensor:
-    assert is_quack_available(), "quack-kernels is not installed"
-    quack_activation = _get_quack_activation(activation_function, _QUACK_GEMM_ACT_MAPPING, "quack_gemm_act")
+    assert not isinstance(weight, DTensor)
+    if bias is not None:
+        assert not isinstance(bias, DTensor)
 
-    _validate_mlp_fc1_gemm(c_fc)
+    quack_activation = _get_quack_activation(activation_function, _QUACK_GEMM_ACT_MAPPING, "quack_gemm_act")
 
     return _FusedMLPFC1ActFunc.apply(
         x,
-        c_fc.weight,
-        c_fc.bias,
+        weight,
+        bias,
         activation_function,
         quack_activation,
         False,
@@ -154,22 +153,24 @@ def mlp_fc1_gemm_act(
 
 def mlp_fc1_gemm_gated(
     x: torch.Tensor,
-    c_fc,
+    weight: torch.Tensor,
+    bias: torch.Tensor,
     activation_function: str,
     use_interleaved_weights: bool,
 ) -> torch.Tensor:
-    assert is_quack_available(), "quack-kernels is not installed"
+    assert not isinstance(weight, DTensor)
+    if bias is not None:
+        assert not isinstance(bias, DTensor)
+
     quack_activation = _get_quack_activation(activation_function, _QUACK_GEMM_GATED_MAPPING, "quack_gemm_gated")
 
     if not use_interleaved_weights:
         raise ValueError("quack_gemm_gated requires use_interleaved_weights=True for GLU MLP")
 
-    _validate_mlp_fc1_gemm(c_fc)
-
     return _FusedMLPFC1ActFunc.apply(
         x,
-        c_fc.weight,
-        c_fc.bias,
+        weight,
+        bias,
         activation_function,
         quack_activation,
         True,
