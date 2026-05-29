@@ -42,15 +42,10 @@ def _is_supported(input: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor 
     if bias is not None:
         tensors.append(bias)
 
-    if any(hasattr(tensor, "to_local") and hasattr(tensor, "placements") for tensor in tensors):
-        return False
-
     return all(tensor.is_cuda and tensor.dtype in [torch.float16, torch.bfloat16] for tensor in tensors)
 
 
 def quack_linear(input: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor | None = None) -> torch.Tensor | None:
-    assert is_quack_available(), "quack-kernels is not installed"
-
     if _is_supported(input, weight, bias):
         return linear_func(input, weight, bias=bias, tuned=False)
 
