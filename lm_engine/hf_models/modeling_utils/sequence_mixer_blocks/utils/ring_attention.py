@@ -48,7 +48,6 @@ def _ring_attention_forward(
     softcap: float,
     forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
-    # TODO support sliding window attention
     assert window_size == (-1, -1)
 
     if causal and (q.size(1) != k.size(1)):
