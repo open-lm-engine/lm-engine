@@ -108,7 +108,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 )
 
                 if is_cp_enabled:
-                    x = x[..., self.kernel_size - 1 :]
+                    x = x[..., self.kernel_size :]
 
                 x = x.transpose(-1, -2)
             else:
