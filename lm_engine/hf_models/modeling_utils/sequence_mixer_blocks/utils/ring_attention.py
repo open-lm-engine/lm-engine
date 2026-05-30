@@ -10,8 +10,13 @@ from typing import Callable
 import torch
 
 from .....parallel import ProcessGroupManager
+from .....utils import divide_if_divisible
 from .all_to_all import AllToAllRotater
 from .merge import _Merger, _partial_update
+
+
+def _is_using_sliding_window(window_size: tuple[int, int]) -> bool:
+    return window_size != (-1, -1)
 
 
 class _CausalBehavior(Enum):
@@ -20,9 +25,7 @@ class _CausalBehavior(Enum):
     IS_CAUSAL = True
 
     @staticmethod
-    def _is_causal_behavior(
-        rank: int, world_size: int, i: int, causal: bool, window_size: tuple[int, int], sequence_length: int
-    ) -> _CausalBehavior:
+    def _is_causal_behavior(rank: int, world_size: int, i: int, causal: bool) -> _CausalBehavior:
         """
         Calculate is_causal behavior for each KV block. The attention can either be
         calculated in full, not at all or with the causal mask applied.
@@ -36,8 +39,8 @@ class _CausalBehavior(Enum):
         source_rank = (rank - i) % world_size
         if source_rank < rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
             return _CausalBehavior.NOT_IS_CAUSAL
-        else:
-            return _CausalBehavior.SKIP
+
+        return _CausalBehavior.SKIP
 
 
 def _ring_attention_forward(
@@ -62,7 +65,9 @@ def _ring_attention_forward(
     world_size = ProcessGroupManager.get_context_parallel_world_size()
     next_kv = None
 
-    use_sliding_window = window_size != (-1, -1)
+    use_sliding_window = _is_using_sliding_window(window_size)
+    BLOCK_SIZE_S = divide_if_divisible(S, world_size)
+
     if use_sliding_window:
         assert window_size[0] == window_size[1]
         assert causal
@@ -98,9 +103,7 @@ def _ring_attention_forward(
             next_kv = torch.cat([k.flatten(), v.flatten()])
             rotater.exchange_buffers(next_kv)
 
-        is_causal_behavior = _CausalBehavior._is_causal_behavior(
-            rank=rank, world_size=world_size, i=i, causal=causal, window_size=window_size, sequence_length=S
-        )
+        is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
         if is_causal_behavior == _CausalBehavior.SKIP:
             continue
@@ -137,8 +140,8 @@ def _ring_attention_forward(
             v=local_v,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
-            window_size_left=window_size[0],
-            window_size_right=window_size[1],
+            window_size_left=-1 if use_sliding_window else window_size[0] - i * BLOCK_SIZE_S,
+            window_size_right=-1 if use_sliding_window else window_size[1] - i * BLOCK_SIZE_S,
             softcap=softcap,
         )
 
