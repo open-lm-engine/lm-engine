@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor, permute_tensor
 
-from ......parallel import ProcessGroupManager
+from .....parallel import ProcessGroupManager
 
 
 class AllToAllRotater:

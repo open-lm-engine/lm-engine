@@ -10,8 +10,13 @@ from typing import Callable
 import torch
 
 from .....parallel import ProcessGroupManager
-from .communication import AllToAllRotater
+from .....utils import divide_if_divisible
+from .all_to_all import AllToAllRotater
 from .merge import _Merger, _partial_update
+
+
+def _is_using_sliding_window(window_size: tuple[int, int]) -> bool:
+    return window_size != (-1, -1)
 
 
 class _CausalBehavior(Enum):
@@ -34,8 +39,8 @@ class _CausalBehavior(Enum):
         source_rank = (rank - i) % world_size
         if source_rank < rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
             return _CausalBehavior.NOT_IS_CAUSAL
-        else:
-            return _CausalBehavior.SKIP
+
+        return _CausalBehavior.SKIP
 
 
 def _ring_attention_forward(
@@ -44,22 +49,32 @@ def _ring_attention_forward(
     v: torch.Tensor,
     causal: bool,
     softmax_scale: float | None,
-    window_size: int | None,
+    window_size: tuple[int, int],
     softcap: float,
     forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
-    # TODO support sliding window attention
-    assert window_size == (-1, -1)
+    BLOCK_SIZE_S = q.size(1)
 
-    if causal and (q.size(1) != k.size(1)):
-        raise NotImplementedError("is_causal requires the same query and context sequence lengths")
+    if causal and k.size(1) != BLOCK_SIZE_S:
+        raise NotImplementedError("causal requires the same query and context sequence lengths")
 
     if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
-        raise RuntimeError("Load balancing requires `is_causal=True`.")
+        raise RuntimeError("Load balancing requires `causal=True`.")
 
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
     next_kv = None
+
+    use_sliding_window = _is_using_sliding_window(window_size)
+
+    if use_sliding_window:
+        assert window_size[0] == window_size[1]
+        assert causal
+        assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
+
+        num_loops = min(world_size, (window_size[0] + BLOCK_SIZE_S - 1) // BLOCK_SIZE_S + 1)
+    else:
+        num_loops = world_size
 
     # Without making key and value contiguous(), the loss curve is bad.
     # TODO(fegin): figure out why this is a requirement since SDPA does not have
@@ -75,14 +90,14 @@ def _ring_attention_forward(
     rotater = AllToAllRotater(1)
     sdpa_merger = _Merger(1)
 
-    for i in range(world_size):
+    for i in range(num_loops):
         if i > 0:
             # Wait for the kv from the (cp_rank - 1) rank.
             next_kv = rotater.next_buffer()
             k = next_kv[:k_numel].reshape(k_size)
             v = next_kv[k_numel:].reshape(v_size)
 
-        if i < world_size - 1:
+        if i < num_loops - 1:
             # Send the k, v to the next rank
             next_kv = torch.cat([k.flatten(), v.flatten()])
             rotater.exchange_buffers(next_kv)
@@ -92,7 +107,7 @@ def _ring_attention_forward(
         if is_causal_behavior == _CausalBehavior.SKIP:
             continue
 
-        if i == 0 or (ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal):
+        if i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
             # When local balance is enabled, we still need to do SDPA with
             # the both local chunks of q, k, v for the first iteration.
             local_q = q
@@ -124,8 +139,8 @@ def _ring_attention_forward(
             v=local_v,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
-            window_size_left=window_size[0],
-            window_size_right=window_size[1],
+            window_size_left=window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1,
+            window_size_right=window_size[1] - i * BLOCK_SIZE_S if use_sliding_window else -1,
             softcap=softcap,
         )
 
