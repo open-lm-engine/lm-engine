@@ -86,20 +86,19 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             assert not output_state
             assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
 
-            rotater = AllToAllRotater(1)
+        if input_state is None:
+            if is_cp_enabled:
+                rotater = AllToAllRotater(1)
+                rotater.exchange_buffers(x[:, 1 - self.kernel_size], with_grad=True)
+                x = torch.cat((rotater.next_buffer(), x), dim=1)
 
-        if is_kernel_allowed(Kernel.causal_conv1d):
-            if input_state is None:
-                if is_cp_enabled:
-                    rotater.exchange_buffers(x[:, 1 - self.kernel_size], with_grad=True)
-                    x = torch.cat((rotater.next_buffer(), x), dim=1)
+            x = x.transpose(-1, -2)
 
-                x = x.transpose(-1, -2)
+            if output_state:
+                # F.pad trims the x if sequence_length > kernel_size
+                input_state = F.pad(x, (self.kernel_size - BLOCK_SIZE_S, 0))
 
-                if output_state:
-                    # F.pad trims the x if sequence_length > kernel_size
-                    input_state = F.pad(x, (self.kernel_size - BLOCK_SIZE_S, 0))
-
+            if is_kernel_allowed(Kernel.causal_conv1d):
                 x = causal_conv1d_fn(
                     x=x,
                     weight=self.weight.squeeze(1),
@@ -107,11 +106,23 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                     activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
 
-                if is_cp_enabled:
-                    x = x[..., self.kernel_size :]
-
-                x = x.transpose(-1, -2)
+                if not self.use_activation_inside_kernel:
+                    x = self.activation_function(x)
             else:
+                x = super().forward(x)
+
+                # removes padding on the right side of the sequence
+                if self.kernel_size > 1:
+                    x = x[..., : 1 - self.kernel_size]
+
+                x = self.activation_function(x)
+
+            if is_cp_enabled:
+                x = x[..., self.kernel_size :]
+
+            x = x.transpose(-1, -2)
+        else:
+            if is_kernel_allowed(Kernel.causal_conv1d):
                 assert S == 1
 
                 input_state_buffer = input_state.clone()
@@ -127,23 +138,8 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 x = x[:, None, :]
                 input_state = input_state_buffer if output_state else None
 
-            if not self.use_activation_inside_kernel:
-                x = self.activation_function(x)
-        else:
-            if input_state is None:
-                x = x.transpose(-1, -2)
-
-                if output_state:
-                    # F.pad trims the x if sequence_length > kernel_size
-                    input_state = F.pad(x, (self.kernel_size - BLOCK_SIZE_S, 0))
-
-                x = super().forward(x)
-
-                # removes padding on the right side of the sequence
-                if self.kernel_size > 1:
-                    x = x[..., : 1 - self.kernel_size]
-
-                x = x.transpose(-1, -2)
+                if not self.use_activation_inside_kernel:
+                    x = self.activation_function(x)
             else:
                 assert S == 1
 
@@ -158,8 +154,9 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 if not output_state:
                     input_state = None
 
-            x = self.activation_function(x)
-            x = _apply_mask_to_padding_states(x, attention_mask)
+                x = self.activation_function(x)
+
+        x = _apply_mask_to_padding_states(x, attention_mask)
 
         return x, input_state
 
