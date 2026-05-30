@@ -87,10 +87,15 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
 
         if input_state is None:
-            if is_cp_enabled:
+            if is_cp_enabled and self.kernel_size > 1:
                 rotater = AllToAllRotater(1)
                 rotater.exchange_buffers(x[:, 1 - self.kernel_size :], with_grad=True)
-                x = torch.cat((rotater.next_buffer(), x), dim=1)
+
+                prev_tail = rotater.next_buffer()
+                if ProcessGroupManager.is_context_parallel_first_rank():
+                    prev_tail.zero_()
+
+                x = torch.cat((prev_tail, x), dim=1)
 
             x = x.transpose(-1, -2)
 
@@ -117,7 +122,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
                 x = self.activation_function(x)
 
-            if is_cp_enabled:
+            if is_cp_enabled and self.kernel_size > 1:
                 x = x[..., self.kernel_size - 1 :]
 
             x = x.transpose(-1, -2)
