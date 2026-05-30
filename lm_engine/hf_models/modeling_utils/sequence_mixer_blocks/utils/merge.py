@@ -24,6 +24,10 @@ def _partial_update(
 
     The result is a tensor that is the same size as ``original``.
     """
+
+    if new is None:
+        return original
+
     chunks = list(original.chunk(n_chunks, dim=dim))
     assert chunks[idx].size() == new.size(), (original.size(), new.size(), idx)
     if add:

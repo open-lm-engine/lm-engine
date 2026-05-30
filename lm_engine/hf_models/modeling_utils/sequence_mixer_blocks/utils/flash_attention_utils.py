@@ -27,7 +27,7 @@ def flash_attention(
     softcap: float = 0,
 ) -> torch.Tensor:
     window_size = (-1, -1)
-    if sliding_window is not None and k.size(1) > sliding_window:
+    if sliding_window is not None:
         window_size = (sliding_window, sliding_window)
 
     use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
