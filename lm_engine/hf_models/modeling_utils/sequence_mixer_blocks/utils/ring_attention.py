@@ -48,13 +48,17 @@ def _ring_attention_forward(
     softcap: float,
     forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
-    assert window_size == (-1, -1)
-
     if causal and (q.size(1) != k.size(1)):
-        raise NotImplementedError("is_causal requires the same query and context sequence lengths")
+        raise NotImplementedError("causal requires the same query and context sequence lengths")
 
     if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
-        raise RuntimeError("Load balancing requires `is_causal=True`.")
+        raise RuntimeError("Load balancing requires `causal=True`.")
+
+    use_sliding_window = window_size != (-1, -1)
+    if use_sliding_window:
+        assert window_size[0] == window_size[1]
+        assert causal
+        assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
 
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
