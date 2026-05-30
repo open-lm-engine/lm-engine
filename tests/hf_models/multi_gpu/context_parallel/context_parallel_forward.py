@@ -26,6 +26,7 @@ parser.add_argument("--attention-implementation", type=str)
 parser.add_argument("--dtype", type=str)
 parser.add_argument("--tmp-path", type=str)
 parser.add_argument("--load-balancing-method", type=ContextParallelLoadBalancerMethod, default=None)
+parser.add_argument("--sliding-window", type=int, default=None)
 args = parser.parse_args()
 
 Accelerator.set_seed(42)
@@ -49,12 +50,14 @@ config = GPTBaseConfig(
             "add_bias": False,
             "num_attention_heads": 16,
             "num_key_value_heads": num_key_value_heads,
+            "sliding_window": args.sliding_window,
         },
         {
             "sequence_mixer_type": "softmax_attention",
             "add_bias": False,
             "num_attention_heads": 16,
             "num_key_value_heads": num_key_value_heads,
+            "sliding_window": args.sliding_window,
         },
     ],
     mlp_blocks=[
