@@ -11,7 +11,7 @@ from .....enums import Kernel
 from .....kernels import is_kernel_allowed
 from .....parallel import ProcessGroupManager
 from .....utils import is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available
-from .packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from .ring_attention import ring_attention_function
 
 
