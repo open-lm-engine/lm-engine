@@ -6,6 +6,7 @@ from ....parallel import ProcessGroupManager
 from ...config import CommonConfig
 from .attention import (
     Attention,
+    flash_attention,
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,
 )
@@ -14,7 +15,6 @@ from .gru import GRU
 from .m2rnn import M2RNN
 from .mamba2 import Mamba2
 from .rnn import RNN
-from .utils import flash_attention
 
 
 SEQUENCE_MIXER_TYPE = Attention | GRU | Mamba2 | RNN | GatedDeltaNet
