@@ -20,7 +20,9 @@ class _CausalBehavior(Enum):
     IS_CAUSAL = True
 
     @staticmethod
-    def _is_causal_behavior(rank: int, world_size: int, i: int, causal: bool) -> _CausalBehavior:
+    def _is_causal_behavior(
+        rank: int, world_size: int, i: int, causal: bool, window_size: tuple[int, int], sequence_length: int
+    ) -> _CausalBehavior:
         """
         Calculate is_causal behavior for each KV block. The attention can either be
         calculated in full, not at all or with the causal mask applied.
@@ -48,11 +50,17 @@ def _ring_attention_forward(
     softcap: float,
     forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
-    if causal and (q.size(1) != k.size(1)):
+    S = q.size(1)
+
+    if causal and k.size(1) != S:
         raise NotImplementedError("causal requires the same query and context sequence lengths")
 
     if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
         raise RuntimeError("Load balancing requires `causal=True`.")
+
+    rank = ProcessGroupManager.get_context_parallel_rank()
+    world_size = ProcessGroupManager.get_context_parallel_world_size()
+    next_kv = None
 
     use_sliding_window = window_size != (-1, -1)
     if use_sliding_window:
@@ -60,9 +68,9 @@ def _ring_attention_forward(
         assert causal
         assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
 
-    rank = ProcessGroupManager.get_context_parallel_rank()
-    world_size = ProcessGroupManager.get_context_parallel_world_size()
-    next_kv = None
+        num_loops = min(world_size, (S + window_size[0] - 1) // window_size[0])
+    else:
+        num_loops = world_size
 
     # Without making key and value contiguous(), the loss curve is bad.
     # TODO(fegin): figure out why this is a requirement since SDPA does not have
@@ -78,19 +86,21 @@ def _ring_attention_forward(
     rotater = AllToAllRotater(1)
     sdpa_merger = _Merger(1)
 
-    for i in range(world_size):
+    for i in range(num_loops):
         if i > 0:
             # Wait for the kv from the (cp_rank - 1) rank.
             next_kv = rotater.next_buffer()
             k = next_kv[:k_numel].reshape(k_size)
             v = next_kv[k_numel:].reshape(v_size)
 
-        if i < world_size - 1:
+        if i < num_loops - 1:
             # Send the k, v to the next rank
             next_kv = torch.cat([k.flatten(), v.flatten()])
             rotater.exchange_buffers(next_kv)
 
-        is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
+        is_causal_behavior = _CausalBehavior._is_causal_behavior(
+            rank=rank, world_size=world_size, i=i, causal=causal, window_size=window_size, sequence_length=S
+        )
 
         if is_causal_behavior == _CausalBehavior.SKIP:
             continue
