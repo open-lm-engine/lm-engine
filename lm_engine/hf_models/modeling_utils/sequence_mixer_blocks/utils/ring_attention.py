@@ -53,7 +53,7 @@ def _ring_attention_forward(
     softcap: float,
     forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
-    S = q.size(1)
+    BLOCK_SIZE_S = q.size(1)
 
     if causal and k.size(1) != S:
         raise NotImplementedError("causal requires the same query and context sequence lengths")
@@ -66,14 +66,13 @@ def _ring_attention_forward(
     next_kv = None
 
     use_sliding_window = _is_using_sliding_window(window_size)
-    BLOCK_SIZE_S = divide_if_divisible(S, world_size)
 
     if use_sliding_window:
         assert window_size[0] == window_size[1]
         assert causal
         assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
 
-        num_loops = min(world_size, (S + window_size[0] - 1) // window_size[0])
+        num_loops = min(world_size, (window_size[0] + BLOCK_SIZE_S - 1) // BLOCK_SIZE_S + 1)
     else:
         num_loops = world_size
 
@@ -140,8 +139,8 @@ def _ring_attention_forward(
             v=local_v,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
-            window_size_left=-1 if use_sliding_window else window_size[0] - i * BLOCK_SIZE_S,
-            window_size_right=-1 if use_sliding_window else window_size[1] - i * BLOCK_SIZE_S,
+            window_size_left=window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1,
+            window_size_right=window_size[1] - i * BLOCK_SIZE_S if use_sliding_window else -1,
             softcap=softcap,
         )
 
