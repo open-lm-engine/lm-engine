@@ -209,7 +209,11 @@ def _ring_attention_backward(
         # that gradients route correctly back to their source ranks.
         should_skip = is_causal_behavior == _CausalBehavior.SKIP or (use_sliding_window and i >= num_loops)
 
-        if not should_skip:
+        if should_skip:
+            dq_ = None
+            dk_ = None
+            dv_ = None
+        else:
             if i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
                 # We need to do SDPA with the full local q, k, v.
                 local_q = q
@@ -262,10 +266,6 @@ def _ring_attention_backward(
                 window_size_right=window_size[1] - i * BLOCK_SIZE_S if use_sliding_window else -1,
                 softcap=softcap,
             )
-        else:
-            dq_ = None
-            dk_ = None
-            dv_ = None
 
         ROUND_ROBIN_CYCLE = 2
         if i == 0:
