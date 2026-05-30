@@ -57,7 +57,7 @@ def _ring_attention_forward(
     if causal and k.size(1) != BLOCK_SIZE_S:
         raise NotImplementedError("causal requires the same query and context sequence lengths")
 
-    if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
+    if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
         raise RuntimeError("Load balancing requires `causal=True`.")
 
     rank = ProcessGroupManager.get_context_parallel_rank()
@@ -160,6 +160,7 @@ def _ring_attention_backward(
     causal: bool,
     softmax_scale: float | None,
     window_size: tuple[int, int],
+    softcap: float,
     backward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
     BLOCK_SIZE_S = q.size(1)
@@ -259,6 +260,7 @@ def _ring_attention_backward(
                 is_causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
                 window_size_left=window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1,
                 window_size_right=window_size[1] - i * BLOCK_SIZE_S if use_sliding_window else -1,
+                softcap=softcap,
             )
         else:
             dq_ = None
@@ -369,6 +371,7 @@ class _RingAttention(torch.autograd.Function):
             causal=ctx.causal,
             softmax_scale=ctx.softmax_scale,
             window_size=ctx.window_size,
+            softcap=ctx.softcap,
             backward_function=ctx.backward_function,
         )
 
