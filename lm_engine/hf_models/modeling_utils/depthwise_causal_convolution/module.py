@@ -78,6 +78,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         assert BLOCK_SIZE_S >= self.kernel_size - 1
 
         x = _apply_mask_to_padding_states(x, attention_mask)
+        S = BLOCK_SIZE_S
 
         is_cp_enabled = ProcessGroupManager.is_context_parallel_enabled()
         if is_cp_enabled:
@@ -85,9 +86,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             assert not output_state
             assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
 
-            S = BLOCK_SIZE_S * ProcessGroupManager.get_context_parallel_world_size()
-        else:
-            S = BLOCK_SIZE_S
+            S *= ProcessGroupManager.get_context_parallel_world_size()
 
         if input_state is None:
             if is_cp_enabled and self.kernel_size > 1:
