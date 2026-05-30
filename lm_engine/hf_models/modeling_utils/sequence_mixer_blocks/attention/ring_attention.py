@@ -10,7 +10,7 @@ from typing import Callable
 import torch
 
 from .....parallel import ProcessGroupManager
-from .all_to_all import AllToAllRotater
+from ...all_to_all import AllToAllRotater
 from .merge import _Merger, _partial_update
 
 

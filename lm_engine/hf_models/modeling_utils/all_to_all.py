@@ -8,7 +8,7 @@ import torch
 from torch.distributed._functional_collectives import RANK_TYPES, AsyncCollectiveTensor
 from torch.distributed._functional_collectives import permute_tensor as _permute_tensor_no_grad
 
-from .....parallel import ProcessGroupManager
+from ...parallel import ProcessGroupManager
 
 
 class _PermuteTensor(torch.autograd.Function):
