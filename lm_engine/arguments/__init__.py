@@ -296,9 +296,7 @@ class DistributedArgs(BaseArgs):
     # context parallel world size
     context_parallel_world_size: int = 1
     # load balancing method for context parallelism
-    context_parallel_load_balancing_method: ContextParallelLoadBalancerMethod | None = (
-        ContextParallelLoadBalancerMethod.headtail
-    )
+    context_parallel_load_balancing_method: ContextParallelLoadBalancerMethod | None = None
     # distributed timeout for NCCL in minutes
     timeout_minutes: int | None = None
     # fsdp algorithm
