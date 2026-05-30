@@ -108,7 +108,7 @@ def _ring_attention_forward(
         if is_causal_behavior == _CausalBehavior.SKIP:
             continue
 
-        if i == 0 or (ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal):
+        if i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
             # When local balance is enabled, we still need to do SDPA with
             # the both local chunks of q, k, v for the first iteration.
             local_q = q
