@@ -55,7 +55,7 @@ def _ring_attention_forward(
 ) -> tuple[torch.Tensor, ...]:
     BLOCK_SIZE_S = q.size(1)
 
-    if causal and k.size(1) != S:
+    if causal and k.size(1) != BLOCK_SIZE_S:
         raise NotImplementedError("causal requires the same query and context sequence lengths")
 
     if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
