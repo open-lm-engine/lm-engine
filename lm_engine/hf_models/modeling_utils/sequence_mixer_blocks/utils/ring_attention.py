@@ -49,7 +49,7 @@ def _ring_attention_forward(
     v: torch.Tensor,
     causal: bool,
     softmax_scale: float | None,
-    window_size: int | None,
+    window_size: tuple[int, int],
     softcap: float,
     forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
