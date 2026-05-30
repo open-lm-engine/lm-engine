@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import torch
 from torch.distributed._functional_collectives import RANK_TYPES, AsyncCollectiveTensor
-from torch.distributed._functional_collectives import permute_tensor
 from torch.distributed._functional_collectives import permute_tensor as _permute_tensor_no_grad
 
 from .....parallel import ProcessGroupManager
@@ -16,7 +15,7 @@ class _PermuteTensor(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x: torch.Tensor, src_dst: list[int], group: RANK_TYPES) -> torch.Tensor:
         ctx.src_dst = src_dst
-        x = permute_tensor(x, src_dst=src_dst, group=ProcessGroupManager.get_context_parallel_group())
+        x = _permute_tensor_no_grad(x, src_dst=src_dst, group=ProcessGroupManager.get_context_parallel_group())
         return x
 
     @staticmethod
@@ -25,7 +24,7 @@ class _PermuteTensor(torch.autograd.Function):
         inv_src_dst = [0] * len(src_dst)
         for src, dst in enumerate(src_dst):
             inv_src_dst[dst] = src
-        dx = permute_tensor(dx, src_dst=inv_src_dst, group=ProcessGroupManager.get_context_parallel_group())
+        dx = _permute_tensor_no_grad(dx, src_dst=inv_src_dst, group=ProcessGroupManager.get_context_parallel_group())
         return dx, None, None
 
 
