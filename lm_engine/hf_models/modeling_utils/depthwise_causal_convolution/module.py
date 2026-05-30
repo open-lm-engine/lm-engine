@@ -8,11 +8,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ...enums import Kernel
-from ...kernels import is_kernel_allowed
-from ...utils import is_causal_conv1d_available
-from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
-from .activations import get_activation_function
+from ....enums import Kernel
+from ....kernels import is_kernel_allowed
+from ....utils import is_causal_conv1d_available
+from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
+from ..activations import get_activation_function
 
 
 if is_causal_conv1d_available():
