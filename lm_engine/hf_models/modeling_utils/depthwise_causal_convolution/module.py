@@ -91,7 +91,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         if is_kernel_allowed(Kernel.causal_conv1d):
             if input_state is None:
                 if is_cp_enabled:
-                    rotater.exchange_buffers(x[:, 1 - self.kernel_size])
+                    rotater.exchange_buffers(x[:, 1 - self.kernel_size], with_grad=True)
                     x = torch.cat((rotater.next_buffer(), x), dim=1)
 
                 x = x.transpose(-1, -2)
