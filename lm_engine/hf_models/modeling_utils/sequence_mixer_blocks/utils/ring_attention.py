@@ -293,7 +293,8 @@ def _ring_attention_backward(
         dkv_rotater.exchange_buffers(next_grad_kv)
 
         if i <= rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
-            dq += dq_
+            if dq_ is not None:
+                dq += dq_
         else:
             dq = _partial_update(dq, dq_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=1, add=True)
 
