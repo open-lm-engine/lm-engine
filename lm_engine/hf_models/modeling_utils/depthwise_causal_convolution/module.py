@@ -74,17 +74,17 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         output_state: bool,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         BLOCK_SIZE_S = x.size(1)
-        # because I am lazy and don't want to deal with the other case
-        assert BLOCK_SIZE_S >= self.kernel_size - 1
+        S = BLOCK_SIZE_S
 
         x = _apply_mask_to_padding_states(x, attention_mask)
-        S = BLOCK_SIZE_S
 
         is_cp_enabled = ProcessGroupManager.is_context_parallel_enabled()
         if is_cp_enabled:
             assert input_state is None
             assert not output_state
             assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
+            # because I am lazy and don't want to deal with the other case
+            assert BLOCK_SIZE_S >= self.kernel_size - 1
 
             S *= ProcessGroupManager.get_context_parallel_world_size()
 
