@@ -24,7 +24,7 @@ from ...dtensor_module import DTensorModule
 from ...init_utils import _get_std_for_linear
 from ...linear import ColumnParallelLinear, RowParallelLinear
 from ...position_embedding import apply_rotary_pos_emb
-from ..utils import flash_attention
+from .flash_attention import flash_attention
 
 
 if is_torch_xla_available():
