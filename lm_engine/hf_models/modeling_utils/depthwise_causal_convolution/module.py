@@ -14,6 +14,7 @@ from ....parallel import ProcessGroupManager
 from ....utils import is_causal_conv1d_available
 from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function
+from ..all_gather import AllGatherRotater
 from ..all_to_all import AllToAllRotater
 
 
@@ -90,7 +91,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
         if input_state is None:
             if is_cp_enabled and self.kernel_size > 1:
-                rotater = AllToAllRotater()
+                rotater = AllGatherRotater()
                 tail = x[:, 1 - self.kernel_size :]
                 rotater.exchange_buffers(tail.flatten(), with_grad=True)
 
