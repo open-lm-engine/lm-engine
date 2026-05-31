@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor, all_gather_tensor
-from torch.distributed.tensor import DTensor, Replicate, Shard
 
 from ...parallel import ProcessGroupManager
 
@@ -16,14 +15,10 @@ class AllGatherRotater:
 
     def exchange_buffers(self, x: torch.Tensor, with_grad: bool) -> None:
         x = x.contiguous()
-        mesh = ProcessGroupManager.get_context_parallel_mesh()
-
-        if with_grad:
-            x = DTensor.from_local(x, device_mesh=mesh, placements=[Shard(0)])
-            x = x.redistribute(placements=[Replicate()])
-            x = x.to_local()
-        else:
-            x = all_gather_tensor(x, gather_dim=0, group=mesh)
+        group = ProcessGroupManager.get_context_parallel_group()
+        # Use the same functional collective in both cases so autograd sees the
+        # exact gather/slice pattern that the forward path uses.
+        x = all_gather_tensor(x, gather_dim=0, group=group)
 
         self._buffer = x
 
