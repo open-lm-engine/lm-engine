@@ -14,7 +14,16 @@ class AllGatherRotater:
     _buffer: torch.Tensor | None = None
 
     def exchange_buffers(self, x: torch.Tensor, with_grad: bool) -> None:
-        self._buffer = all_gather_tensor(x, gather_dim=0, group=ProcessGroupManager.get_context_parallel_mesh())
+        group = ProcessGroupManager.get_context_parallel_group()
+
+        if not with_grad:
+            x = x.detach()
+
+        if with_grad:
+            self._buffer = all_gather_tensor(x, gather_dim=0, group=group)
+        else:
+            with torch.no_grad():
+                self._buffer = all_gather_tensor(x, gather_dim=0, group=group)
 
     def next_buffer(self) -> torch.Tensor:
         assert self._buffer is not None
