@@ -99,7 +99,7 @@ def _ring_attention_forward(
         if i < num_loops - 1:
             # Send the k, v to the next rank
             next_kv = torch.cat([k.flatten(), v.flatten()])
-            rotater.exchange_buffers(next_kv)
+            rotater.exchange_buffers(next_kv, with_grad=False)
 
         is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
@@ -200,7 +200,7 @@ def _ring_attention_backward(
         if i != world_size - 1:
             # Send the kv to the next rank.
             next_kv = torch.cat([k.flatten(), v.flatten()])
-            kv_rotater.exchange_buffers(next_kv)
+            kv_rotater.exchange_buffers(next_kv, with_grad=False)
 
         is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
@@ -292,7 +292,7 @@ def _ring_attention_backward(
 
         next_grad_kv = torch.cat([dk.flatten(), dv.flatten()])
         # Send the grad key and grad value to the next rank.
-        dkv_rotater.exchange_buffers(next_grad_kv)
+        dkv_rotater.exchange_buffers(next_grad_kv, with_grad=False)
 
         if i <= rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
             if dq_ is not None:
