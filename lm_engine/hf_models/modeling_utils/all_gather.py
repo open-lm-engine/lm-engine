@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor, all_gather_tensor
+from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
 
 from ...parallel import ProcessGroupManager
 
@@ -14,13 +15,17 @@ class AllGatherRotater:
     _buffer: torch.Tensor | None = None
 
     def exchange_buffers(self, x: torch.Tensor, with_grad: bool) -> None:
-        group = ProcessGroupManager.get_context_parallel_group()
+        x = x.contiguous()
+        mesh = ProcessGroupManager.get_context_parallel_mesh()
 
         if with_grad:
-            self._buffer = all_gather_tensor(x, gather_dim=0, group=group)
+            x = DTensor.from_local(x, device_mesh=mesh, placements=[Shard(0)])
+            x = x.redistribute(placements=[Replicate()])
+            x = x.to_local(grad_placements=[Partial()])
         else:
-            with torch.no_grad():
-                self._buffer = all_gather_tensor(x, gather_dim=0, group=group)
+            x = all_gather_tensor(x, gather_dim=0, group=mesh)
+
+        self._buffer = x
 
     def next_buffer(self) -> torch.Tensor:
         assert self._buffer is not None
