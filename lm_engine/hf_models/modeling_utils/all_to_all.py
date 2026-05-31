@@ -11,35 +11,15 @@ from torch.distributed._functional_collectives import (
     AsyncCollectiveTensor,
     _expand_group,
     all_to_all_single_autograd,
+    permute_tensor,
 )
-from torch.distributed._functional_collectives import permute_tensor as _permute_tensor_no_grad
 
 from ...parallel import ProcessGroupManager
 
 
-class _PermuteTensor(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, x: torch.Tensor, src_dst: list[int], group: RANK_TYPES) -> torch.Tensor:
-        ctx.src_dst = src_dst
-        ctx.group = group
-        return _permute_tensor_no_grad(x, src_dst=src_dst, group=group)
-
-    @staticmethod
-    def backward(ctx, dx: torch.Tensor):
-        src_dst = ctx.src_dst
-
-        inv_src_dst = [0] * len(src_dst)
-        for src, dst in enumerate(src_dst):
-            inv_src_dst[dst] = src
-
-        dx = _permute_tensor_no_grad(dx, src_dst=inv_src_dst, group=ctx.group)
-        if isinstance(dx, AsyncCollectiveTensor):
-            dx = dx.wait()
-
-        return dx, None, None
-
-
-def permute_tensor(x: torch.Tensor, src_dst: list[int], group: RANK_TYPES, with_grad: bool) -> torch.Tensor:
+def permute_tensor_with_autograd(
+    x: torch.Tensor, src_dst: list[int], group: RANK_TYPES, with_grad: bool
+) -> torch.Tensor:
     if with_grad:
         t, rankset, group_size = _expand_group(group)
         local_pg = c10d._find_or_create_pg_by_ranks_and_tag(t, rankset, group_size)
@@ -56,7 +36,7 @@ def permute_tensor(x: torch.Tensor, src_dst: list[int], group: RANK_TYPES, with_
             x, output_split_sizes=output_split_sizes, input_split_sizes=input_split_sizes, group=group
         )
     else:
-        x = _permute_tensor_no_grad(x, src_dst=src_dst, group=group)
+        x = permute_tensor(x, src_dst=src_dst, group=group)
 
     return x
 
@@ -70,7 +50,7 @@ class AllToAllRotater:
     def exchange_buffers(self, curr_buffer: torch.Tensor, with_grad: bool) -> None:
         curr_buffer = curr_buffer.contiguous()
         dsts = list(range(1, ProcessGroupManager.get_context_parallel_world_size())) + [0]
-        self._buffer = permute_tensor(
+        self._buffer = permute_tensor_with_autograd(
             curr_buffer, src_dst=dsts, group=ProcessGroupManager.get_context_parallel_group(), with_grad=with_grad
         )
 
