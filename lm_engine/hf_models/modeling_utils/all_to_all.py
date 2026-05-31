@@ -40,8 +40,7 @@ def permute_tensor(x: torch.Tensor, src_dst: list[int], group: RANK_TYPES, with_
 class AllToAllRotater:
     """Use all_to_all to send the kv to the next rank."""
 
-    def __init__(self, seq_dim: int) -> AllToAllRotater:
-        self._seq_dim = seq_dim
+    def __init__(self) -> AllToAllRotater:
         self._buffer: torch.Tensor | None = None
 
     def exchange_buffers(self, curr_buffer: torch.Tensor, with_grad: bool) -> None:

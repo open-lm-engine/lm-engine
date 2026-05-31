@@ -86,7 +86,7 @@ def _ring_attention_forward(
     k_size = k.size()
     v_size = v.size()
 
-    rotater = AllToAllRotater(1)
+    rotater = AllToAllRotater()
     sdpa_merger = _Merger(1)
 
     for i in range(num_loops):
@@ -187,7 +187,7 @@ def _ring_attention_backward(
     k_size = k.size()
     v_size = v.size()
 
-    kv_rotater = AllToAllRotater(1)
+    kv_rotater = AllToAllRotater()
     dkv_rotater = AllToAllRotater(1)
 
     for i in range(world_size):
