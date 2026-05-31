@@ -12,7 +12,7 @@ from lm_engine.utils import is_causal_conv1d_available
 from ....utils import skip_test_if_device_unavailable, slow_test
 
 
-@pytest.mark.parametrize("kernel_size", [1, 4])
+@pytest.mark.parametrize("kernel_size", list(range(1, 5)))
 @pytest.mark.parametrize("use_causal_conv1d", [False, True])
 @slow_test
 def test_depthwise_causal_convolution_cp(kernel_size: int, use_causal_conv1d: bool) -> None:
