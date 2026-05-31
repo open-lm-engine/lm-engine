@@ -44,7 +44,7 @@ conv.eval()
 torch.manual_seed(0)
 
 x_full = torch.randn(_BATCH, cp_world_size * _CHUNK_LEN, _HIDDEN_SIZE, device=device)
-x_local = prepare_context_parallel_input((x_full,))[0].contiguous()
+x_local = prepare_context_parallel_input((x_full,))[0]
 
 kernels = [Kernel.causal_conv1d] if args.use_causal_conv1d else []
 
@@ -52,7 +52,9 @@ with enable_kernels(kernels):
     out_local, _ = conv(x_local, input_state=None, attention_mask=None, output_state=False)
 
 parts = [torch.zeros_like(out_local) for _ in range(cp_world_size)]
-torch.distributed.all_gather(parts, out_local.detach(), group=ProcessGroupManager.get_context_parallel_group())
+torch.distributed.all_gather(
+    parts, out_local.detach().contiguous(), group=ProcessGroupManager.get_context_parallel_group()
+)
 out_cp_full = torch.cat(parts, dim=1)
 
 if rank == 0:
