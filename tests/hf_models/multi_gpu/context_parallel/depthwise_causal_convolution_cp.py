@@ -44,7 +44,7 @@ conv.eval()
 torch.manual_seed(0)
 
 x_full = torch.randn(_BATCH, cp_world_size * _CHUNK_LEN, _HIDDEN_SIZE, device=device)
-x_local = prepare_context_parallel_input((x_full,))[0]
+x_local = prepare_context_parallel_input((x_full,))[0].contiguous()
 
 kernels = [Kernel.causal_conv1d] if args.use_causal_conv1d else []
 
