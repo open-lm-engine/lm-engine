@@ -5,13 +5,13 @@
 from __future__ import annotations
 
 import torch
-import torch.distributed.distributed_c10d as c10d
 from torch.distributed._functional_collectives import (
     AsyncCollectiveTensor,
     _expand_group,
     all_to_all_single_autograd,
     permute_tensor,
 )
+from torch.distributed.distributed_c10d import _find_or_create_pg_by_ranks_and_tag
 
 from ...parallel import ProcessGroupManager
 
@@ -29,7 +29,7 @@ class AllToAllRotater:
 
         if with_grad:
             t, rankset, group_size = _expand_group(group)
-            local_pg = c10d._find_or_create_pg_by_ranks_and_tag(t, rankset, group_size)
+            local_pg = _find_or_create_pg_by_ranks_and_tag(t, rankset, group_size)
 
             output_split_sizes = [0] * group_size
             input_split_sizes = [0] * group_size
