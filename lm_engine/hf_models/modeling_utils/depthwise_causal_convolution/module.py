@@ -90,14 +90,15 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
         if input_state is None:
             if is_cp_enabled and self.kernel_size > 1:
-                rotater = AllToAllRotater(1)
-                rotater.exchange_buffers(x[:, 1 - self.kernel_size :], with_grad=True)
+                rotater = AllToAllRotater()
+                tail = x[:, 1 - self.kernel_size :]
+                rotater.exchange_buffers(tail.flatten(), with_grad=True)
 
-                prev_tail = rotater.next_buffer()
+                tail = rotater.next_buffer().view_as(tail)
                 if ProcessGroupManager.is_context_parallel_first_rank():
-                    prev_tail.zero_()
+                    tail.zero_()
 
-                x = torch.cat((prev_tail, x), dim=1)
+                x = torch.cat((tail, x), dim=1)
 
             x = x.transpose(-1, -2)
 
