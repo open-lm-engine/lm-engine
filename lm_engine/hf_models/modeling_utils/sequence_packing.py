@@ -5,9 +5,9 @@
 import torch
 import torch.nn.functional as F
 
-from .....enums import Kernel
-from .....kernels import is_kernel_allowed
-from .....utils import is_xma_available
+from ...enums import Kernel
+from ...kernels import is_kernel_allowed
+from ...utils import is_xma_available
 
 
 if is_xma_available():

@@ -22,14 +22,19 @@ from ....utils import skip_test_if_device_unavailable, slow_test
 @pytest.mark.parametrize("attention_implementation", ["flash_attention_2", "flash_attention_3", "flash_attention_4"])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
 @pytest.mark.parametrize("load_balancing_method", [None, "headtail"])
+@pytest.mark.parametrize("sliding_window", [None, 128, 256])
 @slow_test
 def test_context_parallel_forward(
     position_embedding_type: str,
     attention_implementation: str,
     dtype: torch.dtype,
     load_balancing_method: str | None,
+    sliding_window: int | None,
 ) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
+
+    if sliding_window is not None and load_balancing_method is not None:
+        pytest.skip("sliding window is incompatible with load balancing")
 
     for i, func in zip(
         range(2, 5),
@@ -62,5 +67,8 @@ def test_context_parallel_forward(
 
         if load_balancing_method is not None:
             command.extend(["--load-balancing-method", load_balancing_method])
+
+        if sliding_window is not None:
+            command.extend(["--sliding-window", str(sliding_window)])
 
         subprocess.run(command, check=True)

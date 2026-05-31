@@ -108,9 +108,7 @@ class ProcessGroupManager:
         data_parallel_replication_world_size: int | None = None,
         data_parallel_sharding_world_size: int | None = None,
         context_parallel_world_size: int = 1,
-        context_parallel_load_balancing_method: (
-            ContextParallelLoadBalancerMethod | None
-        ) = ContextParallelLoadBalancerMethod.headtail,
+        context_parallel_load_balancing_method: ContextParallelLoadBalancerMethod | None = None,
         zero_stage: int = 3,
         timeout_minutes: int | None = None,
         use_async_tensor_parallel: bool = False,

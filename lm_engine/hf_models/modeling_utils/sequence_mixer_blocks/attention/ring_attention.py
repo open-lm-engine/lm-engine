@@ -10,8 +10,12 @@ from typing import Callable
 import torch
 
 from .....parallel import ProcessGroupManager
-from .communication import AllToAllRotater
+from ...all_to_all import AllToAllRotater
 from .merge import _Merger, _partial_update
+
+
+def _is_using_sliding_window(window_size: tuple[int, int]) -> bool:
+    return window_size != (-1, -1)
 
 
 class _CausalBehavior(Enum):
@@ -34,8 +38,8 @@ class _CausalBehavior(Enum):
         source_rank = (rank - i) % world_size
         if source_rank < rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
             return _CausalBehavior.NOT_IS_CAUSAL
-        else:
-            return _CausalBehavior.SKIP
+
+        return _CausalBehavior.SKIP
 
 
 def _ring_attention_forward(
@@ -44,22 +48,32 @@ def _ring_attention_forward(
     v: torch.Tensor,
     causal: bool,
     softmax_scale: float | None,
-    window_size: int | None,
+    window_size: tuple[int, int],
     softcap: float,
     forward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
-    # TODO support sliding window attention
-    assert window_size == (-1, -1)
+    BLOCK_SIZE_S = q.size(1)
 
-    if causal and (q.size(1) != k.size(1)):
-        raise NotImplementedError("is_causal requires the same query and context sequence lengths")
+    if causal and k.size(1) != BLOCK_SIZE_S:
+        raise NotImplementedError("causal requires the same query and context sequence lengths")
 
-    if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
-        raise RuntimeError("Load balancing requires `is_causal=True`.")
+    if not causal and ProcessGroupManager.get_context_parallel_load_balancing_method() is not None:
+        raise RuntimeError("Load balancing requires `causal=True`.")
 
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
     next_kv = None
+
+    use_sliding_window = _is_using_sliding_window(window_size)
+
+    if use_sliding_window:
+        assert window_size[0] == window_size[1]
+        assert causal
+        assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
+
+        num_loops = min(world_size, (window_size[0] + BLOCK_SIZE_S - 1) // BLOCK_SIZE_S + 1)
+    else:
+        num_loops = world_size
 
     # Without making key and value contiguous(), the loss curve is bad.
     # TODO(fegin): figure out why this is a requirement since SDPA does not have
@@ -72,27 +86,27 @@ def _ring_attention_forward(
     k_size = k.size()
     v_size = v.size()
 
-    rotater = AllToAllRotater(1)
+    rotater = AllToAllRotater()
     sdpa_merger = _Merger(1)
 
-    for i in range(world_size):
+    for i in range(num_loops):
         if i > 0:
             # Wait for the kv from the (cp_rank - 1) rank.
             next_kv = rotater.next_buffer()
             k = next_kv[:k_numel].reshape(k_size)
             v = next_kv[k_numel:].reshape(v_size)
 
-        if i < world_size - 1:
+        if i < num_loops - 1:
             # Send the k, v to the next rank
             next_kv = torch.cat([k.flatten(), v.flatten()])
-            rotater.exchange_buffers(next_kv)
+            rotater.exchange_buffers(next_kv, with_grad=False)
 
         is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
         if is_causal_behavior == _CausalBehavior.SKIP:
             continue
 
-        if i == 0 or (ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal):
+        if i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
             # When local balance is enabled, we still need to do SDPA with
             # the both local chunks of q, k, v for the first iteration.
             local_q = q
@@ -124,8 +138,8 @@ def _ring_attention_forward(
             v=local_v,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
-            window_size_left=window_size[0],
-            window_size_right=window_size[1],
+            window_size_left=window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1,
+            window_size_right=window_size[1] - i * BLOCK_SIZE_S if use_sliding_window else -1,
             softcap=softcap,
         )
 
@@ -145,10 +159,19 @@ def _ring_attention_backward(
     lse: torch.Tensor,
     causal: bool,
     softmax_scale: float | None,
+    window_size: tuple[int, int],
+    softcap: float,
     backward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
+    BLOCK_SIZE_S = q.size(1)
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
+
+    use_sliding_window = _is_using_sliding_window(window_size)
+    if use_sliding_window:
+        num_loops = min(world_size, (window_size[0] + BLOCK_SIZE_S - 1) // BLOCK_SIZE_S + 1)
+    else:
+        num_loops = world_size
 
     next_kv = None
     next_grad_kv = None
@@ -164,8 +187,8 @@ def _ring_attention_backward(
     k_size = k.size()
     v_size = v.size()
 
-    kv_rotater = AllToAllRotater(1)
-    dkv_rotater = AllToAllRotater(1)
+    kv_rotater = AllToAllRotater()
+    dkv_rotater = AllToAllRotater()
 
     for i in range(world_size):
         if i > 0:
@@ -177,12 +200,21 @@ def _ring_attention_backward(
         if i != world_size - 1:
             # Send the kv to the next rank.
             next_kv = torch.cat([k.flatten(), v.flatten()])
-            kv_rotater.exchange_buffers(next_kv)
+            kv_rotater.exchange_buffers(next_kv, with_grad=False)
 
         is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
 
-        if is_causal_behavior != _CausalBehavior.SKIP:
-            if i == 0 or (ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal):
+        # Skip blocks outside the sliding window (i >= num_loops) in addition to the
+        # standard causal SKIP. The dkv rotation still runs for all world_size steps so
+        # that gradients route correctly back to their source ranks.
+        should_skip = is_causal_behavior == _CausalBehavior.SKIP or (use_sliding_window and i >= num_loops)
+
+        if should_skip:
+            dq_ = None
+            dk_ = None
+            dv_ = None
+        else:
+            if i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
                 # We need to do SDPA with the full local q, k, v.
                 local_q = q
                 local_k = k
@@ -230,16 +262,18 @@ def _ring_attention_backward(
                 dv=dv_,
                 softmax_scale=softmax_scale,
                 is_causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
+                window_size_left=window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1,
+                window_size_right=window_size[1] - i * BLOCK_SIZE_S if use_sliding_window else -1,
+                softcap=softcap,
             )
-        else:
-            dq_ = torch.zeros_like(q, dtype=torch.float32)
-            dk_ = torch.zeros_like(k, dtype=torch.float32)
-            dv_ = torch.zeros_like(v, dtype=torch.float32)
 
         ROUND_ROBIN_CYCLE = 2
         if i == 0:
-            dk += dk_
-            dv += dv_
+            if dk_ is not None:
+                dk += dk_
+
+            if dv_ is not None:
+                dv += dv_
         else:
             # Wait for the kv gradient from (cp_rank - 1) rank.
             next_grad_kv = dkv_rotater.next_buffer()
@@ -250,20 +284,21 @@ def _ring_attention_backward(
                 dk = _partial_update(dk, dk_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=0, add=True)
                 dv = _partial_update(dv, dv_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=0, add=True)
             else:
-                dk += dk_
-                dv += dv_
+                if dk_ is not None:
+                    dk += dk_
+
+                if dv_ is not None:
+                    dv += dv_
 
         next_grad_kv = torch.cat([dk.flatten(), dv.flatten()])
         # Send the grad key and grad value to the next rank.
-        dkv_rotater.exchange_buffers(next_grad_kv)
+        dkv_rotater.exchange_buffers(next_grad_kv, with_grad=False)
 
         if i <= rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
-            dq += dq_
+            if dq_ is not None:
+                dq += dq_
         else:
             dq = _partial_update(dq, dq_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=1, add=True)
-
-    assert dk_ is not None
-    assert dv_ is not None
 
     dq = dq.type_as(q)
     next_grad_kv = dkv_rotater.next_buffer().type_as(k)
@@ -335,6 +370,8 @@ class _RingAttention(torch.autograd.Function):
             lse=lse,
             causal=ctx.causal,
             softmax_scale=ctx.softmax_scale,
+            window_size=ctx.window_size,
+            softcap=ctx.softcap,
             backward_function=ctx.backward_function,
         )
 
