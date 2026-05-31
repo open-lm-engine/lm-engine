@@ -188,7 +188,7 @@ def _ring_attention_backward(
     v_size = v.size()
 
     kv_rotater = AllToAllRotater()
-    dkv_rotater = AllToAllRotater(1)
+    dkv_rotater = AllToAllRotater()
 
     for i in range(world_size):
         if i > 0:
