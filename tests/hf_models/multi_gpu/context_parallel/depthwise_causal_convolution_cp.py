@@ -12,7 +12,7 @@ from torch.testing import assert_close
 from lm_engine.enums import Kernel
 from lm_engine.hf_models.modeling_utils import DepthwiseCausalConvolution
 from lm_engine.kernels import enable_kernels
-from lm_engine.parallel import ProcessGroupManager
+from lm_engine.parallel import ProcessGroupManager, prepare_context_parallel_input
 
 
 parser = argparse.ArgumentParser()
@@ -42,9 +42,9 @@ conv = DepthwiseCausalConvolution(
 conv.eval()
 
 torch.manual_seed(0)
-x_full = torch.randn(_BATCH, cp_world_size * _CHUNK_LEN, _HIDDEN_SIZE, device=device)
 
-x_local = x_full[:, rank * _CHUNK_LEN : (rank + 1) * _CHUNK_LEN]
+x_full = torch.randn(_BATCH, cp_world_size * _CHUNK_LEN, _HIDDEN_SIZE, device=device)
+x_local = prepare_context_parallel_input((x_full,))[0]
 
 kernels = [Kernel.causal_conv1d] if args.use_causal_conv1d else []
 
