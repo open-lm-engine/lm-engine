@@ -15,8 +15,8 @@ class _PermuteTensor(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x: torch.Tensor, src_dst: list[int], group: RANK_TYPES) -> torch.Tensor:
         ctx.src_dst = src_dst
-        x = _permute_tensor_no_grad(x, src_dst=src_dst, group=ProcessGroupManager.get_context_parallel_group())
-        return x
+        ctx.group = group
+        return _permute_tensor_no_grad(x, src_dst=src_dst, group=group)
 
     @staticmethod
     def backward(ctx, dx: torch.Tensor):
@@ -24,7 +24,7 @@ class _PermuteTensor(torch.autograd.Function):
         inv_src_dst = [0] * len(src_dst)
         for src, dst in enumerate(src_dst):
             inv_src_dst[dst] = src
-        dx = _permute_tensor_no_grad(dx, src_dst=inv_src_dst, group=ProcessGroupManager.get_context_parallel_group())
+        dx = _permute_tensor_no_grad(dx, src_dst=inv_src_dst, group=ctx.src_dst)
         return dx, None, None
 
 
