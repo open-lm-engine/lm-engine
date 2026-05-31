@@ -24,7 +24,7 @@ class _PermuteTensor(torch.autograd.Function):
         inv_src_dst = [0] * len(src_dst)
         for src, dst in enumerate(src_dst):
             inv_src_dst[dst] = src
-        dx = _permute_tensor_no_grad(dx, src_dst=inv_src_dst, group=ctx.src_dst)
+        dx = _permute_tensor_no_grad(dx, src_dst=inv_src_dst, group=ctx.group)
         return dx, None, None
 
 
