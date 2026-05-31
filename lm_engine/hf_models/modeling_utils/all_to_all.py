@@ -22,8 +22,8 @@ class AllToAllRotater:
     def __init__(self) -> AllToAllRotater:
         self._buffer: torch.Tensor | None = None
 
-    def exchange_buffers(self, curr_buffer: torch.Tensor, with_grad: bool) -> None:
-        curr_buffer = curr_buffer.contiguous()
+    def exchange_buffers(self, x: torch.Tensor, with_grad: bool) -> None:
+        x = x.contiguous()
         src_dst = list(range(1, ProcessGroupManager.get_context_parallel_world_size())) + [0]
         group = ProcessGroupManager.get_context_parallel_group()
 
