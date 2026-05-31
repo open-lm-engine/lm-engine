@@ -96,7 +96,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
                 tail = rotater.next_buffer().view_as(tail)
                 if ProcessGroupManager.is_context_parallel_first_rank():
-                    tail.zero_()
+                    tail = torch.zeros_like(tail)
 
                 x = torch.cat((tail, x), dim=1)
 
