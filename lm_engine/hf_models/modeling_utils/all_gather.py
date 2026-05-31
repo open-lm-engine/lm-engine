@@ -14,13 +14,7 @@ class AllGatherRotater:
     _buffer: torch.Tensor | None = None
 
     def exchange_buffers(self, x: torch.Tensor, with_grad: bool) -> None:
-        x = x.contiguous()
-        group = ProcessGroupManager.get_context_parallel_group()
-        # Use the same functional collective in both cases so autograd sees the
-        # exact gather/slice pattern that the forward path uses.
-        x = all_gather_tensor(x, gather_dim=0, group=group)
-
-        self._buffer = x
+        self._buffer = all_gather_tensor(x, gather_dim=0, group=ProcessGroupManager.get_context_parallel_mesh())
 
     def next_buffer(self) -> torch.Tensor:
         assert self._buffer is not None
