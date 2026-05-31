@@ -17,10 +17,7 @@ from ...parallel import ProcessGroupManager
 
 
 class AllToAllRotater:
-    """Use all_to_all to send the kv to the next rank."""
-
-    def __init__(self) -> AllToAllRotater:
-        self._buffer: torch.Tensor | None = None
+    _buffer: torch.Tensor | None = None
 
     def exchange_buffers(self, x: torch.Tensor, with_grad: bool) -> None:
         x = x.contiguous()
