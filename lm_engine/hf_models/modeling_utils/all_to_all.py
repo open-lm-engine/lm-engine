@@ -21,10 +21,15 @@ class _PermuteTensor(torch.autograd.Function):
     @staticmethod
     def backward(ctx, dx: torch.Tensor):
         src_dst = ctx.src_dst
+
         inv_src_dst = [0] * len(src_dst)
         for src, dst in enumerate(src_dst):
             inv_src_dst[dst] = src
+
         dx = _permute_tensor_no_grad(dx, src_dst=inv_src_dst, group=ctx.group)
+        if isinstance(dx, AsyncCollectiveTensor):
+            dx = dx.wait()
+
         return dx, None, None
 
 
