@@ -61,7 +61,7 @@ if rank == 0:
     with enable_kernels(kernels), ProcessGroupManager.set_dummy_context_parallel_world_size(1):
         out_ref, _ = conv(x_full, input_state=None, attention_mask=None, output_state=False)
 
-    assert_close(out_cp_full, out_ref, rtol=1e-5, atol=1e-5)
+    assert_close(out_cp_full, out_ref)
 
 # ---- backward ----
 x_local_bwd = x_local.detach().requires_grad_(True)
@@ -79,6 +79,6 @@ if rank == 0:
         out_ref_bwd, _ = conv(x_full_ref, input_state=None, attention_mask=None, output_state=False)
         out_ref_bwd.sum().backward()
 
-    assert_close(grad_cp_full, x_full_ref.grad, rtol=1e-5, atol=1e-5)
+    assert_close(grad_cp_full, x_full_ref.grad)
 
 ProcessGroupManager.destroy_process_groups()
