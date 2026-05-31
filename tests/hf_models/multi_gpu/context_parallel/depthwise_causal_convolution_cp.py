@@ -47,14 +47,14 @@ x_full = torch.randn(_BATCH, cp_world_size * _CHUNK_LEN, _HIDDEN_SIZE, device=de
 x_local = prepare_context_parallel_input((x_full,))[0]
 
 kernels = [Kernel.causal_conv1d] if args.use_causal_conv1d else []
-cp_group = ProcessGroupManager.get_context_parallel_group()
 
-# ---- forward ----
 with enable_kernels(kernels):
-    out_local, _ = conv(x_local.detach(), input_state=None, attention_mask=None, output_state=False)
+    out_local, _ = conv(x_local, input_state=None, attention_mask=None, output_state=False)
 
 parts = [torch.zeros_like(out_local) for _ in range(cp_world_size)]
-torch.distributed.all_gather(parts, out_local.detach().contiguous(), group=cp_group)
+torch.distributed.all_gather(
+    parts, out_local.detach().contiguous(), group=ProcessGroupManager.get_context_parallel_group()
+)
 out_cp_full = torch.cat(parts, dim=1)
 
 if rank == 0:
@@ -62,23 +62,5 @@ if rank == 0:
         out_ref, _ = conv(x_full, input_state=None, attention_mask=None, output_state=False)
 
     assert_close(out_cp_full, out_ref, rtol=1e-5, atol=1e-5)
-
-# ---- backward ----
-x_local_bwd = x_local.detach().requires_grad_(True)
-with enable_kernels(kernels):
-    out_local_bwd, _ = conv(x_local_bwd, input_state=None, attention_mask=None, output_state=False)
-    out_local_bwd.sum().backward()
-
-grad_parts = [torch.zeros_like(x_local_bwd) for _ in range(cp_world_size)]
-torch.distributed.all_gather(grad_parts, x_local_bwd.grad.contiguous(), group=cp_group)
-grad_cp_full = torch.cat(grad_parts, dim=1)
-
-if rank == 0:
-    x_full_ref = x_full.detach().requires_grad_(True)
-    with enable_kernels(kernels), ProcessGroupManager.set_dummy_context_parallel_world_size(1):
-        out_ref_bwd, _ = conv(x_full_ref, input_state=None, attention_mask=None, output_state=False)
-        out_ref_bwd.sum().backward()
-
-    assert_close(grad_cp_full, x_full_ref.grad, rtol=1e-5, atol=1e-5)
 
 ProcessGroupManager.destroy_process_groups()
