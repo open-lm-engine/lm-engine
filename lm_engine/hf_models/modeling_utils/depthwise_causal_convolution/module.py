@@ -33,6 +33,16 @@ def _apply_mask_to_padding_states(x: torch.Tensor, attention_mask: torch.Tensor 
     return x
 
 
+class _ZerosLikeWithBackward(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor) -> torch.Tensor:
+        return torch.zeros_like(x)
+
+    @staticmethod
+    def backward(ctx, dx: torch.Tensor) -> torch.Tensor:
+        return torch.zeros_like(dx)
+
+
 class DepthwiseCausalConvolution(nn.Conv1d):
     def __init__(
         self,
@@ -97,7 +107,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
                 tail = rotater.next_buffer().view_as(tail)
                 if ProcessGroupManager.is_context_parallel_first_rank():
-                    tail = torch.zeros_like(tail)
+                    tail = _ZerosLikeWithBackward.apply(tail)
 
                 x = torch.cat((tail, x), dim=1)
 
