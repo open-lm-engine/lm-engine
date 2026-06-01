@@ -43,6 +43,10 @@ class _ZerosLikeWithBackward(torch.autograd.Function):
         return torch.zeros_like(dx)
 
 
+def _zeros_like_with_backward(x: torch.Tensor) -> torch.Tensor:
+    return _ZerosLikeWithBackward.apply(x)
+
+
 class DepthwiseCausalConvolution(nn.Conv1d):
     def __init__(
         self,
@@ -107,7 +111,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
                 tail = rotater.next_buffer().view_as(tail)
                 if ProcessGroupManager.is_context_parallel_first_rank():
-                    tail = _ZerosLikeWithBackward.apply(tail)
+                    tail = _zeros_like_with_backward(tail)
 
                 x = torch.cat((tail, x), dim=1)
 
