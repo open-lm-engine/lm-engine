@@ -14,7 +14,7 @@ from ....parallel import ProcessGroupManager
 from ....utils import is_causal_conv1d_available
 from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function
-from ..all_to_all import AllToAllRotater
+from ..all_gather import AllGatherRotater
 
 
 if is_causal_conv1d_available():
@@ -30,6 +30,20 @@ def _apply_mask_to_padding_states(x: torch.Tensor, attention_mask: torch.Tensor 
         x = (x * attention_mask[:, :, None]).to(dtype)
 
     return x
+
+
+class _ZerosLikeWithBackward(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor) -> torch.Tensor:
+        return torch.zeros_like(x)
+
+    @staticmethod
+    def backward(ctx, dx: torch.Tensor) -> torch.Tensor:
+        return torch.zeros_like(dx)
+
+
+def _zeros_like_with_backward(x: torch.Tensor) -> torch.Tensor:
+    return _ZerosLikeWithBackward.apply(x)
 
 
 class DepthwiseCausalConvolution(nn.Conv1d):
@@ -90,13 +104,13 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
         if input_state is None:
             if is_cp_enabled and self.kernel_size > 1:
-                rotater = AllToAllRotater()
+                rotater = AllGatherRotater()
                 tail = x[:, 1 - self.kernel_size :]
                 rotater.exchange_buffers(tail.flatten(), with_grad=True)
 
                 tail = rotater.next_buffer().view_as(tail)
                 if ProcessGroupManager.is_context_parallel_first_rank():
-                    tail.zero_()
+                    tail = _zeros_like_with_backward(tail)
 
                 x = torch.cat((tail, x), dim=1)
 
