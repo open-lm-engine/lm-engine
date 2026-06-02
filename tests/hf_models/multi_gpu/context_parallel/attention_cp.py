@@ -150,8 +150,8 @@ if rank == 0:
         )
         out_ref_bwd.sum().backward()
 
-    assert_close(dq_cp_full, q_bwd_ref.grad, atol=1e-2, rtol=1e-2)
-    assert_close(dk_cp_full, k_bwd_ref.grad, atol=1e-2, rtol=1e-2)
-    assert_close(dv_cp_full, v_bwd_ref.grad, atol=1e-2, rtol=1e-2)
+    assert_close(dq_cp_full, q_bwd_ref.grad, atol=8e-3, rtol=0)
+    assert_close(dk_cp_full, k_bwd_ref.grad, atol=8e-3, rtol=1e-2)
+    assert_close(dv_cp_full, v_bwd_ref.grad, atol=1e-3, rtol=1e-2)
 
 ProcessGroupManager.destroy_process_groups()
