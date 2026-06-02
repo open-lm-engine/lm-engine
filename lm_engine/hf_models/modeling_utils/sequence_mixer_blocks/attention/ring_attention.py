@@ -14,10 +14,6 @@ from ...all_to_all import AllToAllRotater
 from .merge import _Merger, _partial_update
 
 
-def _is_using_sliding_window(window_size: tuple[int, int]) -> bool:
-    return window_size != (-1, -1)
-
-
 class _CausalBehavior(Enum):
     SKIP = None
     NOT_IS_CAUSAL = False
@@ -63,7 +59,7 @@ def _ring_attention_forward(
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
 
-    use_sliding_window = _is_using_sliding_window(window_size)
+    use_sliding_window = window_size != (-1, -1)
 
     if use_sliding_window:
         assert window_size[0] == window_size[1]
@@ -88,25 +84,26 @@ def _ring_attention_forward(
     sdpa_merger = _Merger(1)
 
     for i in range(num_loops):
-        local_sliding_window = window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1
         is_reversed_computation = False
-        reversed_seq_len = None
-        _k_size = k_size
-        _v_size = v_size
+
+        if use_sliding_window:
+            local_sliding_window = window_size[0] - i * BLOCK_SIZE_S
 
         if i > 0:
-            k, v = rotater.next_buffer().chunk(2)
             is_reversed_computation = use_sliding_window and i == num_loops - 1 and local_sliding_window <= 0
+            _k_size = k_size
+            _v_size = v_size
 
             if is_reversed_computation:
                 reversed_seq_len = BLOCK_SIZE_S + local_sliding_window
 
-                _k_size = list(_k_size)
-                _v_size = list(_v_size)
+                _k_size = list(k_size)
+                _v_size = list(v_size)
 
                 _k_size[1] = reversed_seq_len
                 _v_size[1] = reversed_seq_len
 
+            k, v = rotater.next_buffer().chunk(2)
             k = k.reshape(_k_size)
             v = v.reshape(_v_size)
 
@@ -114,15 +111,11 @@ def _ring_attention_forward(
             k_send = k
             v_send = v
 
-            if use_sliding_window and i == num_loops - 2:
-                next_sliding_window = window_size[0] - (i + 1) * BLOCK_SIZE_S
-                slice_size = BLOCK_SIZE_S + next_sliding_window
-
-                if slice_size <= BLOCK_SIZE_S:
-                    assert slice_size > 0
-                    # send sliced and reversed
-                    k_send = k_send[:, -slice_size:].flip([1])
-                    v_send = v_send[:, -slice_size:].flip([1])
+            if use_sliding_window and i == num_loops - 2 and local_sliding_window <= BLOCK_SIZE_S:
+                assert local_sliding_window > 0
+                # send sliced and reversed
+                k_send = k_send[:, -local_sliding_window:].flip([1])
+                v_send = v_send[:, -local_sliding_window:].flip([1])
 
             rotater.exchange_buffers(torch.cat([k_send.flatten(), v_send.flatten()]), with_grad=False)
 
@@ -137,7 +130,6 @@ def _ring_attention_forward(
         if is_reversed_computation:
             # The last partial window uses a Q prefix and K/V suffix. Reversing
             # both lets a causal mask express the upper-diagonal boundary.
-            assert reversed_seq_len is not None
             local_q = q[:, :reversed_seq_len].flip([1])
             local_k = k
             local_v = v
@@ -167,6 +159,13 @@ def _ring_attention_forward(
             local_v = v
             partial = True
 
+        window_size_left = -1 if is_reversed_computation or not use_sliding_window else local_sliding_window
+        window_size_right = (
+            window_size[1]
+            if (use_sliding_window and not is_reversed_computation and is_causal_behavior == _CausalBehavior.IS_CAUSAL)
+            else -1
+        )
+
         # TODO use SM margin for better overlapping of communication
         x, lse, _, _ = forward_function(
             q=local_q,
@@ -174,16 +173,8 @@ def _ring_attention_forward(
             v=local_v,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
-            window_size_left=-1 if is_reversed_computation else local_sliding_window,
-            window_size_right=(
-                window_size[1]
-                if (
-                    use_sliding_window
-                    and not is_reversed_computation
-                    and is_causal_behavior == _CausalBehavior.IS_CAUSAL
-                )
-                else -1
-            ),
+            window_size_left=window_size_left,
+            window_size_right=window_size_right,
             softcap=softcap,
         )
 
@@ -225,7 +216,7 @@ def _ring_attention_backward(
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
 
-    use_sliding_window = _is_using_sliding_window(window_size)
+    use_sliding_window = window_size != (-1, -1)
     if use_sliding_window:
         num_loops = min(world_size, (window_size[0] + BLOCK_SIZE_S - 1) // BLOCK_SIZE_S + 1)
     else:
