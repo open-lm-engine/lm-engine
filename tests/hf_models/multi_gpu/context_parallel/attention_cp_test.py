@@ -18,7 +18,7 @@ from ....utils import skip_test_if_device_unavailable, slow_test
 
 @pytest.mark.parametrize("attention_implementation", ["flash_attention_2", "flash_attention_3", "flash_attention_4"])
 @pytest.mark.parametrize("load_balancing_method", [None, "headtail"])
-@pytest.mark.parametrize("sliding_window", [128])
+@pytest.mark.parametrize("sliding_window", [None, 128, 256])
 @slow_test
 def test_attention_cp(
     attention_implementation: str,
