@@ -121,8 +121,8 @@ def _ring_attention_forward(
                 if slice_size <= BLOCK_SIZE_S:
                     assert slice_size > 0
                     # send sliced and reversed
-                    k_send = torch.flip(k_send[:, -slice_size:], dims=[1])
-                    v_send = torch.flip(v_send[:, -slice_size:], dims=[1])
+                    k_send = k_send[:, -slice_size:].flip([1])
+                    v_send = v_send[:, -slice_size:].flip([1])
 
             rotater.exchange_buffers(torch.cat([k_send.flatten(), v_send.flatten()]), with_grad=False)
 
@@ -138,7 +138,7 @@ def _ring_attention_forward(
             # The last partial window uses a Q prefix and K/V suffix. Reversing
             # both lets a causal mask express the upper-diagonal boundary.
             assert reversed_seq_len is not None
-            local_q = torch.flip(q[:, :reversed_seq_len], dims=[1])
+            local_q = q[:, :reversed_seq_len].flip([1])
             local_k = k
             local_v = v
             partial = False
@@ -188,8 +188,8 @@ def _ring_attention_forward(
         )
 
         if is_reversed_computation:
-            x = torch.flip(x, dims=[1])
-            lse = torch.flip(lse, dims=[-1])
+            x = x.flip([1])
+            lse = lse.flip([-1])
 
             if reversed_seq_len != BLOCK_SIZE_S:
                 x_full = torch.zeros_like(q)
@@ -282,12 +282,12 @@ def _ring_attention_backward(
 
                 # Mirror the reversed forward subproblem, then scatter its
                 # gradients back into the original Q prefix and K/V suffix.
-                local_q = torch.flip(q[:, :reversed_seq_len], dims=[1])
-                local_k = torch.flip(k[:, -reversed_seq_len:], dims=[1])
-                local_v = torch.flip(v[:, -reversed_seq_len:], dims=[1])
-                local_x = torch.flip(x[:, :reversed_seq_len], dims=[1])
-                local_dx = torch.flip(dx[:, :reversed_seq_len], dims=[1])
-                local_lse = torch.flip(lse[:, :, :reversed_seq_len], dims=[-1]).contiguous()
+                local_q = q[:, :reversed_seq_len].flip([1])
+                local_k = k[:, -reversed_seq_len:].flip([1])
+                local_v = v[:, -reversed_seq_len:].flip([1])
+                local_x = x[:, :reversed_seq_len].flip([1])
+                local_dx = dx[:, :reversed_seq_len].flip([1])
+                local_lse = lse[:, :, :reversed_seq_len].flip([-1]).contiguous()
             elif i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
                 # We need to do SDPA with the full local q, k, v.
                 local_q = q
@@ -354,9 +354,9 @@ def _ring_attention_backward(
                 dk_full = torch.zeros_like(k)
                 dv_full = torch.zeros_like(v)
 
-                dq_full[:, :reversed_seq_len] = torch.flip(dq_, dims=[1])
-                dk_full[:, -reversed_seq_len:] = torch.flip(dk_, dims=[1])
-                dv_full[:, -reversed_seq_len:] = torch.flip(dv_, dims=[1])
+                dq_full[:, :reversed_seq_len] = dq_.flip([1])
+                dk_full[:, -reversed_seq_len:] = dk_.flip([1])
+                dv_full[:, -reversed_seq_len:] = dv_.flip([1])
 
                 dq_ = dq_full
                 dk_ = dk_full
