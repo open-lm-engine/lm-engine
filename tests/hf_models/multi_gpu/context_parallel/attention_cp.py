@@ -106,7 +106,7 @@ if rank == 0:
             sliding_window=args.sliding_window,
         )
 
-    assert_close(out_cp_full, out_ref_fwd, atol=1e-2, rtol=1e-2)
+    assert_close(out_cp_full, out_ref_fwd, atol=2e-3, rtol=1e-2)
 
 # ---- backward ----
 q_bwd = q_local.detach().requires_grad_(True)
