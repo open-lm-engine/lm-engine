@@ -35,8 +35,12 @@ _BATCH = 2
 _NUM_Q_HEADS = 8
 _NUM_KV_HEADS = 2
 _HEAD_DIM = 64
-# divisible by cp_world_size * 2 so headtail load balancing works for up to 8 GPUs
-_SEQ_LEN = 512
+# Fixed chunk per rank so BLOCK_SIZE_S = _CHUNK_LEN regardless of world size.
+# This ensures window_size_left = sliding_window - i*BLOCK_SIZE_S >= 0 for all loop
+# iterations, since our smallest tested sliding_window (128) equals _CHUNK_LEN.
+# Divisible by 2 so headtail load balancing (which needs SEQ_LEN % (2*cp) == 0) works.
+_CHUNK_LEN = 128
+_SEQ_LEN = _CHUNK_LEN * cp_world_size
 
 kernels = []
 if args.attention_implementation == "flash_attention_2":
