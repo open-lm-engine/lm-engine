@@ -237,16 +237,16 @@ def _ring_attention_backward(
     v_size = v.size()
 
     kv_rotater = AllToAllRotater()
-    dkv_rotater = AllToAllRotater()
+    dkv_rotater = None if use_sliding_window else AllToAllRotater()
 
-    for i in range(world_size):
+    for i in range(num_loops):
         if i > 0:
             # Wait for the kv from the (cp_rank - 1) rank.
             buffer = kv_rotater.next_buffer()
             k = buffer[:k_numel].reshape(k_size)
             v = buffer[k_numel:].reshape(v_size)
 
-        if i != world_size - 1:
+        if i != num_loops - 1:
             # Send the kv to the next rank.
             next_kv = torch.cat([k.flatten(), v.flatten()])
             kv_rotater.exchange_buffers(next_kv, with_grad=False)
@@ -353,6 +353,37 @@ def _ring_attention_backward(
                 dk_ = dk_full
                 dv_ = dv_full
 
+        if use_sliding_window:
+            if dq_ is not None:
+                dq += dq_
+
+            if i == 0:
+                if dk_ is not None:
+                    dk += dk_.to(dtype=dk.dtype)
+
+                if dv_ is not None:
+                    dv += dv_.to(dtype=dv.dtype)
+            else:
+                # Only ranks within num_loops can contribute in sliding-window mode.
+                # Send each contribution directly back to its K/V owner instead of
+                # rotating empty accumulators around the rest of the ring.
+                if dk_ is None:
+                    dk_send = torch.zeros_like(dk)
+                    dv_send = torch.zeros_like(dv)
+                else:
+                    dk_send = dk_.to(dtype=dk.dtype)
+                    dv_send = dv_.to(dtype=dv.dtype)
+
+                grad_kv_rotater = AllToAllRotater()
+                grad_kv_rotater.exchange_buffers(
+                    torch.cat([dk_send.flatten(), dv_send.flatten()]), with_grad=False, shift=-i
+                )
+                grad_kv = grad_kv_rotater.next_buffer()
+                dk += grad_kv[: dk.numel()].reshape(dk.size())
+                dv += grad_kv[dk.numel() :].reshape(dv.size())
+
+            continue
+
         ROUND_ROBIN_CYCLE = 2
         if i == 0:
             if dk_ is not None:
@@ -362,6 +393,7 @@ def _ring_attention_backward(
                 dv += dv_
         else:
             # Wait for the kv gradient from (cp_rank - 1) rank.
+            assert dkv_rotater is not None
             next_grad_kv = dkv_rotater.next_buffer()
             dk = next_grad_kv[: dk.numel()].reshape(dk.size())
             dv = next_grad_kv[dk.numel() :].reshape(dv.size())
@@ -378,6 +410,7 @@ def _ring_attention_backward(
 
         next_grad_kv = torch.cat([dk.flatten(), dv.flatten()])
         # Send the grad key and grad value to the next rank.
+        assert dkv_rotater is not None
         dkv_rotater.exchange_buffers(next_grad_kv, with_grad=False)
 
         if i <= rank or ProcessGroupManager.get_context_parallel_load_balancing_method() is None:
@@ -387,9 +420,14 @@ def _ring_attention_backward(
             dq = _partial_update(dq, dq_, dim=1, n_chunks=ROUND_ROBIN_CYCLE, idx=1, add=True)
 
     dq = dq.type_as(q)
-    next_grad_kv = dkv_rotater.next_buffer().type_as(k)
-    dk = next_grad_kv[: dk.numel()].reshape(dk.size())
-    dv = next_grad_kv[dk.numel() :].reshape(dv.size())
+    if use_sliding_window:
+        dk = dk.type_as(k)
+        dv = dv.type_as(v)
+    else:
+        assert dkv_rotater is not None
+        next_grad_kv = dkv_rotater.next_buffer().type_as(k)
+        dk = next_grad_kv[: dk.numel()].reshape(dk.size())
+        dv = next_grad_kv[dk.numel() :].reshape(dv.size())
 
     return dq, dk, dv
 

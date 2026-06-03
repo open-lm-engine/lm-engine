@@ -19,9 +19,10 @@ from ...parallel import ProcessGroupManager
 class AllToAllRotater:
     _buffer: torch.Tensor | None = None
 
-    def exchange_buffers(self, x: torch.Tensor, with_grad: bool) -> None:
+    def exchange_buffers(self, x: torch.Tensor, with_grad: bool, shift: int = 1) -> None:
         x = x.contiguous()
-        src_dst = list(range(1, ProcessGroupManager.get_context_parallel_world_size())) + [0]
+        world_size = ProcessGroupManager.get_context_parallel_world_size()
+        src_dst = [(rank + shift) % world_size for rank in range(world_size)]
         group = ProcessGroupManager.get_context_parallel_group()
 
         if with_grad:
