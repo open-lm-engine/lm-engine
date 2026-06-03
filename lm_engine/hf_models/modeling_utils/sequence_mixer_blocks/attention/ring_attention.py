@@ -14,10 +14,6 @@ from ...all_to_all import AllToAllRotater
 from .merge import _Merger, _partial_update
 
 
-def _is_using_sliding_window(window_size: tuple[int, int]) -> bool:
-    return window_size != (-1, -1)
-
-
 class _CausalBehavior(Enum):
     SKIP = None
     NOT_IS_CAUSAL = False
@@ -62,9 +58,8 @@ def _ring_attention_forward(
 
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
-    next_kv = None
 
-    use_sliding_window = _is_using_sliding_window(window_size)
+    use_sliding_window = window_size != (-1, -1)
 
     if use_sliding_window:
         assert window_size[0] == window_size[1]
@@ -82,7 +77,6 @@ def _ring_attention_forward(
     v = v.contiguous()
 
     # Save original shapes so buffer slicing is correct even after chunking.
-    k_numel = k.numel()
     k_size = k.size()
     v_size = v.size()
 
@@ -90,23 +84,57 @@ def _ring_attention_forward(
     sdpa_merger = _Merger(1)
 
     for i in range(num_loops):
+        is_reversed_computation = False
+
+        if use_sliding_window:
+            local_sliding_window = window_size[0] - i * BLOCK_SIZE_S
+
         if i > 0:
-            # Wait for the kv from the (cp_rank - 1) rank.
-            next_kv = rotater.next_buffer()
-            k = next_kv[:k_numel].reshape(k_size)
-            v = next_kv[k_numel:].reshape(v_size)
+            is_reversed_computation = use_sliding_window and i == num_loops - 1 and local_sliding_window <= 0
+            _k_size = k_size
+            _v_size = v_size
+
+            if is_reversed_computation:
+                reversed_seq_len = BLOCK_SIZE_S + local_sliding_window
+
+                _k_size = list(k_size)
+                _v_size = list(v_size)
+
+                _k_size[1] = reversed_seq_len
+                _v_size[1] = reversed_seq_len
+
+            k, v = rotater.next_buffer().chunk(2)
+            k = k.reshape(_k_size)
+            v = v.reshape(_v_size)
 
         if i < num_loops - 1:
-            # Send the k, v to the next rank
-            next_kv = torch.cat([k.flatten(), v.flatten()])
-            rotater.exchange_buffers(next_kv, with_grad=False)
+            k_send = k
+            v_send = v
+
+            if use_sliding_window and i == num_loops - 2 and local_sliding_window <= BLOCK_SIZE_S:
+                assert local_sliding_window > 0
+                # send sliced and reversed
+                k_send = k_send[:, -local_sliding_window:].flip([1])
+                v_send = v_send[:, -local_sliding_window:].flip([1])
+
+            rotater.exchange_buffers(torch.cat([k_send.flatten(), v_send.flatten()]), with_grad=False)
 
         is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
+
+        if is_reversed_computation and is_causal_behavior != _CausalBehavior.SKIP:
+            is_causal_behavior = _CausalBehavior.IS_CAUSAL
 
         if is_causal_behavior == _CausalBehavior.SKIP:
             continue
 
-        if i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
+        if is_reversed_computation:
+            # The last partial window uses a Q prefix and K/V suffix. Reversing
+            # both lets a causal mask express the upper-diagonal boundary.
+            local_q = q[:, :reversed_seq_len].flip([1])
+            local_k = k
+            local_v = v
+            partial = False
+        elif i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
             # When local balance is enabled, we still need to do SDPA with
             # the both local chunks of q, k, v for the first iteration.
             local_q = q
@@ -131,6 +159,13 @@ def _ring_attention_forward(
             local_v = v
             partial = True
 
+        window_size_left = -1 if is_reversed_computation or not use_sliding_window else local_sliding_window
+        window_size_right = (
+            window_size[1]
+            if (use_sliding_window and not is_reversed_computation and is_causal_behavior == _CausalBehavior.IS_CAUSAL)
+            else -1
+        )
+
         # TODO use SM margin for better overlapping of communication
         x, lse, _, _ = forward_function(
             q=local_q,
@@ -138,10 +173,24 @@ def _ring_attention_forward(
             v=local_v,
             softmax_scale=softmax_scale,
             causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
-            window_size_left=window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1,
-            window_size_right=window_size[1] - i * BLOCK_SIZE_S if use_sliding_window else -1,
+            window_size_left=window_size_left,
+            window_size_right=window_size_right,
             softcap=softcap,
         )
+
+        if is_reversed_computation:
+            x = x.flip([1])
+            lse = lse.flip([-1])
+
+            if reversed_seq_len != BLOCK_SIZE_S:
+                x_full = torch.zeros_like(q)
+                lse_full = lse.new_full((lse.size(0), lse.size(1), BLOCK_SIZE_S), float("-inf"))
+
+                x_full[:, :reversed_seq_len] = x
+                lse_full[:, :, :reversed_seq_len] = lse
+
+                x = x_full
+                lse = lse_full
 
         sdpa_merger.step(x, lse, partial)
 
@@ -167,7 +216,7 @@ def _ring_attention_backward(
     rank = ProcessGroupManager.get_context_parallel_rank()
     world_size = ProcessGroupManager.get_context_parallel_world_size()
 
-    use_sliding_window = _is_using_sliding_window(window_size)
+    use_sliding_window = window_size != (-1, -1)
     if use_sliding_window:
         num_loops = min(world_size, (window_size[0] + BLOCK_SIZE_S - 1) // BLOCK_SIZE_S + 1)
     else:
@@ -203,6 +252,11 @@ def _ring_attention_backward(
             kv_rotater.exchange_buffers(next_kv, with_grad=False)
 
         is_causal_behavior = _CausalBehavior._is_causal_behavior(rank=rank, world_size=world_size, i=i, causal=causal)
+        local_sliding_window = window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1
+        is_reversed_computation = use_sliding_window and i > 0 and i == num_loops - 1 and local_sliding_window <= 0
+
+        if is_reversed_computation and is_causal_behavior != _CausalBehavior.SKIP:
+            is_causal_behavior = _CausalBehavior.IS_CAUSAL
 
         # Skip blocks outside the sliding window (i >= num_loops) in addition to the
         # standard causal SKIP. The dkv rotation still runs for all world_size steps so
@@ -214,7 +268,18 @@ def _ring_attention_backward(
             dk_ = None
             dv_ = None
         else:
-            if i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
+            if is_reversed_computation:
+                reversed_seq_len = BLOCK_SIZE_S + local_sliding_window
+
+                # Mirror the reversed forward subproblem, then scatter its
+                # gradients back into the original Q prefix and K/V suffix.
+                local_q = q[:, :reversed_seq_len].flip([1])
+                local_k = k[:, -reversed_seq_len:].flip([1])
+                local_v = v[:, -reversed_seq_len:].flip([1])
+                local_x = x[:, :reversed_seq_len].flip([1])
+                local_dx = dx[:, :reversed_seq_len].flip([1])
+                local_lse = lse[:, :, :reversed_seq_len].flip([-1]).contiguous()
+            elif i == 0 or ProcessGroupManager.get_context_parallel_load_balancing_method() is None or not causal:
                 # We need to do SDPA with the full local q, k, v.
                 local_q = q
                 local_k = k
@@ -262,10 +327,31 @@ def _ring_attention_backward(
                 dv=dv_,
                 softmax_scale=softmax_scale,
                 is_causal=is_causal_behavior == _CausalBehavior.IS_CAUSAL,
-                window_size_left=window_size[0] - i * BLOCK_SIZE_S if use_sliding_window else -1,
-                window_size_right=window_size[1] - i * BLOCK_SIZE_S if use_sliding_window else -1,
+                window_size_left=-1 if is_reversed_computation else local_sliding_window,
+                window_size_right=(
+                    window_size[1]
+                    if (
+                        use_sliding_window
+                        and not is_reversed_computation
+                        and is_causal_behavior == _CausalBehavior.IS_CAUSAL
+                    )
+                    else -1
+                ),
                 softcap=softcap,
             )
+
+            if is_reversed_computation:
+                dq_full = torch.zeros_like(q)
+                dk_full = torch.zeros_like(k)
+                dv_full = torch.zeros_like(v)
+
+                dq_full[:, :reversed_seq_len] = dq_.flip([1])
+                dk_full[:, -reversed_seq_len:] = dk_.flip([1])
+                dv_full[:, -reversed_seq_len:] = dv_.flip([1])
+
+                dq_ = dq_full
+                dk_ = dk_full
+                dv_ = dv_full
 
         ROUND_ROBIN_CYCLE = 2
         if i == 0:
