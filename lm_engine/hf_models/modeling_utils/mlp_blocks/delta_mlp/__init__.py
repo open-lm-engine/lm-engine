@@ -153,21 +153,21 @@ class DeltaMLP(nn.Module):
         )
 
         self.k_proj = LowRankLinear(
-            hidden_size,
-            self.key_dim,
+            in_features=hidden_size,
+            out_features=self.key_dim,
             num_ranks=num_ranks,
             bias=False,
-            std_num_ranks=0 if use_zero_init_k else up_std,
+            std_low_rank=0 if use_zero_init_k else up_std,
             std_high_rank=num_ranks_std,
         )
 
         if self.use_v_proj:
             self.v_proj = LowRankLinear(
-                hidden_size,
-                self.value_dim,
+                in_features=hidden_size,
+                out_features=self.value_dim,
                 num_ranks=num_ranks,
                 bias=False,
-                std_num_ranks=up_std,
+                std_low_rank=up_std,
                 std_high_rank=num_ranks_std,
             )
         else:
