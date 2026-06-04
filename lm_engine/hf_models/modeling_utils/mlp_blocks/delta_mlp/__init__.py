@@ -229,11 +229,11 @@ class DeltaMLP(nn.Module):
             )
 
         mark_parameter_as_mup_learning_rate(self.q_proj.weight)
-        mark_parameter_as_mup_learning_rate(self.k_proj.u_proj.weight)
-        mark_parameter_as_mup_learning_rate(self.k_proj.v_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.k_proj.low_rank_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.k_proj.high_rank_proj.weight)
         if self.use_v_proj:
-            mark_parameter_as_mup_learning_rate(self.v_proj.u_proj.weight)
-            mark_parameter_as_mup_learning_rate(self.v_proj.v_proj.weight)
+            mark_parameter_as_mup_learning_rate(self.v_proj.low_rank_proj.weight)
+            mark_parameter_as_mup_learning_rate(self.v_proj.high_rank_proj.weight)
         mark_parameter_as_mup_learning_rate(self.bg_proj.weight)
         mark_parameter_as_mup_learning_rate(self.initial_state.weight)
         mark_parameter_as_mup_learning_rate(self.kv_conv1d.weight)
