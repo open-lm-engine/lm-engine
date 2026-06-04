@@ -32,6 +32,7 @@ def _apply_mask_to_padding_states(x: torch.Tensor, attention_mask: torch.Tensor 
     return x
 
 
+# This prevents torch compile from scheduling preemptively scheduling reduce_scatter
 class _ZerosLikeWithBackward(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x: torch.Tensor) -> torch.Tensor:
@@ -39,7 +40,7 @@ class _ZerosLikeWithBackward(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, dx: torch.Tensor) -> torch.Tensor:
-        return torch.zeros_like(dx)
+        return dx * 0
 
 
 def _zeros_like_with_backward(x: torch.Tensor) -> torch.Tensor:
@@ -102,45 +103,50 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
             S *= ProcessGroupManager.get_context_parallel_world_size()
 
+        final_state = None
+
         if input_state is None:
             if is_cp_enabled and self.kernel_size > 1:
+                input_state = x[:, 1 - self.kernel_size :]
+
                 rotater = AllGatherRotater()
-                tail = x[:, 1 - self.kernel_size :]
-                rotater.exchange_buffers(tail.flatten(), with_grad=True)
+                rotater.exchange_buffers(input_state, with_grad=True)
 
-                tail = rotater.next_buffer().view_as(tail)
+                input_state = rotater.next_buffer()
                 if ProcessGroupManager.is_context_parallel_first_rank():
-                    tail = _zeros_like_with_backward(tail)
-
-                x = torch.cat((tail, x), dim=1)
+                    input_state = _zeros_like_with_backward(input_state)
 
             x = x.transpose(-1, -2)
 
             if output_state:
                 # F.pad trims the x if sequence_length > kernel_size
-                input_state = F.pad(x, (self.kernel_size - BLOCK_SIZE_S, 0))
+                final_state = F.pad(x, (self.kernel_size - BLOCK_SIZE_S, 0))
 
             if is_kernel_allowed(Kernel.causal_conv1d):
                 x = causal_conv1d_fn(
                     x=x,
                     weight=self.weight.squeeze(1),
                     bias=self.bias,
+                    initial_states=input_state.transpose(-1, -2) if input_state is not None else None,
                     activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
 
                 if not self.use_activation_inside_kernel:
                     x = self.activation_function(x)
             else:
+                if is_cp_enabled and self.kernel_size > 1 and input_state is not None:
+                    x = torch.cat([input_state.transpose(-1, -2), x], dim=-1)
+
                 x = super().forward(x)
 
                 # removes padding on the right side of the sequence
                 if self.kernel_size > 1:
                     x = x[..., : 1 - self.kernel_size]
 
-                x = self.activation_function(x)
+                if is_cp_enabled and self.kernel_size > 1:
+                    x = x[..., self.kernel_size - 1 :]
 
-            if is_cp_enabled and self.kernel_size > 1:
-                x = x[..., self.kernel_size - 1 :]
+                x = self.activation_function(x)
 
             x = x.transpose(-1, -2)
         else:
@@ -158,29 +164,29 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 )
 
                 x = x[:, None, :]
-                input_state = input_state_buffer if output_state else None
+                final_state = input_state_buffer if output_state else None
 
                 if not self.use_activation_inside_kernel:
                     x = self.activation_function(x)
             else:
                 assert S == 1
 
-                input_state = input_state.roll(shifts=-1, dims=-1)
-                input_state[..., -1] = x[:, 0]
+                final_state = input_state.roll(shifts=-1, dims=-1)
+                final_state[..., -1] = x[:, 0]
 
-                x = (input_state * self.weight.squeeze(1)).sum(dim=-1)
+                x = (final_state * self.weight.squeeze(1)).sum(dim=-1)
                 x = x[:, None, :]
                 if self.bias is not None:
                     x = x + self.bias
 
                 if not output_state:
-                    input_state = None
+                    final_state = None
 
                 x = self.activation_function(x)
 
         x = _apply_mask_to_padding_states(x, attention_mask)
 
-        return x, input_state
+        return x, final_state
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
