@@ -13,7 +13,7 @@ from torch.distributed._functional_collectives import (
 )
 from torch.distributed.distributed_c10d import _find_or_create_pg_by_ranks_and_tag
 
-from ...parallel import ProcessGroupManager
+from ....parallel import ProcessGroupManager
 
 
 class AllToAllRotater:

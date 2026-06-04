@@ -8,7 +8,7 @@ import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor, all_gather_tensor
 from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
 
-from ...parallel import ProcessGroupManager
+from ....parallel import ProcessGroupManager
 
 
 class AllGatherRotater:
