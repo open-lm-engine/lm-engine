@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 import torch.distributed
 
-from ...parallel import ProcessGroupManager
+from ....parallel import ProcessGroupManager
 
 
 class _RingShiftFunction(torch.autograd.Function):
