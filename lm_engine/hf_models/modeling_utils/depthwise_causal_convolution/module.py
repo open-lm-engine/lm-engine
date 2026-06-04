@@ -14,7 +14,7 @@ from ....parallel import ProcessGroupManager
 from ....utils import is_causal_conv1d_available
 from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function
-from ..all_gather import AllGatherRotater
+from ..rotaters import AllGatherRotater
 
 
 if is_causal_conv1d_available():
