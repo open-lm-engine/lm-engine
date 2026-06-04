@@ -106,8 +106,9 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
         if input_state is None:
             if is_cp_enabled and self.kernel_size > 1:
-                rotater = AllGatherRotater()
                 input_state = x[:, 1 - self.kernel_size :]
+
+                rotater = AllGatherRotater()
                 rotater.exchange_buffers(input_state.flatten(), with_grad=True)
 
                 input_state = rotater.next_buffer().view_as(input_state)
