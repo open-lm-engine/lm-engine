@@ -102,6 +102,8 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
             S *= ProcessGroupManager.get_context_parallel_world_size()
 
+        final_state = None
+
         if input_state is None:
             if is_cp_enabled and self.kernel_size > 1:
                 rotater = AllGatherRotater()
