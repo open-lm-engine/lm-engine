@@ -32,6 +32,7 @@ def _apply_mask_to_padding_states(x: torch.Tensor, attention_mask: torch.Tensor 
     return x
 
 
+# This prevents torch compile from scheduling preemptively scheduling reduce_scatter
 class _ZerosLikeWithBackward(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x: torch.Tensor) -> torch.Tensor:
@@ -39,7 +40,7 @@ class _ZerosLikeWithBackward(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, dx: torch.Tensor) -> torch.Tensor:
-        return torch.zeros_like(dx)
+        return dx * 0
 
 
 def _zeros_like_with_backward(x: torch.Tensor) -> torch.Tensor:
@@ -109,9 +110,9 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                 input_state = x[:, 1 - self.kernel_size :]
 
                 rotater = AllGatherRotater()
-                rotater.exchange_buffers(input_state.flatten(), with_grad=True)
+                rotater.exchange_buffers(input_state, with_grad=True)
 
-                input_state = rotater.next_buffer().view_as(input_state)
+                input_state = rotater.next_buffer()
                 if ProcessGroupManager.is_context_parallel_first_rank():
                     input_state = _zeros_like_with_backward(input_state)
 
