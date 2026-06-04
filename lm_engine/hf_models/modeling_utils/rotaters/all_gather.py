@@ -8,15 +8,17 @@ import torch
 from torch.distributed._functional_collectives import AsyncCollectiveTensor, all_gather_tensor
 from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
 
-from ...parallel import ProcessGroupManager
+from ....parallel import ProcessGroupManager
 
 
 class AllGatherRotater:
     _buffer: torch.Tensor | None = None
+    _shift: int = 1
 
-    def exchange_buffers(self, x: torch.Tensor, with_grad: bool) -> None:
+    def exchange_buffers(self, x: torch.Tensor, with_grad: bool, shift: int = 1) -> None:
         x = x.contiguous()
         mesh = ProcessGroupManager.get_context_parallel_mesh()
+        self._shift = shift
 
         if with_grad:
             x = DTensor.from_local(x, device_mesh=mesh, placements=[Shard(0)])
@@ -38,6 +40,6 @@ class AllGatherRotater:
         rank = ProcessGroupManager.get_context_parallel_rank()
         world_size = ProcessGroupManager.get_context_parallel_world_size()
 
-        x = x.chunk(world_size)[(rank - 1) % world_size]
+        x = x.chunk(world_size)[(rank - self._shift) % world_size]
 
         return x
