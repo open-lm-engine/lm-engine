@@ -126,23 +126,26 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                     x=x,
                     weight=self.weight.squeeze(1),
                     bias=self.bias,
-                    initial_states=input_state,
+                    initial_states=input_state.transpose(-1, -2) if input_state is not None else None,
                     activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
 
                 if not self.use_activation_inside_kernel:
                     x = self.activation_function(x)
             else:
+                if is_cp_enabled and self.kernel_size > 1 and input_state is not None:
+                    x = torch.cat([input_state.transpose(-1, -2), x], dim=-1)
+
                 x = super().forward(x)
 
                 # removes padding on the right side of the sequence
                 if self.kernel_size > 1:
                     x = x[..., : 1 - self.kernel_size]
 
-                x = self.activation_function(x)
+                if is_cp_enabled and self.kernel_size > 1:
+                    x = x[..., self.kernel_size - 1 :]
 
-            if is_cp_enabled and self.kernel_size > 1:
-                x = x[..., self.kernel_size - 1 :]
+                x = self.activation_function(x)
 
             x = x.transpose(-1, -2)
         else:
