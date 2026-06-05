@@ -1,10 +1,8 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Jyo Pari, Zhonglin Han
+# Copyright (c) 2026, Mayank Mishra, Han Guo, Jyo Pari, Zhonglin Han
 # **************************************************
 
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
-import warnings
 
 import torch
 from einops import reduce, repeat
@@ -50,8 +48,11 @@ def maybe_broadcast(
 
 if is_fla_available():
     from fla.modules.l2norm import l2norm_bwd, l2norm_fwd
-    from fla.ops.delta_rule.chunk import chunk_delta_rule_bwd, chunk_delta_rule_fwd
+    from fla.ops.cp import FLACPContext
+    from fla.ops.delta_rule.chunk import prepare_chunk_indices
+    from fla.ops.delta_rule.fused_recurrent import fused_recurrent_delta_rule_fwd
     from fla.utils import autocast_custom_bwd, autocast_custom_fwd, input_guard
+    from xma.functional.delta_rule.chunk import chunk_delta_rule_bwd, chunk_delta_rule_fwd
 
     class ChunkDeltaRuleFunction(torch.autograd.Function):
 
@@ -67,10 +68,14 @@ if is_fla_available():
             scale: float,
             initial_state: torch.Tensor,
             output_final_state: bool,
-            use_q_l2norm_in_kernel: bool = False,
-            use_k_l2norm_in_kernel: bool = False,
-            cu_seqlens: torch.LongTensor | None = None,
-        ):
+            use_q_l2norm_in_kernel: bool,
+            use_k_l2norm_in_kernel: bool,
+            cu_seqlens: torch.LongTensor | None,
+            cu_seqlens_cpu: torch.LongTensor | None,
+            cp_context: FLACPContext | None,
+            transpose_state_layout: bool,
+        ) -> tuple[torch.Tensor, torch.Tensor | None]:
+
             if use_q_l2norm_in_kernel:
                 q, q_rstd = l2norm_fwd(q)
             else:
@@ -81,6 +86,11 @@ if is_fla_available():
             else:
                 k_rstd = None
 
+            chunk_indices = (
+                prepare_chunk_indices(cu_seqlens, 64, cu_seqlens_cpu=cu_seqlens_cpu)
+                if cu_seqlens is not None
+                else None
+            )
             (
                 q_broadcast,
                 k_broadcast,
@@ -94,7 +104,7 @@ if is_fla_available():
                 b=beta,
                 initial_state=initial_state,
             )
-            o, A, final_state = chunk_delta_rule_fwd(
+            o, A, final_state, initial_state_broadcast_cp = chunk_delta_rule_fwd(
                 q=q_broadcast,
                 k=k_broadcast,
                 v=v_broadcast,
@@ -103,12 +113,28 @@ if is_fla_available():
                 initial_state=initial_state_broadcast,
                 output_final_state=output_final_state,
                 cu_seqlens=cu_seqlens,
+                cp_context=cp_context,
+                chunk_indices=chunk_indices,
+                transpose_state_layout=transpose_state_layout,
             )
-            ctx.save_for_backward(q, q_rstd, k, k_rstd, v, beta, A, initial_state)
+            ctx.save_for_backward(
+                q,
+                q_rstd,
+                k,
+                k_rstd,
+                v,
+                beta,
+                A,
+                initial_state_broadcast_cp if cp_context is not None else initial_state,
+                cu_seqlens,
+                chunk_indices,
+            )
             ctx.scale = scale
-            ctx.cu_seqlens = cu_seqlens
             ctx.use_q_l2norm_in_kernel = use_q_l2norm_in_kernel
             ctx.use_k_l2norm_in_kernel = use_k_l2norm_in_kernel
+            ctx.cp_context = cp_context
+            ctx.transpose_state_layout = transpose_state_layout
+            ctx.initial_state_was_none = initial_state is None
             return o.to(q.dtype), final_state
 
         @staticmethod
@@ -118,8 +144,23 @@ if is_fla_available():
             ctx,
             do: torch.Tensor,
             dht: torch.Tensor,
-        ):
-            q, q_rstd, k, k_rstd, v, beta, A, initial_state = ctx.saved_tensors
+        ) -> tuple[
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            torch.Tensor,
+            None,
+            torch.Tensor | None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ]:
+
+            q, q_rstd, k, k_rstd, v, beta, A, initial_state, cu_seqlens, chunk_indices = ctx.saved_tensors
 
             (
                 q_broadcast,
@@ -144,7 +185,10 @@ if is_fla_available():
                 initial_state=initial_state_broadcast,
                 do=do,
                 dht=dht,
-                cu_seqlens=ctx.cu_seqlens,
+                cu_seqlens=cu_seqlens,
+                cp_context=ctx.cp_context,
+                chunk_indices=chunk_indices,
+                transpose_state_layout=ctx.transpose_state_layout,
             )
 
             dq = reduce(dq, "... (h g) d -> ... h d", "sum", g=q_broadcast.shape[2] // q.shape[2])
@@ -152,7 +196,12 @@ if is_fla_available():
             dv = reduce(dv, "... (h g) d -> ... h d", "sum", g=v_broadcast.shape[2] // v.shape[2])
             db = reduce(db, "... (h g)   -> ... h  ", "sum", g=beta_broadcast.shape[2] // beta.shape[2])
 
-            if dh0 is not None:
+            if ctx.initial_state_was_none:
+                # in CP setting, `dh0` is always a Tensor, so we need to
+                # use `ctx.initial_state_was_none` to decide if we need `dh0`
+                dh0 = None
+            else:
+                assert dh0 is not None
                 assert initial_state is not None
                 assert initial_state_broadcast is not None
                 dh0 = reduce(
@@ -163,18 +212,21 @@ if is_fla_available():
                 dq = l2norm_bwd(q, q_rstd, dq)
             if ctx.use_k_l2norm_in_kernel:
                 dk = l2norm_bwd(k, k_rstd, dk)
+
             return (
-                dq.to(q.dtype),
-                dk.to(k.dtype),
-                dv.to(v.dtype),
-                db.to(beta.dtype),
-                None,
-                dh0,
-                None,
-                None,
-                None,
-                None,
-                None,
+                dq.to(q.dtype),  # q
+                dk.to(k.dtype),  # k
+                dv.to(v.dtype),  # v
+                db.to(beta.dtype),  # beta
+                None,  # scale
+                dh0,  # initial_state
+                None,  # output_final_state
+                None,  # use_q_l2norm_in_kernel
+                None,  # use_k_l2norm_in_kernel
+                None,  # cu_seqlens
+                None,  # cu_seqlens_cpu
+                None,  # cp_context
+                None,  # transpose_state_layout
             )
 
     @torch.compiler.disable
@@ -183,96 +235,30 @@ if is_fla_available():
         k: torch.Tensor,
         v: torch.Tensor,
         beta: torch.Tensor,
-        scale: float = None,
-        initial_state: torch.Tensor = None,
+        scale: float | None = None,
+        initial_state: torch.Tensor | None = None,
         output_final_state: bool = False,
         use_q_l2norm_in_kernel: bool = False,
         use_k_l2norm_in_kernel: bool = False,
         cu_seqlens: torch.LongTensor | None = None,
-        head_first: bool = False,
-        allow_fp32: bool = False,
+        cu_seqlens_cpu: torch.LongTensor | None = None,
+        cp_context: FLACPContext | None = None,
+        transpose_state_layout: bool = False,
     ):
-        r"""
-        Args:
-            q (torch.Tensor):
-                queries of shape `[B, T, H, K]`.
-            k (torch.Tensor):
-                keys of shape `[B, T, H, K]`.
-            v (torch.Tensor):
-                values of shape `[B, T, H, V]`.
-            beta (torch.Tensor):
-                betas of shape `[B, T, H]`.
-            scale (Optional[float]):
-                Scale factor for the RetNet attention scores.
-                If not provided, it will default to `1 / sqrt(K)`. Default: `None`.
-            initial_state (Optional[torch.Tensor]):
-                Initial state of shape `[N, H, K, V]` for `N` input sequences.
-                For equal-length input sequences, `N` equals the batch size `B`.
-                Default: `None`.
-            output_final_state (Optional[bool]):
-                Whether to output the final state of shape `[N, H, K, V]`. Default: `False`.
-            use_qk_l2norm_in_kernel (Optional[bool]):
-                Whether to use qk l2norm within the kernel for saving GPU memory.
-                Default: `False`.
-            cu_seqlens (torch.LongTensor):
-                Cumulative sequence lengths of shape `[N+1]` used for variable-length training,
-                consistent with the FlashAttention API.
-            head_first (Optional[bool]):
-                Whether the inputs are in the head-first format. Default: `False`.
-                This argument has been deprecated.
+        # Validate head dimensions
+        if q.shape[2] != k.shape[2]:
+            raise ValueError(
+                f"q and k must have the same number of heads, "
+                f"but got q.shape[2]={q.shape[2]} and k.shape[2]={k.shape[2]}"
+            )
 
-        Returns:
-            o (torch.Tensor):
-                Outputs of shape `[B, T, H, V]`.
-            final_state (torch.Tensor):
-                Final state of shape `[N, H, K, V]` if `output_final_state=True` else `None`.
+        if cp_context is not None:
+            assert output_final_state is False, "Output final state is not supported for CP"
+            assert cp_context.cu_seqlens is not None, "cu_seqlens is required for CP"
+            cu_seqlens = cp_context.cu_seqlens
+            if cp_context.cu_seqlens_cpu is not None:
+                cu_seqlens_cpu = cp_context.cu_seqlens_cpu
 
-        Examples::
-            >>> import torch
-            >>> import torch.nn.functional as F
-            >>> from einops import rearrange
-            >>> from fla.ops.delta_rule import chunk_delta_rule
-            # inputs with equal lengths
-            >>> B, T, H, K, V = 4, 2048, 4, 512, 512
-            >>> q = torch.randn(B, T, H, K, dtype=torch.bfloat16, device='cuda')
-            >>> k = F.normalize(torch.randn(B, T, H, K, dtype=torch.bfloat16, device='cuda'), p=2, dim=-1)
-            >>> v = torch.randn(B, T, H, V, dtype=torch.bfloat16, device='cuda')
-            >>> beta = torch.rand(B, T, H, dtype=torch.bfloat16, device='cuda').sigmoid()
-            >>> h0 = torch.randn(B, H, K, V, dtype=torch.bfloat16, device='cuda')
-            >>> o, ht = chunk_delta_rule(
-                q, k, v, beta,
-                initial_state=h0,
-                output_final_state=True
-            )
-            # for variable-length inputs, the batch size `B` is expected to be 1 and `cu_seqlens` is required
-            >>> q, k, v, beta = map(lambda x: rearrange(x, 'b t ... -> 1 (b t) ...'), (q, k, v, beta))
-            # for a batch with 4 sequences, `cu_seqlens` with 5 start/end positions are expected
-            >>> cu_seqlens = q.new_tensor([0, 2048, 4096, 6144, 8192], dtype=torch.long)
-            >>> o, ht = chunk_delta_rule(
-                q, k, v, beta,
-                initial_state=h0,
-                output_final_state=True,
-                cu_seqlens=cu_seqlens
-            )
-        """
-        assert q.dtype == k.dtype == v.dtype
-        assert (
-            q.dtype != torch.float32 or allow_fp32
-        ), "ChunkDeltaRuleFunction does not support float32. Please use bfloat16."
-        assert len(beta.shape) == 3, "beta must be of shape (batch size, num of head, seq len)."
-
-        if head_first:
-            raise DeprecationWarning(
-                "head_first is deprecated and will be removed in a future version. "
-                "Please use head_first=False for now instead.",
-            )
-        if not head_first and q.shape[1] < q.shape[2]:
-            warnings.warn(
-                f"Input tensor shape suggests potential format mismatch: seq_len ({q.shape[1]}) < num_heads ({q.shape[2]}). "
-                "This may indicate the inputs were passed in head-first format [B, H, T, ...] "
-                "when head_first=False was specified. "
-                "Please verify your input tensor format matches the expected shape [B, T, H, ...].",
-            )
         if cu_seqlens is not None:
             if q.shape[0] != 1:
                 raise ValueError(
@@ -284,8 +270,112 @@ if is_fla_available():
                     f"The number of initial states is expected to be equal to the number of input sequences, "
                     f"i.e., {len(cu_seqlens) - 1} rather than {initial_state.shape[0]}.",
                 )
-        scale = k.shape[-1] ** -0.5 if scale is None else scale
+
+        if scale is None:
+            scale = k.shape[-1] ** -0.5
+
         o, final_state = ChunkDeltaRuleFunction.apply(
+            q,
+            k,
+            v,
+            beta,
+            scale,
+            initial_state,
+            output_final_state,
+            use_q_l2norm_in_kernel,
+            use_k_l2norm_in_kernel,
+            cu_seqlens,
+            cu_seqlens_cpu,
+            cp_context,
+            transpose_state_layout,
+        )
+        return o, final_state
+
+    class FusedRecurrentFunction(torch.autograd.Function):
+
+        @staticmethod
+        @input_guard
+        def forward(
+            ctx,
+            q: torch.Tensor,
+            k: torch.Tensor,
+            v: torch.Tensor,
+            beta: torch.Tensor,
+            scale: float,
+            initial_state: torch.Tensor,
+            output_final_state: bool,
+            use_q_l2norm_in_kernel: bool,
+            use_k_l2norm_in_kernel: bool,
+            cu_seqlens: torch.LongTensor | None,
+        ) -> tuple[torch.Tensor, torch.Tensor | None]:
+
+            if use_q_l2norm_in_kernel:
+                q, q_rstd = l2norm_fwd(q)
+            else:
+                pass
+
+            if use_k_l2norm_in_kernel:
+                k, k_rstd = l2norm_fwd(k)
+            else:
+                pass
+
+            (
+                q_broadcast,
+                k_broadcast,
+                v_broadcast,
+                beta_broadcast,
+                initial_state_broadcast,
+            ) = maybe_broadcast(
+                q=q,
+                k=k,
+                v=v,
+                b=beta,
+                initial_state=initial_state,
+            )
+            o, u, final_state = fused_recurrent_delta_rule_fwd(
+                q=q_broadcast,
+                k=k_broadcast,
+                v=v_broadcast,
+                beta=beta_broadcast,
+                scale=scale,
+                initial_state=initial_state_broadcast,
+                output_final_state=output_final_state,
+                cu_seqlens=cu_seqlens,
+            )
+            return o, final_state
+
+        @staticmethod
+        @input_guard
+        def backward(ctx, do, dht):
+            raise NotImplementedError
+
+    def fused_recurrent_delta_rule(
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        beta: torch.Tensor,
+        scale: float | None = None,
+        initial_state: torch.Tensor | None = None,
+        output_final_state: bool = False,
+        use_q_l2norm_in_kernel: bool = False,
+        use_k_l2norm_in_kernel: bool = False,
+        cu_seqlens: torch.LongTensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if cu_seqlens is not None:
+            if q.shape[0] != 1:
+                raise ValueError(
+                    f"The batch size is expected to be 1 rather than {q.shape[0]} when using `cu_seqlens`."
+                    f"Please flatten variable-length inputs before processing.",
+                )
+            if initial_state is not None and initial_state.shape[0] != len(cu_seqlens) - 1:
+                raise ValueError(
+                    f"The number of initial states is expected to be equal to the number of input sequences, "
+                    f"i.e., {len(cu_seqlens) - 1} rather than {initial_state.shape[0]}.",
+                )
+        if scale is None:
+            scale = k.shape[-1] ** -0.5
+
+        o, final_state = FusedRecurrentFunction.apply(
             q,
             k,
             v,

@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Han Guo, Jyo Pari
+# Copyright (c) 2026, Mayank Mishra, Han Guo, Jyo Pari, jyo
 # **************************************************
 
 from typing import Any
@@ -41,14 +41,9 @@ class _DeltaMLPArgs(_MLPArgs, _SoftPlusDecayArgs):
     use_v_proj: bool
     use_q_l2norm: bool
     use_shortconv: bool
-    use_head_norm: bool
     use_tied_beta: bool
     use_decay_beta: bool
-    use_mlp_stream: bool
-    use_input_gate: bool
-    use_output_gate: bool
-    use_output_norm: bool
-    use_zero_init_k: bool
+    use_head_o_norm: bool
     allow_neg_eigval: bool
     kernel_size: int
     value_scale: float | None = None

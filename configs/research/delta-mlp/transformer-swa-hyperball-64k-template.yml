@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Jyo, Jyo Pari, Zhonglin Han
+# Copyright (c) 2026, Mayank Mishra, Han Guo
 # **************************************************
 
 datasets:
@@ -14,11 +14,11 @@ datasets:
       node_uses_local_storage: true
       data_path:
         - 1
-        - /data/merged_data/dolma_merged_olmo
+        - /export/data/merged_data/dolma_merged_olmo
         - 1
-        - /data/merged_data/longmino_merged_olmo
+        - /export/data/merged_data/longmino_merged_olmo
         - 1
-        - /data/merged_data/stack_merged_olmo
+        - /export/data/merged_data/stack_merged_olmo
       split: 99.5,0.5,0
       # split: 1,0,0
       sequence_length: 65536
@@ -31,6 +31,7 @@ kernel_args:
     - rnn
     - gru
     - flash_attention_3
+    - causal_conv1d
 
 model_args:
   pretrained_config:
@@ -376,10 +377,15 @@ save_args:
 
 logging_args:
   log_interval: 10
+  log_parameter_and_gradient_interval: 500
   experiments_tracker_name: wandb
   wandb_args:
     project: delta-mlp
-    name: transformer-v2-muon-hyperball-swa-64k-5e-3
+    name: transformer-swa-64k-{{ lr | default(5e-3) }}
+    group: {{ group }}
+    notes: {{ notes }}
+    tags:
+      - "data: dolma-longmino-stack"
 
 training_parameters:
   num_training_steps: 50000
@@ -392,7 +398,7 @@ optimizer_args:
   params_group_method: hyperball
   class_name: MuonHyperball
   class_args:
-    lr: 5e-3
+    lr: {{ lr | default(5e-3) }}
     weight_decay: 0.1
     momentum: 0.95
     nesterov: true
@@ -415,7 +421,7 @@ distributed_args:
   stage: 3
   torch_compile: true
   zero_topology:
-    data_parallel_replication_world_size: 1
+    data_parallel_replication_world_size: 4
     data_parallel_sharding_world_size: 8
   gradient_checkpointing_method: block
   gradient_checkpointing_args:

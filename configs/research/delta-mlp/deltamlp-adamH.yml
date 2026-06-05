@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Jyo, Jyo Pari, Zhonglin Han
+# Copyright (c) 2026, Mayank Mishra, Jyo
 # **************************************************
 
 datasets:
@@ -31,6 +31,8 @@ kernel_args:
     - rnn
     - gru
     - flash_attention_3
+    - hyperball_adam
+    - causal_conv1d
 
 model_args:
   pretrained_config:
@@ -787,7 +789,7 @@ logging_args:
   experiments_tracker_name: wandb
   wandb_args:
     project: delta-mlp
-    name: delta-mlp-swa-vscale-muon-hyperball-hybrid-ns-64k-5e-3
+    name: delta-mlp-swa-vscale-adam-hyperball-mayank-kernel-64k-5e-3
 
 training_parameters:
   num_training_steps: 50000
@@ -798,17 +800,14 @@ training_parameters:
 
 optimizer_args:
   params_group_method: hyperball
-  class_name: MuonHyperball
+  class_name: HyperballAdamW
   class_args:
     lr: 5e-3
     weight_decay: 0.1
-    momentum: 0.95
-    nesterov: true
     betas:
       - 0.9
       - 0.95
-    eps: 1e-8
-    hybrid_ns: true
+    eps: 1e-10
 
 lr_scheduler_args:
   lr_decay_style: cosine
@@ -823,7 +822,7 @@ distributed_args:
   stage: 3
   torch_compile: true
   zero_topology:
-    data_parallel_replication_world_size: 1
+    data_parallel_replication_world_size: 4
     data_parallel_sharding_world_size: 8
   gradient_checkpointing_method: block
   gradient_checkpointing_args:

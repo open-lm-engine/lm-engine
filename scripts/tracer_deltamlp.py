@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Jyo Pari, Zhonglin Han
+# Copyright (c) 2026, Mayank Mishra, Jyo Pari, Zhonglin Han, jyo
 # **************************************************
 
 #!/usr/bin/env python3

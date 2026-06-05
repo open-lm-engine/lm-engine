@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra, Jyo
 # **************************************************
 
 datasets:
@@ -8,15 +8,20 @@ datasets:
     data_name: Megatron
     data_sampling_ratio: 1
     class_args:
-      num_workers: 16
       eval_steps: 2
-      data_cache_path: /scratch/cache
+      num_workers: 16
+      data_cache_path: /export/local/cache
       node_uses_local_storage: true
       data_path:
-        - /data/dolma_merged/merged_text
+        - 1
+        - /data/merged_data/dolma_merged_olmo
+        - 1
+        - /data/merged_data/longmino_merged_olmo
+        - 1
+        - /data/merged_data/stack_merged_olmo
       split: 99.5,0.5,0
       # split: 1,0,0
-      sequence_length: 4096
+      sequence_length: 65536
 
 tokenizer_args:
   tokenizer_name: allenai/OLMo-3-1025-7B
@@ -26,7 +31,7 @@ kernel_args:
     - rnn
     - gru
     - flash_attention_3
-    - sonicmoe
+    - hyperball_adam
 
 model_args:
   pretrained_config:
@@ -43,127 +48,127 @@ model_args:
     eos_token_id: 100257
     pad_token_id: 100277
     vocab_size: 100278
-    max_position_embeddings: 4096
+    max_position_embeddings: 65536
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
-        attention_multiplier: 0.015625
+        sliding_window: 4096
         add_bias: false
     mlp_blocks:
       - activation_function: swiglu
@@ -268,33 +273,31 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /data/checkpoints/mayank/test
+  save_path: /workspace/main/lm-engine/checkpoints
   save_interval: 10000
 
 # load_args:
-#   load_path: /data/checkpoints/mayank/test
+#   load_path: /workspace/main/lm-engine/checkpoints
 
 logging_args:
   log_interval: 10
-  # torch_profiler_trace_path: tmp
-  # experiments_tracker_name: wandb
-  # wandb_args:
-  #   project: delta-mlp
-  #   name: test
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: delta-mlp
+    name: transformer-swa-hyperball-64k-7e-3
 
 training_parameters:
   num_training_steps: 50000
-  eval_interval: 5000
-  gradient_clipping: null
-  micro_batch_size: 4
-  gradient_accumulation_steps: 4
+  eval_interval: 50000
+  micro_batch_size: 1
+  gradient_accumulation_steps: 1
   eval_during_training: true
 
 optimizer_args:
   params_group_method: hyperball
   class_name: HyperballAdamW
   class_args:
-    lr: 9e-3
+    lr: 7e-3
     weight_decay: 0.1
     betas:
       - 0.9
@@ -311,5 +314,11 @@ mixed_precision_args:
   dtype: bf16
 
 distributed_args:
-  stage: 0
+  stage: 3
   torch_compile: true
+  zero_topology:
+    data_parallel_replication_world_size: 4
+    data_parallel_sharding_world_size: 8
+  gradient_checkpointing_method: block
+  gradient_checkpointing_args:
+    num_blocks: 12

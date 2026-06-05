@@ -376,12 +376,19 @@ class LoggingArgs(BaseArgs):
     # torch profiler trace path, specifying a path will enable the torch profiler
     # this can cause some performance impact so use sparingly
     torch_profiler_trace_path: str | None = None
+    # interval for logging per-parameter and per-gradient norms and histograms, None disables it
+    log_parameter_and_gradient_interval: int | None = None
 
     def model_post_init(self, __context: Any) -> None:
         if self.experiments_tracker_name == ExperimentsTrackerName.aim:
             _check_not_None([(self.aim_args, "aim_args")])
         elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
             _check_not_None([(self.wandb_args, "wandb_args")])
+
+        if self.log_parameter_and_gradient_interval is not None:
+            assert (
+                self.log_parameter_and_gradient_interval % self.log_interval == 0
+            ), "log_parameter_and_gradient_interval must be a multiple of log_interval"
 
 
 class KernelArgs(BaseArgs):

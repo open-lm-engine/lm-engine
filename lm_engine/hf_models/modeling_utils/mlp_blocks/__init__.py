@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Han Guo, Jyo Pari
+# Copyright (c) 2026, Mayank Mishra, Han Guo, Jyo Pari, jyo
 # **************************************************
 
 from ...config import CommonConfig
@@ -50,14 +50,9 @@ def get_mlp_block(
             use_v_proj=block.use_v_proj,
             use_q_l2norm=block.use_q_l2norm,
             use_shortconv=block.use_shortconv,
-            use_head_norm=block.use_head_norm,
             use_tied_beta=block.use_tied_beta,
             use_decay_beta=block.use_decay_beta,
-            use_mlp_stream=block.use_mlp_stream,
-            use_input_gate=block.use_input_gate,
-            use_output_gate=block.use_output_gate,
-            use_output_norm=block.use_output_norm,
-            use_zero_init_k=block.use_zero_init_k,
+            use_head_o_norm=block.use_head_o_norm,
             allow_neg_eigval=block.allow_neg_eigval,
             conv_size=block.kernel_size,
             layer_idx=layer_idx,
