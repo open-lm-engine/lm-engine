@@ -150,7 +150,7 @@ def split_up_gate_tensor_for_mlp(
             u = c_fc_weight[:, 1::2].contiguous()
             g = c_fc_weight[:, ::2].contiguous()
         else:
-            raise ValueError
+            raise ValueError(f"Unsupported dim: {dim}. Only dim=0 or dim=1 are supported.")
     else:
         u, g = c_fc_weight.chunk(2, dim=dim)
 
