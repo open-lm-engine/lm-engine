@@ -1,5 +1,5 @@
 <!-- **************************************************
-Copyright (c) 2026, Mayank Mishra, Mehant Kammakomati, Shawn Tan, Zhonglin Han, berserkr, mayank31398
+Copyright (c) 2026, Mayank Mishra
 ************************************************** -->
 
 <h1 align="center">LM Engine</h1>

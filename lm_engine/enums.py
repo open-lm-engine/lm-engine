@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Han Guo, Jyo Pari, Zhonglin Han, jyo
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from enum import Enum

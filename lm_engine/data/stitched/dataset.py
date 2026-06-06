@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Jyo Pari, Zhonglin Han
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 """StitchedSequenceDataset: produces fixed-length token sequences from a

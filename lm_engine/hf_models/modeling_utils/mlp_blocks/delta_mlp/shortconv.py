@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Han Guo
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 # Copyright (c) 2023-2026, Songlin Yang, Yu Zhang, Zhiyuan Li

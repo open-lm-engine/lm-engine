@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Han Guo
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import os

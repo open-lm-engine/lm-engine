@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Han Guo, Jyo, Jyo Pari, Zhonglin Han
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 """Build (or load cached) the sample_index for StitchedSequenceDataset.

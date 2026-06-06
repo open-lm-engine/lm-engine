@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Alexei Karve, Shawn Tan
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import argparse

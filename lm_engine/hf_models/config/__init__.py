@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Han Guo, jyo
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations

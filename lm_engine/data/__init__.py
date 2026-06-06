@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Jyo, Jyo Pari
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from .dataloader import ResumableDataLoader

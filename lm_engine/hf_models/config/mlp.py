@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Han Guo, Jyo Pari, jyo
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from typing import Any

@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Huanzhi Mao
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import json
