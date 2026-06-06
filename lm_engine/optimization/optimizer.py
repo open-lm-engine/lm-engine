@@ -3,7 +3,6 @@
 # **************************************************
 
 import torch.nn as nn
-from torch.optim import Optimizer
 from torch.optim.adadelta import Adadelta as TorchAdadelta
 from torch.optim.adagrad import Adagrad as TorchAdagrad
 from torch.optim.adam import Adam as TorchAdam
@@ -19,8 +18,7 @@ from torch.optim.sgd import SGD as TorchSGD
 
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from ..enums import ParamsGroupMethod
-from ..logging_utils import log_rank_0
-from .params_group import _ParamsGroupsList, get_param_groups_list
+from .params_group import get_param_groups_list
 
 
 # https://pytorch.org/docs/stable/optim.html
