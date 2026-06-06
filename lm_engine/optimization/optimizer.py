@@ -21,7 +21,6 @@ from ..containers import BackwardHookOptimizerContainer, ModelContainer, Optimiz
 from ..enums import ParamsGroupMethod
 from ..logging_utils import log_rank_0
 from .params_group import _ParamsGroupsList, get_param_groups_list
-from .split_param_optimizer import SplitParamOptimizer
 
 
 # https://pytorch.org/docs/stable/optim.html
