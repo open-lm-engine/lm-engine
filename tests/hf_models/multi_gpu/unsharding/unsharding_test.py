@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Shawn Tan
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import subprocess

@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2026, Mayank Mishra, Huanzhi Mao, Zhonglin Han
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 
