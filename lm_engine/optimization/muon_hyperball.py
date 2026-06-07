@@ -15,13 +15,17 @@ from ..dtensors import tensor_to_dtensor
 
 @torch.compile
 def kernel_norm(G: torch.Tensor) -> torch.Tensor:
-    """Per-row L2 normalization for depthwise conv kernels, input shape [C, k]."""
+    """Per-row L2 normalization (per-row path), input shape [rows, k].
+
+    Replaces NS for params where each row is an independent unit — conv kernels (one row per
+    output channel) and 2D weights marked per-row-hyperball (e.g. DeltaMLP b_proj, one row per head).
+    """
     assert G.dim() == 2
     return G / G.norm(dim=-1, keepdim=True).clamp(min=1e-7)
 
 
 @torch.compile
-def zeropower_via_newtonschulz5(
+def zeropower_via_newtonschulz(
     G: torch.Tensor, steps_and_coefficients: tuple[int, tuple[int, int, int]] = (5, (3.4445, -4.7750, 2.0315))
 ) -> torch.Tensor:
     """
@@ -33,27 +37,53 @@ def zeropower_via_newtonschulz5(
     where S' is diagonal with S_{ii}' ~ Uniform(0.5, 1.5), which turns out not to hurt model
     performance at all relative to UV^T, where USV^T = G is the SVD.
 
+    Accepts either a single matrix (2D, shape `[M, K]`) or a stack of same-shape matrices
+    (3D, shape `[N, M, K]`). The 3D path uses batched matmul (`@` is bmm for ndim==3) so all
+    N orthogonalizations run as a single launch per matmul, with much better tensor-core
+    utilization than N sequential 2D calls.
+
     Adapted from https://github.com/KellerJordan/Muon/blob/master/muon.py
     """
-    assert G.dim() == 2
+
+    # FIXME jyo: this might come back to bite us
+    # FIXME jyo: remove all .item() calls everywhere
+    assert G.dim() in (2, 3)
 
     X = G.bfloat16()
-    if G.size(0) > G.size(1):
-        X = X.T
-    X = X / (X.norm() + 1e-7)
+    transposed = X.size(-2) > X.size(-1)
+    if transposed:
+        X = X.transpose(-1, -2)
+    # Per-(batch-)matrix Frobenius norm. For 2D this returns a 0-D tensor; for 3D it returns
+    # `[N, 1, 1]` so the divide broadcasts back over each matrix in the batch.
+    if X.dim() == 2:
+        norm = X.norm()
+    else:
+        norm = X.flatten(-2).norm(dim=-1, keepdim=True).unsqueeze(-1)
+    X = X / (norm + 1e-7)
 
     for steps, (a, b, c) in steps_and_coefficients:
         # Ensure spectral norm is at most 1
         # Perform the NS iterations
         for _ in range(steps):
-            A = X @ X.T
+            A = X @ X.transpose(-1, -2)
             B = b * A + c * A @ A
             X = a * X + B @ X
 
-    if G.size(0) > G.size(1):
-        X = X.T
+    if transposed:
+        X = X.transpose(-1, -2)
 
     return X
+
+
+@torch.compile
+def hyperball_project_per_row(p_2d: torch.Tensor, u_hat: torch.Tensor, R: torch.Tensor, lr: float) -> torch.Tensor:
+    """Per-row hyperball projection (per-row path).
+
+    Each row independently projected onto its own hypersphere with radius R[row].
+    """
+    w_candidate = p_2d - lr * R * u_hat
+    w_norm = w_candidate.norm(dim=-1, keepdim=True).clamp(min=1e-7)
+    return w_candidate * (R / w_norm)
 
 
 class MuonHyperball(Optimizer):
@@ -176,6 +206,22 @@ class MuonHyperball(Optimizer):
         nesterov = group["nesterov"]
         hybrid_ns = group.get("hybrid_ns", False)
         lr = group["lr"]
+        eps = group["eps"]
+
+        if hybrid_ns:
+            steps_and_coefficients = [(8, (3.4445, -4.7750, 2.0315)), (2, (2, -1.5, 0.5))]
+        else:
+            steps_and_coefficients = [(5, (3.4445, -4.7750, 2.0315))]
+
+        # ----- Phase 1: collect per-param state and prepare local views for foreach -----
+        params: list[torch.Tensor] = []
+        is_dtensors: list[bool] = []
+        orig_shapes: list[torch.Size] = []
+        is_per_rows: list[bool] = []
+        bufs: list[torch.Tensor] = []
+        buf_locals: list[torch.Tensor] = []
+        grad_locals: list[torch.Tensor] = []
+        Rs: list = []  # float for the NS path, tensor [C,1] for the per-row path
 
         for p in group["params"]:
             if p.grad is None:
@@ -184,61 +230,148 @@ class MuonHyperball(Optimizer):
             g = p.grad
             is_dtensor = isinstance(p, DTensor)
             orig_shape = p.size()
+            # Per-row path: each row L2-normed + hyperball-projected independently, instead of
+            # NS + scalar hyperball. Set for conv kernels (one row per output channel) and for
+            # 2D weights marked via mark_parameter_as_per_row_hyperball (e.g. DeltaMLP b_proj).
+            is_per_row = getattr(p, "_per_row_hyperball", False)
 
             if g.ndim > 2:
-                # DTensor view with ndim>2 is unsupported under ZeRO-3 sharding propagation;
-                # all-gather first, then reshape to 2D on a plain tensor
                 if isinstance(g, DTensor):
                     g = g.full_tensor()
                 g = g.view(g.size(0), -1)
 
             state = self.state[p]
-
-            is_shortconv = len(orig_shape) == 3
-
             if len(state) == 0:
                 state["momentum_buffer"] = torch.zeros_like(g)
-                if is_shortconv:
+                if is_per_row:
                     # per-kernel radius: shape [C, 1] from [C, 1, k] -> [C, k]
                     p_full = p.full_tensor() if is_dtensor else p
-                    R = p_full.reshape(-1, p_full.shape[-1]).norm(dim=-1, keepdim=True)
+                    state["R"] = p_full.reshape(-1, p_full.shape[-1]).norm(dim=-1, keepdim=True)
                 else:
-                    # R is the fixed hypersphere radius — must be the global Frobenius norm
-                    R = p.norm()
+                    # Cache R as Python float so it can feed _foreach_*.ScalarList without per-step sync
+                    R_tensor = p.norm()
                     if is_dtensor:
-                        R = R.full_tensor()
-                state["R"] = R
+                        R_tensor = R_tensor.full_tensor()
+                    state["R"] = float(R_tensor.item())
+
+            R_val = state["R"]
+            # Backward-compat: if R was previously stored as a 0-d tensor (e.g. from old checkpoints),
+            # convert once to a Python float for the NS path.
+            if not is_per_row and isinstance(R_val, torch.Tensor):
+                R_val = float(R_val.item())
+                state["R"] = R_val
 
             buf = state["momentum_buffer"]
-            buf.mul_(momentum).add_(g)
+            # get the local shard of the DTensor - no communication is needed
+            buf_local = buf.to_local() if isinstance(buf, DTensor) else buf
+            g_local = g.to_local() if isinstance(g, DTensor) else g
 
-            if nesterov:
-                g_nes = g.add(buf, alpha=momentum)
+            params.append(p)
+            is_dtensors.append(is_dtensor)
+            orig_shapes.append(orig_shape)
+            is_per_rows.append(is_per_row)
+            bufs.append(buf)
+            buf_locals.append(buf_local)
+            grad_locals.append(g_local)
+            Rs.append(R_val)
+
+        if not params:
+            return
+
+        # ----- Phase 2: foreach momentum update on local shards -----
+        # Elementwise, so safe to operate per-shard at any world_size.
+        torch._foreach_mul_(buf_locals, momentum)
+        torch._foreach_add_(buf_locals, grad_locals)
+
+        # ----- Phase 3: gather g_nes per param, then batched NS by shape -----
+        # Per-param NS is matmul-based (no _foreach_matmul), but same-shape matrices stack into a
+        # 3D tensor and run as a single bmm. With ~5-10 unique shapes and many params per shape,
+        # this collapses N×15 sequential matmul launches into ~5-10 × 15 batched-matmul launches.
+        g_nes_fulls: list[torch.Tensor] = [None] * len(params)
+        for i, p in enumerate(params):
+            buf = bufs[i]
+            if isinstance(buf, DTensor):
+                # ndim==2 DTensor case: compute g_nes on sharded DTensors then gather once
+                if nesterov:
+                    g_nes_fulls[i] = (p.grad + momentum * buf).full_tensor()
+                else:
+                    g_nes_fulls[i] = buf.full_tensor()
             else:
-                g_nes = buf
+                # ndim>2 case (already gathered upfront) or plain tensor case
+                if nesterov:
+                    g_nes_fulls[i] = grad_locals[i] + momentum * buf
+                else:
+                    g_nes_fulls[i] = buf
 
-            # all-gather from shards if still a DTensor
-            # (for ndim>2 params g was already gathered above, so g_nes is a plain tensor)
-            if isinstance(g_nes, DTensor):
-                g_nes_full = g_nes.full_tensor()
+        u_fulls: list[torch.Tensor] = [None] * len(params)
+
+        # Group NS-path params by shape; each shape group runs as one batched NS call
+        shape_to_idxs: dict[torch.Size, list[int]] = {}
+        for i, sc in enumerate(is_per_rows):
+            if sc:
+                continue
+            shape_to_idxs.setdefault(g_nes_fulls[i].shape, []).append(i)
+
+        for shape, idxs in shape_to_idxs.items():
+            if len(idxs) == 1:
+                # Solo shape: skip the stack/unbind round-trip
+                i = idxs[0]
+                u_fulls[i] = zeropower_via_newtonschulz(g_nes_fulls[i], steps_and_coefficients=steps_and_coefficients)
             else:
-                g_nes_full = g_nes
+                G_stack = torch.stack([g_nes_fulls[i] for i in idxs], dim=0)
+                U_stack = zeropower_via_newtonschulz(G_stack, steps_and_coefficients=steps_and_coefficients)
+                for j, i in enumerate(idxs):
+                    u_fulls[i] = U_stack[j]
 
-            R = state["R"]
+        # Per-row params: row-wise L2 norm (kernel_norm) instead of NS
+        for i, sc in enumerate(is_per_rows):
+            if not sc:
+                continue
+            u_fulls[i] = kernel_norm(g_nes_fulls[i])
 
-            # TODO Mayank: write kernels for Muon Hyperball
-            # TODO Mayank: add marker for indicating convolution weight
+        # ----- Phase 4: foreach normalize NS outputs (per-row params already normalized) -----
+        ns_idxs = [i for i, sc in enumerate(is_per_rows) if not sc]
+        if ns_idxs:
+            ns_us = [u_fulls[i] for i in ns_idxs]
+            ns_norms = torch._foreach_norm(ns_us)
+            # Stack to a single 1-D tensor and convert with one CPU/GPU sync (rather than N)
+            ns_norm_floats = torch.stack(ns_norms).tolist()
+            ns_inv = [1.0 / (nf + eps) for nf in ns_norm_floats]
+            torch._foreach_mul_(ns_us, ns_inv)
 
-            if is_shortconv:
-                # per-row L2 normalization instead of Newton-Schulz
-                u_hat_full = kernel_norm(g_nes_full)
+        # ----- Phase 5: foreach hyperball projection (NS-params) -----
+        if ns_idxs:
+            ns_ps_full: list[torch.Tensor] = []
+            for i in ns_idxs:
+                p = params[i]
+                p_full = p.full_tensor() if is_dtensors[i] else p
+                if len(orig_shapes[i]) > 2:
+                    p_full = p_full.view(p.size(0), -1)
+                ns_ps_full.append(p_full)
 
-                # per-row hyperball projection
-                p_2d = (p.full_tensor() if is_dtensor else p).reshape(-1, orig_shape[-1])
-                w_candidate = p_2d - lr * R * u_hat_full
-                w_norm = w_candidate.norm(dim=-1, keepdim=True).clamp_(min=1e-7)
-                w_new = w_candidate.mul_(R / w_norm).reshape(orig_shape)
-                if is_dtensor:
+            ns_us = [u_fulls[i] for i in ns_idxs]
+            ns_Rs = [Rs[i] for i in ns_idxs]
+
+            # scaled_u[i] = lr * R[i] * u_hat[i] (per-tensor Python-float scalar)
+            lr_R_floats = [lr * R for R in ns_Rs]
+            scaled_us = torch._foreach_mul(ns_us, lr_R_floats)
+
+            # w_candidate = p - scaled_u
+            w_candidates = torch._foreach_sub(ns_ps_full, scaled_us)
+
+            # final scale = R / (||w_candidate|| + eps)
+            w_norms = torch._foreach_norm(w_candidates)
+            w_norm_floats = torch.stack(w_norms).tolist()
+            scale_floats = [R / (wn + eps) for R, wn in zip(ns_Rs, w_norm_floats)]
+            torch._foreach_mul_(w_candidates, scale_floats)
+
+            # Reshape + redistribute + copy back are necessarily per-param
+            for j, i in enumerate(ns_idxs):
+                p = params[i]
+                w_new = w_candidates[j]
+                if len(orig_shapes[i]) > 2:
+                    w_new = w_new.view(orig_shapes[i])
+                if is_dtensors[i]:
                     w_new = tensor_to_dtensor(
                         w_new,
                         device_mesh=p.device_mesh,
@@ -246,45 +379,22 @@ class MuonHyperball(Optimizer):
                         desired_placement=p.placements,
                     )
                 p.copy_(w_new)
-            else:
-                if hybrid_ns:
-                    steps_and_coefficients = [(8, (3.4445, -4.7750, 2.0315)), (2, (2, -1.5, 0.5))]
-                else:
-                    steps_and_coefficients = [(5, (3.4445, -4.7750, 2.0315))]
 
-                u_full = zeropower_via_newtonschulz5(g_nes_full, steps_and_coefficients=steps_and_coefficients)
-                u_norm = u_full.norm() + group["eps"]
-                u_hat_full = u_full / u_norm
-
-                # Project onto hypersphere: W_{t+1} = R * Normalize(W_t - lr * R * u_hat)
-                if is_dtensor and len(orig_shape) > 2:
-                    # p is a 3D DTensor; gather and reshape to 2D so the projection stays in
-                    # the same [out, -1] space as u_hat_full, then copy back reshaped
-                    p_2d = p.full_tensor().view(p.size(0), -1)
-                    w_candidate = p_2d - lr * R * u_hat_full
-                    w_norm = w_candidate.norm() + group["eps"]
-                    w_new = w_candidate.mul_(R / w_norm).view(orig_shape)
-                    w_new = tensor_to_dtensor(
-                        w_new,
-                        device_mesh=p.device_mesh,
-                        current_placement=[Replicate()] * len(p.placements),
-                        desired_placement=p.placements,
-                    )
-                    p.copy_(w_new)
-                else:
-                    # Redistribute the normalized update direction back to match p's sharding
-                    if is_dtensor:
-                        u_hat = tensor_to_dtensor(
-                            u_hat_full,
-                            device_mesh=p.device_mesh,
-                            current_placement=[Replicate()] * len(p.placements),
-                            desired_placement=p.placements,
-                        )
-                    else:
-                        u_hat = u_hat_full
-
-                    w_candidate = p - lr * R * u_hat
-                    w_norm = w_candidate.norm()
-                    if is_dtensor:
-                        w_norm = w_norm.full_tensor()
-                    p.copy_(w_candidate.mul_(R / (w_norm + group["eps"])))
+        # ----- Phase 6: per-row params (per-param, small count, R is per-row tensor) -----
+        for i, sc in enumerate(is_per_rows):
+            if not sc:
+                continue
+            p = params[i]
+            u_hat = u_fulls[i]
+            R = Rs[i]
+            p_full = p.full_tensor() if is_dtensors[i] else p
+            p_2d = p_full.reshape(-1, orig_shapes[i][-1])
+            w_new = hyperball_project_per_row(p_2d, u_hat, R, lr).reshape(orig_shapes[i])
+            if is_dtensors[i]:
+                w_new = tensor_to_dtensor(
+                    w_new,
+                    device_mesh=p.device_mesh,
+                    current_placement=[Replicate()] * len(p.placements),
+                    desired_placement=p.placements,
+                )
+            p.copy_(w_new)

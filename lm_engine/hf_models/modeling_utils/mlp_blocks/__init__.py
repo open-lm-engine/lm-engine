@@ -64,6 +64,8 @@ def get_mlp_block(
             dt_init_floor=block.dt_init_floor,
             value_scale=block.value_scale,
             use_v_silu=block.use_v_silu,
+            use_v_norm=block.use_v_norm,
+            use_b_proj_per_row_hyperball=block.use_b_proj_per_row_hyperball,
         )
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")

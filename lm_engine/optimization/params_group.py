@@ -27,9 +27,8 @@ class _ParamsGroup(BaseArgs):
         # do in a sorted order
         param_names = self.get_param_names()
 
-        result["params"] = []
-        for param_name in param_names:
-            result["params"].append(self.parameter_name_map[param_name])
+        result["params"] = [self.parameter_name_map[n] for n in param_names]
+        result["param_names"] = param_names
 
         return result
 

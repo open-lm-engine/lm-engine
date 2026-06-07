@@ -66,11 +66,18 @@ class StitchedSequenceDataset(torch.utils.data.Dataset):
         # reproducibility across workers and restarts.
         self._base_seed = config.seed
 
+        # Deterministic per-split sample permutation. Decouples training-time
+        # sample order from parquet row order so a single giant doc (or a
+        # cluster of similar docs) doesn't concentrate into one batch. The
+        # underlying sample_index is untouched, so the cache stays valid.
+        self._permutation = np.random.default_rng(config.seed + split.value).permutation(self._num_samples)
+
     def __len__(self) -> int:
         return self._num_samples
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        tokens = self._fetch_tokens(idx)
+        true_idx = int(self._permutation[idx])
+        tokens = self._fetch_tokens(true_idx)
         return {"text": torch.from_numpy(tokens.astype(np.int64))}
 
     def _fetch_tokens(self, idx: int) -> np.ndarray:
@@ -129,7 +136,7 @@ class StitchedSequenceDataset(torch.utils.data.Dataset):
                 tmp.append(chunk)
 
             # Reorder chunks within this collection according to ordering strategy
-            rng = np.random.RandomState(self._base_seed + idx * 31337 + c)
+            rng = np.random.RandomState((self._base_seed + idx * 31337 + c) % (2**32))
             order = get_doc_order(0, len(tmp), self.config.ordering_strategy, rng=rng)
             parts.extend(tmp[i] for i in order)
 

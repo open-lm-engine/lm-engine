@@ -18,10 +18,10 @@ from torch.optim.sgd import SGD as TorchSGD
 
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from ..enums import ParamsGroupMethod
-from ..logging_utils import log_rank_0
 from .adam_hyperball import HyperballAdamW
 from .muon_hyperball import MuonHyperball
-from .params_group import _ParamsGroupsList, get_param_groups_list
+from .muon_hyperball_split import MuonHSplit
+from .params_group import get_param_groups_list
 
 
 # https://pytorch.org/docs/stable/optim.html
@@ -40,6 +40,7 @@ _OPTIMIZER_CLASSES = {
     "TorchSGD": TorchSGD,
     "HyperballAdamW": HyperballAdamW,
     "MuonHyperball": MuonHyperball,
+    "MuonHSplit": MuonHSplit,
 }
 
 
@@ -99,3 +100,10 @@ def get_optimizer_container(
         )
 
     return optimizer_list
+
+
+def log_optimizer_startup_table(optimizer_container: OptimizerContainer) -> None:
+    """Emit the deferred param-routing table (call after the experiments tracker / wandb is up)."""
+    for optimizer in optimizer_container:
+        if hasattr(optimizer, "log_routing_table"):
+            optimizer.log_routing_table()

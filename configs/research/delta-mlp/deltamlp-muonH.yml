@@ -278,15 +278,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -299,15 +294,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -320,15 +310,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -341,15 +326,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -362,15 +342,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -383,15 +358,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -404,15 +374,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -425,15 +390,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -446,15 +406,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -467,15 +422,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -488,15 +438,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -509,15 +454,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -530,15 +470,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -551,15 +486,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -572,15 +502,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -593,15 +518,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -614,15 +534,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -635,15 +550,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -656,15 +566,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -677,15 +582,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -698,15 +598,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -719,15 +614,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -740,15 +630,10 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
       - activation_function: silu
         mlp_type: DeltaMLP
         add_bias: false
@@ -761,22 +646,17 @@ model_args:
         use_shortconv: true
         use_tied_beta: false
         use_decay_beta: true
-        use_output_norm: true
+        use_head_o_norm: false
         allow_neg_eigval: false
         kernel_size: 4
-        use_head_norm: true
-        use_mlp_stream: false
-        use_input_gate: true
-        use_output_gate: false
-        use_zero_init_k: false
-        value_scale: 0.025
+        value_scale: null
   efficient_initialization: false
 
 tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /workspace/main/lm-engine/checkpoints
+  save_path: /data/checkpoints_jyo/deltamlp-muonH-rerun
   save_interval: 10000
 
 # load_args:
@@ -784,10 +664,11 @@ save_args:
 
 logging_args:
   log_interval: 10
+  log_parameter_and_gradient_interval: 500
   experiments_tracker_name: wandb
   wandb_args:
     project: delta-mlp
-    name: delta-mlp-swa-vscale-muon-hyperball-hybrid-ns-64k-5e-3
+    name: delta-mlp-muonH
 
 training_parameters:
   num_training_steps: 50000
@@ -807,7 +688,7 @@ optimizer_args:
     betas:
       - 0.9
       - 0.95
-    eps: 1e-8
+    eps: 1e-10
     hybrid_ns: true
 
 lr_scheduler_args:
@@ -823,7 +704,7 @@ distributed_args:
   stage: 3
   torch_compile: true
   zero_topology:
-    data_parallel_replication_world_size: 1
+    data_parallel_replication_world_size: 4
     data_parallel_sharding_world_size: 8
   gradient_checkpointing_method: block
   gradient_checkpointing_args:
