@@ -50,6 +50,7 @@ import copy
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import wandb
@@ -66,6 +67,15 @@ def _deep_set(d: dict, dotpath: str, value) -> None:
 def _load_yaml(path: str) -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
+
+
+def lr_sweep_params(min_lr: float, max_lr: float) -> dict:
+    """Return a W&B sweep parameters entry for log-uniform LR search.
+
+    Example:
+        sweep_config["parameters"].update(lr_sweep_params(1e-5, 1e-3))
+    """
+    return {"optimizer_args.class_args.lr": {"distribution": "log_uniform_values", "min": min_lr, "max": max_lr}}
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +177,18 @@ def _run_as_agent(args) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _count_running_jobs(job_ids: list[str]) -> int:
+    """Return how many of the given Slurm job IDs are still in the queue."""
+    if not job_ids:
+        return 0
+    result = subprocess.run(
+        ["squeue", "--jobs", ",".join(job_ids), "-h", "-o", "%i"],
+        capture_output=True,
+        text=True,
+    )
+    return len(result.stdout.strip().splitlines())
+
+
 def _submit_agent_job(
     sweep_id: str,
     args: argparse.Namespace,
@@ -229,7 +251,21 @@ def main():
     # Sweep
     parser.add_argument("--sweep", default=None, help="Sweep config YAML (required when creating a new sweep)")
     parser.add_argument("--sweep_id", default=None, help="Existing sweep ID (skips sweep creation)")
-    parser.add_argument("--count", type=int, default=1, help="Number of Slurm jobs (trials) to submit")
+    parser.add_argument(
+        "--lr",
+        nargs=2,
+        type=float,
+        metavar=("MIN", "MAX"),
+        default=None,
+        help="Log-uniform LR range to sweep (e.g. --lr 1e-5 1e-3); merged into sweep parameters",
+    )
+    parser.add_argument("--count", type=int, default=1, help="Total number of trials to run")
+    parser.add_argument(
+        "--max_concurrent",
+        type=int,
+        default=None,
+        help="Max jobs running at once; new jobs are submitted as slots free up (default: all at once)",
+    )
 
     # Slurm
     parser.add_argument("--num_nodes", type=int, default=1, help="Nodes per job")
@@ -267,19 +303,30 @@ def main():
         sweep_yaml = _load_yaml(args.sweep)
         sweep_config = copy.deepcopy(sweep_yaml)
         sweep_config.setdefault("metric", _DEFAULT_METRIC)
+        if args.lr is not None:
+            sweep_config.setdefault("parameters", {}).update(lr_sweep_params(*args.lr))
         sweep_id = wandb.sweep(sweep_config, project=args.project, entity=args.entity)
         print(f"Created sweep: {sweep_id}")
         if args.entity:
             print(f"  https://wandb.ai/{args.entity}/{args.project}/sweeps/{sweep_id}")
 
     args.sweep_id = sweep_id
-    job_ids = []
-    for _ in range(args.count):
-        job_id = _submit_agent_job(sweep_id, args, extra_sbatch_args)
-        job_ids.append(job_id)
-        print(f"  Submitted job {job_id}")
+    max_concurrent = args.max_concurrent or args.count
+    active_job_ids: list[str] = []
+    total_submitted = 0
 
-    print(f"Submitted {len(job_ids)} job(s) for sweep {sweep_id}")
+    while total_submitted < args.count:
+        running = _count_running_jobs(active_job_ids)
+        slots = max_concurrent - running
+        for _ in range(min(slots, args.count - total_submitted)):
+            job_id = _submit_agent_job(sweep_id, args, extra_sbatch_args)
+            active_job_ids.append(job_id)
+            total_submitted += 1
+            print(f"  Submitted job {job_id} ({total_submitted}/{args.count})")
+        if total_submitted < args.count:
+            time.sleep(60)
+
+    print(f"Submitted {total_submitted} job(s) for sweep {sweep_id}")
 
 
 if __name__ == "__main__":
