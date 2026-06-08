@@ -69,15 +69,6 @@ def _load_yaml(path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def lr_sweep_params(min_lr: float, max_lr: float) -> dict:
-    """Return a W&B sweep parameters entry for log-uniform LR search.
-
-    Example:
-        sweep_config["parameters"].update(lr_sweep_params(1e-5, 1e-3))
-    """
-    return {"optimizer_args.class_args.lr": {"distribution": "log_uniform_values", "min": min_lr, "max": max_lr}}
-
-
 # ---------------------------------------------------------------------------
 # Agent mode — runs inside each Slurm job
 # ---------------------------------------------------------------------------
@@ -251,14 +242,6 @@ def main():
     # Sweep
     parser.add_argument("--sweep", default=None, help="Sweep config YAML (required when creating a new sweep)")
     parser.add_argument("--sweep_id", default=None, help="Existing sweep ID (skips sweep creation)")
-    parser.add_argument(
-        "--lr",
-        nargs=2,
-        type=float,
-        metavar=("MIN", "MAX"),
-        default=None,
-        help="Log-uniform LR range to sweep (e.g. --lr 1e-5 1e-3); merged into sweep parameters",
-    )
     parser.add_argument("--count", type=int, default=1, help="Total number of trials to run")
     parser.add_argument(
         "--max_concurrent",
@@ -303,8 +286,6 @@ def main():
         sweep_yaml = _load_yaml(args.sweep)
         sweep_config = copy.deepcopy(sweep_yaml)
         sweep_config.setdefault("metric", _DEFAULT_METRIC)
-        if args.lr is not None:
-            sweep_config.setdefault("parameters", {}).update(lr_sweep_params(*args.lr))
         sweep_id = wandb.sweep(sweep_config, project=args.project, entity=args.entity)
         print(f"Created sweep: {sweep_id}")
         if args.entity:

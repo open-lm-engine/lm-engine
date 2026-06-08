@@ -1,0 +1,12 @@
+python tools/wandb_sweep.py \
+    --config configs/my_config.yaml \
+    --sweep scripts/prime-intellect/sweep.yaml \
+    --slurm_logs_dir /shared/slurm_logs/my-sweep \
+    --count 20 \
+    --max_concurrent 4 \
+    --num_nodes 1 \
+    --gpus_per_node 8 \
+    --account research \
+    --time 12:00:00 \
+    --project my_project \
+    --entity my_entity

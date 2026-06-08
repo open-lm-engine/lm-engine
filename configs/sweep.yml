@@ -1,0 +1,19 @@
+method: bayes
+metric:
+  name: train/lm_loss
+  goal: minimize
+
+parameters:
+  optimizer_args.class_args.lr:
+    distribution: log_uniform_values
+    min: 1.0e-5
+    max: 1.0e-3
+
+  optimizer_args.class_args.weight_decay:
+    values: [0.01, 0.1, 0.3]
+
+  lr_scheduler_args.num_warmup_steps:
+    values: [500, 1000, 2000]
+
+  training_parameters.gradient_accumulation_steps:
+    values: [2, 4, 8]
