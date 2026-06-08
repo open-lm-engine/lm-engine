@@ -79,6 +79,13 @@ def get_pretraining_dataloaders(
 
     is_megatron = args.datasets[0].class_name == "MegatronDataset"
 
+    train_samples, val_samples, test_samples = _get_train_val_test_samples(
+        args.training_parameters.num_training_steps,
+        args.training_parameters.global_batch_size,
+        args.training_parameters.eval_interval,
+        class_args.get("eval_steps"),
+    )
+
     if is_megatron:
         compile_helpers()
 
@@ -88,12 +95,7 @@ def get_pretraining_dataloaders(
         # Option 2: data loading using --data-path with multiple weighted files
         # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
         train_ds, val_ds, test_ds = build(
-            sizes=_get_train_val_test_samples(
-                args.training_parameters.num_training_steps,
-                args.training_parameters.global_batch_size,
-                args.training_parameters.eval_interval,
-                class_args.get("eval_steps"),
-            ),
+            sizes=(train_samples, val_samples, test_samples),
             config=GPTDatasetConfig(
                 sequence_length=class_args.get("sequence_length"),
                 blend=class_args.get("data_path"),
@@ -113,14 +115,6 @@ def get_pretraining_dataloaders(
         )
     else:
         assert args.datasets[0].class_name == "StitchedDataset"
-
-        train_samples, val_samples, test_samples = _get_train_val_test_samples(
-            args.training_parameters.num_training_steps,
-            micro_batch_size,
-            gradient_accumulation_steps,
-            args.training_parameters.eval_interval,
-            class_args.get("eval_steps"),
-        )
 
         config = StitchedDatasetConfig(
             stitched_seq_path=class_args["stitched_seq_path"],
