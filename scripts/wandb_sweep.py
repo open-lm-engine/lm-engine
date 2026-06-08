@@ -5,31 +5,36 @@
 """
 W&B sweep runner for lm-engine (prime-intellect / Slurm).
 
-Creates a W&B sweep from a base training config and a sweep config, then runs
-an agent that submits one Slurm batch job per trial via train-job.sh and waits
-for it to finish before requesting the next set of parameters.
+Two modes:
 
-Usage:
-    python scripts/wandb_sweep.py \\
-        --config configs/my_config.yaml \\
-        --sweep sweep.yaml \\
-        --slurm_logs_dir /shared/slurm_logs/my-sweep \\
-        [--num_nodes 4] \\
-        [--gpus_per_node 8] \\
-        [--account research] \\
-        [--time 12:00:00] \\
-        [--count 20] \\
-        [--project my_project] \\
-        [--entity my_entity] \\
-        [--sweep_id existing-sweep-id] \\
-        [--poll_interval 60]
+1. Create mode (default) — run once on the login node:
+   Creates the sweep, then submits --count independent Slurm jobs.
+   Each job will pick one trial from the sweep server and run it.
 
-Sweep YAML format (W&B sweep config with dot-notation parameter keys that map
-to nested fields in the base training config):
+   python scripts/wandb_sweep.py \\
+       --config configs/my_config.yaml \\
+       --sweep sweep.yaml \\
+       --slurm_logs_dir /shared/slurm_logs/my-sweep \\
+       --count 10 \\
+       [--num_nodes 4] [--gpus_per_node 8] \\
+       [--account research] [--time 12:00:00] \\
+       [--project my_project] [--entity my_entity]
+
+   To submit more agents to an existing sweep:
+       python scripts/wandb_sweep.py --sweep_id <id> --count 5 ...
+
+2. Agent mode (--agent) — run automatically inside each Slurm job:
+   Calls wandb.agent() to pick one trial, merges sweep params into the
+   base config, writes a temp YAML, and launches srun torchrun.
+
+   python scripts/wandb_sweep.py --agent \\
+       --sweep_id <id> --config base.yaml --slurm_logs_dir /shared/...
+
+Sweep YAML (standard W&B format; dot-notation keys map into nested config fields):
 
     method: bayes
     metric:
-      name: val/loss
+      name: train/lm_loss
       goal: minimize
     parameters:
       optimizer_args.class_args.lr:
@@ -38,28 +43,17 @@ to nested fields in the base training config):
         max: 1.0e-3
       training_parameters.micro_batch_size:
         values: [4, 8, 16]
-      optimizer_args.class_args.weight_decay:
-        values: [0.01, 0.1, 0.3]
-
-Parameter keys use dot-notation to reference nested config fields.
-W&B fields (project, entity) in the sweep YAML override the base config.
-The temp per-trial config is written to --slurm_logs_dir so it is accessible
-from compute nodes (must be on a shared filesystem).
 """
 
 import argparse
 import copy
 import os
 import subprocess
-import time
+import sys
 from pathlib import Path
 
 import wandb
 import yaml
-
-
-_SCRIPT_DIR = Path(__file__).parent
-_TRAIN_JOB_SCRIPT = _SCRIPT_DIR / "prime-intellect" / "train-job.sh"
 
 
 def _deep_set(d: dict, dotpath: str, value) -> None:
@@ -74,172 +68,214 @@ def _load_yaml(path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def _submit_job(
-    config_path: str,
-    num_nodes: int,
-    gpus_per_node: int,
-    slurm_logs_dir: str,
-    account: str | None,
-    time_limit: str | None,
-    wandb_env: dict[str, str],
-    extra_sbatch_args: list[str],
-) -> str:
-    """Submit train-job.sh via sbatch and return the Slurm job ID."""
-    Path(slurm_logs_dir).mkdir(parents=True, exist_ok=True)
-
-    export_pairs = ",".join(f"{k}={v}" for k, v in wandb_env.items())
-
-    cmd = [
-        "sbatch",
-        f"--nodes={num_nodes}",
-        f"--gpus-per-node={gpus_per_node}",
-        f"--output={slurm_logs_dir}/%x-%j.out",
-        f"--error={slurm_logs_dir}/%x-%j.err",
-        f"--export=ALL,{export_pairs}",
-    ]
-    if account:
-        cmd.append(f"--account={account}")
-    if time_limit:
-        cmd.append(f"--time={time_limit}")
-    cmd.extend(extra_sbatch_args)
-    cmd.extend([str(_TRAIN_JOB_SCRIPT), config_path])
-
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    # sbatch prints "Submitted batch job <job_id>"
-    job_id = result.stdout.strip().split()[-1]
-    return job_id
+# ---------------------------------------------------------------------------
+# Agent mode — runs inside each Slurm job
+# ---------------------------------------------------------------------------
 
 
-def _wait_for_job(job_id: str, poll_interval: int) -> None:
-    """Block until the Slurm job is no longer in the queue."""
-    while True:
-        result = subprocess.run(
-            ["squeue", "-j", job_id, "-h", "-o", "%T"],
-            capture_output=True,
-            text=True,
-        )
-        state = result.stdout.strip()
-        if not state:
-            break
-        print(f"  job {job_id}: {state}", flush=True)
-        time.sleep(poll_interval)
+def _run_as_agent(args) -> None:
+    base_config = _load_yaml(args.config)
 
+    # Prefer Slurm env vars (we're inside the job allocation)
+    num_nodes = int(os.environ.get("SLURM_JOB_NUM_NODES", args.num_nodes))
+    gpus_per_node = int(os.environ.get("SLURM_GPUS_PER_NODE", args.gpus_per_node))
 
-def _make_train_fn(
-    base_config: dict,
-    num_nodes: int,
-    gpus_per_node: int,
-    slurm_logs_dir: str,
-    account: str | None,
-    time_limit: str | None,
-    poll_interval: int,
-    extra_sbatch_args: list[str],
-):
     def train_fn():
+        # Standard wandb.init() inside the agent — this associates the run
+        # with the sweep and loads wandb.config with the trial's parameters.
         run = wandb.init()
         sweep_params = dict(wandb.config)
         run_id = run.id
         project = run.project
         entity = run.entity
+        # Finish the driver-side connection; the training subprocess will
+        # resume this run via WANDB_RUN_ID + WANDB_RESUME=allow.
         wandb.finish()
 
         config = copy.deepcopy(base_config)
         for dotpath, value in sweep_params.items():
             _deep_set(config, dotpath, value)
 
-        # Append sweep param summary to the run name so trials are distinguishable
-        wandb_args = config.get("logging_args", {}).get("wandb_args")
-        if wandb_args is not None:
-            base_name = wandb_args.get("name", "run")
+        # Make run name reflect the trial's parameters
+        wandb_cfg = config.get("logging_args", {}).get("wandb_args")
+        if wandb_cfg is not None:
+            base_name = wandb_cfg.get("name", "run")
             suffix = "_".join(f"{k.split('.')[-1]}={v}" for k, v in sweep_params.items())
-            wandb_args["name"] = f"{base_name}_{suffix}"[:128]
+            wandb_cfg["name"] = f"{base_name}_{suffix}"[:128]
 
-        # Write temp config to the shared logs dir so compute nodes can read it
-        config_dir = Path(slurm_logs_dir) / "configs"
+        config_dir = Path(args.slurm_logs_dir) / "configs"
         config_dir.mkdir(parents=True, exist_ok=True)
         temp_config = str(config_dir / f"sweep-{run_id}.yaml")
         with open(temp_config, "w") as f:
             yaml.dump(config, f, default_flow_style=False)
 
-        wandb_env = {
-            "WANDB_RUN_ID": run_id,
-            "WANDB_RESUME": "allow",
-            "WANDB_PROJECT": project,
-        }
+        cpus_per_task = int(os.environ.get("SLURM_CPUS_PER_TASK", gpus_per_node * 8))
+        env = os.environ.copy()
+        env.update(
+            {
+                "WANDB_RUN_ID": run_id,
+                "WANDB_RESUME": "allow",
+                "WANDB_PROJECT": project,
+                "OMP_NUM_THREADS": str(cpus_per_task // gpus_per_node),
+                "MKL_NUM_THREADS": str(cpus_per_task // gpus_per_node),
+                "OPENBLAS_NUM_THREADS": str(cpus_per_task // gpus_per_node),
+                "NCCL_DEBUG": "WARN",
+                "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1",
+                "TOKENIZERS_PARALLELISM": "false",
+                "TRITON_PRINT_AUTOTUNING": "1",
+                "PYTHONFAULTHANDLER": "1",
+            }
+        )
         if entity:
-            wandb_env["WANDB_ENTITY"] = entity
+            env["WANDB_ENTITY"] = entity
+
+        master_addr = (
+            subprocess.check_output(
+                ["scontrol", "show", "hostnames", os.environ["SLURM_NODELIST"]],
+                text=True,
+            )
+            .splitlines()[0]
+            .strip()
+        )
 
         try:
-            job_id = _submit_job(
+            cmd = [
+                "srun",
+                "torchrun",
+                f"--nnodes={num_nodes}",
+                f"--nproc_per_node={gpus_per_node}",
+                "--rdzv_id",
+                os.environ["SLURM_JOB_ID"],
+                "--rdzv_backend",
+                "c10d",
+                "--rdzv_endpoint",
+                f"{master_addr}:29500",
+                "-m",
+                "lm_engine.train",
+                "--config",
                 temp_config,
-                num_nodes,
-                gpus_per_node,
-                slurm_logs_dir,
-                account,
-                time_limit,
-                wandb_env,
-                extra_sbatch_args,
-            )
-            print(f"Submitted job {job_id} (run {run_id})", flush=True)
-            _wait_for_job(job_id, poll_interval)
+            ]
+            subprocess.run(cmd, env=env, check=True)
         finally:
             os.unlink(temp_config)
 
-    return train_fn
+    wandb.agent(args.sweep_id, function=train_fn, count=1, project=args.project, entity=args.entity)
+
+
+# ---------------------------------------------------------------------------
+# Create mode — runs on the login node
+# ---------------------------------------------------------------------------
+
+
+def _submit_agent_job(
+    sweep_id: str,
+    args: argparse.Namespace,
+    extra_sbatch_args: list[str],
+) -> str:
+    """Submit one sbatch job that runs this script in --agent mode."""
+    Path(args.slurm_logs_dir).mkdir(parents=True, exist_ok=True)
+
+    agent_parts = [
+        sys.executable,
+        str(Path(__file__).absolute()),
+        "--agent",
+        "--sweep_id",
+        sweep_id,
+        "--config",
+        str(Path(args.config).absolute()),
+        "--slurm_logs_dir",
+        str(Path(args.slurm_logs_dir).absolute()),
+        "--gpus_per_node",
+        str(args.gpus_per_node),
+        "--num_nodes",
+        str(args.num_nodes),
+    ]
+    if args.project:
+        agent_parts += ["--project", args.project]
+    if args.entity:
+        agent_parts += ["--entity", args.entity]
+
+    cmd = [
+        "sbatch",
+        f"--nodes={args.num_nodes}",
+        f"--gpus-per-node={args.gpus_per_node}",
+        "--ntasks-per-node=1",
+        f"--output={args.slurm_logs_dir}/%x-%j.out",
+        f"--error={args.slurm_logs_dir}/%x-%j.err",
+        "--wrap",
+        " ".join(agent_parts),
+    ]
+    if args.account:
+        cmd.append(f"--account={args.account}")
+    if args.time_limit:
+        cmd.append(f"--time={args.time_limit}")
+    cmd.extend(extra_sbatch_args)
+
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    return result.stdout.strip().split()[-1]  # "Submitted batch job <id>"
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Create and run a W&B sweep for lm-engine via Slurm (prime-intellect)",
+        description="W&B sweep runner for lm-engine (Slurm / prime-intellect)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--config", required=True, help="Base training config YAML path")
-    parser.add_argument("--sweep", required=True, help="W&B sweep config YAML path")
-    parser.add_argument(
-        "--slurm_logs_dir", required=True, help="Shared directory for Slurm stdout/stderr logs and temp configs"
-    )
-    parser.add_argument("--sweep_id", default=None, help="Existing sweep ID to resume (skips sweep creation)")
-    parser.add_argument("--count", type=int, default=None, help="Max runs for this agent (default: unlimited)")
-    parser.add_argument("--num_nodes", type=int, default=1, help="Number of nodes (--nodes sbatch override)")
-    parser.add_argument("--gpus_per_node", type=int, default=8, help="GPUs per node (--gpus-per-node sbatch override)")
-    parser.add_argument("--account", default=None, help="Slurm account (--account)")
-    parser.add_argument(
-        "--time", dest="time_limit", default=None, help="Wall-time limit passed to sbatch (e.g. 12:00:00)"
-    )
-    parser.add_argument("--poll_interval", type=int, default=60, help="Seconds between squeue polls (default: 60)")
-    parser.add_argument("--project", default=None, help="W&B project (overrides base config and sweep YAML)")
-    parser.add_argument("--entity", default=None, help="W&B entity (overrides base config and sweep YAML)")
-    # Unknown args are forwarded verbatim to sbatch
+    parser.add_argument("--slurm_logs_dir", required=True, help="Shared dir for logs and temp configs")
+
+    # Mode
+    parser.add_argument("--agent", action="store_true", help="Run as a wandb agent inside a Slurm job")
+
+    # Sweep
+    parser.add_argument("--sweep", default=None, help="Sweep config YAML (required when creating a new sweep)")
+    parser.add_argument("--sweep_id", default=None, help="Existing sweep ID (skips sweep creation)")
+    parser.add_argument("--count", type=int, default=1, help="Number of Slurm jobs (trials) to submit")
+
+    # Slurm
+    parser.add_argument("--num_nodes", type=int, default=1, help="Nodes per job")
+    parser.add_argument("--gpus_per_node", type=int, default=8, help="GPUs per node")
+    parser.add_argument("--account", default=None, help="Slurm account")
+    parser.add_argument("--time", dest="time_limit", default=None, help="Wall-time limit (e.g. 12:00:00)")
+
+    # W&B
+    parser.add_argument("--project", default=None, help="W&B project (overrides base config)")
+    parser.add_argument("--entity", default=None, help="W&B entity (overrides base config)")
+
+    # Extra args forwarded to sbatch in create mode
     args, extra_sbatch_args = parser.parse_known_args()
 
-    base_config = _load_yaml(args.config)
-    sweep_yaml = _load_yaml(args.sweep)
+    # ---- Agent mode --------------------------------------------------------
+    if args.agent:
+        if not args.sweep_id:
+            parser.error("--sweep_id is required in --agent mode")
+        _run_as_agent(args)
+        return
 
-    # Resolve project/entity: CLI > sweep YAML > base config
+    # ---- Create mode -------------------------------------------------------
+    if not args.sweep and not args.sweep_id:
+        parser.error("--sweep (sweep config YAML) is required when creating a new sweep")
+
+    base_config = _load_yaml(args.config)
     base_wandb = base_config.get("logging_args", {}).get("wandb_args", {}) or {}
-    project = args.project or sweep_yaml.get("project") or base_wandb.get("project")
-    entity = args.entity or sweep_yaml.get("entity") or base_wandb.get("entity")
+    args.project = args.project or base_wandb.get("project")
+    args.entity = args.entity or base_wandb.get("entity")
 
     sweep_id = args.sweep_id
     if sweep_id is None:
-        sweep_config = copy.deepcopy(sweep_yaml)
-        sweep_id = wandb.sweep(sweep_config, project=project, entity=entity)
+        sweep_yaml = _load_yaml(args.sweep)
+        sweep_id = wandb.sweep(copy.deepcopy(sweep_yaml), project=args.project, entity=args.entity)
         print(f"Created sweep: {sweep_id}")
-        if entity:
-            print(f"View at: https://wandb.ai/{entity}/{project}/sweeps/{sweep_id}")
+        if args.entity:
+            print(f"  https://wandb.ai/{args.entity}/{args.project}/sweeps/{sweep_id}")
 
-    train_fn = _make_train_fn(
-        base_config,
-        args.num_nodes,
-        args.gpus_per_node,
-        args.slurm_logs_dir,
-        args.account,
-        args.time_limit,
-        args.poll_interval,
-        extra_sbatch_args,
-    )
+    args.sweep_id = sweep_id
+    job_ids = []
+    for _ in range(args.count):
+        job_id = _submit_agent_job(sweep_id, args, extra_sbatch_args)
+        job_ids.append(job_id)
+        print(f"  Submitted job {job_id}")
 
-    wandb.agent(sweep_id, function=train_fn, count=args.count, project=project, entity=entity)
+    print(f"Submitted {len(job_ids)} job(s) for sweep {sweep_id}")
 
 
 if __name__ == "__main__":
