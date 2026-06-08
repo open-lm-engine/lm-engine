@@ -260,10 +260,14 @@ def main():
     args.project = args.project or base_wandb.get("project")
     args.entity = args.entity or base_wandb.get("entity")
 
+    _DEFAULT_METRIC = {"name": "train/lm_loss", "goal": "minimize"}
+
     sweep_id = args.sweep_id
     if sweep_id is None:
         sweep_yaml = _load_yaml(args.sweep)
-        sweep_id = wandb.sweep(copy.deepcopy(sweep_yaml), project=args.project, entity=args.entity)
+        sweep_config = copy.deepcopy(sweep_yaml)
+        sweep_config.setdefault("metric", _DEFAULT_METRIC)
+        sweep_id = wandb.sweep(sweep_config, project=args.project, entity=args.entity)
         print(f"Created sweep: {sweep_id}")
         if args.entity:
             print(f"  https://wandb.ai/{args.entity}/{args.project}/sweeps/{sweep_id}")
