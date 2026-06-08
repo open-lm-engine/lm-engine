@@ -111,7 +111,6 @@ class TrainingParameters(BaseArgs):
                 [(self.micro_batch_size, "micro_batch_size"), (self.global_batch_size, "global_batch_size")]
             )
         else:
-            assert self.global_batch_size is None
             _check_not_None(
                 [
                     (self.micro_batch_size, "micro_batch_size"),
@@ -128,8 +127,13 @@ class TrainingParameters(BaseArgs):
             self.gradient_accumulation_steps = divide_if_divisible(
                 self.global_batch_size, self.micro_batch_size * data_loading_world_size
             )
-        else:
+        elif self.global_batch_size is None:
             self.global_batch_size = self.micro_batch_size * self.gradient_accumulation_steps * data_loading_world_size
+        else:
+            assert (
+                self.global_batch_size
+                == self.micro_batch_size * self.gradient_accumulation_steps * data_loading_world_size
+            )
 
 
 class SaveArgs(BaseArgs):
