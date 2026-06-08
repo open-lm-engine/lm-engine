@@ -4,12 +4,14 @@
 
 from __future__ import annotations
 
+import warnings
+
 import torch
 import torch.nn as nn
 
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ...parameter import mark_parameter_as_mup_learning_rate
+from ...parameter import mark_parameter_as_mup_learning_rate, set_split_spec
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..init_utils import _get_std_for_linear
@@ -80,6 +82,28 @@ class MLP(nn.Module):
 
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
+
+        # split_spec for c_fc: rows = [up_weight | gate_weight] when is_glu and
+        # not use_interleaved_weights. row index r = b*I + i with b in {0=up, 1=gate}.
+        if self.is_glu:
+            if self.use_interleaved_weights:
+                warnings.warn(
+                    "MuonHSplit cannot annotate c_fc with a split_spec when use_interleaved_weights=True "
+                    "(up/gate rows are interleaved, so the [up|gate] block structure doesn't hold). "
+                    "The weight will be treated as unsplit.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            else:
+                assert self.c_fc.weight.size(0) == 2 * intermediate_size
+                set_split_spec(
+                    self.c_fc.weight,
+                    "mlp",
+                    self.c_fc.weight.shape,
+                    B=2,
+                    I=intermediate_size,
+                    D=hidden_size,
+                )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self._fc1_act(x)

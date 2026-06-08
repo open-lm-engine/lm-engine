@@ -8,12 +8,15 @@ import os
 from typing import TYPE_CHECKING
 
 import torch
+from torch.distributed.tensor import DTensor
 from tqdm import tqdm
 
 from ..accelerator import Accelerator
+from ..containers import ModelContainer
 from ..enums import ExperimentsTrackerName
 from ..parallel import ProcessGroupManager
 from ..utils import is_aim_available, is_wandb_available
+from .loss_dict import MetricsTrackingDict
 
 
 if TYPE_CHECKING:
@@ -212,3 +215,44 @@ class ExperimentsTracker:
                 }
 
         return state_dict
+
+
+@torch.no_grad()
+def track_parameter_and_gradient_info(
+    model_container: ModelContainer,
+    metrics_tracker: MetricsTrackingDict,
+    gradient_clipping: float | None = None,
+    gradient_norm: float | None = None,
+    histograms: bool = False,
+) -> None:
+    assert is_wandb_available()
+    assert len(model_container) == 1
+    model = model_container[0]
+
+    scale = 1.0
+    if gradient_clipping is not None and gradient_norm is not None:
+        total_norm = float(gradient_norm)
+        scale = max(1.0, (total_norm + 1e-6) / gradient_clipping)
+
+    def _maybe_gather_norm(tensor: torch.Tensor) -> float:
+        norm = tensor.norm()
+        if isinstance(norm, DTensor):
+            norm = norm.full_tensor()
+        return norm.item()
+
+    def _maybe_gather_tolist(tensor: torch.Tensor) -> list:
+        if isinstance(tensor, DTensor):
+            tensor = tensor.full_tensor()
+        return tensor.detach().flatten().cpu().tolist()
+
+    for name, param in model.named_parameters():
+        metrics_tracker[f"param/norm/{name}"] = _maybe_gather_norm(param)
+        if histograms:
+            metrics_tracker[f"param/hist/{name}"] = wandb.Histogram(_maybe_gather_tolist(param))
+
+        if param.grad is not None:
+            metrics_tracker[f"grad/norm/{name}"] = _maybe_gather_norm(param.grad)
+            metrics_tracker[f"scaled-grad/norm/{name}"] = _maybe_gather_norm(param.grad * scale)
+            if histograms:
+                metrics_tracker[f"grad/hist/{name}"] = wandb.Histogram(_maybe_gather_tolist(param.grad))
+                metrics_tracker[f"scaled-grad/hist/{name}"] = wandb.Histogram(_maybe_gather_tolist(param.grad * scale))

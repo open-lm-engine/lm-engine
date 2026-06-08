@@ -3,7 +3,6 @@
 # **************************************************
 
 datasets:
-  # class_name - data_name & data_sampling_ratio are not used but need to be passed to avoid errors
   - class_name: MegatronDataset
     data_name: Megatron
     data_sampling_ratio: 1
@@ -14,13 +13,12 @@ datasets:
       node_uses_local_storage: true
       data_path:
         - 1
-        - /export/data/merged_data/dolma_merged_olmo
+        - /data/merged_data/dolma_merged_olmo
         - 1
-        - /export/data/merged_data/longmino_merged_olmo
+        - /data/merged_data/longmino_merged_olmo
         - 1
-        - /export/data/merged_data/stack_merged_olmo
+        - /data/merged_data/stack_merged_olmo
       split: 99.5,0.5,0
-      # split: 1,0,0
       sequence_length: 65536
 
 tokenizer_args:
@@ -345,7 +343,7 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: /workspace/main/lm-engine/checkpoints
+  save_path: /data/checkpoints_jyo/transformer-full-muonH-dolma
   save_interval: 10000
 
 # load_args:

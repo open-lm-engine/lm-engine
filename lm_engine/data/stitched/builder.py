@@ -80,33 +80,48 @@ def build_sample_index(
     log_rank_0(logging.INFO, "Building StitchedSequenceDataset sample_index ...")
     t0 = time.time()
 
-    per_collection_lengths: list[np.ndarray] = []
-    shard_cache: dict[str, MMapIndexedDataset] = {}
+    # Load each unique shard's sequence_lengths array once.
+    # Bind `ds` to a local name so the MMapIndexedDataset stays alive through
+    # the entire .astype() copy. The chained form
+    # `MMapIndexedDataset(...).index.sequence_lengths.astype(...)` segfaults
+    # under concurrent multi-rank load (verified on prob-0.5 + prob-0.9 with
+    # caching disabled): the temporary dataset's mmap can be released mid-cast
+    # when the only reference chain is via memoryview/np.frombuffer.
+    shard_lengths_cache: dict[str, np.ndarray] = {}
+    for shard_id in split_seq["shard"].unique():
+        path_prefix = os.path.join(config.tokenized_data_root, shard_id)
+        ds = MMapIndexedDataset(path_prefix)
+        shard_lengths_cache[shard_id] = ds.index.sequence_lengths.astype(np.int64)
+        del ds
 
-    for _, row in split_seq.iterrows():
-        shard_id = row["shard"]
-        beg = int(row["coll_beg"])
-        end = int(row["coll_end"])
+    shards_arr = split_seq["shard"].values
+    begs_arr = split_seq["coll_beg"].values.astype(np.int64)
+    ends_arr = split_seq["coll_end"].values.astype(np.int64)
+    collection_sizes = (ends_arr - begs_arr).astype(np.int64)
 
-        if shard_id not in shard_cache:
-            path_prefix = os.path.join(config.tokenized_data_root, shard_id)
-            shard_cache[shard_id] = MMapIndexedDataset(path_prefix)
-
-        lengths = shard_cache[shard_id].index.sequence_lengths[beg:end].astype(np.int64)
-        per_collection_lengths.append(lengths)
+    if (collection_sizes == 1).all():
+        # Fast path: every collection is a single document — vectorized fancy indexing per shard
+        all_lengths = np.empty(len(split_seq), dtype=np.int64)
+        for shard_id, shard_seq_lengths in shard_lengths_cache.items():
+            mask = shards_arr == shard_id
+            all_lengths[mask] = shard_seq_lengths[begs_arr[mask]]
+    else:
+        # General path: collections span multiple documents
+        per_collection_lengths = [
+            shard_lengths_cache[row.shard][row.coll_beg : row.coll_end] for row in split_seq.itertuples(index=False)
+        ]
+        all_lengths = np.concatenate(per_collection_lengths)
 
     log_rank_0(logging.INFO, f"  Loaded token lengths for {len(split_seq)} collections ({time.time()-t0:.1f}s)")
 
     # Phase 1: build doc-level prefix sums
 
     # collection_starts[i] = total docs before collection i (used to map global doc index -> collection)
-    collection_sizes = np.array([len(x) for x in per_collection_lengths], dtype=np.int64)
     collection_starts = np.zeros(len(collection_sizes) + 1, dtype=np.int64)
     collection_starts[1:] = np.cumsum(collection_sizes)
 
     # all_lengths[i] = token count of global doc i
     total_docs = int(collection_starts[-1])
-    all_lengths = np.concatenate(per_collection_lengths)  # shape [total_docs]
 
     # Phase 2: build token-level prefix sums
 

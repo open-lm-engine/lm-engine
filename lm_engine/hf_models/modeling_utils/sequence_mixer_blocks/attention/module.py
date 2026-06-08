@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import torch
 import torch.nn.functional as F
@@ -15,7 +16,7 @@ from .....kernels import is_kernel_allowed, wait_for_ACT
 from .....utils import divide_if_divisible, is_torch_xla_available
 from ....cache import GenerationCache, GenerationState, LinearCache
 from ....config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
-from ....parameter import mark_parameter_as_mup_learning_rate
+from ....parameter import mark_parameter_as_mup_learning_rate, set_split_spec
 from ...activations import sigmoid
 from ...chunk import contiguous_split
 from ...dropout import Dropout
@@ -206,6 +207,38 @@ class Attention(DTensorModule):
 
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
+
+        if self.attention_gate:
+            warnings.warn(
+                "MuonHSplit cannot annotate c_attn with a split_spec when attention_gate=True "
+                "(the gate doubles the Q rows, so the [Q|K|V] block structure doesn't hold). "
+                "Both c_attn and c_proj will be treated as unsplit.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            # split_spec row count assumes no attention_gate: c_attn rows = K * (Q/K + 2) * H.
+            # With gate it would be K * (2*Q/K + 2) * H; skip the spec in that case.
+            set_split_spec(
+                self.c_attn.weight,
+                "attention",
+                self.c_attn.weight.shape,
+                B=(self.global_num_heads // self.global_num_key_value_heads) + 2,
+                K=self.global_num_key_value_heads,
+                H=self.head_dim,
+                D=self.global_hidden_size,
+            )
+            # split_spec for c_proj: input cols factor as (H, V=head_dim) — each head h writes
+            # to columns [h*V : (h+1)*V] of c_proj.weight via the concat of per-head outputs.
+            # Layout: (out=D, in=(H V)). col index c = h*V + v. Rows have no head structure.
+            set_split_spec(
+                self.c_proj.weight,
+                "attention_c_proj",
+                self.c_proj.weight.shape,
+                D=self.global_hidden_size,
+                H=self.global_num_heads,
+                V=self.head_dim,
+            )
 
     def forward(
         self,

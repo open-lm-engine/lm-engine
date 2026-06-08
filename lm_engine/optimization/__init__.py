@@ -4,7 +4,7 @@
 
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
 from .lr_scheduler import get_scheduler_container
-from .optimizer import get_optimizer_container
+from .optimizer import get_optimizer_container, log_optimizer_startup_table
 
 
 def get_learning_rate(model_container: ModelContainer, lr_scheduler_container: OptimizerContainer) -> float:

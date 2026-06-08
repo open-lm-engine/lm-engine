@@ -32,7 +32,12 @@ from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
 from .logging_utils import ExperimentsTracker, MetricsTrackingDict, TorchProfiler, log_environment, log_rank_0
 from .model_wrapper import get_model_container
-from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
+from .optimization import (
+    get_learning_rate,
+    get_optimizer_container,
+    get_scheduler_container,
+    log_optimizer_startup_table,
+)
 from .parallel import ProcessGroupManager, broadcast_tensor_parallel_input
 from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
 from .utils import is_torch_xla_available, is_torchao_available, setup_tf32
@@ -88,12 +93,12 @@ def train_step_with_pipeline_parallel(
     else:
         pipeline_schedule.step()
 
-    if gradient_clipping is not None:
-        for model in model_container:
-            if fsdp_algorithm == 1:
-                grad_norm.append(model.clip_grad_norm_(gradient_clipping))
-            else:
-                grad_norm.append(torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping))
+    effective_gradient_clipping = gradient_clipping if gradient_clipping is not None else float("inf")
+    for model in model_container:
+        if fsdp_algorithm == 1:
+            grad_norm.append(model.clip_grad_norm_(effective_gradient_clipping))
+        else:
+            grad_norm.append(torch.nn.utils.clip_grad_norm_(model.parameters(), effective_gradient_clipping))
 
     if is_torchao_available():
         FP8Manager.sync_float8_amax_and_scale_history(model_container)
@@ -107,8 +112,7 @@ def train_step_with_pipeline_parallel(
     metrics_tracker = MetricsTrackingDict({})
 
     with torch.inference_mode():
-        if gradient_clipping is not None:
-            grad_norm = dtensor_to_tensor(sum(grad_norm))
+        grad_norm = dtensor_to_tensor(sum(grad_norm))
 
         torch.distributed.all_reduce(grad_norm, group=ProcessGroupManager.get_pipeline_parallel_group())
 
@@ -204,12 +208,11 @@ def train_step_without_pipeline_parallel(
         with torch.inference_mode():
             metrics_tracker = metrics_tracker + loss_micro_step_dict
 
-        if gradient_clipping is None:
-            grad_norm = None
-        elif fsdp_algorithm == 1:
-            grad_norm = model.clip_grad_norm_(gradient_clipping)
+        effective_gradient_clipping = gradient_clipping if gradient_clipping is not None else float("inf")
+        if fsdp_algorithm == 1:
+            grad_norm = model.clip_grad_norm_(effective_gradient_clipping)
         else:
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), effective_gradient_clipping)
 
         if is_torchao_available():
             FP8Manager.sync_float8_amax_and_scale_history([model])
@@ -225,11 +228,7 @@ def train_step_without_pipeline_parallel(
 
     with torch.inference_mode():
         metrics_tracker = metrics_tracker / gradient_accumulation_steps
-        metrics_tracker["grad_norm"] = (
-            torch.zeros((), device=Accelerator.get_current_device(), dtype=torch.float32)
-            if grad_norm is None
-            else grad_norm
-        )
+        metrics_tracker["grad_norm"] = grad_norm
 
         for key in metrics_tracker:
             metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
@@ -314,6 +313,7 @@ def train(
     eval_interval = args.training_parameters.eval_interval
     save_interval = args.save_args.save_interval
     log_interval = args.logging_args.log_interval
+    log_parameter_and_gradient_interval = args.logging_args.log_parameter_and_gradient_interval
 
     tuning_method = args.tuning_args.tuning_method
 
@@ -440,6 +440,17 @@ def train(
             metrics_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
             metrics_tracker["step_time (sec)"] = step_time
             metrics_tracker["tokens"] = global_step_in_tokens
+
+            if (
+                log_parameter_and_gradient_interval is not None
+                and global_step % log_parameter_and_gradient_interval == 0
+            ):
+                track_parameter_and_gradient_info(
+                    model_container=model_container,
+                    metrics_tracker=metrics_tracker,
+                    gradient_clipping=gradient_clipping,
+                    gradient_norm=(loss_step_dict["grad_norm"] if "grad_norm" in loss_step_dict else None),
+                )
 
             track_metrics(
                 global_step=global_step,
@@ -745,6 +756,9 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         log_rank_0(logging.INFO, model)
         log_rank_0(logging.INFO, optimizer)
     log_rank_0(logging.INFO, "-------------------- end of model & optimizer list ---------------------")
+
+    # Emit the optimizer routing table now (after wandb.init) so it lands in the wandb run logs.
+    log_optimizer_startup_table(optimizer_container)
 
     # main training loop
     with disable_generation_cache(), enable_kernels(args.kernel_args.kernels):

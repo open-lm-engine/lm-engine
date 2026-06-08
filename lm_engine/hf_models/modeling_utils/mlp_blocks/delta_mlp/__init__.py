@@ -16,7 +16,12 @@ from einops import rearrange, reduce
 from .....parallel import ProcessGroupManager
 from .....utils import divide_if_divisible, is_fla_available
 from ....cache import ConstantCache, GenerationCache, GenerationState
-from ....parameter import mark_parameter_as_mup_learning_rate
+from ....parameter import (
+    mark_parameter_as_initialized,
+    mark_parameter_as_mup_learning_rate,
+    mark_parameter_as_per_row_hyperball,
+    set_split_spec,
+)
 from ...activations import get_activation_function
 from ...decay_gate import SoftplusDecayGate
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
@@ -68,6 +73,8 @@ class DeltaMLP(nn.Module):
         use_depth_scaled_init: bool,
         value_scale: float | None,
         use_v_silu: bool,
+        use_v_norm: bool,
+        use_b_proj_per_row_hyperball: bool = False,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> None:
@@ -91,6 +98,7 @@ class DeltaMLP(nn.Module):
 
         self.use_v_silu = use_v_silu
         self.use_v_proj = use_v_proj
+        self.use_v_norm = use_v_norm
         self.use_q_l2norm = use_q_l2norm
         self.use_shortconv = use_shortconv
         self.use_tied_beta = use_tied_beta
@@ -241,9 +249,53 @@ class DeltaMLP(nn.Module):
             mark_parameter_as_mup_learning_rate(self.v_proj.low_rank_proj.weight)
             mark_parameter_as_mup_learning_rate(self.v_proj.high_rank_proj.weight)
         mark_parameter_as_mup_learning_rate(self.b_proj.weight)
+        # Optional: route b_proj through per-row L2 + per-row hyperball (one head per row),
+        # same path as kv_conv1d. Off by default; turned on via use_b_proj_per_row_hyperball.
+        if use_b_proj_per_row_hyperball:
+            mark_parameter_as_per_row_hyperball(self.b_proj.weight)
         mark_parameter_as_mup_learning_rate(self.initial_state.weight)
         if self.use_shortconv:
             mark_parameter_as_mup_learning_rate(self.kv_conv1d.weight)
+            # conv kernel: one row per output channel, each normed + hyperball-projected per row
+            mark_parameter_as_per_row_hyperball(self.kv_conv1d.weight)
+
+        # split_spec for q_proj: rows = [up_q | gate_q] non-interleaved, each I=key_dim rows.
+        # Within each half, rows further factor as (H, K_head) for per-head decomposition.
+        # row r = b*I + h*K + k with b∈{0=up,1=gate}, h∈[0,H), k∈[0,K).
+        # Assumes non-interleaved swiglu layout (asserted at top of __init__).
+        assert self.q_proj.weight.shape[0] == 2 * self.key_dim
+        set_split_spec(
+            self.q_proj.weight,
+            "deltamlp_q",
+            self.q_proj.weight.shape,
+            B=2,
+            H=self.num_k_heads,
+            K=self.k_head_dim,
+            D=hidden_size,
+        )
+        # split_spec for k_proj.high_rank_proj: out=key_dim factors as (H, K_head).
+        # row r = h*K + k. Cols are just rank dim R.
+        assert self.k_proj.high_rank_proj.weight.shape == (self.key_dim, num_ranks)
+        set_split_spec(
+            self.k_proj.high_rank_proj.weight,
+            "deltamlp_k_high",
+            self.k_proj.high_rank_proj.weight.shape,
+            H=self.num_k_heads,
+            K=self.k_head_dim,
+            R=num_ranks,
+        )
+        # split_spec for initial_state: in=key_dim factors as (H, K_head) in the col dim,
+        # rows are v_head_dim. Matches the model's own rearrange "v (h k) -> 1 h k v".
+        assert self.initial_state.weight.shape == (self.v_head_dim, self.key_dim)
+        set_split_spec(
+            self.initial_state.weight,
+            "deltamlp_initial_state",
+            self.initial_state.weight.shape,
+            V=self.v_head_dim,
+            H=self.num_k_heads,
+            K=self.k_head_dim,
+        )
+        self.reset_parameters()
 
     def forward(
         self,
@@ -425,3 +477,10 @@ class DeltaMLP(nn.Module):
             o = self.o_norm(o)
 
         return o
+
+    @torch.no_grad()
+    def reset_parameters(self) -> None:
+        if self.use_v_norm:
+            # [TODO] this is a footgun if we use efficient initialization
+            nn.init.constant_(self.v_norm.weight, val=self.value_scale)
+            mark_parameter_as_initialized(self.v_norm.weight)
