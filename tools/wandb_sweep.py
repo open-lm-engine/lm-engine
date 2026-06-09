@@ -80,6 +80,7 @@ def _run_as_agent(args) -> None:
     # Prefer Slurm env vars (we're inside the job allocation)
     num_nodes = int(os.environ.get("SLURM_JOB_NUM_NODES", args.num_nodes))
     gpus_per_node = int(os.environ.get("SLURM_GPUS_PER_NODE", args.gpus_per_node))
+    tmpdir = os.environ.get("TMPDIR", "")
 
     def train_fn():
         # Standard wandb.init() inside the agent — this associates the run
@@ -125,6 +126,7 @@ def _run_as_agent(args) -> None:
                 "TOKENIZERS_PARALLELISM": "false",
                 "TRITON_PRINT_AUTOTUNING": "1",
                 "PYTHONFAULTHANDLER": "1",
+                "TMPDIR": tmpdir,
             }
         )
         if entity:
