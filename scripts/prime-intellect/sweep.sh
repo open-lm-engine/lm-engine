@@ -1,12 +1,11 @@
+export TMPDIR=tmp
+
 python tools/wandb_sweep.py \
-    --config configs/my_config.yaml \
-    --sweep scripts/prime-intellect/sweep.yaml \
-    --slurm_logs_dir /shared/slurm_logs/my-sweep \
-    --count 20 \
-    --max_concurrent 4 \
+    --config configs/base.yml \
+    --sweep configs/sweep.yml \
+    --slurm_logs_dir sweep \
+    --count 100 \
+    --max_concurrent 8 \
     --num_nodes 1 \
     --gpus_per_node 8 \
-    --account research \
-    --time 12:00:00 \
-    --project my_project \
-    --entity my_entity
+    --project mayank-sweep
