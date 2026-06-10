@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ from transformers import StoppingCriteriaList
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
+from ....parallel import ProcessGroupManager
+from ....utils import SafeTensorsWeightsManager, divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import (
@@ -144,6 +145,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                         lm_logits = lm_logits * (1 / self.m_width)
             else:
                 assert not self.is_pipeline_parallel_enabled
+                assert not ProcessGroupManager.is_context_parallel_enabled()
                 assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
                 lm_logits = self.get_lm_logits(hidden_states)

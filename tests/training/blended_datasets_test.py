@@ -1,12 +1,12 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from copy import deepcopy
 
 from transformers import AutoTokenizer
 
-from lm_engine.data import BlendedDatasets, get_datasets_list
+from lm_engine.data.finetuning import BlendedDatasets, get_datasets_list
 from lm_engine.enums import DatasetSplit
 
 from .utils import load_training_args_for_unit_tests

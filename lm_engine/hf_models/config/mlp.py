@@ -1,10 +1,10 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from typing import Any
 
-from ...utils import BaseArgs
+from ...arguments import BaseArgs
 
 
 class _MLPArgs(BaseArgs):

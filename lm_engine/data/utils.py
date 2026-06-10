@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import math
@@ -7,9 +7,9 @@ from typing import Iterable
 
 import torch
 
+from ..accelerator import Accelerator
 from ..enums import LossMask
 from ..hf_models import convert_padding_free_lists_to_tensors
-from ..utils import Accelerator
 
 
 def collate_fn(

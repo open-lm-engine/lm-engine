@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import os
@@ -26,12 +26,14 @@ elif _ENABLE_KERNELS:
 def enable_kernels_from_env_variable() -> None:
     global _KERNELS
 
-    kernels = os.getenv("ENABLE_KERNELS", "").split(",")
-    if kernels == [""]:
+    kernel_names = os.getenv("ENABLE_KERNELS", "").split(",")
+    if kernel_names == [""]:
         return
 
+    kernels = [Kernel(kernel.strip()) for kernel in kernel_names]
+    Kernel.validate_enabled(kernels)
+
     for kernel in kernels:
-        kernel = Kernel(kernel.strip())
         _KERNELS[kernel] = True
 
 

@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ import math
 import torch
 import torch.nn as nn
 
+from ....parallel import prepare_context_parallel_input
 from ...parameter import mark_parameter_as_initialized
 
 
@@ -23,37 +24,40 @@ class RoPE(nn.Module):
 
         self.reset_parameters()
 
-    def forward(self, seq_len: int, dtype: torch.dtype) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, seq_len: int) -> tuple[torch.Tensor, torch.Tensor]:
         if seq_len > self.max_seq_len_cached:
-            self._set_cos_sin_cache(seq_len=seq_len, dtype=dtype)
+            self._set_cos_sin_cache(seq_len)
 
-        cos = self.cos_cached[:seq_len].to(dtype)
-        sin = self.sin_cached[:seq_len].to(dtype)
+        cos = self.cos_cached[:seq_len]
+        sin = self.sin_cached[:seq_len]
 
         return cos, sin
 
     def reset_parameters(self) -> None:
-        self._set_cos_sin_cache(seq_len=self.max_position_embeddings, dtype=torch.float32)
-
-        mark_parameter_as_initialized(self.cos_cached)
-        mark_parameter_as_initialized(self.sin_cached)
+        self._set_cos_sin_cache(seq_len=self.max_position_embeddings)
 
     @torch.no_grad()
-    def _set_cos_sin_cache(self, seq_len: int, dtype: torch.dtype) -> None:
+    def _set_cos_sin_cache(self, seq_len: int) -> None:
         self.max_seq_len_cached = seq_len
 
-        inv_freq = self._get_inv_freq()
         t = torch.arange(self.max_seq_len_cached, dtype=torch.float32)
-
-        freqs = torch.outer(t, inv_freq)
+        freqs = torch.outer(t, self._get_inv_freq())
 
         # Different from paper, but it uses a different permutation in order to obtain the same calculation
         emb = torch.cat((freqs, freqs), dim=-1)
 
         device = self.cos_cached.device if hasattr(self, "cos_cached") else None
 
-        self.register_buffer("cos_cached", (emb.cos() * self.mscale).to(device=device, dtype=dtype), persistent=False)
-        self.register_buffer("sin_cached", (emb.sin() * self.mscale).to(device=device, dtype=dtype), persistent=False)
+        self.register_buffer(
+            "cos_cached", (emb.cos() * self.mscale).to(device=device, dtype=torch.float32), persistent=False
+        )
+
+        self.register_buffer(
+            "sin_cached", (emb.sin() * self.mscale).to(device=device, dtype=torch.float32), persistent=False
+        )
+
+        mark_parameter_as_initialized(self.cos_cached)
+        mark_parameter_as_initialized(self.sin_cached)
 
     def _get_inv_freq(self) -> torch.Tensor:
         return 1.0 / (self.base ** (torch.arange(0, self.head_dim, 2, dtype=torch.float32) * (1 / self.head_dim)))
@@ -107,23 +111,29 @@ class YaRNScaledRoPE(RoPE):
 
 def apply_rotary_pos_emb(x: torch.Tensor, cos_sin: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
     cos, sin = cos_sin
+    original_dtype = x.dtype
 
     head_dim = x.size(-1)
     rope_dim = cos.size(-1)
+
+    assert rope_dim <= head_dim
 
     cos = cos[..., None, :]
     sin = sin[..., None, :]
 
     if head_dim == rope_dim:
-        x = (x * cos) + (_rotate_half(x) * sin)
-    elif rope_dim < head_dim:
-        x_nope, x_rope = x.split((head_dim - rope_dim, rope_dim), dim=-1)
-        x_rope = (x_rope * cos) + (_rotate_half(x_rope) * sin)
-        x = torch.cat([x_nope, x_rope], dim=-1)
+        x_rope = x
     else:
-        raise ValueError("rope_dim should be less than head_dim")
+        x_nope, x_rope = x.split((head_dim - rope_dim, rope_dim), dim=-1)
 
-    return x
+    x_rope = (x_rope.float() * cos) + (_rotate_half(x_rope).float() * sin)
+
+    if head_dim == rope_dim:
+        x = x_rope
+    else:
+        x = torch.cat([x_nope, x_rope], dim=-1)
+
+    return x.to(original_dtype)
 
 
 def _rotate_half(x: torch.Tensor) -> torch.Tensor:

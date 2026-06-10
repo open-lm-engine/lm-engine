@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import json
@@ -13,7 +13,7 @@ from lm_engine.enums import ParamsGroupMethod
 from lm_engine.hf_models import get_parameter_marker_maps, set_parameter_marker_maps
 from lm_engine.model_wrapper import get_model_container
 from lm_engine.optimization.params_group import get_param_groups_list
-from lm_engine.utils import ProcessGroupManager
+from lm_engine.parallel import ProcessGroupManager
 
 from ..utils import load_training_args_for_unit_tests
 

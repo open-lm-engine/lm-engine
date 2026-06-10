@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import itertools
@@ -7,9 +7,10 @@ import itertools
 import pytest
 import torch
 
+from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, set_seed
+from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, is_quack_available
 
 from ...utils import (
     assert_equal_tensors,
@@ -21,6 +22,46 @@ from ...utils import (
 
 
 SEED = 1234
+
+
+@pytest.mark.parametrize("device", [torch.device("cuda")])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
+def test_quack_gemm_model_equivalence(device: torch.device, dtype: torch.dtype) -> None:
+    skip_test_if_device_unavailable(device)
+
+    if not is_quack_available():
+        pytest.skip("skipping test because quack-kernels is unavailable")
+
+    Accelerator.set_seed(SEED)
+
+    input_ids, attention_mask, labels = get_dummy_inputs(device)
+    config = get_dense_test_config("rope", num_layers=1)
+
+    model = from_config(config, dtype=dtype).to(device)
+    model.eval()
+
+    expected_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    expected_logits = expected_output.logits
+    expected_loss = expected_output.loss
+
+    with enable_kernels([Kernel.quack_gemm]):
+        quack_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        quack_logits = quack_output.logits
+        quack_loss = quack_output.loss
+
+    expected_logits[attention_mask == 0] = 0
+    quack_logits[attention_mask == 0] = 0
+
+    assert_equal_tensors(
+        expected_logits[attention_mask == 1],
+        quack_logits[attention_mask == 1],
+        False,
+        rtol_float16=5e-3,
+        atol_float16=5e-3,
+        rtol_bfloat16=5e-3,
+        atol_bfloat16=5e-3,
+    )
+    assert_equal_tensors(expected_loss, quack_loss, False, atol_float32=1e-3, rtol_float32=0)
 
 
 @pytest.mark.parametrize("device", [torch.device("cuda")])
@@ -40,7 +81,7 @@ def test_sdpa_padding_free_transformer_equivalence(
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     config = get_dense_test_config(position_embedding_type, num_layers=1)
 
@@ -95,7 +136,7 @@ def test_sdpa_flash_attention_equivalence(
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     input_ids, attention_mask, labels = get_dummy_inputs(device)
     config = get_dense_test_config(position_embedding_type, num_layers=1)
@@ -146,7 +187,7 @@ def test_padding_free_transformer_with_list_and_tensor(
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     config = get_dense_test_config(position_embedding_type, num_layers=1)
 
@@ -186,7 +227,7 @@ def test_padding_free_transformer_with_list_and_tensor(
 def test_sdpa_flash_enabled(device: torch.device, position_embedding_type: str, dtype: torch.dtype) -> None:
     skip_test_if_device_unavailable(device)
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     config = get_dense_test_config(position_embedding_type, num_layers=1)
 
@@ -234,7 +275,7 @@ def test_flash_attention_equivalence_with_and_without_attention_masks(
     if kernel is None:
         pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
 
-    set_seed(SEED)
+    Accelerator.set_seed(SEED)
 
     input_ids, _, labels = get_dummy_inputs(device)
     config = get_dense_test_config(position_embedding_type, num_layers=1)

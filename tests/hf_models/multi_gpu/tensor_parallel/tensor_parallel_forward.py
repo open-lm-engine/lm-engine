@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import argparse
@@ -9,16 +9,12 @@ import torch
 import torch.distributed
 from transformers import AutoModelForCausalLM
 
+from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.hf_models import GPTBaseConfig
 from lm_engine.kernels import enable_kernels
-from lm_engine.utils import (
-    Communication,
-    ProcessGroupManager,
-    SafeTensorsWeightsManager,
-    set_seed,
-    string_to_torch_dtype,
-)
+from lm_engine.parallel import ProcessGroupManager
+from lm_engine.utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
 from ....utils import from_config
 
@@ -32,7 +28,7 @@ parser.add_argument("--use-padding-free-transformer", action="store_true")
 parser.add_argument("--sequence-parallel", action="store_true")
 args = parser.parse_args()
 
-set_seed(42)
+Accelerator.set_seed(42)
 
 ProcessGroupManager(tensor_parallel_world_size=int(os.getenv("WORLD_SIZE")))
 
@@ -85,7 +81,7 @@ with enable_kernels(kernels):
         model.save_pretrained(args.tmp_path, safe_serialization=True)
         model = model.to(dtype)
 
-    Communication.barrier()
+    ProcessGroupManager.barrier()
 
     # use dummy tensors to avoid initializing model here
     with torch.device("meta"):
@@ -108,7 +104,7 @@ with enable_kernels(kernels):
     model_tp = model_tp.to(dtype)
     model_tp.eval()
 
-    set_seed(42)
+    Accelerator.set_seed(42)
 
     batch_size = 4
     sequence_length = 512

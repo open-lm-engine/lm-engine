@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -8,9 +8,6 @@ import os
 import types
 
 from torch.utils.cpp_extension import load
-
-from .communication import Communication
-from .parallel import ProcessGroupManager
 
 
 def compile_cpp_extension(
@@ -27,10 +24,12 @@ def compile_cpp_extension(
         return load(name, sources=sources, extra_cflags=extra_cflags, build_directory=build_directory, verbose=verbose)
 
     if distributed:
+        from ..parallel import ProcessGroupManager
+
         if ProcessGroupManager.get_global_rank() == 0:
             module = _compile()
 
-        Communication.barrier()
+        ProcessGroupManager.barrier()
 
         if ProcessGroupManager.get_global_rank() != 0:
             module = _compile()

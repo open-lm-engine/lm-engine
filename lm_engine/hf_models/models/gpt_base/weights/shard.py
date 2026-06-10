@@ -1,10 +1,11 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import torch
 
-from .....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
+from .....parallel import ProcessGroupManager
+from .....utils import SafeTensorsWeightsManager, divide_if_divisible
 from ....modeling_utils import get_tensor_parallel_vocab_info, is_glu, tensor_parallel_split_safetensor_slice
 from ...gpt_base import GPTBaseConfig
 

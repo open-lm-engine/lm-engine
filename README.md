@@ -1,5 +1,5 @@
 <!-- **************************************************
-Copyright (c) 2025, Mayank Mishra
+Copyright (c) 2026, Mayank Mishra
 ************************************************** -->
 
 <h1 align="center">LM Engine</h1>
@@ -28,7 +28,7 @@ Copyright (c) 2025, Mayank Mishra
 - 🔧 **Flexible Model Architectures** — Transformer variants, MoE, Mamba2, RNNs, and hybrid architectures
 - 📦 **HuggingFace Integration** — Seamless import/export with the HuggingFace ecosystem
 - 🎯 **Training Modes** — Pretraining from scratch, full finetuning, and knowledge distillation
-- 🔥 **Custom Kernels** — High-performance Triton, CUDA, and Pallas kernels via [XMA](./accelerated-model-architectures/)
+- 🔥 **Custom Kernels** — High-performance Triton, CUDA, and Pallas kernels via [XMA](./submodules/accelerated-model-architectures/)
 - 📊 **Experiment Tracking** — Native Weights & Biases and Aim integration
 - 💾 **Efficient Checkpointing** — Async checkpointing with full state resumability
 
@@ -81,15 +81,15 @@ Launch training using a sample pretraining config in [configs folder](configs/).
 
 ```bash
 # Single GPU
-python -m lm_engine.pretrain --config config.yml
+python -m lm_engine.train --config config.yml
 
 # Multi-GPU with torchrun
-torchrun --nproc_per_node=8 -m lm_engine.pretrain --config config.yml
+torchrun --nproc_per_node=8 -m lm_engine.train --config config.yml
 
 # Multi-node
 torchrun --nnodes=2 --nproc_per_node=8 --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
-    -m lm_engine.pretrain --config config.yml
+    -m lm_engine.train --config config.yml
 ```
 
 ---

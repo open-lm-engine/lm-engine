@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -13,7 +13,9 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from ..enums import Kernel, KLDivergenceMethod
 from ..hf_models import CausalLMOutputWithPast, PipelineParallelOutput, get_autoregressive_language_modeling_loss
 from ..kernels import is_kernel_allowed
-from ..utils import ProcessGroupManager, log_rank_0, string_to_torch_dtype
+from ..logging_utils import log_rank_0
+from ..parallel import ProcessGroupManager
+from ..utils import string_to_torch_dtype
 from .pretraining import ModelWrapperForPretraining
 
 

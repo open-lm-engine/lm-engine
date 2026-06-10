@@ -1,8 +1,10 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
+
+from functools import partial
 
 import torch
 import torch.nn as nn
@@ -12,14 +14,17 @@ from torch.distributed._tensor.placement_types import Replicate
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed, wait_for_ACT
-from ...utils import is_xma_available
+from ...utils import is_quack_available, is_xma_available
 from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 
 
 if is_xma_available():
-    from xma import rmsnorm
+    from xma import rmsnorm as xma_rmsnorm
+
+if is_quack_available():
+    from quack.rmsnorm import rmsnorm as quack_rmsnorm
 
 
 class LayerNorm(nn.LayerNorm, DTensorModule):
@@ -80,20 +85,35 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
 
         self.reset_parameters()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.is_tp_enabled:
-            x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=self.placement)
+    def _get_rms_norm(self):
+        if is_kernel_allowed(Kernel.quack_rmsnorm):
+            assert is_quack_available(), "quack-kernels is not installed"
+            assert not self.is_tp_enabled, "quack_rmsnorm does not support tensor parallel yet"
+
+            return partial(quack_rmsnorm, weight=self.weight, eps=self.eps)
 
         if is_kernel_allowed(Kernel.rmsnorm) or is_kernel_allowed(Kernel.rmsnorm_memory_efficient):
-            x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+            assert is_xma_available(), "accelerated-model-architectures is not installed"
+            assert not self.is_tp_enabled, "XMA RMSNorm does not support tensor parallel yet"
 
-            x = rmsnorm(
-                x=x,
+            return partial(
+                xma_rmsnorm,
                 weight=self.weight,
                 eps=self.eps,
                 memory_efficient=is_kernel_allowed(Kernel.rmsnorm_memory_efficient),
             )
 
+        return None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        rms_norm = self._get_rms_norm()
+
+        if self.is_tp_enabled:
+            x = tensor_to_dtensor(x, device_mesh=self.tp_mesh, current_placement=self.placement)
+
+        if rms_norm is not None:
+            x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+            x = rms_norm(x=x)
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             x = super().forward(x)

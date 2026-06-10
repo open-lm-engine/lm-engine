@@ -1,5 +1,5 @@
 <!-- **************************************************
-Copyright (c) 2025, Mayank Mishra
+Copyright (c) 2026, Mayank Mishra
 ************************************************** -->
 
 # Job management on a Kubernetes cluster

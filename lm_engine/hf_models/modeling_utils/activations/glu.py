@@ -1,15 +1,15 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
+from ....accelerator import Accelerator
 from ....kernels import Kernel, is_kernel_allowed, wait_for_ACT
-from ....utils import Accelerator, is_xma_available
+from ....utils import is_xma_available
 from ..chunk import contiguous_chunk
 from .base import get_base_activation
 

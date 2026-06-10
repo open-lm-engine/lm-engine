@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -9,13 +9,22 @@ from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
+from torch.distributed.tensor import Replicate
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
+from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
-from ..hf_models import is_custom_model
+from ..hf_models import (
+    CausalLMOutputWithPast,
+    get_autoregressive_language_modeling_loss,
+    is_aux_loss_zero,
+    is_custom_model,
+)
 from ..kernels import is_kernel_allowed
+from ..logging_utils import log_rank_0
+from ..parallel import ProcessGroupManager
 from ..tokenizers import get_tokenizer
-from ..utils import ProcessGroupManager, SafeTensorsWeightsManager, log_rank_0, string_to_torch_dtype
+from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
 
 class ModelWrapper(nn.Module):
@@ -98,6 +107,49 @@ class ModelWrapper(nn.Module):
 
             if len(self.tokenizer) != original_vocab_size:
                 self.model.resize_token_embeddings(len(self.tokenizer))
+
+    def get_loss(
+        self,
+        model_outputs: CausalLMOutputWithPast,
+        labels: torch.Tensor,
+        shift_logits_and_labels: bool,
+        cu_seqlens: torch.Tensor | None = None,
+        lm_loss_multiplier: float = 1,
+    ) -> dict[str, torch.Tensor]:
+        tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
+        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
+
+        lm_loss = get_autoregressive_language_modeling_loss(
+            lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
+            labels=labels,
+            hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
+            vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
+            cu_seqlens=cu_seqlens,
+            use_padding_free_transformer=self.use_padding_free_transformer,
+            reduction="sum",
+            shift_logits_and_labels=shift_logits_and_labels,
+            tensor_parallel_enabled=tensor_parallel_enabled,
+        )
+
+        lm_loss = lm_loss * lm_loss_multiplier
+        aux_loss = getattr(model_outputs, "aux_loss", 0)
+
+        if is_aux_loss_zero(aux_loss):
+            output = {"loss": lm_loss, "lm_loss": lm_loss}
+        else:
+            if self.is_pipeline_parallel_enabled:
+                self._extra_metrics = self._extra_metrics + {"aux_loss": aux_loss}
+
+            if tensor_parallel_enabled:
+                aux_loss = tensor_to_dtensor(aux_loss, device_mesh=self.tp_mesh, current_placement=Replicate())
+
+            output = {
+                "loss": _F.apply(lm_loss, aux_loss, self.router_aux_loss_coef),
+                "lm_loss": lm_loss,
+                "aux_loss": aux_loss,
+            }
+
+        return output
 
     def save_pretrained(self, save_path: str, state_dict: dict | None = None) -> None:
         self.tokenizer.save_pretrained(save_path, legacy_format=False)
@@ -250,3 +302,15 @@ def _remove_first_occurance(string: str, substring: str) -> str:
         string = string[len(substring) :]
 
     return string
+
+
+class _F(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, lm_loss: torch.Tensor, aux_loss: torch.Tensor, router_aux_loss_coef: float) -> torch.Tensor:
+        ctx.router_aux_loss_coef = router_aux_loss_coef
+        return lm_loss + router_aux_loss_coef * aux_loss
+
+    @staticmethod
+    @torch._dynamo.disable
+    def backward(ctx, grad_output: torch.Tensor) -> tuple[torch.Tensor | None]:
+        return grad_output, ctx.router_aux_loss_coef * grad_output, None
