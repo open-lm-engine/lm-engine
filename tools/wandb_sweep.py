@@ -24,8 +24,9 @@ Two modes:
        python scripts/wandb_sweep.py --sweep_id <id> --count 5 ...
 
 2. Agent mode (--agent) — run automatically inside each Slurm job:
-   Calls wandb.agent() to pick one trial, merges sweep params into the
-   base config, writes a temp YAML, and launches srun torchrun.
+   Registers with the sweep server via direct HTTP (no wandb service socket),
+   fetches the trial's hyperparameters, merges them into the base config,
+   writes a temp YAML, and launches srun torchrun.
 
    python scripts/wandb_sweep.py --agent \\
        --sweep_id <id> --config base.yaml --slurm_logs_dir /shared/...
@@ -47,12 +48,14 @@ Sweep YAML (standard W&B format; dot-notation keys map into nested config fields
 
 import argparse
 import copy
+import json
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+import requests
 import wandb
 import yaml
 
@@ -70,6 +73,89 @@ def _load_yaml(path: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# W&B sweep API — direct HTTP GraphQL (no wandb service socket required)
+#
+# wandb.agent() routes all API calls through a local service daemon socket.
+# On HPC clusters the socket is created on the login node; compute nodes
+# inherit the socket path via SLURM env vars but can't reach it, causing
+# WandbServiceConnectionError.  These helpers talk to the W&B API directly
+# over HTTPS, bypassing the service entirely.
+# ---------------------------------------------------------------------------
+
+_REGISTER_AGENT_MUTATION = """
+mutation CreateAgent($input: CreateAgentInput!) {
+    createAgent(input: $input) {
+        agent { id }
+    }
+}
+"""
+
+_AGENT_HEARTBEAT_MUTATION = """
+mutation AgentHeartbeat($id: ID!, $metrics: JSONString, $runState: JSONString) {
+    agentHeartbeat(input: {id: $id, metrics: $metrics, runState: $runState}) {
+        commands
+    }
+}
+"""
+
+
+def _wandb_graphql(api_key: str, query: str, variables: dict) -> dict:
+    base_url = os.environ.get("WANDB_BASE_URL", "https://api.wandb.ai")
+    resp = requests.post(
+        f"{base_url}/graphql",
+        auth=(api_key, api_key),
+        json={"query": query, "variables": variables},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    if errors := payload.get("errors"):
+        raise RuntimeError(f"W&B API error: {errors}")
+    return payload["data"]
+
+
+def _sweep_register_agent(api_key: str, entity: str | None, project: str | None, sweep_id: str) -> str:
+    import socket as _socket
+
+    data = _wandb_graphql(
+        api_key,
+        _REGISTER_AGENT_MUTATION,
+        {
+            "input": {
+                "host": _socket.gethostname(),
+                "sweep": sweep_id,
+                "projectName": project,
+                "entityName": entity,
+            }
+        },
+    )
+    return data["createAgent"]["agent"]["id"]
+
+
+def _sweep_next_run(api_key: str, agent_id: str, max_polls: int = 30) -> tuple[str | None, dict]:
+    """Poll sweep server; returns (run_id, {param: value}) or (None, {}) when done."""
+    for _ in range(max_polls):
+        data = _wandb_graphql(
+            api_key,
+            _AGENT_HEARTBEAT_MUTATION,
+            {"id": agent_id, "metrics": json.dumps({}), "runState": json.dumps({})},
+        )
+        commands_str = data["agentHeartbeat"]["commands"]
+        commands: list[dict] = json.loads(commands_str) if commands_str else []
+        for cmd in commands:
+            if cmd.get("type") == "run":
+                run_id = cmd.get("run_id") or cmd.get("runId")
+                raw_args: dict = cmd.get("args", {})
+                # W&B encodes each param as {"value": v}; unwrap if present.
+                params = {k: v["value"] if isinstance(v, dict) and "value" in v else v for k, v in raw_args.items()}
+                return run_id, params
+            if cmd.get("type") in ("stop", "exit"):
+                return None, {}
+        time.sleep(2)
+    return None, {}
+
+
+# ---------------------------------------------------------------------------
 # Agent mode — runs inside each Slurm job
 # ---------------------------------------------------------------------------
 
@@ -82,87 +168,113 @@ def _run_as_agent(args) -> None:
     gpus_per_node = int(os.environ.get("SLURM_GPUS_PER_NODE", args.gpus_per_node))
     tmpdir = os.environ.get("TMPDIR", "")
 
-    def train_fn():
-        # Standard wandb.init() inside the agent — this associates the run
-        # with the sweep and loads wandb.config with the trial's parameters.
-        run = wandb.init()
-        sweep_params = dict(wandb.config)
-        run_id = run.id
-        project = run.project
-        entity = run.entity
-        # Finish the driver-side connection; the training subprocess will
-        # resume this run via WANDB_RUN_ID + WANDB_RESUME=allow.
-        wandb.finish()
+    base_wandb_cfg = base_config.get("logging_args", {}).get("wandb_args") or {}
+    entity = args.entity or base_wandb_cfg.get("entity")
+    project = args.project or base_wandb_cfg.get("project")
 
-        config = copy.deepcopy(base_config)
-        for dotpath, value in sweep_params.items():
-            _deep_set(config, dotpath, value)
+    api_key = os.environ.get("WANDB_API_KEY")
+    if not api_key:
+        raise RuntimeError("WANDB_API_KEY environment variable is not set")
 
-        # Make run name reflect the trial's parameters
-        wandb_cfg = config.get("logging_args", {}).get("wandb_args")
-        if wandb_cfg is not None:
-            base_name = wandb_cfg.get("name", "run")
-            suffix = "_".join(f"{k.split('.')[-1]}={v}" for k, v in sweep_params.items())
-            wandb_cfg["name"] = f"{base_name}_{suffix}"[:128]
+    # Register agent and fetch next run config via direct HTTP (no service socket).
+    agent_id = _sweep_register_agent(api_key, entity, project, args.sweep_id)
+    run_id, sweep_params = _sweep_next_run(api_key, agent_id)
 
-        config_dir = Path(args.slurm_logs_dir) / "configs"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        temp_config = str(config_dir / f"sweep-{run_id}.yaml")
-        with open(temp_config, "w") as f:
-            yaml.dump(config, f, default_flow_style=False)
+    if run_id is None:
+        print("Sweep is done or no run was assigned; exiting.")
+        return
 
-        cpus_per_task = int(os.environ.get("SLURM_CPUS_PER_TASK", gpus_per_node * 8))
-        env = os.environ.copy()
-        env.update(
-            {
-                "WANDB_RUN_ID": run_id,
-                "WANDB_RESUME": "allow",
-                "WANDB_PROJECT": project,
-                "OMP_NUM_THREADS": str(cpus_per_task // gpus_per_node),
-                "MKL_NUM_THREADS": str(cpus_per_task // gpus_per_node),
-                "OPENBLAS_NUM_THREADS": str(cpus_per_task // gpus_per_node),
-                "NCCL_DEBUG": "WARN",
-                "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1",
-                "TOKENIZERS_PARALLELISM": "false",
-                "TRITON_PRINT_AUTOTUNING": "1",
-                "PYTHONFAULTHANDLER": "1",
-                "TMPDIR": tmpdir,
-            }
+    config = copy.deepcopy(base_config)
+    for dotpath, value in sweep_params.items():
+        _deep_set(config, dotpath, value)
+
+    # Let wandb assign its default auto-generated name for each sweep trial.
+    wandb_cfg = config.get("logging_args", {}).get("wandb_args")
+    if wandb_cfg is not None:
+        wandb_cfg.pop("name", None)
+
+    config_dir = Path(args.slurm_logs_dir) / "configs"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    temp_config = str(config_dir / f"sweep-{run_id}.yaml")
+    with open(temp_config, "w") as f:
+        yaml.dump(config, f, default_flow_style=False)
+
+    # SLURM_CPUS_PER_TASK and SLURM_TRES_PER_TASK can conflict when both are
+    # set (srun treats it as a fatal error).  Derive cpus_per_task from TRES
+    # first; fall back to SLURM_CPUS_PER_TASK only when TRES is absent.
+    def _parse_tres_cpus(tres: str) -> int | None:
+        for part in tres.split(","):
+            if part.startswith("cpu="):
+                return int(part.split("=", 1)[1])
+        return None
+
+    tres = os.environ.get("SLURM_TRES_PER_TASK", "")
+    cpus_per_task = _parse_tres_cpus(tres) or int(os.environ.get("SLURM_CPUS_PER_TASK", gpus_per_node * 8))
+
+    env = os.environ.copy()
+    env.pop("SLURM_CPUS_PER_TASK", None)  # let srun derive from SLURM_TRES_PER_TASK
+    # Scrub any wandb service socket vars inherited from the login node via SLURM.
+    # If present they point to a socket that doesn't exist on compute nodes, causing
+    # WandbServiceConnectionError even when WANDB__DISABLE_SERVICE=true is set.
+    for _var in [k for k in env if k.startswith("WANDB_SERVICE") or k == "_WANDB_STARTUP_DEBUG"]:
+        env.pop(_var)
+    env.update(
+        {
+            "WANDB_RUN_ID": run_id,
+            "WANDB_RESUME": "allow",
+            "WANDB_SWEEP_ID": args.sweep_id,
+            # "WANDB__DISABLE_SERVICE": "true",
+            "OMP_NUM_THREADS": str(cpus_per_task // gpus_per_node),
+            "MKL_NUM_THREADS": str(cpus_per_task // gpus_per_node),
+            "OPENBLAS_NUM_THREADS": str(cpus_per_task // gpus_per_node),
+            "NCCL_DEBUG": "WARN",
+            "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1",
+            "TOKENIZERS_PARALLELISM": "false",
+            "TRITON_PRINT_AUTOTUNING": "1",
+            "PYTHONFAULTHANDLER": "1",
+            "TMPDIR": tmpdir,
+        }
+    )
+    if entity:
+        env["WANDB_ENTITY"] = entity
+    if project:
+        env["WANDB_PROJECT"] = project
+
+    master_addr = (
+        subprocess.check_output(
+            ["scontrol", "show", "hostnames", os.environ["SLURM_NODELIST"]],
+            text=True,
         )
-        if entity:
-            env["WANDB_ENTITY"] = entity
+        .splitlines()[0]
+        .strip()
+    )
 
-        master_addr = (
-            subprocess.check_output(
-                ["scontrol", "show", "hostnames", os.environ["SLURM_NODELIST"]],
-                text=True,
-            )
-            .splitlines()[0]
-            .strip()
-        )
+    torchrun_args = [
+        "torchrun",
+        f"--nnodes={num_nodes}",
+        f"--nproc_per_node={gpus_per_node}",
+        "--rdzv_id",
+        os.environ["SLURM_JOB_ID"],
+        "--rdzv_backend",
+        "c10d",
+        "--rdzv_endpoint",
+        f"{master_addr}:29500",
+        "-m",
+        "lm_engine.train",
+        "--config",
+        temp_config,
+    ]
+    # srun is only needed for multi-node to launch one torchrun per node.
+    # For single-node it fights with the batch step for the task slot.
+    if num_nodes > 1:
+        cmd = ["srun", "--overlap"] + torchrun_args
+    else:
+        cmd = torchrun_args
 
-        try:
-            cmd = [
-                "srun",
-                "torchrun",
-                f"--nnodes={num_nodes}",
-                f"--nproc_per_node={gpus_per_node}",
-                "--rdzv_id",
-                os.environ["SLURM_JOB_ID"],
-                "--rdzv_backend",
-                "c10d",
-                "--rdzv_endpoint",
-                f"{master_addr}:29500",
-                "-m",
-                "lm_engine.train",
-                "--config",
-                temp_config,
-            ]
-            subprocess.run(cmd, env=env, check=True)
-        finally:
-            os.unlink(temp_config)
-
-    wandb.agent(args.sweep_id, function=train_fn, count=1, project=args.project, entity=args.entity)
+    try:
+        subprocess.run(cmd, env=env, check=True)
+    finally:
+        os.unlink(temp_config)
 
 
 # ---------------------------------------------------------------------------
@@ -214,19 +326,27 @@ def _submit_agent_job(
         "sbatch",
         f"--nodes={args.num_nodes}",
         f"--gpus-per-node={args.gpus_per_node}",
+        f"--mem-per-gpu={args.mem_per_gpu}G",
+        f"--cpus-per-gpu={args.cpus_per_gpu}",
         "--ntasks-per-node=1",
         f"--output={args.slurm_logs_dir}/%x-%j.out",
         f"--error={args.slurm_logs_dir}/%x-%j.err",
         "--wrap",
         " ".join(agent_parts),
     ]
+    if args.num_nodes == 1:
+        # Allow the scheduler to pack this job onto an already-occupied node
+        # rather than allocating a new one exclusively.
+        cmd.append("--oversubscribe")
     if args.account:
         cmd.append(f"--account={args.account}")
     if args.time_limit:
         cmd.append(f"--time={args.time_limit}")
     cmd.extend(extra_sbatch_args)
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"sbatch failed (exit {result.returncode}):\n{result.stderr.strip()}")
     return result.stdout.strip().split()[-1]  # "Submitted batch job <id>"
 
 
@@ -255,6 +375,8 @@ def main():
     # Slurm
     parser.add_argument("--num_nodes", type=int, default=1, help="Nodes per job")
     parser.add_argument("--gpus_per_node", type=int, default=8, help="GPUs per node")
+    parser.add_argument("--mem_per_gpu", type=int, default=120, help="System RAM per GPU in GB (e.g. 4 GPUs → 480 GB)")
+    parser.add_argument("--cpus_per_gpu", type=int, default=12, help="CPU cores per GPU")
     parser.add_argument("--account", default=None, help="Slurm account")
     parser.add_argument("--time", dest="time_limit", default=None, help="Wall-time limit (e.g. 12:00:00)")
 
@@ -307,7 +429,7 @@ def main():
             total_submitted += 1
             print(f"  Submitted job {job_id} ({total_submitted}/{args.count})")
         if total_submitted < args.count:
-            time.sleep(60)
+            time.sleep(5)
 
     print(f"Submitted {total_submitted} job(s) for sweep {sweep_id}")
 
