@@ -1,0 +1,10 @@
+method: bayes
+metric:
+  name: train/lm_loss
+  goal: minimize
+
+parameters:
+  optimizer_args.class_args.lr:
+    distribution: log_uniform_values
+    min: 1.0e-5
+    max: 3.0e-3
