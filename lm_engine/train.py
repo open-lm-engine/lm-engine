@@ -761,6 +761,8 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
             starting_iteration=starting_iteration,
         )
 
+    experiments_tracker.finish()
+
 
 def _xla_main(*args):
     main()
