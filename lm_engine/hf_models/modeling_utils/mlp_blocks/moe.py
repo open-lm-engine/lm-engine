@@ -125,12 +125,9 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         if self.is_tp_enabled:
             assert not add_bias
 
-            weight_placement = Shard(1)
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
-                    self.weight,
-                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
-                    current_placement=weight_placement,
+                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(1)
                 )
             )
 
