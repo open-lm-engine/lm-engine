@@ -62,7 +62,6 @@ class _FusedMLPFC1ActFunc(torch.autograd.Function):
         activation_function: str,
         quack_activation: str,
         is_glu: bool,
-        use_interleaved_weights: bool,
     ) -> torch.Tensor:
         x, weight = linear_fwd_convert_type(x, weight)
 
@@ -82,7 +81,6 @@ class _FusedMLPFC1ActFunc(torch.autograd.Function):
             ctx.save_for_backward(x, weight, preact)
             ctx.activation_function = activation_function
             ctx.is_glu = is_glu
-            ctx.use_interleaved_weights = use_interleaved_weights
             ctx.has_bias = bias is not None
             ctx.bias_dtype = bias.dtype if bias is not None else None
             ctx.batch_shape = batch_shape
@@ -98,11 +96,7 @@ class _FusedMLPFC1ActFunc(torch.autograd.Function):
 
             with torch.enable_grad():
                 preact_for_grad = preact.detach().requires_grad_(True)
-                act = get_activation_function(ctx.activation_function)
-                if ctx.is_glu:
-                    postact_for_grad = act(preact_for_grad, is_interleaved=ctx.use_interleaved_weights)
-                else:
-                    postact_for_grad = act(preact_for_grad)
+                postact_for_grad = get_activation_function(ctx.activation_function)(preact_for_grad)
 
                 (dpreact,) = torch.autograd.grad(postact_for_grad, preact_for_grad, dpostact)
                 dpreact = dpreact.contiguous()
@@ -120,7 +114,7 @@ class _FusedMLPFC1ActFunc(torch.autograd.Function):
             if ctx.has_bias and ctx.needs_input_grad[2]:
                 dbias = dpreact.sum(0, dtype=ctx.bias_dtype)
 
-            return dx, dweight, dbias, None, None, None, None
+            return dx, dweight, dbias, None, None, None
 
 
 def mlp_fc1_gemm_act(
@@ -151,16 +145,12 @@ def mlp_fc1_gemm_gated(
     weight: torch.Tensor,
     bias: torch.Tensor,
     activation_function: str,
-    use_interleaved_weights: bool,
 ) -> torch.Tensor:
     assert not isinstance(weight, DTensor)
     if bias is not None:
         assert not isinstance(bias, DTensor)
 
     quack_activation = _get_quack_activation(activation_function, _QUACK_GEMM_GATED_MAPPING, "quack_gemm_gated")
-
-    if not use_interleaved_weights:
-        raise ValueError("quack_gemm_gated requires use_interleaved_weights=True for GLU MLP")
 
     return _FusedMLPFC1ActFunc.apply(
         x,
@@ -169,5 +159,4 @@ def mlp_fc1_gemm_gated(
         activation_function,
         quack_activation,
         True,
-        use_interleaved_weights,
     )

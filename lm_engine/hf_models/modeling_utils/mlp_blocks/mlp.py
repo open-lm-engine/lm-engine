@@ -25,7 +25,6 @@ class MLP(nn.Module):
         activation_function: str,
         add_bias: bool,
         dropout: float,
-        use_interleaved_weights: bool,
         init_method: str,
         initializer_range: float,
         m_width: float,
@@ -38,7 +37,6 @@ class MLP(nn.Module):
 
         self.is_glu = is_glu(activation_function)
         self.activation_function = activation_function
-        self.use_interleaved_weights = use_interleaved_weights
 
         self.c_fc = ColumnParallelLinear(
             hidden_size,
@@ -54,7 +52,6 @@ class MLP(nn.Module):
             ),
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
-            split_factor=2 if (self.is_glu and not use_interleaved_weights) else 1,
         )
 
         self.act = get_activation_function(activation_function)
@@ -95,7 +92,6 @@ class MLP(nn.Module):
                 weight=self.c_fc.weight,
                 bias=self.c_fc.bias,
                 activation_function=self.activation_function,
-                use_interleaved_weights=self.use_interleaved_weights,
             )
 
         if not self.is_glu and is_kernel_allowed(Kernel.quack_gemm_act):
@@ -107,52 +103,42 @@ class MLP(nn.Module):
             )
 
         x = self.c_fc(x)
-        x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
+        x = self.act(x)
 
         return x
 
 
 def interleave_up_gate_tensor_for_mlp(
-    up_weight: torch.Tensor, gate_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
+    up_weight: torch.Tensor, gate_weight: torch.Tensor, dim: int = 0
 ) -> torch.Tensor:
-    if is_interleaved:
-        if dim == 0:
-            W = torch.empty(
-                2 * up_weight.size(0), *up_weight.size()[1:], dtype=up_weight.dtype, device=up_weight.device
-            )
-            W[1::2] = up_weight
-            W[::2] = gate_weight
-        elif dim == 1:
-            W = torch.empty(
-                up_weight.size(0),
-                2 * up_weight.size(1),
-                *up_weight.size()[2:],
-                dtype=up_weight.dtype,
-                device=up_weight.device,
-            )
-            W[:, 1::2] = up_weight
-            W[:, ::2] = gate_weight
-        else:
-            raise ValueError
+    if dim == 0:
+        W = torch.empty(2 * up_weight.size(0), *up_weight.size()[1:], dtype=up_weight.dtype, device=up_weight.device)
+        W[1::2] = up_weight
+        W[::2] = gate_weight
+    elif dim == 1:
+        W = torch.empty(
+            up_weight.size(0),
+            2 * up_weight.size(1),
+            *up_weight.size()[2:],
+            dtype=up_weight.dtype,
+            device=up_weight.device,
+        )
+        W[:, 1::2] = up_weight
+        W[:, ::2] = gate_weight
     else:
-        W = torch.cat([up_weight, gate_weight], dim=dim)
+        raise ValueError
 
     return W
 
 
-def split_up_gate_tensor_for_mlp(
-    c_fc_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
-) -> tuple[torch.Tensor, torch.Tensor]:
-    if is_interleaved:
-        if dim == 0:
-            u = c_fc_weight[1::2].contiguous()
-            g = c_fc_weight[::2].contiguous()
-        elif dim == 1:
-            u = c_fc_weight[:, 1::2].contiguous()
-            g = c_fc_weight[:, ::2].contiguous()
-        else:
-            raise ValueError(f"Unsupported dim: {dim}. Only dim=0 or dim=1 are supported.")
+def split_up_gate_tensor_for_mlp(c_fc_weight: torch.Tensor, dim: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
+    if dim == 0:
+        u = c_fc_weight[1::2].contiguous()
+        g = c_fc_weight[::2].contiguous()
+    elif dim == 1:
+        u = c_fc_weight[:, 1::2].contiguous()
+        g = c_fc_weight[:, ::2].contiguous()
     else:
-        u, g = c_fc_weight.chunk(2, dim=dim)
+        raise ValueError(f"Unsupported dim: {dim}. Only dim=0 or dim=1 are supported.")
 
     return u, g
