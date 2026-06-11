@@ -126,7 +126,7 @@ def interleave_up_gate_tensor_for_mlp(
         W[:, 1::2] = up_weight
         W[:, ::2] = gate_weight
     else:
-        raise ValueError
+        raise ValueError("dim >= 2 is not supported")
 
     return W
 
