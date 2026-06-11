@@ -5,7 +5,6 @@
 import torch
 from tqdm import trange
 
-from ....modeling_utils import is_glu
 from ...gpt_base import GPTBaseConfig
 
 
@@ -66,14 +65,12 @@ def unshard_gpt_base_tensor_parallel_state_dicts(
 
         block = config.mlp_blocks[layer_idx]
         mlp_type = block.mlp_type
-        is_glu_activation = is_glu(block.activation_function)
 
         # mlp
         if mlp_type == "MLP":
             output_state_dict.update(
                 _get_mlp(
                     tensor_parallel_state_dicts,
-                    is_glu=is_glu_activation,
                     add_bias=block.add_bias,
                     prefix=prefix + f"transformer.h.{layer_idx}.mlp_block.",
                     check_correctness=check_correctness,
@@ -83,7 +80,6 @@ def unshard_gpt_base_tensor_parallel_state_dicts(
             output_state_dict.update(
                 _get_moe(
                     tensor_parallel_state_dicts,
-                    is_glu=is_glu_activation,
                     add_bias=block.add_bias,
                     prefix=prefix + f"transformer.h.{layer_idx}.mlp_block.",
                 )
@@ -162,9 +158,7 @@ def _get_attention(
     return output
 
 
-def _get_mlp(
-    tensor_parallel_state_dicts: list[dict], is_glu: bool, add_bias: bool, prefix: str, check_correctness: bool
-) -> dict:
+def _get_mlp(tensor_parallel_state_dicts: list[dict], add_bias: bool, prefix: str, check_correctness: bool) -> dict:
     output = {
         prefix
         + "c_proj.weight": _concatenate_tensors_from_state_dicts(
@@ -176,22 +170,13 @@ def _get_mlp(
             tensor_parallel_state_dicts, key=prefix + "c_proj.bias", check_correctness=check_correctness
         )
 
-    if is_glu:
-        weights = [state_dict[prefix + "c_fc.weight"].chunk(2) for state_dict in tensor_parallel_state_dicts]
-        weights = (torch.cat([w[0] for w in weights]), torch.cat([w[1] for w in weights]))
-        output[prefix + "c_fc.weight"] = torch.cat(weights)
-        if add_bias:
-            bias = [state_dict[prefix + "c_fc.bias"].chunk(2) for state_dict in tensor_parallel_state_dicts]
-            bias = (torch.cat([b[0] for b in bias]), torch.cat([b[1] for b in bias]))
-            output[prefix + "c_fc.bias"] = torch.cat(bias)
-    else:
-        output[prefix + "c_fc.weight"] = _concatenate_tensors_from_state_dicts(
-            tensor_parallel_state_dicts, key=prefix + "c_fc.weight", dim=0
+    output[prefix + "c_fc.weight"] = _concatenate_tensors_from_state_dicts(
+        tensor_parallel_state_dicts, key=prefix + "c_fc.weight", dim=0
+    )
+    if add_bias:
+        output[prefix + "c_fc.bias"] = _concatenate_tensors_from_state_dicts(
+            tensor_parallel_state_dicts, key=prefix + "c_fc.bias", dim=0
         )
-        if add_bias:
-            output[prefix + "c_fc.bias"] = _concatenate_tensors_from_state_dicts(
-                tensor_parallel_state_dicts, key=prefix + "c_fc.bias", dim=0
-            )
 
     return output
 
@@ -218,7 +203,7 @@ def _concatenate_tensors_from_moe(tensor_parallel_state_dicts: list[dict], key: 
     return tensor
 
 
-def _get_moe(tensor_parallel_state_dicts: list[dict], is_glu: bool, add_bias: bool, prefix: str) -> dict:
+def _get_moe(tensor_parallel_state_dicts: list[dict], add_bias: bool, prefix: str) -> dict:
     assert not add_bias
 
     output = {
@@ -228,25 +213,11 @@ def _get_moe(tensor_parallel_state_dicts: list[dict], is_glu: bool, add_bias: bo
         )
     }
 
-    column_parallel_shard_dim = 1
-    row_parallel_shard_dim = 2
-
-    if is_glu:
-        weights = [
-            state_dict[prefix + "c_fc.weight"].chunk(2, dim=column_parallel_shard_dim)
-            for state_dict in tensor_parallel_state_dicts
-        ]
-        weights = (
-            torch.cat([w[0] for w in weights], dim=column_parallel_shard_dim),
-            torch.cat([w[1] for w in weights], dim=column_parallel_shard_dim),
-        )
-        output[prefix + "c_fc.weight"] = torch.cat(weights, dim=column_parallel_shard_dim)
-    else:
-        output[prefix + "c_fc.weight"] = _concatenate_tensors_from_state_dicts(
-            tensor_parallel_state_dicts, prefix + "c_fc.weight", dim=column_parallel_shard_dim
-        )
+    output[prefix + "c_fc.weight"] = _concatenate_tensors_from_state_dicts(
+        tensor_parallel_state_dicts, prefix + "c_fc.weight", dim=1
+    )
 
     output[prefix + "c_proj.weight"] = _concatenate_tensors_from_moe(
-        tensor_parallel_state_dicts, prefix + "c_proj.weight", dim=row_parallel_shard_dim
+        tensor_parallel_state_dicts, prefix + "c_proj.weight", dim=2
     )
     return output

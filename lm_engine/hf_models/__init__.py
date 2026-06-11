@@ -32,7 +32,7 @@ from .parameter import (
     set_parameter_marker_maps,
 )
 from .register_hf import is_custom_model, register_model_classes
-from .unshard import fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
+from .unshard import unshard_tensor_parallel_state_dicts
 from .utils import convert_padding_free_lists_to_tensors, disable_generation_cache
 
 
