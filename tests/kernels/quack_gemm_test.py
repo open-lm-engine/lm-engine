@@ -62,8 +62,8 @@ _PLAIN_MLP_EQUIVALENCE_CASES = [
 ]
 
 _COMBINED_MLP_EQUIVALENCE_CASES = [
-    pytest.param([Kernel.quack_gemm, Kernel.quack_gemm_act], "gelu_pytorch_tanh", False, id="quack_gemm_act"),
-    pytest.param([Kernel.quack_gemm, Kernel.quack_gemm_gated], "swiglu", True, id="quack_gemm_gated"),
+    pytest.param([Kernel.quack_gemm, Kernel.quack_gemm_act], "gelu_pytorch_tanh", id="quack_gemm_act"),
+    pytest.param([Kernel.quack_gemm, Kernel.quack_gemm_gated], "swiglu", id="quack_gemm_gated"),
 ]
 
 
