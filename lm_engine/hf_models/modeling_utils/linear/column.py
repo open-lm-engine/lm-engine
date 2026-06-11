@@ -7,6 +7,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from torch.distributed._tensor.placement_types import Replicate, Shard
+from torch.distributed.tensor.placement_types import _StridedShard
 
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
 from ....parallel import ProcessGroupManager
@@ -25,6 +26,7 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
+        split_factor: int = 1,
     ) -> ColumnParallelLinear:
         DTensorModule.__init__(self)
 
@@ -41,9 +43,12 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         if self.is_tp_enabled:
             self.input_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
+            weight_placement = _StridedShard(0, split_factor=split_factor) if split_factor > 1 else Shard(0)
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
-                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(0)
+                    self.weight,
+                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
+                    current_placement=weight_placement,
                 )
             )
 
@@ -52,7 +57,7 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
                     tensor_to_dtensor(
                         self.bias,
                         device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
-                        current_placement=Shard(0),
+                        current_placement=weight_placement,
                     )
                 )
 

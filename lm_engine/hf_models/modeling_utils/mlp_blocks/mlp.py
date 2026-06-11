@@ -54,6 +54,7 @@ class MLP(nn.Module):
             ),
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
+            split_factor=2 if (self.is_glu and not use_interleaved_weights) else 1,
         )
 
         self.act = get_activation_function(activation_function)
