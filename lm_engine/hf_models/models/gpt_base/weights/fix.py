@@ -16,22 +16,6 @@ def fix_gpt_base_unsharded_state_dict(
     ]
 
     for layer_idx in range(config.num_layers):
-        block = config.sequence_mixer_blocks[layer_idx]
-
-        if block.num_attention_heads > 1 and block.num_key_value_heads == 1:
-            q_attn_w = state_dict.pop(f"{prefix}transformer.h.{layer_idx}.sequence_mixer.c_attn.q_attn.weight")
-            kv_attn_w = state_dict.pop(f"{prefix}transformer.h.{layer_idx}.sequence_mixer.c_attn.kv_attn.weight")
-            state_dict[f"{prefix}transformer.h.{layer_idx}.sequence_mixer.c_attn.weight"] = torch.cat(
-                [q_attn_w, kv_attn_w]
-            )
-
-            if block.add_bias:
-                q_attn_w = state_dict.pop(f"{prefix}transformer.h.{layer_idx}.sequence_mixer.c_attn.q_attn.bias")
-                kv_attn_w = state_dict.pop(f"{prefix}transformer.h.{layer_idx}.sequence_mixer.c_attn.kv_attn.bias")
-                state_dict[f"{prefix}transformer.h.{layer_idx}.sequence_mixer.c_attn.bias"] = torch.cat(
-                    [q_attn_w, kv_attn_w]
-                )
-
         block = config.mlp_blocks[layer_idx]
 
         if is_glu(block.activation_function):
