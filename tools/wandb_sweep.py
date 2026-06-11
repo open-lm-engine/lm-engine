@@ -188,6 +188,9 @@ def _run_as_agent(args) -> None:
     for dotpath, value in sweep_params.items():
         _deep_set(config, dotpath, value)
 
+    if "save_args" in config and "save_path" in config["save_args"]:
+        config["save_args"]["save_path"] = str(Path(config["save_args"]["save_path"]) / run_id)
+
     # Let wandb assign its default auto-generated name for each sweep trial.
     wandb_cfg = config.get("logging_args", {}).get("wandb_args")
     if wandb_cfg is not None:
