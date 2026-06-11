@@ -354,7 +354,6 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
         log_rank_0(logging.INFO, "overriding mixed precision args")
         args_from_checkpoint.mixed_precision_args = args.mixed_precision_args
 
-    args_from_checkpoint.distributed_args.tensor_parallel_world_size
     use_meta = args_from_checkpoint.model_args.model_name is None
 
     with (
