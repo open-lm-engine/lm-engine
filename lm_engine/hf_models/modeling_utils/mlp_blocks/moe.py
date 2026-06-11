@@ -479,7 +479,7 @@ class MoE(DTensorModule):
                 expert_offsets=expert_offsets,
             )
 
-            x = self.act(x) if self.is_glu else self.act(x)
+            x = self.act(x)
 
             x = self.c_proj(
                 x=x,
