@@ -16,6 +16,7 @@ def maybe_broadcast(
     v: torch.Tensor,
     b: torch.Tensor,
     initial_state: torch.Tensor | None,
+    broadcast_initial_state: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None]:
     assert q.ndim == 4
     assert k.ndim == 4
@@ -39,9 +40,12 @@ def maybe_broadcast(
 
     if initial_state is not None:
         assert initial_state.ndim == 4
-        initial_state = repeat(
-            initial_state, "b ... -> (b g) ...", g=q.shape[0] // initial_state.shape[0]
-        ).contiguous()
+        if broadcast_initial_state:
+            initial_state = repeat(
+                initial_state,
+                "b ... -> (b g) ...",
+                g=q.shape[0] // initial_state.shape[0],
+            ).contiguous()
 
     return q, k, v, b, initial_state
 
@@ -103,6 +107,7 @@ if is_fla_available():
                 v=v,
                 b=beta,
                 initial_state=initial_state,
+                broadcast_initial_state=cu_seqlens is None,
             )
             o, A, final_state, initial_state_broadcast_cp = chunk_delta_rule_fwd(
                 q=q_broadcast,
@@ -174,6 +179,7 @@ if is_fla_available():
                 v=v,
                 b=beta,
                 initial_state=initial_state,
+                broadcast_initial_state=cu_seqlens is None,
             )
             dq, dk, dv, db, dh0 = chunk_delta_rule_bwd(
                 q=q_broadcast,
@@ -331,6 +337,7 @@ if is_fla_available():
                 v=v,
                 b=beta,
                 initial_state=initial_state,
+                broadcast_initial_state=cu_seqlens is None,
             )
             o, u, final_state = fused_recurrent_delta_rule_fwd(
                 q=q_broadcast,

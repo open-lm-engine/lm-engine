@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....parallel import ProcessGroupManager
-from ....utils import is_causal_conv1d_available
+from ....utils import is_causal_conv1d_available, is_fla_available
 from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from ..activations import get_activation_function
 from ..rotaters import AllGatherRotater
@@ -19,6 +19,9 @@ from ..rotaters import AllGatherRotater
 
 if is_causal_conv1d_available():
     from causal_conv1d import causal_conv1d_fn, causal_conv1d_update
+
+if is_fla_available():
+    from fla.modules.conv import causal_conv1d as fla_causal_conv1d
 
 
 def _apply_mask_to_padding_states(x: torch.Tensor, attention_mask: torch.Tensor | None) -> torch.Tensor:
@@ -87,9 +90,30 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         input_state: torch.Tensor | None,
         attention_mask: torch.Tensor | None,
         output_state: bool,
+        cu_seqlens: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         BLOCK_SIZE_S = x.size(1)
         S = BLOCK_SIZE_S
+
+        if cu_seqlens is not None:
+            if not is_fla_available():
+                raise RuntimeError("FLA is required for packed depthwise causal convolution.")
+            assert x.size(0) == 1
+            assert input_state is None
+            assert attention_mask is None
+            assert not output_state
+            assert not ProcessGroupManager.is_context_parallel_enabled()
+
+            x, _ = fla_causal_conv1d(
+                x=x,
+                weight=self.weight.squeeze(1),
+                bias=self.bias,
+                activation=(self.activation_string if self.use_activation_inside_kernel else None),
+                cu_seqlens=cu_seqlens,
+            )
+            if not self.use_activation_inside_kernel:
+                x = self.activation_function(x)
+            return x, None
 
         x = _apply_mask_to_padding_states(x, attention_mask)
 
