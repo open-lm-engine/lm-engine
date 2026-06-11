@@ -93,7 +93,6 @@ class DeltaMLP(nn.Module):
         assert dropout == 0
         assert activation_function in ("silu", "swiglu")
         assert not use_interleaved_weights
-        assert not use_padding_free_transformer
         assert not sequence_parallel
 
         self.use_v_silu = use_v_silu
@@ -213,6 +212,8 @@ class DeltaMLP(nn.Module):
         )
 
         if self.use_shortconv:
+            # Dense uses this wrapper directly. CP dispatches its specialized
+            # path below; packed inference passes cu_seqlens to the wrapper.
             self.kv_conv1d = DepthwiseCausalConvolution(
                 hidden_size=kv_size,
                 kernel_size=conv_size,
@@ -226,7 +227,7 @@ class DeltaMLP(nn.Module):
                     num_layers=num_layers,
                     use_depth_scaled_init=False,
                 ),
-                use_padding_free_transformer=use_padding_free_transformer,
+                use_padding_free_transformer=False,
             )
 
         if self.use_head_o_norm:
@@ -305,21 +306,48 @@ class DeltaMLP(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        assert cu_seqlens is None
-        assert max_seqlen is None
+        """
+        Supports three input layouts:
+        - dense: hidden_states [B, T, H], cu_seqlens=None.
+        - padded: hidden_states [B, T, H] with attention_mask.
+        - packed: hidden_states [total_tokens, H] with cu_seqlens.
 
+        Varlen inputs reset convolution state and use one recurrent initial
+        state per sequence at cu_seqlens boundaries.
+        """
         is_cp_enabled = ProcessGroupManager.is_context_parallel_enabled()
 
-        if attention_mask is not None:
-            assert len(attention_mask.shape) == 2, (
-                "Expected attention_mask as a 0-1 matrix with shape [batch_size, seq_len] "
-                "for padding purposes (0 indicating padding). "
-                "Arbitrary attention masks of shape [batch_size, seq_len, seq_len] are not allowed."
-            )
+        if self.use_padding_free_transformer:
+            assert not self.training
+            assert not is_cp_enabled
+            assert cache_params is None
+            assert attention_mask is None
+            assert cu_seqlens is not None
+            assert max_seqlen is not None
+            assert hidden_states.dim() == 2
 
-        batch_size, q_len, _ = hidden_states.shape
-        # change to inference mode.
-        mode = "fused_recurrent" if (q_len <= 64 and not self.training) else "chunk"
+            # Packed kernels use physical batch size 1; cu_seqlens carries the
+            # logical request batch.
+            hidden_states = hidden_states.unsqueeze(0)
+            batch_size = cu_seqlens.shape[0] - 1
+            q_len = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
+        else:
+            assert cu_seqlens is None
+            assert max_seqlen is None
+
+            if attention_mask is not None:
+                assert len(attention_mask.shape) == 2, (
+                    "Expected attention_mask as a 0-1 matrix with shape [batch_size, seq_len] "
+                    "for padding purposes (0 indicating padding). "
+                    "Arbitrary attention masks of shape [batch_size, seq_len, seq_len] are not allowed."
+                )
+
+            batch_size, q_len, _ = hidden_states.shape
+            if self.training:
+                assert batch_size == 1
+
+        use_fused_recurrent = not self.use_padding_free_transformer and not self.training and q_len <= 64
+        mode = "fused_recurrent" if use_fused_recurrent else "chunk"
         if self.training:
             assert mode == "chunk", "Only chunk mode is supported in training."
 
@@ -376,6 +404,14 @@ class DeltaMLP(nn.Module):
                     activation=None,
                     cp_context=cp_context,
                 )
+            elif self.use_padding_free_transformer:
+                kv, conv_state = self.kv_conv1d(
+                    x=kv,
+                    input_state=conv_state,
+                    attention_mask=None,
+                    output_state=False,
+                    cu_seqlens=cu_seqlens,
+                )
             else:
                 kv, conv_state = self.kv_conv1d(
                     x=kv,
@@ -389,10 +425,10 @@ class DeltaMLP(nn.Module):
             if not self.use_v_silu:
                 k = self.kv_act(k)
         elif self.use_v_silu:
+            kv = torch.cat([k, v], dim=-1)
             kv = self.kv_act(kv)
             k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
         else:
-            k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
             k = self.kv_act(k)
 
         # NOTE this is for an external tracer and not used during training
@@ -420,7 +456,28 @@ class DeltaMLP(nn.Module):
         if attention_mask is not None:
             cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
             q, k, v, beta = pack_sequence(inputs=(q, k, v, beta), cu_seqlens=cu_seqlens)
+            # pack_sequence returns [total_tokens, ...]; varlen kernels expect
+            # physical batch size 1: [1, total_tokens, ...].
+            q = q.unsqueeze(0)
+            k = k.unsqueeze(0)
+            v = v.unsqueeze(0)
+            beta = beta.unsqueeze(0)
 
+        if cu_seqlens is not None:
+            num_sequences = cu_seqlens.numel() - 1
+            if recurrent_state.size(0) == 1 and num_sequences != 1:
+                # TODO(zhonglin): let the varlen delta-rule kernel broadcast
+                # shared [1, ...] initial state across logical sequences.
+                # Materialize the shared learned state per logical sequence;
+                # do not rely on varlen kernels to broadcast [1, ...].
+                recurrent_state = recurrent_state.expand(
+                    num_sequences,
+                    -1,
+                    -1,
+                    -1,
+                ).contiguous()
+
+        output_final_state = use_cache or getattr(self, "_capture_recurrent_state", False)
         if mode == "chunk":
             o, recurrent_state = chunk_delta_rule(
                 q=q,
@@ -428,7 +485,7 @@ class DeltaMLP(nn.Module):
                 v=v,
                 beta=beta,
                 initial_state=recurrent_state,
-                output_final_state=use_cache or getattr(self, "_capture_recurrent_state", False),
+                output_final_state=output_final_state,
                 cu_seqlens=cu_seqlens,
                 use_q_l2norm_in_kernel=self.use_q_l2norm,
                 use_k_l2norm_in_kernel=True,
@@ -441,7 +498,7 @@ class DeltaMLP(nn.Module):
                 v=v,
                 beta=beta,
                 initial_state=recurrent_state,
-                output_final_state=use_cache or getattr(self, "_capture_recurrent_state", False),
+                output_final_state=output_final_state,
                 cu_seqlens=cu_seqlens,
                 use_q_l2norm_in_kernel=self.use_q_l2norm,
                 use_k_l2norm_in_kernel=True,
@@ -454,18 +511,27 @@ class DeltaMLP(nn.Module):
             self._last_recurrent_state = recurrent_state.detach()
 
         if attention_mask is not None:
+            # unpack_sequence expects packed tokens [total_tokens, ...], while
+            # the varlen kernels above return [1, total_tokens, ...].
+            o = o.squeeze(0)
             o = unpack_sequence(
                 inputs=o,
                 cu_seqlens=cu_seqlens,
-                output_shape=(batch_size, q_len, *hidden_states.size()[1:]),
+                output_shape=(batch_size, q_len, *o.size()[1:]),
             )
 
         if cache_params is not None:
             cache_params.update(
                 states=(
-                    GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=hidden_states.size(1)),
                     GenerationState(
-                        state=recurrent_state, method=ConstantCache, num_tokens_added=hidden_states.size(1)
+                        state=conv_state,
+                        method=ConstantCache,
+                        num_tokens_added=hidden_states.size(1),
+                    ),
+                    GenerationState(
+                        state=recurrent_state,
+                        method=ConstantCache,
+                        num_tokens_added=hidden_states.size(1),
                     ),
                 ),
                 layer_idx=self.layer_idx,
@@ -475,6 +541,10 @@ class DeltaMLP(nn.Module):
 
         if not self.use_head_o_norm:
             o = self.o_norm(o)
+
+        if self.use_padding_free_transformer:
+            # Return to the packed input layout.
+            o = o.squeeze(0)
 
         return o
 
