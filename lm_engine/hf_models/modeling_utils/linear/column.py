@@ -26,7 +26,6 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         std: float | None = None,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-        split_factor: int = 1,
     ) -> ColumnParallelLinear:
         DTensorModule.__init__(self)
 
@@ -43,7 +42,7 @@ class ColumnParallelLinear(ParameterizedLinear, DTensorModule):
         if self.is_tp_enabled:
             self.input_placement = get_module_placements(use_padding_free_transformer, sequence_parallel)
 
-            weight_placement = _StridedShard(0, split_factor=split_factor) if split_factor > 1 else Shard(0)
+            weight_placement = Shard(0)
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
                     self.weight,

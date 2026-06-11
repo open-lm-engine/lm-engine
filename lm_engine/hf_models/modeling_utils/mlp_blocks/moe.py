@@ -110,7 +110,6 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         out_features: int,
         add_bias: bool,
         std: float | None = None,
-        split_factor: int = 1,
     ) -> ColumnParallelExperts:
         DTensorModule.__init__(self)
 
@@ -132,7 +131,7 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         if self.is_tp_enabled:
             assert not add_bias
 
-            weight_placement = _StridedShard(1, split_factor=split_factor) if split_factor > 1 else Shard(1)
+            weight_placement = Shard(1)
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
                     self.weight,
