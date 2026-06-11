@@ -26,22 +26,21 @@ SHAPE = (8, 16, HIDDEN_SIZE)
 
 
 _FC1_ACT_CASES = [
-    (Kernel.quack_gemm_gated, "swiglu", True),
-    (Kernel.quack_gemm_gated, "sigmoid_glu", True),
-    (Kernel.quack_gemm_act, "relu", False),
-    (Kernel.quack_gemm_act, "gelu_pytorch_tanh", False),
+    (Kernel.quack_gemm_gated, "swiglu"),
+    (Kernel.quack_gemm_gated, "sigmoid_glu"),
+    (Kernel.quack_gemm_act, "relu"),
+    (Kernel.quack_gemm_act, "gelu_pytorch_tanh"),
 ]
 
 _EQUIVALENCE_CASES = [
     pytest.param(
         kernel,
         activation_function,
-        use_interleaved_weights,
         add_bias,
         dtype,
         id=f"{kernel.value}_{activation_function}_{'bias' if add_bias else 'no_bias'}_{str(dtype).split('.')[-1]}",
     )
-    for kernel, activation_function, use_interleaved_weights in _FC1_ACT_CASES
+    for kernel, activation_function in _FC1_ACT_CASES
     for add_bias in [False, True]
     for dtype in [torch.float16, torch.bfloat16]
 ]
@@ -55,11 +54,10 @@ _LINEAR_EQUIVALENCE_CASES = [
 _PLAIN_MLP_EQUIVALENCE_CASES = [
     pytest.param(
         activation_function,
-        use_interleaved_weights,
         dtype,
         id=f"{activation_function}_{str(dtype).split('.')[-1]}",
     )
-    for activation_function, use_interleaved_weights in [("gelu_pytorch_tanh", False), ("swiglu", True)]
+    for activation_function in ["gelu_pytorch_tanh", "swiglu"]
     for dtype in [torch.float16, torch.bfloat16]
 ]
 
@@ -85,14 +83,13 @@ class _MLPResult(NamedTuple):
     db_proj: torch.Tensor | None
 
 
-def _make_mlp(activation_function: str, add_bias: bool, use_interleaved_weights: bool) -> MLP:
+def _make_mlp(activation_function: str, add_bias: bool) -> MLP:
     return MLP(
         hidden_size=HIDDEN_SIZE,
         intermediate_size=INTERMEDIATE_SIZE,
         activation_function=activation_function,
         dropout=0,
         add_bias=add_bias,
-        use_interleaved_weights=use_interleaved_weights,
         init_method="normal",
         initializer_range=0.02,
         m_width=1,
@@ -267,12 +264,8 @@ def test_parameterized_linear_equivalence() -> None:
     _assert_close(quack.db, expected.db, dtype, reference.db)
 
 
-@pytest.mark.parametrize("activation_function,use_interleaved_weights,dtype", _PLAIN_MLP_EQUIVALENCE_CASES)
-def test_plain_quack_gemm_mlp_equivalence(
-    activation_function: str,
-    use_interleaved_weights: bool,
-    dtype: torch.dtype,
-) -> None:
+@pytest.mark.parametrize("activation_function,dtype", _PLAIN_MLP_EQUIVALENCE_CASES)
+def test_plain_quack_gemm_mlp_equivalence(activation_function: str, dtype: torch.dtype) -> None:
     skip_test_if_device_unavailable(DEVICE)
 
     if not is_quack_available():
@@ -283,12 +276,8 @@ def test_plain_quack_gemm_mlp_equivalence(
     x = torch.randn(*SHAPE, device=DEVICE, dtype=dtype)
     grad = torch.randn(*SHAPE, device=DEVICE, dtype=dtype)
 
-    module = _make_mlp(activation_function, add_bias=True, use_interleaved_weights=use_interleaved_weights).to(
-        device=DEVICE, dtype=dtype
-    )
-    reference_module = _make_mlp(
-        activation_function, add_bias=True, use_interleaved_weights=use_interleaved_weights
-    ).to(device=DEVICE, dtype=torch.float32)
+    module = _make_mlp(activation_function, add_bias=True).to(device=DEVICE, dtype=dtype)
+    reference_module = _make_mlp(activation_function, add_bias=True).to(device=DEVICE, dtype=torch.float32)
     reference_module.load_state_dict({name: tensor.float() for name, tensor in module.state_dict().items()})
 
     expected = _run_mlp(module, x, grad, [])
@@ -309,12 +298,8 @@ def test_plain_quack_gemm_mlp_equivalence(
     _assert_close(quack.db_proj, expected.db_proj, dtype, reference.db_proj)
 
 
-@pytest.mark.parametrize("kernels,activation_function,use_interleaved_weights", _COMBINED_MLP_EQUIVALENCE_CASES)
-def test_combined_quack_gemm_mlp_equivalence(
-    kernels: list[Kernel],
-    activation_function: str,
-    use_interleaved_weights: bool,
-) -> None:
+@pytest.mark.parametrize("kernels,activation_function", _COMBINED_MLP_EQUIVALENCE_CASES)
+def test_combined_quack_gemm_mlp_equivalence(kernels: list[Kernel], activation_function: str) -> None:
     skip_test_if_device_unavailable(DEVICE)
 
     if not is_quack_available():
@@ -326,12 +311,8 @@ def test_combined_quack_gemm_mlp_equivalence(
     x = torch.randn(*SHAPE, device=DEVICE, dtype=dtype)
     grad = torch.randn(*SHAPE, device=DEVICE, dtype=dtype)
 
-    module = _make_mlp(activation_function, add_bias=True, use_interleaved_weights=use_interleaved_weights).to(
-        device=DEVICE, dtype=dtype
-    )
-    reference_module = _make_mlp(
-        activation_function, add_bias=True, use_interleaved_weights=use_interleaved_weights
-    ).to(device=DEVICE, dtype=torch.float32)
+    module = _make_mlp(activation_function, add_bias=True).to(device=DEVICE, dtype=dtype)
+    reference_module = _make_mlp(activation_function, add_bias=True).to(device=DEVICE, dtype=torch.float32)
     reference_module.load_state_dict({name: tensor.float() for name, tensor in module.state_dict().items()})
 
     expected = _run_mlp(module, x, grad, [])
@@ -352,14 +333,8 @@ def test_combined_quack_gemm_mlp_equivalence(
     _assert_close(quack.db_proj, expected.db_proj, dtype, reference.db_proj)
 
 
-@pytest.mark.parametrize("kernel,activation_function,use_interleaved_weights,add_bias,dtype", _EQUIVALENCE_CASES)
-def test_equivalence(
-    kernel: Kernel,
-    activation_function: str,
-    use_interleaved_weights: bool,
-    add_bias: bool,
-    dtype: torch.dtype,
-) -> None:
+@pytest.mark.parametrize("kernel,activation_function,add_bias,dtype", _EQUIVALENCE_CASES)
+def test_equivalence(kernel: Kernel, activation_function: str, add_bias: bool, dtype: torch.dtype) -> None:
     skip_test_if_device_unavailable(DEVICE)
 
     if not is_quack_available():
@@ -370,12 +345,8 @@ def test_equivalence(
     x = torch.randn(*SHAPE, device=DEVICE, dtype=dtype)
     grad = torch.randn(*SHAPE, device=DEVICE, dtype=dtype)
 
-    module = _make_mlp(activation_function, add_bias=add_bias, use_interleaved_weights=use_interleaved_weights).to(
-        device=DEVICE, dtype=dtype
-    )
-    reference_module = _make_mlp(
-        activation_function, add_bias=add_bias, use_interleaved_weights=use_interleaved_weights
-    ).to(device=DEVICE, dtype=torch.float32)
+    module = _make_mlp(activation_function, add_bias=add_bias).to(device=DEVICE, dtype=dtype)
+    reference_module = _make_mlp(activation_function, add_bias=add_bias).to(device=DEVICE, dtype=torch.float32)
     reference_module.load_state_dict({name: tensor.float() for name, tensor in module.state_dict().items()})
 
     expected = _run_mlp(module, x, grad, [])
@@ -398,26 +369,13 @@ def test_equivalence(
         _assert_close(quack.db_proj, expected.db_proj, dtype, reference.db_proj)
 
 
-def test_non_interleaved_glu() -> None:
-    skip_test_if_device_unavailable(DEVICE)
-
-    if not is_quack_available():
-        pytest.skip("skipping test because quack-kernels is unavailable")
-
-    module = _make_mlp("swiglu", add_bias=False, use_interleaved_weights=False).to(device=DEVICE, dtype=torch.float32)
-
-    with enable_kernels([Kernel.quack_gemm_gated]):
-        with pytest.raises(ValueError, match="requires use_interleaved_weights=True"):
-            module(torch.randn(*SHAPE, device=DEVICE))
-
-
 def test_unsupported_gemm_act_activation() -> None:
     skip_test_if_device_unavailable(DEVICE)
 
     if not is_quack_available():
         pytest.skip("skipping test because quack-kernels is unavailable")
 
-    module = _make_mlp("gelu", add_bias=False, use_interleaved_weights=False).to(device=DEVICE, dtype=torch.float32)
+    module = _make_mlp("gelu", add_bias=False).to(device=DEVICE, dtype=torch.float32)
 
     with enable_kernels([Kernel.quack_gemm_act]):
         with pytest.raises(ValueError, match="is not supported by quack_gemm_act"):
@@ -430,7 +388,7 @@ def test_unsupported_gemm_gated_activation() -> None:
     if not is_quack_available():
         pytest.skip("skipping test because quack-kernels is unavailable")
 
-    module = _make_mlp("geglu", add_bias=False, use_interleaved_weights=True).to(device=DEVICE, dtype=torch.float32)
+    module = _make_mlp("geglu", add_bias=False).to(device=DEVICE, dtype=torch.float32)
 
     with enable_kernels([Kernel.quack_gemm_gated]):
         with pytest.raises(ValueError, match="is not supported by quack_gemm_gated"):
