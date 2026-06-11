@@ -11,7 +11,7 @@ from transformers import AutoModelForCausalLM
 
 from lm_engine.dtensors import dtensor_to_tensor
 from lm_engine.enums import Kernel
-from lm_engine.hf_models import GPTBaseConfig, fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
+from lm_engine.hf_models import GPTBaseConfig, unshard_tensor_parallel_state_dicts
 from lm_engine.kernels import enable_kernels
 from lm_engine.parallel import ProcessGroupManager
 
@@ -74,9 +74,6 @@ def run_check(fix: bool):
         tp_state_dict_unsharded = {
             key: value.full_tensor() if isinstance(value, DTensor) else value for key, value in cpu_state_dict.items()
         }
-        tp_state_dict_unsharded = fix_unsharded_state_dict(
-            config, tp_state_dict_unsharded, ProcessGroupManager.get_tensor_parallel_world_size()
-        )
     else:
         cpu_state_dict = {key: dtensor_to_tensor(value) for key, value in cpu_state_dict.items()}
         torch.save(
