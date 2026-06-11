@@ -6,7 +6,12 @@ import torch
 
 from .....parallel import ProcessGroupManager
 from .....utils import SafeTensorsWeightsManager, divide_if_divisible
-from ....modeling_utils import get_tensor_parallel_vocab_info, is_glu, tensor_parallel_split_safetensor_slice
+from ....modeling_utils import (
+    get_tensor_parallel_vocab_info,
+    interleave_up_gate_tensor_for_mlp,
+    is_glu,
+    tensor_parallel_split_safetensor_slice,
+)
 from ...gpt_base import GPTBaseConfig
 
 
@@ -221,9 +226,16 @@ def _get_mlp(
         if add_bias:
             bias_2 = tensor_parallel_split_safetensor_slice(bias, column_parallel_shard_dim, start_end)
 
-        state_dict = {prefix + "c_fc.weight": torch.cat([weight_1, weight_2], dim=column_parallel_shard_dim)}
+        state_dict = {
+            prefix
+            + "c_fc.weight": interleave_up_gate_tensor_for_mlp(
+                up_weight=weight_2, gate_weight=weight_1, dim=column_parallel_shard_dim
+            )
+        }
         if add_bias:
-            state_dict[prefix + "c_fc.bias"] = torch.cat([bias_1, bias_2], dim=column_parallel_shard_dim)
+            state_dict[prefix + "c_fc.bias"] = interleave_up_gate_tensor_for_mlp(
+                up_weight=bias_2, gate_weight=bias_1, dim=column_parallel_shard_dim
+            )
     else:
         state_dict = _get_column_parallel(
             add_bias=add_bias,
