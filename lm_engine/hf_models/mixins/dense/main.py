@@ -4,16 +4,19 @@
 
 from __future__ import annotations
 
+import os
+
 import torch
 import torch.nn.functional as F
 from torch.distributed._tensor.placement_types import Replicate, Shard
 from transformers import StoppingCriteriaList
 
+from ....arguments import LoadArgs, MixedPrecisionArgs, UnshardingArgs
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....parallel import ProcessGroupManager
-from ....utils import SafeTensorsWeightsManager, divide_if_divisible
+from ....utils import SafeTensorsWeightsManager, divide_if_divisible, torch_dtype_to_string
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import (
@@ -309,24 +312,45 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
     @classmethod
     def from_pretrained(
-        cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
+        cls,
+        pretrained_model_name_or_path: str,
+        dtype: torch.dtype = torch.float32,
+        iteration: int | None = None,
+        **kwargs,
     ) -> CausalLMModelMixin:
-        if ProcessGroupManager.is_tensor_parallel_enabled():
-            with torch.device("meta"):
-                model = cls._from_config(**kwargs)
-                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+        if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
+            # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_models)
+            from ....checkpointing import load_checkpoint_and_unshard
 
-                model = model.to(dtype=dtype)
+            assert not ProcessGroupManager.is_tensor_parallel_enabled()
 
-            # copy to device without copying storage
-            model = model.to_empty(device=torch.cuda.current_device())
-            set_parameter_marker_maps([model], marker_maps)
-
-            model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
-        else:
-            model = super().from_pretrained(
-                pretrained_model_name_or_path=pretrained_model_name_or_path, dtype=dtype, **kwargs
+            unshard_args = UnshardingArgs(
+                load_args=LoadArgs(load_path=pretrained_model_name_or_path, iteration=iteration),
+                mixed_precision_args=MixedPrecisionArgs(dtype=torch_dtype_to_string(dtype)),
+                unsharded_path="",
             )
+
+            model_wrapper, _, _ = load_checkpoint_and_unshard(unshard_args)
+            model = model_wrapper.model
+        else:
+            assert iteration is None, "iteration should be None when loading from an unsharded checkpoint"
+
+            if ProcessGroupManager.is_tensor_parallel_enabled():
+                with torch.device("meta"):
+                    model = cls._from_config(**kwargs)
+                    marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+
+                    model = model.to(dtype=dtype)
+
+                # copy to device without copying storage
+                model = model.to_empty(device=torch.cuda.current_device())
+                set_parameter_marker_maps([model], marker_maps)
+
+                model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
+            else:
+                model = super().from_pretrained(
+                    pretrained_model_name_or_path=pretrained_model_name_or_path, dtype=dtype, **kwargs
+                )
 
         return model
 
