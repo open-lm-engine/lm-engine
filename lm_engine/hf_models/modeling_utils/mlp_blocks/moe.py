@@ -103,12 +103,7 @@ class ParameterizedExperts(nn.Module):
 
 class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
-        self,
-        num_experts: int,
-        in_features: int,
-        out_features: int,
-        add_bias: bool,
-        std: float | None = None,
+        self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
     ) -> ColumnParallelExperts:
         DTensorModule.__init__(self)
 
