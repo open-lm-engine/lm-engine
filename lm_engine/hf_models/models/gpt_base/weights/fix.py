@@ -2,9 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-import torch
-
-from ....modeling_utils import is_glu
 from ...gpt_base import GPTBaseConfig
 
 
@@ -14,19 +11,5 @@ def fix_gpt_base_unsharded_state_dict(
     state_dict[prefix + "transformer.wte.weight"] = state_dict[prefix + "transformer.wte.weight"][
         : config.vocab_size, :
     ]
-
-    for layer_idx in range(config.num_layers):
-        block = config.mlp_blocks[layer_idx]
-
-        if is_glu(block.activation_function) and block.mlp_type == "MoE":
-            assert not block.add_bias
-
-            key = f"{prefix}transformer.h.{layer_idx}.mlp_block.c_fc.weight"
-            weight = state_dict[key]
-            weight = weight.chunk(tensor_parallel_world_size, dim=1)
-            weight = [w.chunk(2, dim=1) for w in weight]
-            w0 = torch.cat([w[0] for w in weight], dim=1)
-            w1 = torch.cat([w[1] for w in weight], dim=1)
-            state_dict[key] = torch.cat([w0, w1], dim=1)
 
     return state_dict

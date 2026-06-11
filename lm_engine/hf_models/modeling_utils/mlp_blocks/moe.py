@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
 from torch.distributed._tensor.placement_types import Partial, Replicate, Shard
+from torch.distributed.tensor.placement_types import _StridedShard
 
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
@@ -103,7 +104,13 @@ class ParameterizedExperts(nn.Module):
 
 class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
     def __init__(
-        self, num_experts: int, in_features: int, out_features: int, add_bias: bool, std: float | None = None
+        self,
+        num_experts: int,
+        in_features: int,
+        out_features: int,
+        add_bias: bool,
+        std: float | None = None,
+        split_factor: int = 1,
     ) -> ColumnParallelExperts:
         DTensorModule.__init__(self)
 
@@ -125,9 +132,12 @@ class ColumnParallelExperts(ParameterizedExperts, DTensorModule):
         if self.is_tp_enabled:
             assert not add_bias
 
+            weight_placement = _StridedShard(1, split_factor=split_factor) if split_factor > 1 else Shard(1)
             self.weight = nn.Parameter(
                 tensor_to_dtensor(
-                    self.weight, device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(), current_placement=Shard(1)
+                    self.weight,
+                    device_mesh=ProcessGroupManager.get_tensor_parallel_mesh(),
+                    current_placement=weight_placement,
                 )
             )
 
@@ -311,6 +321,7 @@ class MoE(DTensorModule):
             out_features=2 * self.intermediate_size if self.is_glu else self.intermediate_size,
             add_bias=add_bias,
             std=up_std,
+            split_factor=2 if (self.is_glu and not use_interleaved_weights) else 1,
         )
 
         if self.shared_intermediate_size is not None:
