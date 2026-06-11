@@ -2,7 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from .config import CommonConfig
 from .models import GPTBaseConfig, LadderResidualConfig, unshard_gpt_base_tensor_parallel_state_dicts
 
 
