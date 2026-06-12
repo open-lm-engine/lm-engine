@@ -363,6 +363,9 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
         state_dict = {}
         for name, parameter in list(self.named_parameters()) + list(self.named_buffers()):
+            if not safetensors_weights_manager.has_tensor(name):
+                continue
+
             p = safetensors_weights_manager.get_tensor(tensor_name=name, dtype=parameter.dtype)
             if isinstance(parameter, DTensor):
                 p = distribute_tensor(tensor=p, device_mesh=parameter.device_mesh, placements=parameter.placements)
