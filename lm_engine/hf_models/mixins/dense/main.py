@@ -9,6 +9,7 @@ import os
 import torch
 import torch.nn.functional as F
 from torch.distributed._tensor.placement_types import Replicate, Shard
+from torch.distributed.tensor import DTensor, distribute_tensor
 from transformers import StoppingCriteriaList
 
 from ....arguments import LoadArgs, MixedPrecisionArgs, UnshardingArgs
@@ -39,7 +40,6 @@ from .base import PreTrainedModelMixin
 
 class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
     base_model_class = None
-    model_parallel_state_dict_function = None
 
     def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:
         super().__init__(config, **kwargs)
@@ -361,12 +361,16 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             if position_embedding_type == "rope":
                 self.transformer.rope.reset_parameters()
 
-        state_dict = self.__class__.model_parallel_state_dict_function(
-            config=self.config,
-            safetensors_weights_manager=safetensors_weights_manager,
-            num_pipeline_stages=self.num_pipeline_stages,
-            pipeline_stage_id=self.pipeline_stage_id,
-        )
+        state_dict = {}
+        for name, parameter in list(self.named_parameters()) + list(self.named_buffers()):
+            if not safetensors_weights_manager.has_tensor(name):
+                continue
+
+            p = safetensors_weights_manager.get_tensor(tensor_name=name, dtype=parameter.dtype)
+            if isinstance(parameter, DTensor):
+                p = distribute_tensor(tensor=p, device_mesh=parameter.device_mesh, placements=parameter.placements)
+
+            state_dict[name] = p
 
         self.load_state_dict(state_dict)
 
