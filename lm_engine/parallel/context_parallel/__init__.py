@@ -10,12 +10,15 @@
 
 
 import torch
-from torch.distributed.tensor.experimental._attention import _context_parallel_shard
 
 from ...enums import ContextParallelLoadBalancerMethod
+from ...utils import is_torch_xla_available
 from ..manager import ProcessGroupManager
 from .load_balancer import _HeadTailLoadBalancer, _NoLoadBalancer
 
+
+if not is_torch_xla_available():
+    from torch.distributed.tensor.experimental._attention import _context_parallel_shard
 
 _LOAD_BALANCERS = {None: _NoLoadBalancer, ContextParallelLoadBalancerMethod.headtail: _HeadTailLoadBalancer}
 
