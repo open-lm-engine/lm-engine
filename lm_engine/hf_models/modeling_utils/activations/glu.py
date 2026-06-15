@@ -48,7 +48,7 @@ class GLUActivation(nn.Module):
             assert u is None
             assert g is None
 
-        if is_kernel_allowed(Kernel.swiglu_packed) and isinstance(self.base_activation, nn.SiLU):
+        if x is not None and is_kernel_allowed(Kernel.swiglu_packed) and isinstance(self.base_activation, nn.SiLU):
             # FIXME Mayank: fix this kernel in XMA to allow interleaved inputs
             raise NotImplementedError("swiglu_packed kernel does not support interleaved weights yet.")
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
