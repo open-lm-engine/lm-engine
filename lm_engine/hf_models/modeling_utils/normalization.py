@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._tensor.placement_types import Replicate
 
+from ...accelerator import Accelerator
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed, wait_for_ACT
@@ -116,7 +117,11 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
             x = rms_norm(x=x)
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
-            x = super().forward(x)
+            W = self.weight
+            if Accelerator.get_accelerator() == Accelerator.tpu:
+                W = W.to(x.dtype)
+
+            x = F.rms_norm(x, self.normalized_shape, W, self.eps)
 
         if self.is_tp_enabled:
             x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.placement)
