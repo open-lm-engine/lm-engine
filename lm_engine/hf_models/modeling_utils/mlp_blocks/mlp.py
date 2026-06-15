@@ -7,6 +7,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from ....accelerator import Accelerator
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ...parameter import mark_parameter_as_mup_learning_rate
@@ -37,10 +38,11 @@ class MLP(nn.Module):
 
         self.is_glu = is_glu(activation_function)
         self.activation_function = activation_function
+        self.accelerator = Accelerator.get_accelerator()
 
-        self.c_fc = ColumnParallelLinear(
-            hidden_size,
-            2 * intermediate_size if self.is_glu else intermediate_size,
+        kwargs = dict(
+            in_features=hidden_size,
+            out_features=intermediate_size,
             bias=add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
@@ -53,6 +55,13 @@ class MLP(nn.Module):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
+
+        if self.accelerator == Accelerator.tpu and self.is_glu:
+            self.up_fc = ColumnParallelLinear(**kwargs)
+            self.gate_fc = ColumnParallelLinear(**kwargs)
+        else:
+            kwargs["out_features"] = 2 * intermediate_size if self.is_glu else intermediate_size
+            self.c_fc = ColumnParallelLinear(**kwargs)
 
         self.act = get_activation_function(activation_function)
 
@@ -86,6 +95,11 @@ class MLP(nn.Module):
         return x
 
     def _fc1_act(self, x: torch.Tensor) -> torch.Tensor:
+        if self.accelerator == Accelerator.tpu:
+            u = self.up_fc(x)
+            g = self.gate_fc(x)
+            return self.act(x=None, u=u, g=g)
+
         if self.is_glu and is_kernel_allowed(Kernel.quack_gemm_gated):
             return mlp_fc1_gemm_gated(
                 x=x,
