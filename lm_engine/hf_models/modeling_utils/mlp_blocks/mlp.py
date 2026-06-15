@@ -101,7 +101,7 @@ class MLP(nn.Module):
         return x
 
     def _fc1_act(self, x: torch.Tensor) -> torch.Tensor:
-        if self.accelerator == Accelerator.tpu:
+        if self.accelerator == Accelerator.tpu and self.is_glu:
             u = self.up_fc(x)
             g = self.gate_fc(x)
             return self.act(x=None, u=u, g=g)
