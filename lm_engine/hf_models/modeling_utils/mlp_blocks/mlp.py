@@ -63,7 +63,9 @@ class MLP(nn.Module):
             mark_parameter_as_mup_learning_rate(self.up_fc.weight)
             mark_parameter_as_mup_learning_rate(self.gate_fc.weight)
         else:
-            kwargs["out_features"] = 2 * intermediate_size if self.is_glu else intermediate_size
+            if self.is_glu:
+                kwargs["out_features"] *= 2
+
             self.c_fc = ColumnParallelLinear(**kwargs)
 
             mark_parameter_as_mup_learning_rate(self.c_fc.weight)
