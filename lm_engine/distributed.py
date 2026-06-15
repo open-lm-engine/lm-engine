@@ -35,17 +35,21 @@ from .gradient_checkpointing import apply_gradient_checkpointing
 from .hf_models import (
     _INIT_MARKER,
     CausalLMOutputWithPast,
+    get_named_parameters_and_buffers,
     get_parameter_marker_maps,
     is_parameter_initialized,
     set_parameter_marker_maps,
 )
 from .kernels import is_kernel_allowed
 from .logging_utils import log_rank_0
-from .parallel import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
 from .parallel import ProcessGroupManager
-from .parallel import data_parallel as simple_fsdp_data_parallel
-from .parallel import get_simple_fsdp_compile_backend
 from .utils import get_module_class_from_name, is_torch_xla_available, is_torchao_available, string_to_torch_dtype
+
+
+if not is_torch_xla_available():
+    from .parallel import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
+    from .parallel import data_parallel as simple_fsdp_data_parallel
+    from .parallel import get_simple_fsdp_compile_backend
 
 
 if is_torch_xla_available():
@@ -438,10 +442,7 @@ def wrap_model_container_for_distributed_training(
 
     for model in model_container:
         if model.is_custom_model:
-            for param_name, parameter in model.named_parameters():
-                assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
-
-            for param_name, parameter in model.named_buffers():
+            for param_name, parameter in get_named_parameters_and_buffers(model):
                 assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
 
     if num_pipeline_stages > 1:

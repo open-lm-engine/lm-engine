@@ -20,7 +20,6 @@ from ....parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_per_row_hyperball,
-    set_split_spec,
 )
 from ...activations import get_activation_function
 from ...decay_gate import SoftplusDecayGate
@@ -48,7 +47,6 @@ class DeltaMLP(nn.Module):
         activation_function: str,
         add_bias: bool,
         dropout: float,
-        use_interleaved_weights: bool,
         num_ranks: int,
         num_heads: int,
         use_v_proj: bool,
@@ -85,14 +83,12 @@ class DeltaMLP(nn.Module):
         self.intermediate_size = intermediate_size
         self.activation_function = activation_function
         self.add_bias = add_bias
-        self.use_interleaved_weights = use_interleaved_weights
         self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
 
         assert not add_bias
         assert dropout == 0
         assert activation_function in ("silu", "swiglu")
-        assert not use_interleaved_weights
         assert not sequence_parallel
 
         self.use_v_silu = use_v_silu
@@ -260,42 +256,6 @@ class DeltaMLP(nn.Module):
             # conv kernel: one row per output channel, each normed + hyperball-projected per row
             mark_parameter_as_per_row_hyperball(self.kv_conv1d.weight)
 
-        # split_spec for q_proj: rows = [up_q | gate_q] non-interleaved, each I=key_dim rows.
-        # Within each half, rows further factor as (H, K_head) for per-head decomposition.
-        # row r = b*I + h*K + k with b∈{0=up,1=gate}, h∈[0,H), k∈[0,K).
-        # Assumes non-interleaved swiglu layout (asserted at top of __init__).
-        assert self.q_proj.weight.shape[0] == 2 * self.key_dim
-        set_split_spec(
-            self.q_proj.weight,
-            "deltamlp_q",
-            self.q_proj.weight.shape,
-            B=2,
-            H=self.num_k_heads,
-            K=self.k_head_dim,
-            D=hidden_size,
-        )
-        # split_spec for k_proj.high_rank_proj: out=key_dim factors as (H, K_head).
-        # row r = h*K + k. Cols are just rank dim R.
-        assert self.k_proj.high_rank_proj.weight.shape == (self.key_dim, num_ranks)
-        set_split_spec(
-            self.k_proj.high_rank_proj.weight,
-            "deltamlp_k_high",
-            self.k_proj.high_rank_proj.weight.shape,
-            H=self.num_k_heads,
-            K=self.k_head_dim,
-            R=num_ranks,
-        )
-        # split_spec for initial_state: in=key_dim factors as (H, K_head) in the col dim,
-        # rows are v_head_dim. Matches the model's own rearrange "v (h k) -> 1 h k v".
-        assert self.initial_state.weight.shape == (self.v_head_dim, self.key_dim)
-        set_split_spec(
-            self.initial_state.weight,
-            "deltamlp_initial_state",
-            self.initial_state.weight.shape,
-            V=self.v_head_dim,
-            H=self.num_k_heads,
-            K=self.k_head_dim,
-        )
         self.reset_parameters()
 
     def forward(
@@ -375,11 +335,11 @@ class DeltaMLP(nn.Module):
             )
 
         q = self.q_proj(hidden_states)
+        q = self.act(q)
+
         k = self.k_proj(hidden_states)
         v = self.v_proj(hidden_states) if self.use_v_proj else hidden_states
         b = self.b_proj(hidden_states)
-
-        q = self.act(q, is_interleaved=self.use_interleaved_weights)
 
         if is_cp_enabled:
             cp_world_size = ProcessGroupManager.get_context_parallel_world_size()

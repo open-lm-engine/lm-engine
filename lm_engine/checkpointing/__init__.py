@@ -19,7 +19,6 @@ from ..accelerator import Accelerator
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
-from ..hf_models import fix_unsharded_state_dict
 from ..logging_utils import ExperimentsTracker, log_rank_0
 from ..model_wrapper import ModelWrapper, get_model_container
 from ..parallel import ProcessGroupManager, run_rank_n
@@ -355,7 +354,6 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
         log_rank_0(logging.INFO, "overriding mixed precision args")
         args_from_checkpoint.mixed_precision_args = args.mixed_precision_args
 
-    checkpoint_tp_world_size = args_from_checkpoint.distributed_args.tensor_parallel_world_size
     use_meta = args_from_checkpoint.model_args.model_name is None
 
     with (
@@ -391,11 +389,6 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
             )
 
             state = state["state"]
-
-        if checkpoint_tp_world_size > 1:
-            state = fix_unsharded_state_dict(
-                model.config, state, tensor_parallel_world_size=checkpoint_tp_world_size, prefix="model."
-            )
 
         dtype = string_to_torch_dtype(model.dtype)
         for key in list(state.keys()):

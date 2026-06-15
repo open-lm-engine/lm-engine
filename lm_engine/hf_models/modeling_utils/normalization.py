@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed._tensor.placement_types import Replicate
 
+from ...accelerator import Accelerator
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed, wait_for_ACT

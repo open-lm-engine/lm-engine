@@ -53,7 +53,6 @@ def _delta_mlp_kwargs(**overrides) -> dict:
         activation_function="silu",
         add_bias=False,
         dropout=0,
-        use_interleaved_weights=False,
         num_ranks=8,
         num_heads=4,
         use_v_proj=False,
