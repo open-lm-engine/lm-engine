@@ -43,7 +43,7 @@ def is_parameter_initialized(parameter: nn.Parameter | None) -> bool:
     return getattr(parameter, _INIT_MARKER, False)
 
 
-def _get_named_parameters_and_buffers(model: nn.Module) -> list[tuple[str, nn.Parameter | nn.Buffer]]:
+def get_named_parameters_and_buffers(model: nn.Module) -> list[tuple[str, nn.Parameter | nn.Buffer]]:
     return list(model.named_parameters()) + list(model.named_buffers())
 
 
@@ -54,7 +54,7 @@ def get_parameter_marker_maps(model_container: list[nn.Module], extra_markers: l
     marker_maps = []
     for model in model_container:
         marker_maps.append({})
-        for param_name, param in _get_named_parameters_and_buffers(model):
+        for param_name, param in get_named_parameters_and_buffers(model):
             marker_maps[-1][param_name] = {}
             for marker in _METADATA_MARKERS + extra_markers:
                 marker_maps[-1][param_name][marker] = getattr(param, marker, False)
@@ -72,7 +72,7 @@ def set_parameter_marker_maps(
         model_container = [model_container]
 
     for model, _marker_map in zip(model_container, marker_maps):
-        for param_name, param in _get_named_parameters_and_buffers(model):
+        for param_name, param in get_named_parameters_and_buffers(model):
             for pattern, replacement in replacement_patterns:
                 param_name = param_name.replace(pattern, replacement)
 

@@ -22,6 +22,7 @@ from .models import (
 )
 from .parameter import (
     _INIT_MARKER,
+    get_named_parameters_and_buffers,
     get_parameter_marker_maps,
     is_parameter_initialized,
     is_parameter_with_mup_learning_rate,
