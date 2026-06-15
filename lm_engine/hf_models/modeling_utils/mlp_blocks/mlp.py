@@ -67,7 +67,6 @@ class MLP(nn.Module):
                 kwargs["out_features"] *= 2
 
             self.c_fc = ColumnParallelLinear(**kwargs)
-
             mark_parameter_as_mup_learning_rate(self.c_fc.weight)
 
         self.act = get_activation_function(activation_function)
