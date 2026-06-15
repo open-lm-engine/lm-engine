@@ -47,6 +47,8 @@ xma = [
     "accelerated-model-architectures",
 ]
 tpu = [
+    "google-api-core",
+    "google-cloud-storage",
     "torch==2.10.0",
     "torch-xla[pallas,tpu]==2.9.0",
 ]

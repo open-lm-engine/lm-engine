@@ -38,16 +38,27 @@ class GLUActivation(nn.Module):
         super().__init__()
         self.base_activation = base_activation
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.swiglu_packed) and isinstance(self.base_activation, nn.SiLU):
+    def forward(
+        self, x: torch.Tensor | None, u: torch.Tensor | None = None, g: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        if x is None:
+            assert u is not None
+            assert g is not None
+        else:
+            assert u is None
+            assert g is None
+
+        if x is not None and is_kernel_allowed(Kernel.swiglu_packed) and isinstance(self.base_activation, nn.SiLU):
             # FIXME Mayank: fix this kernel in XMA to allow interleaved inputs
             raise NotImplementedError("swiglu_packed kernel does not support interleaved weights yet.")
             x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
             x = swiglu_packed(x)
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
-            u = x[..., 1::2]
-            g = x[..., ::2]
+            if x is not None:
+                u = x[..., 1::2]
+                g = x[..., ::2]
+
             x = u * self.base_activation(g)
 
         return x
