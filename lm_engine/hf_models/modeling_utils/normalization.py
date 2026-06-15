@@ -117,11 +117,7 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
             x = rms_norm(x=x)
             x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
-            W = self.weight
-            if Accelerator.get_accelerator() == Accelerator.tpu:
-                W = W.to(x.dtype)
-
-            x = F.rms_norm(x, self.normalized_shape, W, self.eps)
+            x = super().forward(x)
 
         if self.is_tp_enabled:
             x = dtensor_to_tensor(x, device_mesh=self.tp_mesh, desired_placement=self.placement)
