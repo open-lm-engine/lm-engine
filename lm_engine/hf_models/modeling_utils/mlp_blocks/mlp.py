@@ -59,9 +59,14 @@ class MLP(nn.Module):
         if self.accelerator == Accelerator.tpu and self.is_glu:
             self.up_fc = ColumnParallelLinear(**kwargs)
             self.gate_fc = ColumnParallelLinear(**kwargs)
+
+            mark_parameter_as_mup_learning_rate(self.up_fc.weight)
+            mark_parameter_as_mup_learning_rate(self.gate_fc.weight)
         else:
             kwargs["out_features"] = 2 * intermediate_size if self.is_glu else intermediate_size
             self.c_fc = ColumnParallelLinear(**kwargs)
+
+            mark_parameter_as_mup_learning_rate(self.c_fc.weight)
 
         self.act = get_activation_function(activation_function)
 
@@ -85,7 +90,6 @@ class MLP(nn.Module):
             dropout, use_padding_free_transformer=use_padding_free_transformer, sequence_parallel=sequence_parallel
         )
 
-        mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
