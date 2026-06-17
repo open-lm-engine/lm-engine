@@ -110,6 +110,36 @@ def test_generation_shapes(
 @pytest.mark.parametrize("kernel_size", [1, 4])
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
+@pytest.mark.parametrize("seq_len", [1, 2, 4])
+def test_zero_state_matches_fresh_prefill(
+    device: torch.device,
+    kernel_size: int,
+    add_bias: bool,
+    activation: str | None,
+    seq_len: int,
+) -> None:
+    skip_test_if_device_unavailable(device)
+
+    with torch.device(device):
+        conv = _make_conv(kernel_size=kernel_size, add_bias=add_bias, activation=activation)
+
+    conv.eval()
+
+    x = torch.randn(_BATCH, seq_len, _HIDDEN_SIZE, device=device)
+    zero_state = torch.zeros(_BATCH, _HIDDEN_SIZE, kernel_size, device=device)
+
+    out_fresh, state_fresh = conv(x, input_state=None, attention_mask=None, output_state=True)
+    out_zero, state_zero = conv(x, input_state=zero_state, attention_mask=None, output_state=True)
+
+    assert_close(out_zero, out_fresh, rtol=1e-5, atol=1e-5)
+    assert_close(state_zero, state_fresh, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
+@pytest.mark.parametrize("kernel_size", [1, 4])
+@pytest.mark.parametrize("add_bias", [False, True])
+@pytest.mark.parametrize("activation", [None, "silu", "gelu"])
+@pytest.mark.parametrize("continuation_len", [1, 2, 4])
 @pytest.mark.parametrize("n_gen_steps", [1, 2])
 @pytest.mark.parametrize("short_prefill", [False, True])
 def test_consistency(
@@ -117,6 +147,7 @@ def test_consistency(
     kernel_size: int,
     add_bias: bool,
     activation: str | None,
+    continuation_len: int,
     n_gen_steps: int,
     short_prefill: bool,
 ) -> None:
@@ -129,17 +160,41 @@ def test_consistency(
     conv.eval()
 
     prefill_len = max(1, kernel_size - 1) if short_prefill else _PREFILL_LEN
-    x_full = torch.randn(_BATCH, prefill_len + n_gen_steps, _HIDDEN_SIZE, device=device)
+    total_gen_steps = continuation_len + n_gen_steps
+    x_full = torch.randn(_BATCH, prefill_len + total_gen_steps, _HIDDEN_SIZE, device=device)
 
-    out_full, _ = conv(x_full, input_state=None, attention_mask=None, output_state=False)
+    out_full, state_full = conv(x_full, input_state=None, attention_mask=None, output_state=True)
 
     _, state = conv(x_full[:, :prefill_len], input_state=None, attention_mask=None, output_state=True)
+    out_continue, state = conv(
+        x_full[:, prefill_len : prefill_len + continuation_len],
+        input_state=state,
+        attention_mask=None,
+        output_state=True,
+    )
+    assert_close(
+        out_continue,
+        out_full[:, prefill_len : prefill_len + continuation_len],
+        rtol=1e-5,
+        atol=1e-5,
+    )
 
     for step in range(n_gen_steps):
-        x_step = x_full[:, prefill_len + step : prefill_len + step + 1]
+        start = prefill_len + continuation_len + step
+        x_step = x_full[:, start : start + 1]
         is_last = step == n_gen_steps - 1
         out_step, state = conv(x_step, input_state=state, attention_mask=None, output_state=not is_last)
-        assert_close(out_step, out_full[:, prefill_len + step : prefill_len + step + 1], rtol=1e-5, atol=1e-5)
+        assert_close(out_step, out_full[:, start : start + 1], rtol=1e-5, atol=1e-5)
+
+    assert state is None
+    _, state = conv(x_full[:, :prefill_len], input_state=None, attention_mask=None, output_state=True)
+    _, state = conv(
+        x_full[:, prefill_len:],
+        input_state=state,
+        attention_mask=None,
+        output_state=True,
+    )
+    assert_close(state, state_full, rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
