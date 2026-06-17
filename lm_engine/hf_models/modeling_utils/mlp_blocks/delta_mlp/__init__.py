@@ -30,6 +30,9 @@ from ...normalization import get_normalization_function
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 
 
+_DELTA_MLP_CACHE_NAME = "delta_mlp"
+
+
 if is_fla_available():
     from fla.ops.cp import build_cp_context
 
@@ -258,6 +261,101 @@ class DeltaMLP(nn.Module):
 
         self.reset_parameters()
 
+    def initial_recurrent_state(self, batch_size: int = 1) -> torch.Tensor:
+        """Return the learned recurrent state in kernel layout [B, H, K, V]."""
+        state = rearrange(
+            self.initial_state.weight,
+            "v (h k) -> 1 h k v",
+            k=self.k_head_dim,
+            v=self.v_head_dim,
+        )
+        return state.expand(batch_size, -1, -1, -1).contiguous()
+
+    def _packed_prefill_shortconv(
+        self,
+        kv: torch.Tensor,
+        cu_seqlens: torch.Tensor,
+        conv_state: torch.Tensor | None,
+        output_state: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Apply short-conv over packed prefill segments.
+
+        Prefill uses the fused cu_seqlens path and gathers the final conv
+        carry from raw inputs. Cached continuation prepends each segment's
+        carry, runs one fused varlen conv, and drops the carry outputs.
+        """
+
+        def _gather_last_k_per_segment(kv: torch.Tensor, segment_cu_seqlens: torch.Tensor) -> torch.Tensor:
+            starts = segment_cu_seqlens[:-1].to(torch.long)
+            ends = segment_cu_seqlens[1:].to(torch.long)
+            offsets = torch.arange(self.kv_conv1d.kernel_size, device=kv.device)
+            idx = ends[:, None] - self.kv_conv1d.kernel_size + offsets[None, :]
+            valid = idx >= starts[:, None]
+            gathered = kv[0][idx.clamp_min(0)]
+            gathered = gathered * valid[..., None]
+            return gathered.transpose(1, 2).contiguous()
+
+        if conv_state is None:
+            next_conv_state = _gather_last_k_per_segment(kv, cu_seqlens) if output_state else None
+            kv, _ = self.kv_conv1d(
+                x=kv,
+                input_state=None,
+                attention_mask=None,
+                output_state=False,
+                cu_seqlens=cu_seqlens,
+            )
+            return kv, next_conv_state
+
+        bounds = cu_seqlens.tolist()
+        assert conv_state.size(0) == len(bounds) - 1
+
+        parts = []
+        state_tokens = conv_state.transpose(1, 2)
+        for i, (start, end) in enumerate(zip(bounds[:-1], bounds[1:])):
+            parts.append(torch.cat([state_tokens[i : i + 1], kv[:, start:end]], dim=1))
+
+        kv = torch.cat(parts, dim=1)
+        segment_lengths = cu_seqlens[1:] - cu_seqlens[:-1]
+        augmented_lengths = segment_lengths + self.kv_conv1d.kernel_size
+        augmented_cu_seqlens = torch.zeros_like(cu_seqlens)
+        augmented_cu_seqlens[1:] = torch.cumsum(augmented_lengths, dim=0)
+        conv_state = _gather_last_k_per_segment(kv, augmented_cu_seqlens) if output_state else None
+
+        kv, _ = self.kv_conv1d(
+            x=kv,
+            input_state=None,
+            attention_mask=None,
+            output_state=False,
+            cu_seqlens=augmented_cu_seqlens,
+        )
+
+        parts = []
+        augmented_bounds = augmented_cu_seqlens.tolist()
+        state_length = self.kv_conv1d.kernel_size
+        for start, end in zip(augmented_bounds[:-1], augmented_bounds[1:]):
+            parts.append(kv[:, start + state_length : end])
+
+        return torch.cat(parts, dim=1), conv_state
+
+    def _packed_decode_shortconv(
+        self,
+        kv: torch.Tensor,
+        cu_seqlens: torch.Tensor,
+        conv_state: torch.Tensor | None,
+        output_state: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Apply short-conv over packed unit-length decode segments."""
+        assert kv.size(0) == 1
+        assert kv.size(1) == cu_seqlens.numel() - 1
+        kv = kv.squeeze(0).unsqueeze(1)
+        kv, conv_state = self.kv_conv1d(
+            x=kv,
+            input_state=conv_state,
+            attention_mask=None,
+            output_state=output_state,
+        )
+        return kv.squeeze(1).unsqueeze(0), conv_state
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -272,15 +370,20 @@ class DeltaMLP(nn.Module):
         - padded: hidden_states [B, T, H] with attention_mask.
         - packed: hidden_states [total_tokens, H] with cu_seqlens.
 
-        Varlen inputs reset convolution state and use one recurrent initial
-        state per sequence at cu_seqlens boundaries.
+        Varlen inputs use cu_seqlens boundaries and one recurrent state per
+        logical sequence.
+
+        Packed cache contract: conv_state is [num_seq, dim, kernel_size]; a fresh
+        sequence is expressed as conv_state=None OR an all-zero state (serving
+        uses the latter so fresh and prefixed requests batch together). Note the
+        asymmetry — a fresh *conv* state is zero, but a fresh *recurrent* state
+        is the learned self.initial_state, not zero (see initial_recurrent_state).
         """
         is_cp_enabled = ProcessGroupManager.is_context_parallel_enabled()
 
         if self.use_padding_free_transformer:
             assert not self.training
             assert not is_cp_enabled
-            assert cache_params is None
             assert attention_mask is None
             assert cu_seqlens is not None
             assert max_seqlen is not None
@@ -306,7 +409,11 @@ class DeltaMLP(nn.Module):
             if self.training:
                 assert batch_size == 1
 
-        use_fused_recurrent = not self.use_padding_free_transformer and not self.training and q_len <= 64
+        # Packed decode has one token per active request; packed prefill stays on chunk.
+        is_packed_decode = self.use_padding_free_transformer and q_len == 1
+        use_fused_recurrent = (
+            not self.training and q_len <= 64 and (not self.use_padding_free_transformer or is_packed_decode)
+        )
         mode = "fused_recurrent" if use_fused_recurrent else "chunk"
         if self.training:
             assert mode == "chunk", "Only chunk mode is supported in training."
@@ -324,15 +431,12 @@ class DeltaMLP(nn.Module):
             recurrent_state = None
         else:
             use_cache = True
-            conv_state, recurrent_state = cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+            conv_state, recurrent_state = cache_params.get_cache(
+                layer_idx=self.layer_idx, empty_value=(None, None), cache_name=_DELTA_MLP_CACHE_NAME
+            )
 
         if recurrent_state is None:
-            recurrent_state = rearrange(
-                self.initial_state.weight,
-                "v (h k) -> 1 h k v",
-                k=self.k_head_dim,
-                v=self.v_head_dim,
-            )
+            recurrent_state = self.initial_recurrent_state()
 
         q = self.q_proj(hidden_states)
         q = self.act(q)
@@ -365,12 +469,13 @@ class DeltaMLP(nn.Module):
                     cp_context=cp_context,
                 )
             elif self.use_padding_free_transformer:
-                kv, conv_state = self.kv_conv1d(
-                    x=kv,
-                    input_state=conv_state,
-                    attention_mask=None,
-                    output_state=False,
+                kv, conv_state = (
+                    self._packed_decode_shortconv if is_packed_decode else self._packed_prefill_shortconv
+                )(
+                    kv=kv,
                     cu_seqlens=cu_seqlens,
+                    conv_state=conv_state,
+                    output_state=cache_params is not None,
                 )
             else:
                 kv, conv_state = self.kv_conv1d(
@@ -481,20 +586,17 @@ class DeltaMLP(nn.Module):
             )
 
         if cache_params is not None:
+            # Packed serving tracks positions with cu_seqlens and external
+            # request state pools, so ConstantCache.get_seq_length() is not a
+            # valid scalar for mixed-length requests.
+            num_tokens_added = None if self.use_padding_free_transformer else q_len
             cache_params.update(
                 states=(
-                    GenerationState(
-                        state=conv_state,
-                        method=ConstantCache,
-                        num_tokens_added=hidden_states.size(1),
-                    ),
-                    GenerationState(
-                        state=recurrent_state,
-                        method=ConstantCache,
-                        num_tokens_added=hidden_states.size(1),
-                    ),
+                    GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=num_tokens_added),
+                    GenerationState(state=recurrent_state, method=ConstantCache, num_tokens_added=num_tokens_added),
                 ),
                 layer_idx=self.layer_idx,
+                cache_name=_DELTA_MLP_CACHE_NAME,
             )
 
         o = reduce(o, "b t h d -> b t d", "sum", h=self.num_heads)
