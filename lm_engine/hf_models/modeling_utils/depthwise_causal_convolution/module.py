@@ -47,6 +47,16 @@ def _zeros_like_with_backward(x: torch.Tensor) -> torch.Tensor:
     return _ZerosLikeWithBackward.apply(x)
 
 
+def _get_last_state(x: torch.Tensor, kernel_size: int) -> torch.Tensor:
+    """Return the convolution carry as the latest kernel_size raw inputs."""
+
+    # last kernel_size columns of x as passed, not of the original block
+    if x.size(-1) < kernel_size:
+        return F.pad(x, (kernel_size - x.size(-1), 0))
+
+    return x[..., -kernel_size:]
+
+
 class DepthwiseCausalConvolution(nn.Conv1d):
     def __init__(
         self,
@@ -119,23 +129,24 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             x = x.transpose(-1, -2)
 
             if output_state:
-                # F.pad trims the x if sequence_length > kernel_size
-                final_state = F.pad(x, (self.kernel_size - BLOCK_SIZE_S, 0))
+                final_state = _get_last_state(x, self.kernel_size)
+
+            initial_state_T = input_state.transpose(-1, -2) if input_state is not None else None
 
             if is_kernel_allowed(Kernel.causal_conv1d):
                 x = causal_conv1d_fn(
                     x=x,
                     weight=self.weight.squeeze(1),
                     bias=self.bias,
-                    initial_states=input_state.transpose(-1, -2) if input_state is not None else None,
+                    initial_states=initial_state_T,
                     activation=self.activation_string if self.use_activation_inside_kernel else None,
                 )
 
                 if not self.use_activation_inside_kernel:
                     x = self.activation_function(x)
             else:
-                if is_cp_enabled and self.kernel_size > 1 and input_state is not None:
-                    x = torch.cat([input_state.transpose(-1, -2), x], dim=-1)
+                if is_cp_enabled and self.kernel_size > 1 and initial_state_T is not None:
+                    x = torch.cat([initial_state_T, x], dim=-1)
 
                 x = super().forward(x)
 
@@ -150,39 +161,54 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
             x = x.transpose(-1, -2)
         else:
-            if is_kernel_allowed(Kernel.causal_conv1d):
-                assert S == 1
+            if S == 1:
+                if is_kernel_allowed(Kernel.causal_conv1d):
+                    input_state_buffer = input_state.clone()
 
-                input_state_buffer = input_state.clone()
+                    x = causal_conv1d_update(
+                        x=x.squeeze(1),
+                        conv_state=input_state_buffer,
+                        weight=self.weight.squeeze(1),
+                        bias=self.bias,
+                        activation=self.activation_string if self.use_activation_inside_kernel else None,
+                    )
 
-                x = causal_conv1d_update(
-                    x=x.squeeze(1),
-                    conv_state=input_state_buffer,
-                    weight=self.weight.squeeze(1),
-                    bias=self.bias,
-                    activation=self.activation_string if self.use_activation_inside_kernel else None,
-                )
+                    x = x[:, None, :]
+                    final_state = input_state_buffer if output_state else None
 
-                x = x[:, None, :]
-                final_state = input_state_buffer if output_state else None
+                    if not self.use_activation_inside_kernel:
+                        x = self.activation_function(x)
+                else:
+                    final_state = input_state.roll(shifts=-1, dims=-1)
+                    final_state[..., -1] = x[:, 0]
 
-                if not self.use_activation_inside_kernel:
+                    x = (final_state * self.weight.squeeze(1)).sum(dim=-1)
+                    x = x[:, None, :]
+                    if self.bias is not None:
+                        x = x + self.bias
+
+                    if not output_state:
+                        final_state = None
+
                     x = self.activation_function(x)
             else:
-                assert S == 1
+                x = x.transpose(-1, -2)
+                # TODO(zhonglin): add fused multi-token continuation support for
+                # input_state=[batch, dim, kernel_size] and
+                # final_state=[batch, dim, kernel_size].
+                x = torch.cat([input_state, x], dim=-1)
 
-                final_state = input_state.roll(shifts=-1, dims=-1)
-                final_state[..., -1] = x[:, 0]
+                if output_state:
+                    final_state = _get_last_state(x, self.kernel_size)
 
-                x = (final_state * self.weight.squeeze(1)).sum(dim=-1)
-                x = x[:, None, :]
-                if self.bias is not None:
-                    x = x + self.bias
+                x = super().forward(x)
 
-                if not output_state:
-                    final_state = None
+                if self.kernel_size > 1:
+                    x = x[..., : 1 - self.kernel_size]
 
+                x = x[..., -BLOCK_SIZE_S:]
                 x = self.activation_function(x)
+                x = x.transpose(-1, -2)
 
         x = _apply_mask_to_padding_states(x, attention_mask)
 
