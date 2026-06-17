@@ -193,13 +193,14 @@ class DepthwiseCausalConvolution(nn.Conv1d):
                     x = self.activation_function(x)
             else:
                 x = x.transpose(-1, -2)
-                if output_state:
-                    final_state = _get_last_state(torch.cat([input_state, x], dim=-1), self.kernel_size)
-
                 # TODO(zhonglin): add fused multi-token continuation support for
                 # input_state=[batch, dim, kernel_size] and
                 # final_state=[batch, dim, kernel_size].
                 x = torch.cat([input_state, x], dim=-1)
+
+                if output_state:
+                    final_state = _get_last_state(x, self.kernel_size)
+
                 x = super().forward(x)
 
                 if self.kernel_size > 1:
