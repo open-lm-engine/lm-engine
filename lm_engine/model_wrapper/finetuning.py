@@ -1,18 +1,18 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
 
 import torch
 import torch.distributed
-from torch.distributed._tensor.placement_types import Replicate
 
-from ..dtensors import tensor_to_dtensor
+from ..accelerator import Accelerator
 from ..enums import Kernel
-from ..hf_models import CausalLMOutputWithPast, get_autoregressive_language_modeling_loss
+from ..hf_models import CausalLMOutputWithPast
 from ..kernels import is_kernel_allowed
-from ..utils import Accelerator, Communication, MetricsTrackingDict, ProcessGroupManager
+from ..logging_utils import MetricsTrackingDict
+from ..parallel import ProcessGroupManager
 from .base import ModelWrapper
 
 
@@ -27,8 +27,8 @@ class ModelWrapperForFinetuning(ModelWrapper):
             MetricsTrackingDict: loss tracking dict
         """
 
-        if ProcessGroupManager.is_tensor_parallel_enabled():
-            batch = self._broadcast_inputs_for_tensor_parallel(batch)
+        assert not ProcessGroupManager.is_context_parallel_enabled()
+        batch = self._broadcast_inputs_for_tensor_parallel(batch)
 
         if not self.is_custom_model:
             assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
@@ -36,51 +36,20 @@ class ModelWrapperForFinetuning(ModelWrapper):
         labels = batch.pop("labels")
         model_outputs: CausalLMOutputWithPast = self.model(**batch)
 
-        return self.get_loss(
+        output = self.get_loss(
             model_outputs=model_outputs,
             labels=labels,
+            shift_logits_and_labels=True,
             cu_seqlens=batch.get("cu_seqlens", None),
             lm_loss_multiplier=lm_loss_multiplier,
         )
 
-    def get_loss(
-        self,
-        model_outputs: CausalLMOutputWithPast,
-        labels: torch.Tensor,
-        cu_seqlens: torch.Tensor | None,
-        lm_loss_multiplier: float = 1,
-    ) -> torch.Tensor | dict:
-        tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
-
-        lm_loss = get_autoregressive_language_modeling_loss(
-            lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
-            labels=labels,
-            hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
-            vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
-            cu_seqlens=cu_seqlens,
-            use_padding_free_transformer=self.use_padding_free_transformer,
-            reduction="sum",
-            shift_logits_and_labels=True,
-            tensor_parallel_enabled=tensor_parallel_enabled,
-        )
-
-        lm_loss = lm_loss * lm_loss_multiplier
-        aux_loss = getattr(model_outputs, "aux_loss", 0)
-
-        if aux_loss == 0:
-            loss = lm_loss
-            output = {"loss": loss}
-        else:
-            if tensor_parallel_enabled:
-                aux_loss = tensor_to_dtensor(aux_loss, device_mesh=self.tp_mesh, current_placement=Replicate())
-
-            loss = lm_loss + self.router_aux_loss_coef * aux_loss
-            output = {"loss": loss, "lm_loss": lm_loss, "aux_loss": aux_loss}
-
         return output
 
     def _broadcast_inputs_for_tensor_parallel(self, batch: dict) -> dict:
+        if not ProcessGroupManager.is_tensor_parallel_enabled():
+            return batch
+
         device = Accelerator.get_current_device()
 
         is_tp_first_rank = ProcessGroupManager.is_tensor_parallel_first_rank()
@@ -110,7 +79,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
             keys = ["input_ids", "attention_mask", "labels"]
 
             batch_shape = batch["input_ids"].shape if is_tp_first_rank else None
-            batch_shape = Communication.broadcast_object(batch_shape, src=tp_source_rank, group=tp_group)
+            batch_shape = ProcessGroupManager.broadcast_object(batch_shape, src=tp_source_rank, group=tp_group)
 
             if not is_tp_first_rank:
                 batch = {key: torch.empty(batch_shape, dtype=torch.long, device=device) for key in keys}

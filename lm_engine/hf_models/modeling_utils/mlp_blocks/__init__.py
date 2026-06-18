@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from ...config import CommonConfig
@@ -19,7 +19,6 @@ def get_mlp_block(
         activation_function=block.activation_function,
         add_bias=block.add_bias,
         dropout=block.dropout,
-        use_interleaved_weights=block.use_interleaved_weights,
         init_method=config.init_method,
         initializer_range=config.initializer_range,
         m_width=config.m_width,
@@ -35,7 +34,6 @@ def get_mlp_block(
         mlp = MoE(
             **kwargs,
             shared_intermediate_size=block.shared_intermediate_size,
-            use_interleaved_weights_for_shared_experts=block.use_interleaved_weights_for_shared_experts,
             shared_expert_gating=block.shared_expert_gating,
             normalized_topk=block.normalized_topk,
             num_experts=block.num_experts,

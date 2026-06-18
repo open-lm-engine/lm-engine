@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 datasets:
@@ -26,6 +26,7 @@ training_parameters:
   num_training_steps: 4000
   eval_interval: 500
   micro_batch_size: 8
+  gradient_accumulation_steps: 1
 
 optimizer_args:
   class_name: TorchAdamW

@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from transformers import LlamaConfig, LlamaForCausalLM
@@ -17,7 +17,6 @@ from ..models import GPTBaseConfig
 def _import_llama_config(original_config: LlamaConfig, **kwargs) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert original_config.mlp_bias == original_config.attention_bias
-    use_interleaved_weights = kwargs.pop("use_interleaved_weights", False)
 
     config = GPTBaseConfig(
         vocab_size=original_config.vocab_size,
@@ -51,7 +50,6 @@ def _import_llama_config(original_config: LlamaConfig, **kwargs) -> GPTBaseConfi
                 "add_bias": original_config.mlp_bias,
                 "activation_function": "swiglu",
                 "intermediate_size": original_config.intermediate_size,
-                "use_interleaved_weights": use_interleaved_weights,
             }
             for _ in range(original_config.num_hidden_layers)
         ],
@@ -79,8 +77,6 @@ def _import_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager:
         import_prefix = f"transformer.h.{layer_idx}."
         export_prefix = f"model.layers.{layer_idx}."
 
-        use_interleaved_weights = config.mlp_blocks[layer_idx].use_interleaved_weights
-
         state_dict[f"{import_prefix}ln_1.weight"] = safetensors_weights_manager.get_tensor(
             f"{export_prefix}input_layernorm.weight"
         )
@@ -91,13 +87,11 @@ def _import_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager:
         state_dict[f"{import_prefix}mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
             safetensors_weights_manager.get_tensor(f"{export_prefix}mlp.up_proj.weight"),
             safetensors_weights_manager.get_tensor(f"{export_prefix}mlp.gate_proj.weight"),
-            is_interleaved=use_interleaved_weights,
         )
         if f"{export_prefix}mlp.up_proj.bias" in safetensors_weights_manager:
             state_dict[f"{import_prefix}mlp_block.c_fc.bias"] = interleave_up_gate_tensor_for_mlp(
                 safetensors_weights_manager.get_tensor(f"{export_prefix}mlp.up_proj.bias"),
                 safetensors_weights_manager.get_tensor(f"{export_prefix}mlp.gate_proj.bias"),
-                is_interleaved=use_interleaved_weights,
             )
 
         state_dict[f"{import_prefix}mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
@@ -190,8 +184,6 @@ def _export_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager:
         import_prefix = f"transformer.h.{layer_idx}."
         export_prefix = f"model.layers.{layer_idx}."
 
-        use_interleaved_weights = config.mlp_blocks[layer_idx].use_interleaved_weights
-
         state_dict[f"{export_prefix}input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
             f"{import_prefix}ln_1.weight"
         )
@@ -200,16 +192,14 @@ def _export_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager:
         )
 
         up_weight, gate_weight = split_up_gate_tensor_for_mlp(
-            safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight"),
-            is_interleaved=use_interleaved_weights,
+            safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight")
         )
         state_dict[f"{export_prefix}mlp.up_proj.weight"] = up_weight
         state_dict[f"{export_prefix}mlp.gate_proj.weight"] = gate_weight
 
         if f"{import_prefix}mlp_block.c_fc.bias" in safetensors_weights_manager:
             up_bias, gate_bias = split_up_gate_tensor_for_mlp(
-                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.bias"),
-                is_interleaved=use_interleaved_weights,
+                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.bias")
             )
             state_dict[f"{export_prefix}mlp.up_proj.bias"] = up_bias
             state_dict[f"{export_prefix}mlp.gate_proj.bias"] = gate_bias

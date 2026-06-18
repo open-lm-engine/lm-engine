@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -8,9 +8,11 @@ import torch
 import torch.nn as nn
 from transformers import GenerationConfig, PreTrainedModel
 
+from ....accelerator import Accelerator
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import Accelerator, ProcessGroupManager, divide_if_divisible
+from ....parallel import ProcessGroupManager, prepare_context_parallel_input
+from ....utils import divide_if_divisible
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
@@ -182,6 +184,9 @@ class BaseModelMixin(PreTrainedModelMixin):
             )
 
         self.position_embedding_type = config.position_embedding_type
+        self.use_rope = self.position_embedding_type == "rope"
+        self.use_learned_absolute = self.position_embedding_type == "learned_absolute"
+
         self._setup_positional_encoding()
 
     def forward(
@@ -195,23 +200,19 @@ class BaseModelMixin(PreTrainedModelMixin):
         max_seqlen: int | None = None,
     ) -> BaseModelOutputWithPast:
         if self.is_first_stage:
-            (
-                use_cache,
-                hidden_states,
-                causal_mask,
-                position_ids,
-                rope_cos_sin,
-                cache_params,
-            ) = self._prepare_a_bunch_of_stuff(
-                input_ids=input_ids,
-                cache_params=cache_params,
-                attention_mask=attention_mask,
-                position_ids=position_ids,
-                use_cache=use_cache,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
+            use_cache, hidden_states, causal_mask, position_ids, rope_cos_sin, cache_params = (
+                self._prepare_a_bunch_of_stuff(
+                    input_ids=input_ids,
+                    cache_params=cache_params,
+                    attention_mask=attention_mask,
+                    position_ids=position_ids,
+                    use_cache=use_cache,
+                    cu_seqlens=cu_seqlens,
+                    max_seqlen=max_seqlen,
+                )
             )
         else:
+            assert not ProcessGroupManager.is_context_parallel_enabled()
             assert cache_params is None
             assert attention_mask is None
 
@@ -219,21 +220,26 @@ class BaseModelMixin(PreTrainedModelMixin):
             past_length = 0
 
             if self.use_padding_free_transformer:
+                assert not ProcessGroupManager.is_context_parallel_enabled()
                 key_length = max_seqlen
-                # query length will change if cache_params is not None
-                query_length = key_length - past_length
             else:
                 key_length = (
-                    hidden_states.size(1) * ProcessGroupManager.get_tensor_parallel_world_size()
-                    if self.sequence_parallel
-                    else hidden_states.size(1)
+                    hidden_states.size(1)
+                    * (ProcessGroupManager.get_tensor_parallel_world_size() if self.self.sequence_parallel else 1)
+                    * ProcessGroupManager.get_context_parallel_world_size()
                 )
-                query_length = key_length - past_length
 
-            position_ids = torch.arange(past_length, key_length, dtype=torch.long, device=hidden_states.device)
+            query_length = key_length - past_length
+
+            position_ids = torch.arange(
+                past_length,
+                key_length,
+                dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.long,
+                device=hidden_states.device,
+            )
+
             position_ids = position_ids.unsqueeze(0).view(-1, query_length)
-
-            rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
+            rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids) if self.use_rope else None
 
         if is_generation_cache_enabled() and use_cache and cache_params is None:
             cache_params = GenerationCache()
@@ -268,26 +274,38 @@ class BaseModelMixin(PreTrainedModelMixin):
     def _get_position_ids(
         self, attention_mask: torch.Tensor, past_length: int, query_length: int, key_length: int, device: torch.device
     ) -> torch.Tensor:
-        if attention_mask is not None and len(attention_mask.shape) == 2:
+        if attention_mask is not None and attention_mask.dim() == 2:
+            assert not ProcessGroupManager.is_context_parallel_enabled()
             # create position_ids on the fly for batch generation
-            position_ids = attention_mask.long().cumsum(-1) - 1
+            position_ids = (
+                attention_mask.to(
+                    torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.int64
+                ).cumsum(-1)
+                - 1
+            )
+
             position_ids.masked_fill_(attention_mask == 0, 0)
             if past_length > 0:
                 position_ids = position_ids[:, past_length:key_length:]
         else:
-            position_ids = torch.arange(past_length, key_length, dtype=torch.long, device=device)
+            position_ids = torch.arange(
+                past_length,
+                key_length,
+                dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.int64,
+                device=device,
+            )
+
             position_ids = position_ids.unsqueeze(0).view(-1, query_length)
+
+        position_ids = prepare_context_parallel_input(inputs=(position_ids,))[0]
 
         return position_ids
 
-    def _get_rope_cos_sin(
-        self, key_length: int, position_ids: torch.Tensor, dtype: torch.dtype
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        if self.position_embedding_type == "rope":
-            cos, sin = self.rope(key_length, dtype=dtype)
-            cos = cos[position_ids]
-            sin = sin[position_ids]
-            return cos, sin
+    def _get_rope_cos_sin(self, key_length: int, position_ids: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        cos, sin = self.rope(key_length)
+        cos = cos[position_ids]
+        sin = sin[position_ids]
+        return cos, sin
 
     def _prepare_causal_attention_mask(
         self,
@@ -330,19 +348,6 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         return causal_mask
 
-    def _get_initial_hidden_state(self, input_ids: torch.Tensor, position_ids: torch.Tensor | None) -> torch.Tensor:
-        hidden_state = self.wte(input_ids)
-
-        if self.position_embedding_type == "learned_absolute":
-            hidden_state = hidden_state + self.wpe(position_ids)
-
-        hidden_state = self.embedding_dropout(hidden_state)
-
-        if self.m_emb is not None:
-            hidden_state = hidden_state * self.m_emb
-
-        return hidden_state
-
     def _prepare_a_bunch_of_stuff(
         self,
         input_ids: torch.Tensor | None = None,
@@ -379,30 +384,36 @@ class BaseModelMixin(PreTrainedModelMixin):
             key_length = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
         else:
             past_length = 0 if cache_params is None else cache_params.get_seq_length()
-            query_length = input_shape[-1]
+            query_length = input_shape[-1] * (
+                ProcessGroupManager.get_context_parallel_world_size()
+                if ProcessGroupManager.is_context_parallel_enabled()
+                else 1
+            )
             key_length = past_length + query_length
 
-        if position_ids is None:
-            position_ids = self._get_position_ids(
-                attention_mask, past_length, query_length, key_length, input_ids.device
-            )
+        hidden_states = self.wte(input_ids)
 
-        hidden_states = self._get_initial_hidden_state(input_ids, position_ids)
+        if self.use_rope or self.use_learned_absolute:
+            if position_ids is None:
+                position_ids = self._get_position_ids(
+                    attention_mask, past_length, query_length, key_length, input_ids.device
+                )
 
-        rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids, dtype=hidden_states.dtype)
+        if self.use_learned_absolute:
+            hidden_states = hidden_states + self.wpe(position_ids)
+
+        hidden_states = self.embedding_dropout(hidden_states)
+
+        if self.m_emb is not None:
+            hidden_states = hidden_states * self.m_emb
+
+        rope_cos_sin = self._get_rope_cos_sin(key_length, position_ids) if self.use_rope else None
 
         attention_mask = self._get_maybe_causal_mask(
             attention_mask, batch_size, query_length, key_length, hidden_states.dtype, input_ids.device
         )
 
-        return (
-            use_cache,
-            hidden_states,
-            attention_mask,
-            position_ids,
-            rope_cos_sin,
-            cache_params,
-        )
+        return use_cache, hidden_states, attention_mask, position_ids, rope_cos_sin, cache_params
 
     def _setup_positional_encoding(self) -> None:
         max_position_embeddings = self.config.max_position_embeddings

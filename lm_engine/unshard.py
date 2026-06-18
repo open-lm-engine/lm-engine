@@ -1,10 +1,10 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from .arguments import UnshardingArgs, get_args
 from .checkpointing import load_checkpoint_and_unshard
-from .utils import ProcessGroupManager, run_rank_n
+from .parallel import ProcessGroupManager, run_rank_n
 
 
 def main() -> None:

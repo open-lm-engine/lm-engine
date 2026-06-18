@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ import torch.nn.functional as F
 from torch.distributed._tensor.placement_types import Replicate, Shard
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
-from ...utils import ProcessGroupManager, divide_if_divisible
+from ...parallel import ProcessGroupManager
+from ...utils import divide_if_divisible
 from ..parameter import mark_parameter_as_initialized
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements

@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import json
@@ -15,22 +15,14 @@ from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
-from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs, args_dict_to_pydantic_args
+from ..accelerator import Accelerator
+from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader
-from ..hf_models import fix_unsharded_state_dict
+from ..logging_utils import ExperimentsTracker, log_rank_0
 from ..model_wrapper import ModelWrapper, get_model_container
-from ..utils import (
-    Accelerator,
-    Communication,
-    ExperimentsTracker,
-    ProcessGroupManager,
-    is_torch_xla_available,
-    load_yaml,
-    log_rank_0,
-    run_rank_n,
-    string_to_torch_dtype,
-)
+from ..parallel import ProcessGroupManager, run_rank_n
+from ..utils import is_torch_xla_available, load_yaml, string_to_torch_dtype
 from .lr_scheduler import _get_lr_scheduler_path, _LRSchedulerSaver, _resume_learning_rate
 from .model import _get_model_path, _ModelSaver
 from .model_optimizer import _get_model_optimizer_path, _ModelOptimizerSaver
@@ -188,7 +180,7 @@ def save_checkpoint(
                 master_only=False,
             )
 
-        Communication.barrier()
+        ProcessGroupManager.barrier()
 
         run_rank_n(json.dump)(
             {"latest_checkpointed_iteration": iteration},
@@ -247,7 +239,7 @@ def load_checkpoint_for_training(
 
     args_file = os.path.join(load_path, f"{_TRAINING_CONFIG_PREFIX}.yml")
     args_from_checkpoint = load_yaml(args_file)
-    args_from_checkpoint = args_dict_to_pydantic_args(args_class, **args_from_checkpoint)
+    args_from_checkpoint = args_class(**args_from_checkpoint)
 
     log_rank_0(logging.INFO, f"loading checkpoint saved at {load_path}")
 
@@ -356,13 +348,12 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
         args_from_checkpoint["tuning_args"]["tuning_method"] = "pretraining"
         args_from_checkpoint.pop("teacher_args")
 
-    args_from_checkpoint = args_dict_to_pydantic_args(TrainingArgs, **args_from_checkpoint)
+    args_from_checkpoint = TrainingArgs(**args_from_checkpoint)
 
     if args.mixed_precision_args is not None:
         log_rank_0(logging.INFO, "overriding mixed precision args")
         args_from_checkpoint.mixed_precision_args = args.mixed_precision_args
 
-    checkpoint_tp_world_size = args_from_checkpoint.distributed_args.tensor_parallel_world_size
     use_meta = args_from_checkpoint.model_args.model_name is None
 
     with (
@@ -398,11 +389,6 @@ def load_checkpoint_and_unshard(args: UnshardingArgs) -> tuple[ModelWrapper, Tra
             )
 
             state = state["state"]
-
-        if checkpoint_tp_world_size > 1:
-            state = fix_unsharded_state_dict(
-                model.config, state, tensor_parallel_world_size=checkpoint_tp_world_size, prefix="model."
-            )
 
         dtype = string_to_torch_dtype(model.dtype)
         for key in list(state.keys()):
@@ -441,7 +427,7 @@ def _get_base_path(path: str, iteration: int) -> str:
 
 
 def _get_dataloader_path(path: str) -> str:
-    return os.path.join(path, "dataloader", f"dataloader-{ProcessGroupManager.get_data_parallel_rank()}.pt")
+    return os.path.join(path, "dataloader", f"dataloader-{ProcessGroupManager.get_data_loading_rank()}.pt")
 
 
 def _get_rng_state_path(path: str) -> str:

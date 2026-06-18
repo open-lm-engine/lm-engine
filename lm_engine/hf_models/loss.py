@@ -1,19 +1,17 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
-
-from contextlib import nullcontext
 
 import torch
 import torch.nn.functional as F
 from torch.distributed._tensor.api import DTensor
 from torch.distributed._tensor.placement_types import Replicate, Shard
-from torch.distributed.tensor.parallel import loss_parallel
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
-from ..utils import ProcessGroupManager, is_xma_available
+from ..parallel import ProcessGroupManager
+from ..utils import is_xma_available
 
 
 if is_xma_available():
@@ -32,6 +30,8 @@ def get_autoregressive_language_modeling_loss(
     tensor_parallel_enabled: bool = False,
 ) -> torch.Tensor | DTensor:
     if shift_logits_and_labels:
+        assert not ProcessGroupManager.is_context_parallel_enabled()
+
         if lm_logits is not None:
             lm_logits = lm_logits[..., :-1, :]
 
@@ -41,6 +41,8 @@ def get_autoregressive_language_modeling_loss(
         labels = labels[..., 1:]
 
     if use_padding_free_transformer:
+        assert not ProcessGroupManager.is_context_parallel_enabled()
+
         if shift_logits_and_labels:
             assert cu_seqlens is not None
 
@@ -71,21 +73,17 @@ def get_autoregressive_language_modeling_loss(
     else:
         assert hidden_states is None
         assert vocab_weight is None
-        loss_context = nullcontext
 
         if tensor_parallel_enabled:
-            loss_context = loss_parallel
             tp_mesh = ProcessGroupManager.get_tensor_parallel_mesh()
 
             lm_logits = tensor_to_dtensor(lm_logits, device_mesh=tp_mesh, current_placement=Shard(-1))
             labels = tensor_to_dtensor(labels, device_mesh=tp_mesh, current_placement=Replicate())
 
         lm_logits = lm_logits.float()
-
-        with loss_context():
-            loss = F.cross_entropy(
-                input=lm_logits.reshape(-1, lm_logits.size(-1)), target=labels.reshape(-1), reduction=reduction
-            )
+        loss = F.cross_entropy(
+            input=lm_logits.reshape(-1, lm_logits.size(-1)), target=labels.reshape(-1), reduction=reduction
+        )
 
     return loss
 

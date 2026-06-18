@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from .config import CommonConfig
@@ -22,8 +22,7 @@ from .models import (
 )
 from .parameter import (
     _INIT_MARKER,
-    _OPTIMIZER_SPLIT_FUNCTION,
-    get_optimizer_split_function,
+    get_named_parameters_and_buffers,
     get_parameter_marker_maps,
     is_parameter_initialized,
     is_parameter_with_mup_learning_rate,
@@ -34,7 +33,6 @@ from .parameter import (
     set_parameter_marker_maps,
 )
 from .register_hf import is_custom_model, register_model_classes
-from .unshard import fix_unsharded_state_dict, unshard_tensor_parallel_state_dicts
 from .utils import convert_padding_free_lists_to_tensors, disable_generation_cache
 
 

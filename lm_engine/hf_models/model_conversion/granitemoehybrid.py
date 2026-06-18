@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import torch
@@ -18,8 +18,6 @@ from ..models import GPTBaseConfig
 def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **kwargs) -> GPTBaseConfig:
     assert original_config.hidden_act == "silu"
     assert not original_config.attention_bias
-    use_interleaved_weights = kwargs.pop("use_interleaved_weights", False)
-    use_interleaved_weights_for_shared_experts = kwargs.pop("use_interleaved_weights_for_shared_experts", False)
 
     sequence_mixer_blocks = []
     for layer_idx in range(original_config.num_hidden_layers):
@@ -60,7 +58,6 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "intermediate_size": original_config.shared_intermediate_size,
                 "activation_function": "swiglu",
                 "add_bias": False,
-                "use_interleaved_weights": use_interleaved_weights,
             }
         else:
             mlp_block = {
@@ -73,8 +70,6 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "num_experts_per_tok": original_config.num_experts_per_tok,
                 "activation_function": "swiglu",
                 "add_bias": False,
-                "use_interleaved_weights": use_interleaved_weights,
-                "use_interleaved_weights_for_shared_experts": use_interleaved_weights_for_shared_experts,
             }
 
         mlp_blocks.append(mlp_block)
@@ -101,10 +96,6 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
         sequence_mixer_blocks=sequence_mixer_blocks,
         mlp_blocks=mlp_blocks,
     )
-
-    if use_interleaved_weights is not None:
-        for block in config.mlp_blocks:
-            block.use_interleaved_weights = use_interleaved_weights
 
     assert len(kwargs) == 0
 
@@ -134,7 +125,6 @@ def _import_granitemoehybrid_state_dict(
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
     for layer_idx in range(config.num_layers):
-        use_interleaved_weights = config.mlp_blocks[layer_idx].use_interleaved_weights
         import_prefix = f"transformer.h.{layer_idx}."
         export_prefix = f"model.layers.{layer_idx}."
 
@@ -154,7 +144,7 @@ def _import_granitemoehybrid_state_dict(
                 f"{export_prefix}block_sparse_moe.input_linear.weight"
             ).chunk(2, dim=1)
             state_dict[f"{import_prefix}mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
-                up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights, dim=1
+                up_weight=u, gate_weight=g, dim=1
             )
 
             state_dict[f"{import_prefix}mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
@@ -166,9 +156,7 @@ def _import_granitemoehybrid_state_dict(
                     2
                 )
                 state_dict[f"{import_prefix}mlp_block.c_fc_shared.weight"] = interleave_up_gate_tensor_for_mlp(
-                    up_weight=u,
-                    gate_weight=g,
-                    is_interleaved=config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts,
+                    up_weight=u, gate_weight=g
                 )
                 state_dict[f"{import_prefix}mlp_block.c_proj_shared.weight"] = safetensors_weights_manager.get_tensor(
                     f"{export_prefix}shared_mlp.output_linear.weight"
@@ -176,7 +164,7 @@ def _import_granitemoehybrid_state_dict(
         else:
             g, u = safetensors_weights_manager.get_tensor(f"{export_prefix}shared_mlp.input_linear.weight").chunk(2)
             state_dict[f"{import_prefix}mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
-                up_weight=u, gate_weight=g, is_interleaved=use_interleaved_weights
+                up_weight=u, gate_weight=g
             )
             state_dict[f"{import_prefix}mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
                 f"{export_prefix}shared_mlp.output_linear.weight"
@@ -375,7 +363,6 @@ def _export_granitemoehybrid_state_dict(
         state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
 
     for layer_idx in range(config.num_layers):
-        use_interleaved_weights = config.mlp_blocks[layer_idx].use_interleaved_weights
         import_prefix = f"transformer.h.{layer_idx}."
         export_prefix = f"model.layers.{layer_idx}."
 
@@ -391,9 +378,7 @@ def _export_granitemoehybrid_state_dict(
                 safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.gate.weight")
             )
             u, g = split_up_gate_tensor_for_mlp(
-                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight"),
-                is_interleaved=use_interleaved_weights,
-                dim=1,
+                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight"), dim=1
             )
             state_dict[f"{export_prefix}block_sparse_moe.input_linear.weight"] = torch.cat([g, u], dim=1)
             state_dict[f"{export_prefix}block_sparse_moe.output_linear.weight"] = (
@@ -402,8 +387,7 @@ def _export_granitemoehybrid_state_dict(
 
             if safetensors_weights_manager.has_tensor(f"{import_prefix}mlp_block.c_fc_shared.weight"):
                 u, g = split_up_gate_tensor_for_mlp(
-                    safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc_shared.weight"),
-                    is_interleaved=config.mlp_blocks[layer_idx].use_interleaved_weights_for_shared_experts,
+                    safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc_shared.weight")
                 )
                 state_dict[f"{export_prefix}shared_mlp.input_linear.weight"] = torch.cat([g, u], dim=0)
                 state_dict[f"{export_prefix}shared_mlp.output_linear.weight"] = safetensors_weights_manager.get_tensor(
@@ -411,8 +395,7 @@ def _export_granitemoehybrid_state_dict(
                 )
         else:
             u, g = split_up_gate_tensor_for_mlp(
-                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight"),
-                is_interleaved=use_interleaved_weights,
+                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight")
             )
             state_dict[f"{export_prefix}shared_mlp.input_linear.weight"] = torch.cat([g, u], dim=0)
             state_dict[f"{export_prefix}shared_mlp.output_linear.weight"] = safetensors_weights_manager.get_tensor(

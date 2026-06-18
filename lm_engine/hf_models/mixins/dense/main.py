@@ -1,18 +1,23 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
 
+import os
+
 import torch
 import torch.nn.functional as F
 from torch.distributed._tensor.placement_types import Replicate, Shard
+from torch.distributed.tensor import DTensor, distribute_tensor
 from transformers import StoppingCriteriaList
 
+from ....arguments import LoadArgs, MixedPrecisionArgs, UnshardingArgs
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....utils import ProcessGroupManager, SafeTensorsWeightsManager, divide_if_divisible
+from ....parallel import ProcessGroupManager
+from ....utils import SafeTensorsWeightsManager, divide_if_divisible, torch_dtype_to_string
 from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...loss import (
@@ -35,7 +40,6 @@ from .base import PreTrainedModelMixin
 
 class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
     base_model_class = None
-    model_parallel_state_dict_function = None
 
     def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:
         super().__init__(config, **kwargs)
@@ -144,6 +148,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                         lm_logits = lm_logits * (1 / self.m_width)
             else:
                 assert not self.is_pipeline_parallel_enabled
+                assert not ProcessGroupManager.is_context_parallel_enabled()
                 assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
                 lm_logits = self.get_lm_logits(hidden_states)
@@ -307,24 +312,45 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
     @classmethod
     def from_pretrained(
-        cls, pretrained_model_name_or_path: str, dtype: torch.dtype = torch.float32, **kwargs
+        cls,
+        pretrained_model_name_or_path: str,
+        dtype: torch.dtype = torch.float32,
+        iteration: int | None = None,
+        **kwargs,
     ) -> CausalLMModelMixin:
-        if ProcessGroupManager.is_tensor_parallel_enabled():
-            with torch.device("meta"):
-                model = cls._from_config(**kwargs)
-                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+        if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
+            # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_models)
+            from ....checkpointing import load_checkpoint_and_unshard
 
-                model = model.to(dtype=dtype)
+            assert not ProcessGroupManager.is_tensor_parallel_enabled()
 
-            # copy to device without copying storage
-            model = model.to_empty(device=torch.cuda.current_device())
-            set_parameter_marker_maps([model], marker_maps)
-
-            model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
-        else:
-            model = super().from_pretrained(
-                pretrained_model_name_or_path=pretrained_model_name_or_path, dtype=dtype, **kwargs
+            unshard_args = UnshardingArgs(
+                load_args=LoadArgs(load_path=pretrained_model_name_or_path, iteration=iteration),
+                mixed_precision_args=MixedPrecisionArgs(dtype=torch_dtype_to_string(dtype)),
+                unsharded_path="",
             )
+
+            model_wrapper, _, _ = load_checkpoint_and_unshard(unshard_args)
+            model = model_wrapper.model
+        else:
+            assert iteration is None, "iteration should be None when loading from an unsharded checkpoint"
+
+            if ProcessGroupManager.is_tensor_parallel_enabled():
+                with torch.device("meta"):
+                    model = cls._from_config(**kwargs)
+                    marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+
+                    model = model.to(dtype=dtype)
+
+                # copy to device without copying storage
+                model = model.to_empty(device=torch.cuda.current_device())
+                set_parameter_marker_maps([model], marker_maps)
+
+                model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
+            else:
+                model = super().from_pretrained(
+                    pretrained_model_name_or_path=pretrained_model_name_or_path, dtype=dtype, **kwargs
+                )
 
         return model
 
@@ -335,12 +361,16 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             if position_embedding_type == "rope":
                 self.transformer.rope.reset_parameters()
 
-        state_dict = self.__class__.model_parallel_state_dict_function(
-            config=self.config,
-            safetensors_weights_manager=safetensors_weights_manager,
-            num_pipeline_stages=self.num_pipeline_stages,
-            pipeline_stage_id=self.pipeline_stage_id,
-        )
+        state_dict = {}
+        for name, parameter in list(self.named_parameters()) + list(self.named_buffers()):
+            if not safetensors_weights_manager.has_tensor(name):
+                continue
+
+            p = safetensors_weights_manager.get_tensor(tensor_name=name, dtype=parameter.dtype)
+            if isinstance(parameter, DTensor):
+                p = distribute_tensor(tensor=p, device_mesh=parameter.device_mesh, placements=parameter.placements)
+
+            state_dict[name] = p
 
         self.load_state_dict(state_dict)
 

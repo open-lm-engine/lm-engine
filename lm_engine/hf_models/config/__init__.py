@@ -1,26 +1,44 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from copy import deepcopy
+from typing import Any, Callable
 
-from ...utils import BaseArgs, divide_if_divisible
+from ...arguments import BaseArgs
+from ...utils import divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
-from .sequence_mixer import (
-    _CausalConvolutionArgs,
-    _GatedDeltaNetArgs,
-    _GRUArgs,
-    _M2RNNArgs,
-    _Mamba2Args,
-    _RNNArgs,
-    _SoftmaxAttentionArgs,
-)
+from .sequence_mixer import _GatedDeltaNetArgs, _GRUArgs, _M2RNNArgs, _Mamba2Args, _RNNArgs, _SoftmaxAttentionArgs
 
 
+def _hold_base_args(key: str) -> Callable:
+    def _holded_function(function: Callable) -> Callable:
+        def _run(self, *args, **kwargs):
+            value: list[BaseArgs] = getattr(self, key)
+            setattr(self, key, [i.to_dict() if isinstance(i, BaseArgs) else i for i in value])
+            output = function(self, *args, **kwargs)
+            setattr(self, key, value)
+            return output
+
+        return _run
+
+    return _holded_function
+
+
+_SEQUENCE_MIXER_CONFIG_CLASSES = {
+    "gru": _GRUArgs,
+    "m2rnn": _M2RNNArgs,
+    "mamba2": _Mamba2Args,
+    "rnn": _RNNArgs,
+    "softmax_attention": _SoftmaxAttentionArgs,
+    "gated_deltanet": _GatedDeltaNetArgs,
+}
+
+_MLP_CONFIG_CLASSES = {"MLP": _MLPArgs, "MoE": _MoEArgs}
 _ALL_INIT_METHODS = ["normal", "mup", "fan_in"]
 
 # Keys added by HuggingFace internals that are not part of our config schema
@@ -59,13 +77,7 @@ class CommonConfig(BaseArgs):
     embedding_init_method: str = "normal"
     use_depth_scaled_init: bool = True
     sequence_mixer_blocks: list[
-        _SoftmaxAttentionArgs
-        | _Mamba2Args
-        | _GRUArgs
-        | _RNNArgs
-        | _M2RNNArgs
-        | _CausalConvolutionArgs
-        | _GatedDeltaNetArgs
+        _SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | _RNNArgs | _M2RNNArgs | _GatedDeltaNetArgs
     ]
     mlp_blocks: list[_MLPArgs | _MoEArgs]
     router_aux_loss_coef: float = 0.001
@@ -205,3 +217,37 @@ class CommonConfig(BaseArgs):
         assert all([_get(block, key_block) == value for block in blocks])
 
         return value
+
+    def _set_sequence_mixer_blocks(self) -> None:
+        if self.sequence_mixer_blocks is None:
+            self.sequence_mixer_blocks = [{} for _ in range(self.num_layers)]
+
+        sequence_mixer_blocks: list[
+            _GRUArgs | _Mamba2Args | _RNNArgs | _M2RNNArgs | _SoftmaxAttentionArgs | _GatedDeltaNetArgs
+        ] = []
+        for i in range(self.num_layers):
+            sequence_mixer_block = deepcopy(self.sequence_mixer_blocks[i])
+            sequence_mixer_type = sequence_mixer_block.pop("sequence_mixer_type", "softmax_attention")
+
+            if sequence_mixer_type == "mamba2":
+                sequence_mixer_block["intermediate_size"] = sequence_mixer_block.pop(
+                    "intermediate_size", 2 * self.hidden_size
+                )
+
+            sequence_mixer_blocks.append(_SEQUENCE_MIXER_CONFIG_CLASSES[sequence_mixer_type](**sequence_mixer_block))
+
+        self.sequence_mixer_blocks = sequence_mixer_blocks
+
+    def _set_mlp_blocks(self) -> None:
+        if self.mlp_blocks is None:
+            self.mlp_blocks = [{} for _ in range(self.num_layers)]
+
+        mlp_blocks: list[_MLPArgs | _MoEArgs] = []
+        for i in range(self.num_layers):
+            mlp_block = deepcopy(self.mlp_blocks[i])
+            mlp_block["intermediate_size"] = mlp_block.pop("intermediate_size", 4 * self.hidden_size)
+
+            mlp_type = mlp_block.pop("mlp_type", "MLP")
+            mlp_blocks.append(_MLP_CONFIG_CLASSES[mlp_type](**mlp_block))
+
+        self.mlp_blocks = mlp_blocks

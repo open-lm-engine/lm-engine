@@ -1,19 +1,21 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
 
-from functools import partial
-
 import torch
 import torch.nn as nn
 
-from ...parameter import mark_parameter_as_mup_learning_rate, set_optimizer_split_function
+from ....accelerator import Accelerator
+from ....enums import Kernel
+from ....kernels import is_kernel_allowed
+from ...parameter import mark_parameter_as_mup_learning_rate
 from ..activations import get_activation_function, is_glu
 from ..dropout import Dropout
 from ..init_utils import _get_std_for_linear
 from ..linear import ColumnParallelLinear, RowParallelLinear
+from ..quack import mlp_fc1_gemm_act, mlp_fc1_gemm_gated
 
 
 class MLP(nn.Module):
@@ -24,7 +26,6 @@ class MLP(nn.Module):
         activation_function: str,
         add_bias: bool,
         dropout: float,
-        use_interleaved_weights: bool,
         init_method: str,
         initializer_range: float,
         m_width: float,
@@ -36,11 +37,12 @@ class MLP(nn.Module):
         super().__init__()
 
         self.is_glu = is_glu(activation_function)
-        self.use_interleaved_weights = use_interleaved_weights
+        self.activation_function = activation_function
+        self.accelerator = Accelerator.get_accelerator()
 
-        self.c_fc = ColumnParallelLinear(
-            hidden_size,
-            2 * intermediate_size if self.is_glu else intermediate_size,
+        kwargs = dict(
+            in_features=hidden_size,
+            out_features=intermediate_size,
             bias=add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
@@ -53,6 +55,19 @@ class MLP(nn.Module):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
+
+        if self.accelerator == Accelerator.tpu and self.is_glu:
+            self.up_fc = ColumnParallelLinear(**kwargs)
+            self.gate_fc = ColumnParallelLinear(**kwargs)
+
+            mark_parameter_as_mup_learning_rate(self.up_fc.weight)
+            mark_parameter_as_mup_learning_rate(self.gate_fc.weight)
+        else:
+            if self.is_glu:
+                kwargs["out_features"] *= 2
+
+            self.c_fc = ColumnParallelLinear(**kwargs)
+            mark_parameter_as_mup_learning_rate(self.c_fc.weight)
 
         self.act = get_activation_function(activation_function)
 
@@ -76,75 +91,73 @@ class MLP(nn.Module):
             dropout, use_padding_free_transformer=use_padding_free_transformer, sequence_parallel=sequence_parallel
         )
 
-        mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
-        if self.is_glu:
-            set_optimizer_split_function(
-                self.c_fc.weight,
-                partial(_split_up_gate_tensor_for_mlp_for_optimizer, is_interleaved=self.use_interleaved_weights),
-            )
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.c_fc(x)
-        x = self.act(x, is_interleaved=self.use_interleaved_weights) if self.is_glu else self.act(x)
+        x = self._fc1_act(x)
         x = self.c_proj(x)
         x = self.dropout(x)
         return x
 
+    def _fc1_act(self, x: torch.Tensor) -> torch.Tensor:
+        if self.accelerator == Accelerator.tpu and self.is_glu:
+            u = self.up_fc(x)
+            g = self.gate_fc(x)
+            return self.act(x=None, u=u, g=g)
+
+        if self.is_glu and is_kernel_allowed(Kernel.quack_gemm_gated):
+            return mlp_fc1_gemm_gated(
+                x=x,
+                weight=self.c_fc.weight,
+                bias=self.c_fc.bias,
+                activation_function=self.activation_function,
+            )
+
+        if not self.is_glu and is_kernel_allowed(Kernel.quack_gemm_act):
+            return mlp_fc1_gemm_act(
+                x=x,
+                weight=self.c_fc.weight,
+                bias=self.c_fc.bias,
+                activation_function=self.activation_function,
+            )
+
+        x = self.c_fc(x)
+        x = self.act(x)
+
+        return x
+
 
 def interleave_up_gate_tensor_for_mlp(
-    up_weight: torch.Tensor, gate_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
+    up_weight: torch.Tensor, gate_weight: torch.Tensor, dim: int = 0
 ) -> torch.Tensor:
-    if is_interleaved:
-        if dim == 0:
-            W = torch.empty(
-                2 * up_weight.size(0), *up_weight.size()[1:], dtype=up_weight.dtype, device=up_weight.device
-            )
-            W[1::2] = up_weight
-            W[::2] = gate_weight
-        elif dim == 1:
-            W = torch.empty(
-                up_weight.size(0),
-                2 * up_weight.size(1),
-                *up_weight.size()[2:],
-                dtype=up_weight.dtype,
-                device=up_weight.device,
-            )
-            W[:, 1::2] = up_weight
-            W[:, ::2] = gate_weight
-        else:
-            raise ValueError
+    if dim == 0:
+        W = torch.empty(2 * up_weight.size(0), *up_weight.size()[1:], dtype=up_weight.dtype, device=up_weight.device)
+        W[1::2] = up_weight
+        W[::2] = gate_weight
+    elif dim == 1:
+        W = torch.empty(
+            up_weight.size(0),
+            2 * up_weight.size(1),
+            *up_weight.size()[2:],
+            dtype=up_weight.dtype,
+            device=up_weight.device,
+        )
+        W[:, 1::2] = up_weight
+        W[:, ::2] = gate_weight
     else:
-        W = torch.cat([up_weight, gate_weight], dim=dim)
+        raise ValueError("dim >= 2 is not supported")
 
     return W
 
 
-def _split_up_gate_tensor_for_mlp_for_optimizer(
-    c_fc_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
-) -> tuple[torch.Tensor, torch.Tensor]:
-    if is_interleaved:
-        if dim == 0:
-            u = c_fc_weight[1::2]
-            g = c_fc_weight[::2]
-        elif dim == 1:
-            u = c_fc_weight[:, 1::2]
-            g = c_fc_weight[:, ::2]
-        else:
-            raise ValueError
+def split_up_gate_tensor_for_mlp(c_fc_weight: torch.Tensor, dim: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
+    if dim == 0:
+        u = c_fc_weight[1::2].contiguous()
+        g = c_fc_weight[::2].contiguous()
+    elif dim == 1:
+        u = c_fc_weight[:, 1::2].contiguous()
+        g = c_fc_weight[:, ::2].contiguous()
     else:
-        u, g = c_fc_weight.chunk(2, dim=dim)
-
-    return u, g
-
-
-def split_up_gate_tensor_for_mlp(
-    c_fc_weight: torch.Tensor, is_interleaved: bool, dim: int = 0
-) -> tuple[torch.Tensor, torch.Tensor]:
-    u, g = _split_up_gate_tensor_for_mlp_for_optimizer(c_fc_weight=c_fc_weight, is_interleaved=is_interleaved, dim=dim)
-    if is_interleaved:
-        u = u.contiguous()
-        g = g.contiguous()
+        raise ValueError(f"Unsupported dim: {dim}. Only dim=0 or dim=1 are supported.")
 
     return u, g
