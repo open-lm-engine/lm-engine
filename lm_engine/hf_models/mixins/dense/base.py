@@ -4,9 +4,13 @@
 
 from __future__ import annotations
 
+import copy
+import re
+
 import torch
 import torch.nn as nn
 from transformers import GenerationConfig, PreTrainedModel
+from transformers.modeling_utils import _CAN_RECORD_REGISTRY, LOSS_MAPPING
 
 from ....accelerator import Accelerator
 from ....enums import Kernel
@@ -30,11 +34,6 @@ class PreTrainedModelMixin(PreTrainedModel):
     _no_split_modules = ["Block"]
 
     def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
-        import copy
-        import re
-
-        from transformers.modeling_utils import _CAN_RECORD_REGISTRY, LOSS_MAPPING
-
         # Skip PreTrainedModel.__init__ (which requires isinstance(config, PretrainedConfig))
         # but still call DTensorModule.__init__ and nn.Module.__init__ via cooperative super()
         super(PreTrainedModel, self).__init__()
