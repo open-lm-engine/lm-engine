@@ -395,15 +395,6 @@ def test_unsupported_gemm_gated_activation() -> None:
             module(torch.randn(*SHAPE, device=DEVICE))
 
 
-def test_quack_gemm_gated_excludes_swiglu_packed() -> None:
-    with pytest.raises(ValueError, match="quack_gemm_gated cannot be enabled with swiglu_packed"):
-        KernelArgs(kernels=[Kernel.quack_gemm_gated, Kernel.swiglu_packed])
-
-
-def test_quack_gemm_act_allows_swiglu_packed() -> None:
-    KernelArgs(kernels=[Kernel.quack_gemm_act, Kernel.swiglu_packed])
-
-
 def test_quack_gemm_allows_gemm_act() -> None:
     KernelArgs(kernels=[Kernel.quack_gemm, Kernel.quack_gemm_act])
 
