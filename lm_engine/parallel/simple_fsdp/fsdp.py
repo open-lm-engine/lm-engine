@@ -203,8 +203,7 @@ class ReplicateComputation(nn.Module):
         if not _active_parametrization:
             return x
 
-        output = self.replicate_compute(x)
-        return output
+        return self.replicate_compute(x)
 
 
 def data_parallel(
