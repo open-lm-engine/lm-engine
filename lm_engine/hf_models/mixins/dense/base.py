@@ -32,7 +32,6 @@ class PreTrainedModelMixin(PreTrainedModel):
 
     def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
         super(PreTrainedModel, self).__init__()
-        self.config = config
 
         self.sequence_parallel = kwargs.get("sequence_parallel", False)
         self.num_pipeline_stages = kwargs.get("num_pipeline_stages", 1)
