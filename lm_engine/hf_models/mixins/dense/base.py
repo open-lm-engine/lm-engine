@@ -7,7 +7,6 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from transformers import GenerationConfig, PreTrainedModel
-from transformers.modeling_utils import _CAN_RECORD_REGISTRY
 
 from ....accelerator import Accelerator
 from ....enums import Kernel
