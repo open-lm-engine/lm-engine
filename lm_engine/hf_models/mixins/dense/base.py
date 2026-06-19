@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from transformers import GenerationConfig, PreTrainedModel
 
 from ....accelerator import Accelerator
 from ....enums import Kernel
@@ -22,15 +21,13 @@ from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
 
 
-class PreTrainedModelMixin(PreTrainedModel):
+class PreTrainedModelMixin(nn.Module):
     config_class = None
     layer_class = Block
-    base_model_prefix = "transformer"
-    causal = True
     _no_split_modules = ["Block"]
 
     def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
-        super(PreTrainedModel, self).__init__()
+        super().__init__()
         self.config = config
 
         self.sequence_parallel = kwargs.get("sequence_parallel", False)
@@ -42,7 +39,6 @@ class PreTrainedModelMixin(PreTrainedModel):
         self.is_pipeline_parallel_enabled = self.num_pipeline_stages > 1
 
         assert self.config_class is not None
-        self.generation_config = GenerationConfig.from_model_config(self.config)
 
         self.use_padding_free_transformer = kwargs.get("use_padding_free_transformer", False)
         self._tied_word_embeddings = config.tie_word_embeddings
@@ -93,6 +89,14 @@ class PreTrainedModelMixin(PreTrainedModel):
                 raise NotImplementedError("KV caching is not supported with padding_free transformer")
 
         return input_ids, position_ids, labels, cu_seqlens, max_seqlen
+
+    @classmethod
+    def _from_config(cls, config: CommonConfig, **kwargs) -> PreTrainedModelMixin:
+        torch_dtype = kwargs.pop("torch_dtype", None)
+        model = cls(config, **kwargs)
+        if torch_dtype is not None:
+            model = model.to(torch_dtype)
+        return model
 
 
 class BaseModelMixin(PreTrainedModelMixin):

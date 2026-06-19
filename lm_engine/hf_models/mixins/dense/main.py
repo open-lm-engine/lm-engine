@@ -223,9 +223,9 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 input_ids.size(-1) if attention_mask is None else attention_mask.sum(dim=-1).min().item()
             )
 
-        pad_token_id = kwargs.pop("pad_token_id", self.generation_config.pad_token_id)
+        pad_token_id = kwargs.pop("pad_token_id", self.config.pad_token_id)
         if pad_token_id is None:
-            pad_token_id = self.generation_config.eos_token_id
+            pad_token_id = self.config.eos_token_id
 
         kwargs.pop("use_cache", None)
 
@@ -296,7 +296,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             next_token = next_token.masked_fill(finished.unsqueeze(1), pad_token_id)
             generated_tokens = torch.cat([generated_tokens, next_token], dim=-1)
 
-            finished = finished | (next_token.squeeze(1) == self.generation_config.eos_token_id)
+            finished = finished | (next_token.squeeze(1) == self.config.eos_token_id)
             if stopping_criteria_list is not None:
                 finished = finished | stopping_criteria_list(generated_tokens, None)
 
@@ -348,11 +348,16 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
                 model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
             else:
-                model = super().from_pretrained(
-                    pretrained_model_name_or_path=pretrained_model_name_or_path, dtype=dtype, **kwargs
-                )
+                config = cls.config_class.from_pretrained(pretrained_model_name_or_path)
+                model = cls(config, **kwargs)
+                model = model.to(dtype=dtype)
+                model.load_state_dict(SafeTensorsWeightsManager(pretrained_model_name_or_path).state_dict())
 
         return model
+
+    def save_pretrained(self, save_directory: str, **kwargs) -> None:
+        self.config.save_pretrained(save_directory)
+        SafeTensorsWeightsManager.save_state_dict(self.state_dict(), save_directory)
 
     def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
         with torch.device(torch.cuda.current_device()):
