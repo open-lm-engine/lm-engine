@@ -223,10 +223,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 input_ids.size(-1) if attention_mask is None else attention_mask.sum(dim=-1).min().item()
             )
 
-        pad_token_id = kwargs.pop("pad_token_id", self.config.pad_token_id)
-        if pad_token_id is None:
-            pad_token_id = self.config.eos_token_id
-
         kwargs.pop("use_cache", None)
 
         if "do_sample" in kwargs:
@@ -293,10 +289,10 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 probabilities = F.softmax(lm_logits, dim=-1)
                 next_token = torch.multinomial(probabilities, num_samples=1)
 
-            next_token = next_token.masked_fill(finished.unsqueeze(1), pad_token_id)
+            next_token = next_token.masked_fill(finished.unsqueeze(1), self.pad_token_id)
             generated_tokens = torch.cat([generated_tokens, next_token], dim=-1)
 
-            finished = finished | (next_token.squeeze(1) == self.config.eos_token_id)
+            finished = finished | (next_token.squeeze(1) == self.eos_token_id)
             if stopping_criteria_list is not None:
                 finished = finished | stopping_criteria_list(generated_tokens, None)
 
