@@ -129,15 +129,7 @@ def mlp_fc1_gemm_act(
 
     quack_activation = _get_quack_activation(activation_function, _QUACK_GEMM_ACT_MAPPING, "quack_gemm_act")
 
-    return _FusedMLPFC1ActFunc.apply(
-        x,
-        weight,
-        bias,
-        activation_function,
-        quack_activation,
-        False,
-        False,
-    )
+    return _FusedMLPFC1ActFunc.apply(x, weight, bias, activation_function, quack_activation, False)
 
 
 def mlp_fc1_gemm_gated(
