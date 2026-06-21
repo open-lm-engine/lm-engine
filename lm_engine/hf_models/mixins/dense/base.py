@@ -96,11 +96,7 @@ class PreTrainedModelMixin(nn.Module):
 
     @classmethod
     def _from_config(cls, config: CommonConfig, **kwargs) -> PreTrainedModelMixin:
-        torch_dtype = kwargs.pop("torch_dtype", None)
-        model = cls(config, **kwargs)
-        if torch_dtype is not None:
-            model = model.to(torch_dtype)
-        return model
+        return cls(config, **kwargs)
 
 
 class BaseModelMixin(PreTrainedModelMixin):
