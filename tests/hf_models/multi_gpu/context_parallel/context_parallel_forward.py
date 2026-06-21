@@ -43,6 +43,8 @@ num_key_value_heads = 8
 config = GPTBaseConfig(
     num_layers=2,
     position_embedding_type=args.position_embedding_type,
+    vocab_size=50257,
+    max_position_embeddings=512,
     hidden_size=128,
     sequence_mixer_blocks=[
         {
