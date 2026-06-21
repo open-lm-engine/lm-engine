@@ -51,31 +51,6 @@ class PreTrainedModelMixin(nn.Module):
         if self.is_pipeline_parallel_enabled and self._tied_word_embeddings:
             raise NotImplementedError()
 
-    # FIXME typing
-    def prepare_inputs_for_model(
-        self,
-        input_ids: torch.Tensor | list[list[int]] | None,
-        position_ids: torch.Tensor | list[list[int]] | None,
-        labels: torch.Tensor | list[list[int]] | None,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: int | None,
-        cache_params: tuple[tuple[torch.Tensor]],
-        attention_mask: torch.Tensor | None,
-        use_cache: bool,
-    ) -> tuple[torch.Tensor]:
-        if self.use_padding_free_transformer:
-            assert (
-                cu_seqlens is not None
-            ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
-            assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-            assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-            assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
-
-            if use_cache or cache_params is not None:
-                raise NotImplementedError("KV caching is not supported with padding_free transformer")
-
-        return input_ids, position_ids, labels, cu_seqlens, max_seqlen
-
     @classmethod
     def _from_config(cls, config: CommonConfig, **kwargs) -> PreTrainedModelMixin:
         return cls(config, **kwargs)
