@@ -28,14 +28,13 @@ from .data import (
 from .distributed import wrap_model_container_for_distributed_training
 from .dtensors import dtensor_to_tensor
 from .enums import TuningMethod
-from .hf_models import disable_generation_cache
 from .kernels import enable_kernels
 from .logging_utils import ExperimentsTracker, MetricsTrackingDict, TorchProfiler, log_environment, log_rank_0
 from .model_wrapper import get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
 from .parallel import ProcessGroupManager, broadcast_tensor_parallel_input
 from .train_utils import all_reduce_metrics_tracker, get_model_tflops, track_metrics
-from .utils import is_torch_xla_available, is_torchao_available, setup_tf32
+from .utils import disable_generation_cache, is_torch_xla_available, is_torchao_available, setup_tf32
 
 
 if is_torch_xla_available():
