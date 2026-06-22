@@ -101,7 +101,7 @@ def test_sdpa_padding_free_transformer_equivalence(
     sdpa_loss = sdpa_output.loss
 
     with enable_kernels([kernel]):
-        input_ids, attention_mask, labels = get_dummy_inputs(device, return_list=True)
+        input_ids, attention_mask, labels = get_dummy_inputs(device)
         flash_output = flash_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         flash_logits = flash_output.logits
         flash_loss = flash_output.loss
