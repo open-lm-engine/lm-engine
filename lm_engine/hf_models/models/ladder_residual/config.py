@@ -11,4 +11,5 @@ class LadderResidualConfig(CommonConfig):
     model_type: str = "ladder_residual"
 
     def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
         assert self.model_type == "ladder_residual"

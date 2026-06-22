@@ -11,4 +11,5 @@ class GPTBaseConfig(CommonConfig):
     model_type: str = "gpt_base"
 
     def model_post_init(self, __context: Any) -> None:
-        assert self.model_type == "gpt_crosslayer"
+        super().model_post_init(__context)
+        assert self.model_type == "gpt_base"

@@ -40,4 +40,5 @@ class GPTCrossLayerConfig(CommonConfig):
         assert self.init_method == "normal"
 
     def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
         assert self.model_type == "gpt_crosslayer"
