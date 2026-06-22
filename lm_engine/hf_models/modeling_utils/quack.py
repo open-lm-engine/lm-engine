@@ -16,18 +16,8 @@ if is_quack_available():
     from quack.linear import linear_func, linear_fwd_convert_type
 
 
-_QUACK_GEMM_ACT_MAPPING = {
-    "gelu_pytorch_tanh": "gelu_tanh_approx",
-    "relu": "relu",
-    "silu": "silu",
-}
-
-_QUACK_GEMM_GATED_MAPPING = {
-    "glu": "glu",
-    "reglu": "reglu",
-    "sigmoid_glu": "glu",
-    "swiglu": "swiglu",
-}
+_QUACK_GEMM_ACT_MAPPING = {"gelu_pytorch_tanh": "gelu_tanh_approx", "relu": "relu", "silu": "silu"}
+_QUACK_GEMM_GATED_MAPPING = {"glu": "glu", "reglu": "reglu", "sigmoid_glu": "glu", "swiglu": "swiglu"}
 
 
 def _get_quack_activation(activation_function: str, mapping: dict[str, str], kernel_name: str) -> str:
@@ -70,12 +60,7 @@ class _FusedMLPFC1ActFunc(torch.autograd.Function):
             x = x.flatten(0, -2)
             fc1_act_fn = gemm_gated if is_glu else gemm_act
             preact, postact = fc1_act_fn(
-                x,
-                weight.T,
-                bias=bias,
-                activation=quack_activation,
-                store_preact=True,
-                tuned=False,
+                x, weight.T, bias=bias, activation=quack_activation, store_preact=True, tuned=False
             )
 
             ctx.save_for_backward(x, weight, preact)
