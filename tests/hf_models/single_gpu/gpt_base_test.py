@@ -106,11 +106,13 @@ def test_sdpa_padding_free_transformer_equivalence(
 
     with enable_kernels([kernel]):
         cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-        input_ids, labels = pack_sequence(inputs=(input_ids, labels), cu_seqlens=cu_seqlens)
+        input_ids, labels, position_ids = pack_sequence(
+            inputs=(input_ids, labels, position_ids), cu_seqlens=cu_seqlens
+        )
 
         flash_output = flash_model(
             input_ids=input_ids,
-            attention_mask=attention_mask,
+            position_ids=position_ids,
             labels=labels,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,

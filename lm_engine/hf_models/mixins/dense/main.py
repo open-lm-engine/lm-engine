@@ -107,7 +107,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 assert (
                     cu_seqlens is not None
                 ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
-                assert position_ids is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+                assert position_ids is not None, "position_ids needs to be specified when specifying cu_seqlens"
                 assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
                 assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
 
