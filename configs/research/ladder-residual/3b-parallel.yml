@@ -532,202 +532,202 @@ model_args:
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
         dropout: 0
-        intermediate_size: null
+        intermediate_size: 9216
   efficient_initialization: false
 
 tuning_args:

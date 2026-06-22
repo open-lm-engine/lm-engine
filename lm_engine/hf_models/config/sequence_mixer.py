@@ -59,7 +59,7 @@ class _SoftPlusDecayArgs(BaseArgs):
 class _Mamba2Args(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "mamba2"
     state_size: int
-    intermediate_size: int | None
+    intermediate_size: int
     num_heads: int
     conv_kernel_size: int
     time_step_limit: tuple[float, float] = (0, float("inf"))

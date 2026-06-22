@@ -95,7 +95,7 @@ def get_dense_test_config(
                 "mlp_type": "MLP",
                 "activation_function": activation_function,
                 "add_bias": add_bias,
-                "intermediate_size": None,
+                "intermediate_size": 128,
                 "dropout": 0,
             }
             for _ in range(num_layers)
@@ -171,7 +171,7 @@ def get_moe_test_config(
                 "normalized_topk": normalized_topk,
                 "activation_function": activation_function,
                 "add_bias": add_bias,
-                "intermediate_size": None,
+                "intermediate_size": 128,
                 "dropout": 0,
                 "shared_intermediate_size": None if shared_n_inner is None else shared_n_inner,
                 "shared_expert_gating": shared_expert_gating,

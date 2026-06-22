@@ -59,7 +59,7 @@ model_args:
         sliding_window: null
       - sequence_mixer_type: mamba2
         state_size: 128
-        intermediate_size: null
+        intermediate_size: 1024
         num_heads: 128
         conv_kernel_size: 4
         time_step_limit:

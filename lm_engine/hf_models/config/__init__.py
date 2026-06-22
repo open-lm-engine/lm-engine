@@ -88,12 +88,6 @@ class CommonConfig(BaseArgs):
     name_or_path: str = ""
     is_encoder_decoder: bool = False
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name in type(self).model_fields:
-            super().__setattr__(name, value)
-        else:
-            object.__setattr__(self, name, value)
-
     def model_post_init(self, __context: Any) -> None:
         # check if enums are valid
         assert self.init_method in _ALL_INIT_METHODS
@@ -106,10 +100,6 @@ class CommonConfig(BaseArgs):
         for block in self.mlp_blocks:
             if block.intermediate_size is None:
                 block.intermediate_size = 4 * self.hidden_size
-
-        for block in self.sequence_mixer_blocks:
-            if getattr(block, "intermediate_size", None) is None and block.sequence_mixer_type == "mamba2":
-                block.intermediate_size = 2 * self.hidden_size
 
         if self.rope_dim is None and self.position_embedding_type == "rope":
             assert (
