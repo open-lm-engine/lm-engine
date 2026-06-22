@@ -121,17 +121,12 @@ class CommonConfig(BaseArgs):
     def _get_non_default_generation_parameters(self) -> dict:
         return {}
 
-    def to_json_string(self) -> str:
-        config_dict = self.to_dict()
-        # Add HuggingFace-expected metadata
-        config_dict["architectures"] = [type(self).__name__.replace("Config", "ForCausalLM")]
-        return json.dumps(config_dict, indent=2, sort_keys=True)
-
     def save_pretrained(self, save_directory: str, **kwargs) -> None:
-        os.makedirs(save_directory, exist_ok=True)
+        config_dict = self.to_dict()
+        config_dict["architectures"] = [type(self).__name__.replace("Config", "ForCausalLM")]
 
-        with open(os.path.join(save_directory, "config.json"), "w", encoding="utf-8") as f:
-            f.write(self.to_json_string())
+        os.makedirs(save_directory, exist_ok=True)
+        json.dump(config_dict, open(os.path.join(save_directory, "config.json"), "w"), indent=4)
 
     @classmethod
     def from_dict(cls, config_dict: dict, **kwargs) -> CommonConfig:
