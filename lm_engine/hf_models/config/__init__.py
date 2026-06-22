@@ -19,6 +19,7 @@ from .sequence_mixer import _GatedDeltaNetArgs, _GRUArgs, _M2RNNArgs, _Mamba2Arg
 # Keys added by HuggingFace internals that are not part of our config schema
 _HF_META_KEYS = frozenset(
     {
+        "name_or_path",
         "architectures",
         "_from_auto",
         "_commit_hash",
@@ -125,7 +126,6 @@ class CommonConfig(BaseArgs):
     def from_dict(cls, config_dict: dict, **kwargs) -> CommonConfig:
         kwargs.pop("return_unused_kwargs", None)
         config_dict = {k: v for k, v in config_dict.items() if k not in _HF_META_KEYS}
-        config_dict.pop("name_or_path", None)  # set by HF, not part of our schema
         return cls(**config_dict)
 
     @classmethod
