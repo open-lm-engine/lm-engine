@@ -370,14 +370,12 @@ def wrap_model_container_for_distributed_training(
                         new_state_dict = model.state_dict()
 
                         for param_name, param in old_state_dict.items():
-                            # param may be a DTensor (TP-sharded) — gather to plain tensor first
-                            # so distribute_tensor can redistribute across the new combined mesh
-                            full_param = param.full_tensor() if isinstance(param, DTensor) else param
-
                             if ProcessGroupManager.get_data_parallel_rank() == 0:
-                                full_tensor = full_param
+                                # TP groups are contained within a DP shard, so full_tensor()
+                                # only needs TP peers — all of whom are also dp_rank 0.
+                                full_tensor = param.full_tensor() if isinstance(param, DTensor) else param
                             else:
-                                full_tensor = torch.empty(full_param.shape, dtype=full_param.dtype, device=device)
+                                full_tensor = torch.empty(param.shape, dtype=param.dtype, device=device)
 
                             new_state_dict[param_name] = distribute_tensor(
                                 full_tensor,
