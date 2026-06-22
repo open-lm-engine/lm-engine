@@ -106,6 +106,7 @@ def test_sdpa_padding_free_transformer_equivalence(
 
     with enable_kernels([kernel]):
         cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+        position_ids = attention_mask.to(torch.int64).cumsum(-1) - 1
         input_ids, labels, position_ids = pack_sequence(
             inputs=(input_ids, labels, position_ids), cu_seqlens=cu_seqlens
         )
