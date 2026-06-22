@@ -11,9 +11,10 @@ from ...config import CommonConfig
 
 class GPTCrossLayerConfig(CommonConfig):
     model_type: str = "gpt_crosslayer"
+    sharing_pattern: list[int] | None = None
 
     def __init__(self, sharing_pattern: list[int] | None = None, **kwargs) -> GPTCrossLayerConfig:
-        super().__init__(**kwargs)
+        super().__init__(sharing_pattern=sharing_pattern, **kwargs)
 
         if sharing_pattern is None:
             self.sharing_pattern = list(range(self.num_layers))
