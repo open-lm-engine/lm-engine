@@ -47,6 +47,8 @@ model_args:
     m_residual: null
     init_method: normal
     position_embedding_type: learned_absolute
+    rope_theta: 10000
+    rope_dim: null
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
@@ -59,6 +61,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -70,6 +73,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -81,6 +85,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -92,6 +97,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -103,6 +109,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -114,6 +121,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -125,6 +133,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -136,6 +145,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -147,6 +157,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -158,6 +169,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -169,6 +181,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 12
         num_key_value_heads: 1
@@ -180,6 +193,7 @@ model_args:
         sliding_window: null
         attention_multiplier: null
         attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
     mlp_blocks:
       - mlp_type: MLP
         activation_function: gelu_pytorch_tanh
