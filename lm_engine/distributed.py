@@ -27,6 +27,7 @@ from torch.distributed.pipelining.schedules import (
     _PipelineSchedule,
     get_schedule_class,
 )
+from torch.distributed.tensor import DTensor
 
 from .accelerator import Accelerator
 from .containers import ModelContainer
@@ -370,13 +371,11 @@ def wrap_model_container_for_distributed_training(
                         new_state_dict = model.state_dict()
 
                         for param_name, param in old_state_dict.items():
-                            if ProcessGroupManager.get_data_parallel_rank() == 0:
-                                full_tensor = param
-                            else:
-                                full_tensor = torch.empty(param.shape, dtype=param.dtype, device=device)
+                            if isinstance(param, DTensor):
+                                param = param.full_tensor()
 
                             new_state_dict[param_name] = distribute_tensor(
-                                full_tensor,
+                                param,
                                 device_mesh=new_state_dict[param_name].device_mesh,
                                 placements=new_state_dict[param_name].placements,
                             )
