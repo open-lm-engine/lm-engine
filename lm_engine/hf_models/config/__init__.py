@@ -8,7 +8,7 @@ import json
 import os
 from copy import deepcopy
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from ...arguments import BaseArgs
 from ...utils import divide_if_divisible
@@ -44,14 +44,14 @@ class CommonConfig(BaseArgs):
     bos_token_id: int
     eos_token_id: int
     pad_token_id: int
-    position_embedding_type: str
+    position_embedding_type: Literal["rope", "learned_absolute", "nope"]
     rope_theta: int
     rope_scaling: dict | None
     m_emb: float | None
     m_width: float | None
     m_residual: float | None
-    init_method: str
-    embedding_init_method: str
+    init_method: Literal["normal", "mup", "fan_in"]
+    embedding_init_method: Literal["normal", "mup", "fan_in"]
     use_depth_scaled_init: bool
     sequence_mixer_blocks: list[
         _SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | _RNNArgs | _M2RNNArgs | _GatedDeltaNetArgs
@@ -66,11 +66,6 @@ class CommonConfig(BaseArgs):
     is_encoder_decoder: bool = False
 
     def model_post_init(self, __context: Any) -> None:
-        # check if enums are valid
-        assert self.init_method in _ALL_INIT_METHODS
-        assert self.embedding_init_method in _ALL_INIT_METHODS
-        assert self.position_embedding_type in ["rope", "learned_absolute", "nope"]
-
         assert len(self.sequence_mixer_blocks) == self.num_layers
         assert len(self.mlp_blocks) == self.num_layers
 
