@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import json
 import os
+from copy import deepcopy
+from enum import Enum
 from typing import Any
 
 from ...arguments import BaseArgs
@@ -72,25 +74,26 @@ class CommonConfig(BaseArgs):
         assert len(self.sequence_mixer_blocks) == self.num_layers
         assert len(self.mlp_blocks) == self.num_layers
 
-        if self.rope_dim is None and self.position_embedding_type == "rope":
-            assert (
-                self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "sequence_mixer_type")
-                == "softmax_attention"
-            ), "specify rope_dim"
-
-            self.rope_dim = self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "head_dim")
+        if self.position_embedding_type == "rope":
+            assert self.rope_theta is not None
 
             if self.rope_dim is None:
-                self.rope_dim = divide_if_divisible(
-                    self.hidden_size,
-                    self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
-                )
+                assert (
+                    self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "sequence_mixer_type")
+                    == "softmax_attention"
+                ), "specify rope_dim"
+
+                self.rope_dim = self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "head_dim")
+
+                if self.rope_dim is None:
+                    self.rope_dim = divide_if_divisible(
+                        self.hidden_size,
+                        self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
+                    )
 
     def to_dict(self) -> dict:
-        # Only serialize declared Pydantic fields, not extra attrs set by HuggingFace internals
-        from copy import deepcopy
-        from enum import Enum
-
+        # Can't use super(): BaseArgs.to_dict() returns vars(), which includes HF-injected instance
+        # attrs (e.g. _name_or_path, _commit_hash) that must not appear in the serialized config.
         result = {}
         for key in type(self).model_fields:
             value = getattr(self, key)
