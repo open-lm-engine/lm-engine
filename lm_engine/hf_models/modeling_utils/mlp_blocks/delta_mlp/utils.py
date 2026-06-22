@@ -5,7 +5,7 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
 import torch
-from einops import reduce, repeat
+from einops import rearrange, reduce, repeat
 
 from .....utils import is_fla_available
 
@@ -16,6 +16,7 @@ def maybe_broadcast(
     v: torch.Tensor,
     b: torch.Tensor,
     initial_state: torch.Tensor | None,
+    broadcast_value: bool,
     broadcast_initial_state: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None]:
     assert q.ndim == 4
@@ -28,15 +29,13 @@ def maybe_broadcast(
     num_v_heads = v.shape[2]
     num_b_heads = b.shape[2]
     num_heads = max(num_q_heads, num_k_heads, num_v_heads, num_b_heads)
-    assert num_heads % num_q_heads == 0
-    assert num_heads % num_k_heads == 0
+    assert num_heads == num_q_heads
+    assert num_heads == num_k_heads
+    assert num_heads == num_b_heads
     assert num_heads % num_v_heads == 0
-    assert num_heads % num_b_heads == 0
 
-    q = repeat(q, "... h d -> ... (h g) d", g=num_heads // num_q_heads).contiguous()
-    k = repeat(k, "... h d -> ... (h g) d", g=num_heads // num_k_heads).contiguous()
-    v = repeat(v, "... h d -> ... (h g) d", g=num_heads // num_v_heads).contiguous()
-    b = repeat(b, "... h   -> ... (h g)  ", g=num_heads // num_b_heads).contiguous()
+    if broadcast_value:
+        v = repeat(v, "... h d -> ... (h g) d", g=num_heads // num_v_heads).contiguous()
 
     if initial_state is not None:
         assert initial_state.ndim == 4
@@ -107,6 +106,7 @@ if is_fla_available():
                 v=v,
                 b=beta,
                 initial_state=initial_state,
+                broadcast_value=False,
                 broadcast_initial_state=cu_seqlens is None,
             )
             o, A, final_state, initial_state_broadcast_cp = chunk_delta_rule_fwd(
@@ -122,6 +122,7 @@ if is_fla_available():
                 chunk_indices=chunk_indices,
                 transpose_state_layout=transpose_state_layout,
             )
+            o = reduce(o, "b t h d -> b t d", "sum")
             ctx.save_for_backward(
                 q,
                 q_rstd,
@@ -179,8 +180,10 @@ if is_fla_available():
                 v=v,
                 b=beta,
                 initial_state=initial_state,
+                broadcast_value=False,
                 broadcast_initial_state=cu_seqlens is None,
             )
+            # we reduces dv to v's original num heads inside `chunk_delta_rule_bwd`
             dq, dk, dv, db, dh0 = chunk_delta_rule_bwd(
                 q=q_broadcast,
                 k=k_broadcast,
@@ -189,18 +192,16 @@ if is_fla_available():
                 A=A,
                 scale=ctx.scale,
                 initial_state=initial_state_broadcast,
-                do=do,
+                # we reduce `o` across heads in the forward pass, this becomes
+                # broadcast across heads in the backward pass. `chunk_delta_rule_bwd`
+                # takes care of the broadcasting inside the kernel.
+                do=rearrange(do, "b t d -> b t 1 d"),
                 dht=dht,
                 cu_seqlens=cu_seqlens,
                 cp_context=ctx.cp_context,
                 chunk_indices=chunk_indices,
                 transpose_state_layout=ctx.transpose_state_layout,
             )
-
-            dq = reduce(dq, "... (h g) d -> ... h d", "sum", g=q_broadcast.shape[2] // q.shape[2])
-            dk = reduce(dk, "... (h g) d -> ... h d", "sum", g=k_broadcast.shape[2] // k.shape[2])
-            dv = reduce(dv, "... (h g) d -> ... h d", "sum", g=v_broadcast.shape[2] // v.shape[2])
-            db = reduce(db, "... (h g)   -> ... h  ", "sum", g=beta_broadcast.shape[2] // beta.shape[2])
 
             if ctx.initial_state_was_none:
                 # in CP setting, `dh0` is always a Tensor, so we need to
@@ -337,6 +338,7 @@ if is_fla_available():
                 v=v,
                 b=beta,
                 initial_state=initial_state,
+                broadcast_value=True,
                 broadcast_initial_state=cu_seqlens is None,
             )
             o, u, final_state = fused_recurrent_delta_rule_fwd(
@@ -349,6 +351,7 @@ if is_fla_available():
                 output_final_state=output_final_state,
                 cu_seqlens=cu_seqlens,
             )
+            o = reduce(o, "b t h d -> b t d", "sum")
             return o, final_state
 
         @staticmethod

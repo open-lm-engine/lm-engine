@@ -11,7 +11,7 @@ import math
 
 import torch
 import torch.nn as nn
-from einops import rearrange, reduce
+from einops import rearrange
 
 from .....parallel import ProcessGroupManager
 from .....utils import divide_if_divisible, is_fla_available
@@ -576,13 +576,12 @@ class DeltaMLP(nn.Module):
             self._last_recurrent_state = recurrent_state.detach()
 
         if attention_mask is not None:
-            # unpack_sequence expects packed tokens [total_tokens, ...], while
-            # the varlen kernels above return [1, total_tokens, ...].
-            o = o.squeeze(0)
+            o = o.squeeze(dim=0)
+            # `o` is now head-reduced to (batch, seq, hidden_size)
             o = unpack_sequence(
                 inputs=o,
                 cu_seqlens=cu_seqlens,
-                output_shape=(batch_size, q_len, *o.size()[1:]),
+                output_shape=(batch_size, q_len, self.hidden_size),
             )
 
         if cache_params is not None:
@@ -598,8 +597,6 @@ class DeltaMLP(nn.Module):
                 layer_idx=self.layer_idx,
                 cache_name=_DELTA_MLP_CACHE_NAME,
             )
-
-        o = reduce(o, "b t h d -> b t d", "sum", h=self.num_heads)
 
         if not self.use_head_o_norm:
             o = self.o_norm(o)
