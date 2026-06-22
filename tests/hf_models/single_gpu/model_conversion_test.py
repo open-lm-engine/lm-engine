@@ -60,7 +60,24 @@ def test_granitemoehybrid_model_conversion(device: torch.device, is_moe: bool) -
 
     for layer in range(lm_engine_config.num_layers):
         if layer % 2 == 0:
-            lm_engine_config.sequence_mixer_blocks[layer] = _Mamba2Args(intermediate_size=256)
+            lm_engine_config.sequence_mixer_blocks[layer] = _Mamba2Args(
+                intermediate_size=256,
+                state_size=128,
+                num_heads=128,
+                conv_kernel_size=4,
+                time_step_limit=(0, float("inf")),
+                add_bias=False,
+                use_conv_bias=True,
+                activation_function="silu",
+                num_groups=8,
+                chunk_size=256,
+                normalization_function="rmsnorm",
+                A_init_min=0,
+                A_init_max=16,
+                dt_init_min=0.001,
+                dt_init_max=0.1,
+                dt_init_floor=1e-4,
+            )
 
     model_conversion_test(
         lm_engine_config=lm_engine_config,

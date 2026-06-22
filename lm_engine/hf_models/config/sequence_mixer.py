@@ -13,8 +13,8 @@ ATTENTION_MULTIPLIER_INVERSE_METHOD = "1 / head_dim"
 
 class _SoftmaxAttentionArgs(BaseArgs):
     sequence_mixer_type: str = "softmax_attention"
-    num_attention_heads: int = 12
-    num_key_value_heads: int = 1
+    num_attention_heads: int
+    num_key_value_heads: int
     head_dim: int | None = None
     softmax_dropout: float = 0
     dropout: float = 0
@@ -58,17 +58,17 @@ class _SoftPlusDecayArgs(BaseArgs):
 
 class _Mamba2Args(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "mamba2"
-    state_size: int = 128
-    intermediate_size: int | None = None
-    num_heads: int = 128
-    conv_kernel_size: int = 4
+    state_size: int
+    intermediate_size: int | None
+    num_heads: int
+    conv_kernel_size: int
     time_step_limit: tuple[float, float] = (0, float("inf"))
     add_bias: bool = False
     use_conv_bias: bool = True
-    activation_function: str = "silu"
-    num_groups: int = 8
+    activation_function: str
+    num_groups: int
     chunk_size: int = 256
-    normalization_function: str | None = "rmsnorm"
+    normalization_function: str | None
 
     def model_post_init(self, __context: Any) -> None:
         super().model_post_init(__context)
@@ -84,11 +84,11 @@ class _GRUArgs(BaseArgs):
     num_weight_heads: int
     num_forget_weight_heads: int
     num_reset_weight_heads: int
-    add_bias: bool = False
-    normalization_function: str | None = None
-    gradient_clipping: float | None = None
-    kernel_size: int | None = None
-    activation_function: str | None = None
+    add_bias: bool
+    normalization_function: str | None
+    gradient_clipping: float | None
+    kernel_size: int | None
+    activation_function: str | None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "gru"
@@ -99,11 +99,11 @@ class _RNNArgs(BaseArgs):
     state_head_dim: int
     num_input_heads: int
     num_weight_heads: int
-    add_bias: bool = False
-    normalization_function: str | None = None
-    gradient_clipping: float | None = None
-    kernel_size: int | None = None
-    activation_function: str | None = None
+    add_bias: bool
+    normalization_function: str | None
+    gradient_clipping: float | None
+    kernel_size: int | None
+    activation_function: str | None
 
     def model_post_init(self, __context: Any) -> None:
         assert self.sequence_mixer_type == "rnn"
@@ -111,20 +111,20 @@ class _RNNArgs(BaseArgs):
 
 class _M2RNNArgs(_SoftPlusDecayArgs):
     sequence_mixer_type: str = "m2rnn"
-    k_head_dim: int = 16
-    v_head_dim: int = 16
-    num_q_heads: int = 128
-    num_k_heads: int = 128
-    num_v_heads: int = 128
-    num_f_heads: int = 128
-    num_g_heads: int = 128
-    num_weight_heads: int = 128
-    use_residual: bool = True
-    kernel_size: int | None = None
-    activation_function: str | None = None
-    add_bias: bool = False
-    gradient_clipping: float | None = None
-    normalization_function: str | None = None
+    k_head_dim: int
+    v_head_dim: int
+    num_q_heads: int
+    num_k_heads: int
+    num_v_heads: int
+    num_f_heads: int
+    num_g_heads: int
+    num_weight_heads: int
+    use_residual: bool
+    kernel_size: int | None
+    activation_function: str | None
+    add_bias: bool
+    gradient_clipping: float | None
+    normalization_function: str | None
 
     def model_post_init(self, __context: Any) -> None:
         super().model_post_init(__context)
@@ -138,7 +138,7 @@ class _GatedDeltaNetArgs(_SoftPlusDecayArgs):
     num_k_heads: int
     num_v_heads: int
     use_gate: bool
-    attention_multiplier: float | None = None
+    attention_multiplier: float | None
     allow_neg_eigval: bool
     kernel_size: int
 

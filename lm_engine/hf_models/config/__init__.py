@@ -57,32 +57,32 @@ class CommonConfig(BaseArgs):
     model_type: str = None
     vocab_size: int
     max_position_embeddings: int
-    hidden_size: int = 768
-    num_layers: int = 12
+    hidden_size: int
+    num_layers: int
     embedding_dropout: float = 0
-    normalization_function: str = "layernorm"
+    normalization_function: str
     layer_norm_epsilon: float = 1e-5
-    initializer_range: float = 0.02
-    use_cache: bool = True
-    bos_token_id: int = 50256
-    eos_token_id: int = 50256
-    pad_token_id: int = 50256
-    position_embedding_type: str = "learned_absolute"
-    rope_theta: int = 10000
-    rope_scaling: dict | None = None
-    m_emb: float | None = None
-    m_width: float | None = None
-    m_residual: float | None = None
-    init_method: str = "normal"
-    embedding_init_method: str = "normal"
-    use_depth_scaled_init: bool = True
+    initializer_range: float
+    use_cache: bool
+    bos_token_id: int
+    eos_token_id: int
+    pad_token_id: int
+    position_embedding_type: str
+    rope_theta: int
+    rope_scaling: dict | None
+    m_emb: float | None
+    m_width: float | None
+    m_residual: float | None
+    init_method: str
+    embedding_init_method: str
+    use_depth_scaled_init: bool
     sequence_mixer_blocks: list[
         _SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | _RNNArgs | _M2RNNArgs | _GatedDeltaNetArgs
     ]
     mlp_blocks: list[_MLPArgs | _MoEArgs]
-    router_aux_loss_coef: float = 0.001
-    tie_word_embeddings: bool = True
-    rope_dim: int | None = None
+    router_aux_loss_coef: float
+    tie_word_embeddings: bool
+    rope_dim: int | None
     # HuggingFace compatibility fields
     dtype: str | None = None
     name_or_path: str = ""
