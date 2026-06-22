@@ -100,6 +100,10 @@ class CommonConfig(BaseArgs):
                 result[key] = deepcopy(value)
         return result
 
+    @property
+    def sub_configs(self) -> dict:
+        return {}
+
     def get_text_config(self, decoder=None, encoder=None) -> "CommonConfig":
         return self
 
