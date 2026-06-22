@@ -72,10 +72,6 @@ class CommonConfig(BaseArgs):
         assert len(self.sequence_mixer_blocks) == self.num_layers
         assert len(self.mlp_blocks) == self.num_layers
 
-        for block in self.mlp_blocks:
-            if block.intermediate_size is None:
-                block.intermediate_size = 4 * self.hidden_size
-
         if self.rope_dim is None and self.position_embedding_type == "rope":
             assert (
                 self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "sequence_mixer_type")
@@ -88,7 +84,6 @@ class CommonConfig(BaseArgs):
                 self.rope_dim = divide_if_divisible(
                     self.hidden_size,
                     self.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
-                    "",
                 )
 
     def to_dict(self) -> dict:
@@ -129,13 +124,11 @@ class CommonConfig(BaseArgs):
         config_dict["architectures"] = [type(self).__name__.replace("Config", "ForCausalLM")]
         return json.dumps(config_dict, indent=2, sort_keys=True)
 
-    def to_json_file(self, json_file_path: str) -> None:
-        with open(json_file_path, "w", encoding="utf-8") as f:
-            f.write(self.to_json_string())
-
     def save_pretrained(self, save_directory: str, **kwargs) -> None:
         os.makedirs(save_directory, exist_ok=True)
-        self.to_json_file(os.path.join(save_directory, "config.json"))
+
+        with open(os.path.join(save_directory, "config.json"), "w", encoding="utf-8") as f:
+            f.write(self.to_json_string())
 
     @classmethod
     def from_dict(cls, config_dict: dict, **kwargs) -> CommonConfig:
