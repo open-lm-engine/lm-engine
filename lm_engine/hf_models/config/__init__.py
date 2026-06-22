@@ -115,9 +115,12 @@ class CommonConfig(BaseArgs):
 
     @classmethod
     def from_dict(cls, config_dict: dict, **kwargs) -> CommonConfig:
-        kwargs.pop("return_unused_kwargs", None)
+        return_unused_kwargs = kwargs.pop("return_unused_kwargs", False)
         config_dict = {k: v for k, v in config_dict.items() if k not in _HF_META_KEYS}
-        return cls(**config_dict)
+        config = cls(**config_dict)
+        if return_unused_kwargs:
+            return config, kwargs
+        return config
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path: str, **kwargs) -> CommonConfig:
