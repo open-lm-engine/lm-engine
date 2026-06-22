@@ -16,8 +16,6 @@ from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import _GatedDeltaNetArgs, _GRUArgs, _M2RNNArgs, _Mamba2Args, _RNNArgs, _SoftmaxAttentionArgs
 
 
-_ALL_INIT_METHODS = ["normal", "mup", "fan_in"]
-
 # Keys added by HuggingFace internals that are not part of our config schema
 _HF_META_KEYS = frozenset(
     {
