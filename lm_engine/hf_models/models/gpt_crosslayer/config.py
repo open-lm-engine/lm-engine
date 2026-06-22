@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ...config import CommonConfig
 
 
@@ -35,3 +37,6 @@ class GPTCrossLayerConfig(CommonConfig):
                     assert self.mlp_blocks[i] == self.mlp_blocks[j]
 
         assert self.init_method == "normal"
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.model_type == "gpt_crosslayer"
