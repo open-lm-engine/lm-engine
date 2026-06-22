@@ -320,15 +320,9 @@ def wrap_model_container_for_distributed_training(
                     log_rank_0(logging.WARN, "sharding along dim=0 since no suitable sharding dimension was found")
                     return Shard(0)
 
-            tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-
             for i, model in enumerate(model_container):
-                # when TP is enabled, base.py loads the full model on every rank (meta device
-                # is not used), so the state-dict transfer below is neither needed nor correct
-                do_state_dict_transfer = (
-                    efficient_initialization and model_name is not None and not tensor_parallel_enabled
-                )
-                if do_state_dict_transfer:
+                if efficient_initialization and model_name is not None:
+                    # state dict with Tensors
                     old_state_dict = model.state_dict()
 
                 for module in model.modules():
@@ -361,7 +355,7 @@ def wrap_model_container_for_distributed_training(
                             if hasattr(module, "reset_parameters"):
                                 with torch.device(device):
                                     module.reset_parameters()
-                    elif do_state_dict_transfer:
+                    else:
                         if ProcessGroupManager.get_data_parallel_rank() == 0:
                             model = model.to(device)
                         else:
@@ -389,10 +383,6 @@ def wrap_model_container_for_distributed_training(
 
                         model.load_state_dict(new_state_dict, assign=True)
                         del old_state_dict, new_state_dict
-                    else:
-                        # TP is enabled: all ranks loaded the model fully (meta device not used),
-                        # so just move to device — no transfer needed
-                        model = model.to(device)
         elif fsdp_algorithm == 1:
             log_rank_0(logging.INFO, "using FSDP-1")
             assert num_pipeline_stages == 1
