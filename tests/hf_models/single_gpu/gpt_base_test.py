@@ -2,8 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-import itertools
-
 import pytest
 import torch
 
