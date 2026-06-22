@@ -13,8 +13,11 @@ from ....utils import skip_test_if_device_unavailable, slow_test
 
 @pytest.mark.parametrize("activation_function", ["gelu", "geglu"])
 @pytest.mark.parametrize("zero_stage_ddp_sizes", [(3, 2, 2), (3, 1, 4), (0, 4, 1)])
+@pytest.mark.parametrize("efficient_initialization", [False, True])
 @slow_test
-def test_dcp(activation_function: str, zero_stage_ddp_sizes: tuple[int, int, int]) -> None:
+def test_dcp(
+    activation_function: str, zero_stage_ddp_sizes: tuple[int, int, int], efficient_initialization: bool
+) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
 
     gpus_per_node = torch.cuda.device_count()
@@ -41,5 +44,8 @@ def test_dcp(activation_function: str, zero_stage_ddp_sizes: tuple[int, int, int
             "--data-parallel-sharding-world-size",
             str(zero_stage_ddp_sizes[2]),
         ]
+
+        if efficient_initialization:
+            command.append("--efficient-initialization")
 
         subprocess.run(command, check=True)
