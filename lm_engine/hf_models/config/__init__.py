@@ -59,9 +59,9 @@ class CommonConfig(BaseArgs):
     tie_word_embeddings: bool
     rope_dim: int | None
     # HuggingFace compatibility fields
-    dtype: str | None = None
-    name_or_path: str = ""
-    is_encoder_decoder: bool = False
+    # dtype: str | None = None
+    # name_or_path: str = ""
+    # is_encoder_decoder: bool = False
 
     def model_post_init(self, __context: Any) -> None:
         assert len(self.sequence_mixer_blocks) == self.num_layers

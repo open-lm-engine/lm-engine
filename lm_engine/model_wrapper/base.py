@@ -83,7 +83,6 @@ class ModelWrapper(nn.Module):
         use_model_parallelism = ProcessGroupManager.is_tensor_parallel_enabled() or self.is_pipeline_parallel_enabled
 
         self._setup_config()
-        self.is_custom_model = is_custom_model(self.config.model_type)
 
         total_parameters, active_parameters = self.calculate_num_parameters()
 
@@ -171,7 +170,10 @@ class ModelWrapper(nn.Module):
             else AutoConfig.from_pretrained(self.model_name, trust_remote_code=self.trust_remote_code)
         )
 
-        assert not self.config.is_encoder_decoder, "we don't support encoder-decoder models"
+        self.is_custom_model = is_custom_model(self.config.model_type)
+
+        if not self.is_custom_model:
+            assert not self.config.is_encoder_decoder, "we don't support encoder-decoder models"
 
         self.tie_word_embeddings = self.config.tie_word_embeddings
         self.router_aux_loss_coef = getattr(self.config, "router_aux_loss_coef", None)
