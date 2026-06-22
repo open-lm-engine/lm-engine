@@ -17,16 +17,7 @@ from .sequence_mixer import _GatedDeltaNetArgs, _GRUArgs, _M2RNNArgs, _Mamba2Arg
 
 
 # Keys added by HuggingFace internals that are not part of our config schema
-_HF_META_KEYS = frozenset(
-    {
-        "name_or_path",
-        "architectures",
-        "_from_auto",
-        "_commit_hash",
-        "transformers_version",
-        "auto_map",
-    }
-)
+_HF_META_KEYS = {"name_or_path", "architectures", "_from_auto", "_commit_hash", "transformers_version", "auto_map"}
 
 
 class CommonConfig(BaseArgs):
