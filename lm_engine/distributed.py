@@ -13,7 +13,7 @@ import torch.nn as nn
 from torch.distributed._composable.fsdp import CPUOffloadPolicy
 from torch.distributed._composable.fsdp import MixedPrecisionPolicy as MixedPrecision2
 from torch.distributed._composable.fsdp import OffloadPolicy, fully_shard
-from torch.distributed._tensor import distribute_tensor
+from torch.distributed._tensor import DTensor, distribute_tensor
 from torch.distributed._tensor.placement_types import Shard
 from torch.distributed.fsdp import CPUOffload
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -370,10 +370,14 @@ def wrap_model_container_for_distributed_training(
                         new_state_dict = model.state_dict()
 
                         for param_name, param in old_state_dict.items():
+                            # param may be a DTensor (TP-sharded) — gather to plain tensor first
+                            # so distribute_tensor can redistribute across the new combined mesh
+                            full_param = param.full_tensor() if isinstance(param, DTensor) else param
+
                             if ProcessGroupManager.get_data_parallel_rank() == 0:
-                                full_tensor = param
+                                full_tensor = full_param
                             else:
-                                full_tensor = torch.empty(param.shape, dtype=param.dtype, device=device)
+                                full_tensor = torch.empty(full_param.shape, dtype=full_param.dtype, device=device)
 
                             new_state_dict[param_name] = distribute_tensor(
                                 full_tensor,
