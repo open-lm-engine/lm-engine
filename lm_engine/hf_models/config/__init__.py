@@ -125,11 +125,8 @@ class CommonConfig(BaseArgs):
     def from_dict(cls, config_dict: dict, **kwargs) -> CommonConfig:
         kwargs.pop("return_unused_kwargs", None)
         config_dict = {k: v for k, v in config_dict.items() if k not in _HF_META_KEYS}
-        # name_or_path is set by HF but not part of our Pydantic schema — store post-init
-        name_or_path = config_dict.pop("name_or_path", "")
-        config = cls(**config_dict)
-        config.name_or_path = name_or_path
-        return config
+        config_dict.pop("name_or_path", None)  # set by HF, not part of our schema
+        return cls(**config_dict)
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path: str, **kwargs) -> CommonConfig:
