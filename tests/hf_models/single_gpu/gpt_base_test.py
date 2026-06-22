@@ -9,6 +9,10 @@ import torch
 
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
+from lm_engine.hf_models.modeling_utils.sequence_packing import (
+    compute_cu_seqlens_and_max_seqlen_from_attention_mask,
+    pack_sequence,
+)
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, is_quack_available
 
@@ -101,8 +105,17 @@ def test_sdpa_padding_free_transformer_equivalence(
     sdpa_loss = sdpa_output.loss
 
     with enable_kernels([kernel]):
-        input_ids, attention_mask, labels = get_dummy_inputs(device)
-        flash_output = flash_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+        input_ids, labels = pack_sequence(inputs=(input_ids, labels), cu_seqlens=cu_seqlens)
+
+        flash_output = flash_model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            labels=labels,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+        )
+
         flash_logits = flash_output.logits
         flash_loss = flash_output.loss
 

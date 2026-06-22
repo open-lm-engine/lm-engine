@@ -136,7 +136,7 @@ def get_moe_test_config(
     )
 
 
-def get_dummy_inputs(device: torch.device) -> tuple[torch.Tensor | list[int]]:
+def get_dummy_inputs(device: torch.device, return_list: bool = False) -> tuple[torch.Tensor | list[int]]:
     input_ids = torch.tensor([list(range(5, 15)), [0] * 5 + list(range(10, 15))], device=device)
     attention_mask = torch.tensor([[1] * 10, [0] * 5 + [1] * 5], device=device)
     labels = torch.tensor([[-100] * 6 + list(range(11, 15)), [-100] * 7 + list(range(12, 15))], device=device)
