@@ -141,8 +141,7 @@ class CommonConfig(BaseArgs):
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path: str, **kwargs) -> CommonConfig:
         config_file = os.path.join(pretrained_model_name_or_path, "config.json")
-        with open(config_file, encoding="utf-8") as f:
-            config_dict = json.load(f)
+        config_dict = json.load(open(config_file, "r"))
         return cls.from_dict(config_dict, **kwargs)
 
     def check_equal_for_all_and_get_value(
