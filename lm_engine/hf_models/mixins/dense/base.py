@@ -53,15 +53,8 @@ class PreTrainedModelMixin(nn.Module):
 
     @classmethod
     def _from_config(cls, config: CommonConfig, **kwargs) -> PreTrainedModelMixin:
-        with torch.device("meta"):
-            model = cls(config, **kwargs)
-
-        model = model.to_empty(device=Accelerator.get_current_device())
+        model = cls(config, **kwargs)
         model = model.to(kwargs.pop("dtype", kwargs.pop("torch_dtype", None)))
-
-        for module in model.modules():
-            if hasattr(module, "reset_parameters"):
-                module.reset_parameters()
 
         return model
 
