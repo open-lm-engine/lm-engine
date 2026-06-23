@@ -21,7 +21,6 @@ parser.add_argument("--tmp-path", type=str)
 parser.add_argument("--zero-stage", type=int)
 parser.add_argument("--data-parallel-replication-world-size", type=int)
 parser.add_argument("--data-parallel-sharding-world-size", type=int)
-parser.add_argument("--efficient-initialization", action="store_true")
 args = parser.parse_args()
 
 train_config = TrainingArgs(**load_yaml(args.train_config))
@@ -37,8 +36,6 @@ for block in train_config.model_args.pretrained_config["sequence_mixer_blocks"]:
 # activation function
 for block in train_config.model_args.pretrained_config["mlp_blocks"]:
     block["activation_function"] = args.activation_function
-
-train_config.model_args.efficient_initialization = args.efficient_initialization
 
 ProcessGroupManager(
     tensor_parallel_world_size=train_config.distributed_args.tensor_parallel_world_size,

@@ -179,7 +179,7 @@ model_args:
       - mlp_type: MLP
         activation_function: swiglu
         add_bias: false
-  efficient_initialization: true
+  efficient_initialization: false
 
 tuning_args:
   tuning_method: pretraining
