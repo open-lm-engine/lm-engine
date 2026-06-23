@@ -47,8 +47,8 @@ class CommonConfig(BaseArgs):
         _SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | _RNNArgs | _M2RNNArgs | _GatedDeltaNetArgs
     ]
     mlp_blocks: list[_MLPArgs | _MoEArgs]
-    router_aux_loss_coef: float
     tie_word_embeddings: bool
+    router_aux_loss_coef: float | None = None
     rope_dim: int | None = None
     # HuggingFace compatibility fields
     # dtype: str | None = None
