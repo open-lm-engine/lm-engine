@@ -18,7 +18,6 @@ tokenizer_args:
   tokenizer_name: EleutherAI/gpt-neox-20b
 
 model_args:
-  efficient_initialization: true
   pretrained_config:
     initializer_range: 0.1
     layer_norm_epsilon: 1e-05
@@ -430,6 +429,7 @@ model_args:
         activation_function: swiglu
         add_bias: false
         intermediate_size: 2048
+  efficient_initialization: false
 
 tuning_args:
   tuning_method: pretraining

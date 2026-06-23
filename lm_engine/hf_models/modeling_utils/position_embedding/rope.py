@@ -9,7 +9,6 @@ import math
 import torch
 import torch.nn as nn
 
-from ....parallel import prepare_context_parallel_input
 from ...parameter import mark_parameter_as_initialized
 
 
