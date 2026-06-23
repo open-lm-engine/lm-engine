@@ -13,7 +13,6 @@ import torch.nn as nn
 from torch.distributed._composable.fsdp import CPUOffloadPolicy
 from torch.distributed._composable.fsdp import MixedPrecisionPolicy as MixedPrecision2
 from torch.distributed._composable.fsdp import OffloadPolicy, fully_shard
-from torch.distributed._tensor import distribute_tensor
 from torch.distributed._tensor.placement_types import Shard
 from torch.distributed.fsdp import CPUOffload
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -27,7 +26,6 @@ from torch.distributed.pipelining.schedules import (
     _PipelineSchedule,
     get_schedule_class,
 )
-from torch.distributed.tensor import DTensor
 
 from .accelerator import Accelerator
 from .containers import ModelContainer
@@ -322,10 +320,6 @@ def wrap_model_container_for_distributed_training(
                     return Shard(0)
 
             for i, model in enumerate(model_container):
-                if efficient_initialization and model_name is not None:
-                    # state dict with Tensors
-                    old_state_dict = model.state_dict()
-
                 for module in model.modules():
                     if isinstance(module, tuple(block_classes)):
                         fully_shard(
@@ -357,31 +351,7 @@ def wrap_model_container_for_distributed_training(
                                 with torch.device(device):
                                     module.reset_parameters()
                     else:
-                        if ProcessGroupManager.get_data_parallel_rank() == 0:
-                            model = model.to(device)
-                        else:
-                            model = model.to_empty(device=device)
-
-                            for module in model.modules():
-                                if hasattr(module, "reset_parameters"):
-                                    with torch.device(device):
-                                        module.reset_parameters()
-
-                        # state dict with DTensors
-                        new_state_dict = model.state_dict()
-
-                        for param_name, param in old_state_dict.items():
-                            if isinstance(param, DTensor):
-                                param = param.full_tensor()
-
-                            new_state_dict[param_name] = distribute_tensor(
-                                param,
-                                device_mesh=new_state_dict[param_name].device_mesh,
-                                placements=new_state_dict[param_name].placements,
-                            )
-
-                        model.load_state_dict(new_state_dict, assign=True)
-                        del old_state_dict, new_state_dict
+                        raise NotImplementedError
         elif fsdp_algorithm == 1:
             log_rank_0(logging.INFO, "using FSDP-1")
             assert num_pipeline_stages == 1
