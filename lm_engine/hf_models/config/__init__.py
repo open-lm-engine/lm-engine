@@ -49,7 +49,7 @@ class CommonConfig(BaseArgs):
     mlp_blocks: list[_MLPArgs | _MoEArgs]
     router_aux_loss_coef: float
     tie_word_embeddings: bool
-    rope_dim: int | None
+    rope_dim: int | None = None
     # HuggingFace compatibility fields
     # dtype: str | None = None
     # name_or_path: str = ""
