@@ -17,7 +17,6 @@ from .....parallel import ProcessGroupManager
 from .....utils import divide_if_divisible, is_fla_available
 from ....cache import ConstantCache, GenerationCache, GenerationState
 from ....parameter import (
-    mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_per_row_hyperball,
 )
@@ -57,7 +56,6 @@ class DeltaMLP(nn.Module):
         use_shortconv: bool,
         use_tied_beta: bool,
         use_decay_beta: bool,
-        use_head_o_norm: bool,
         allow_neg_eigval: bool,
         conv_size: int,
         layer_idx: int,
@@ -73,37 +71,31 @@ class DeltaMLP(nn.Module):
         num_layers: int,
         use_depth_scaled_init: bool,
         value_scale: float | None,
-        use_v_silu: bool,
-        use_v_norm: bool,
         use_b_proj_per_row_hyperball: bool = False,
+        use_o_norm: bool = True,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
     ) -> None:
         super().__init__()
 
-        self.allow_neg_eigval = allow_neg_eigval
         self.hidden_size = hidden_size
         self.intermediate_size = intermediate_size
         self.activation_function = activation_function
-        self.add_bias = add_bias
         self.use_padding_free_transformer = use_padding_free_transformer
-        self.sequence_parallel = sequence_parallel
 
         assert not add_bias
         assert dropout == 0
-        assert activation_function in ("silu", "swiglu")
         assert not sequence_parallel
+        assert not allow_neg_eigval
+        assert activation_function in ("silu", "swiglu")
 
-        self.use_v_silu = use_v_silu
         self.use_v_proj = use_v_proj
-        self.use_v_norm = use_v_norm
         self.use_q_l2norm = use_q_l2norm
         self.use_shortconv = use_shortconv
         self.use_tied_beta = use_tied_beta
         self.use_decay_beta = use_decay_beta
-        self.use_head_o_norm = use_head_o_norm
+        self.use_o_norm = use_o_norm
         self.conv_size = conv_size
-        self.num_ranks = num_ranks
         self.num_heads = num_heads
         self.num_k_heads = self.num_heads
         # just so we keep parameters roughly similar
@@ -125,7 +117,7 @@ class DeltaMLP(nn.Module):
         else:
             divide_if_divisible(self.num_k_heads, self.num_v_heads)
 
-        up_std = _get_std_for_linear(
+        hidden_std = _get_std_for_linear(
             initializer_range=initializer_range,
             init_method=init_method,
             m_width=m_width,
@@ -142,7 +134,7 @@ class DeltaMLP(nn.Module):
             hidden_size,
             self.key_dim * 2,
             bias=False,
-            std=up_std,
+            std=hidden_std,
         )
 
         num_ranks_std = _get_std_for_linear(
@@ -159,7 +151,7 @@ class DeltaMLP(nn.Module):
             out_features=self.key_dim,
             num_ranks=num_ranks,
             bias=False,
-            std_low_rank=up_std,
+            std_low_rank=hidden_std,
             std_high_rank=num_ranks_std,
         )
 
@@ -169,7 +161,7 @@ class DeltaMLP(nn.Module):
                 out_features=self.value_dim,
                 num_ranks=num_ranks,
                 bias=False,
-                std_low_rank=up_std,
+                std_low_rank=hidden_std,
                 std_high_rank=num_ranks_std,
             )
         else:
@@ -180,7 +172,7 @@ class DeltaMLP(nn.Module):
             hidden_size,
             self.num_b_heads,
             bias=False,
-            std=up_std,
+            std=hidden_std,
         )
 
         if self.use_decay_beta:
@@ -229,13 +221,7 @@ class DeltaMLP(nn.Module):
                 use_padding_free_transformer=False,
             )
 
-        if self.use_head_o_norm:
-            self.o_norm = get_normalization_function(
-                "rmsnorm",
-                self.v_head_dim * self.num_heads,
-                eps=norm_eps,
-            )
-        else:
+        if self.use_o_norm:
             self.o_norm = get_normalization_function(
                 "rmsnorm",
                 self.v_head_dim,
@@ -258,8 +244,6 @@ class DeltaMLP(nn.Module):
             mark_parameter_as_mup_learning_rate(self.kv_conv1d.weight)
             # conv kernel: one row per output channel, each normed + hyperball-projected per row
             mark_parameter_as_per_row_hyperball(self.kv_conv1d.weight)
-
-        self.reset_parameters()
 
     def initial_recurrent_state(self, batch_size: int = 1) -> torch.Tensor:
         """Return the learned recurrent state in kernel layout [B, H, K, V]."""
@@ -487,18 +471,9 @@ class DeltaMLP(nn.Module):
 
             k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
 
-            if not self.use_v_silu:
-                k = self.kv_act(k)
-        elif self.use_v_silu:
-            kv = torch.cat([k, v], dim=-1)
-            kv = self.kv_act(kv)
-            k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
+            k = self.kv_act(k)
         else:
             k = self.kv_act(k)
-
-        # NOTE this is for an external tracer and not used during training
-        if getattr(self, "_capture_kv_post_conv", False):
-            self._last_kv_post_conv = torch.cat([k, v], dim=-1).detach()
 
         q = rearrange(q, "... (h d) -> ... h d", d=self.k_head_dim)
         k = rearrange(k, "... (h d) -> ... h d", d=self.k_head_dim)
@@ -510,9 +485,6 @@ class DeltaMLP(nn.Module):
             beta = self.decay_gate(x=b, final_exponential=True, output_dtype=b.dtype)
         else:
             beta = b.sigmoid()
-
-        if self.allow_neg_eigval:
-            beta = beta * 2.0
 
         # NOTE this is for an external tracer and not used during training
         if getattr(self, "_capture_beta", False):
@@ -542,7 +514,7 @@ class DeltaMLP(nn.Module):
                     -1,
                 ).contiguous()
 
-        output_final_state = use_cache or getattr(self, "_capture_recurrent_state", False)
+        output_final_state = use_cache
         if mode == "chunk":
             o, recurrent_state = chunk_delta_rule(
                 q=q,
@@ -571,10 +543,6 @@ class DeltaMLP(nn.Module):
         else:
             raise NotImplementedError(f"Not supported mode `{mode}`.")
 
-        # NOTE this is for an external tracer and not used during training
-        if getattr(self, "_capture_recurrent_state", False):
-            self._last_recurrent_state = recurrent_state.detach()
-
         if attention_mask is not None:
             o = o.squeeze(dim=0)
             # `o` is now head-reduced to (batch, seq, hidden_size)
@@ -598,7 +566,7 @@ class DeltaMLP(nn.Module):
                 cache_name=_DELTA_MLP_CACHE_NAME,
             )
 
-        if not self.use_head_o_norm:
+        if self.use_o_norm:
             o = self.o_norm(o)
 
         if self.use_padding_free_transformer:
@@ -606,10 +574,3 @@ class DeltaMLP(nn.Module):
             o = o.squeeze(0)
 
         return o
-
-    @torch.no_grad()
-    def reset_parameters(self) -> None:
-        if self.use_v_norm:
-            # [TODO] this is a footgun if we use efficient initialization
-            nn.init.constant_(self.v_norm.weight, val=self.value_scale)
-            mark_parameter_as_initialized(self.v_norm.weight)

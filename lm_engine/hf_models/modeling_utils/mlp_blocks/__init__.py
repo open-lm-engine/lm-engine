@@ -50,8 +50,8 @@ def get_mlp_block(
             use_shortconv=block.use_shortconv,
             use_tied_beta=block.use_tied_beta,
             use_decay_beta=block.use_decay_beta,
-            use_head_o_norm=block.use_head_o_norm,
             allow_neg_eigval=block.allow_neg_eigval,
+            use_o_norm=block.use_o_norm,
             conv_size=block.kernel_size,
             layer_idx=layer_idx,
             norm_eps=config.layer_norm_epsilon,
@@ -61,8 +61,6 @@ def get_mlp_block(
             dt_init_max=block.dt_init_max,
             dt_init_floor=block.dt_init_floor,
             value_scale=block.value_scale,
-            use_v_silu=block.use_v_silu,
-            use_v_norm=block.use_v_norm,
             use_b_proj_per_row_hyperball=block.use_b_proj_per_row_hyperball,
         )
     else:

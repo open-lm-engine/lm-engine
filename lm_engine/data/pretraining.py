@@ -3,6 +3,7 @@
 # **************************************************
 
 import logging
+import math
 
 from ..accelerator import Accelerator
 from ..arguments import TrainingArgs
@@ -10,6 +11,8 @@ from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..logging_utils import log_rank_0
 from ..parallel import ProcessGroupManager
 from ..tokenizers import TOKENIZER_TYPE
+from ..utils import divide_if_divisible
+from .context_reshape import ContextReshapeDataset
 from .dataloader import ResumableDataLoader
 from .megatron import GPTDataset, GPTDatasetConfig, MegatronBatchSampler, Split, build, compile_helpers
 from .stitched import OrderingStrategy, StitchedDatasetConfig, StitchedSequenceDataset
@@ -94,10 +97,22 @@ def get_pretraining_dataloaders(
         # Option 1: data loading using --data-path with single file
         # Option 2: data loading using --data-path with multiple weighted files
         # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
+        sequence_length = class_args.get("sequence_length")
+        source_sequence_length = class_args.get("source_sequence_length")
+        factor = 1
+        base_sequence_length = sequence_length
+        if source_sequence_length is not None and source_sequence_length != sequence_length:
+            factor = divide_if_divisible(
+                source_sequence_length, sequence_length, "source_sequence_length must be a multiple of sequence_length"
+            )
+            base_sequence_length = source_sequence_length
+
+        base_sizes = tuple(math.ceil(s / factor) for s in (train_samples, val_samples, test_samples))
+
         train_ds, val_ds, test_ds = build(
-            sizes=(train_samples, val_samples, test_samples),
+            sizes=base_sizes,
             config=GPTDatasetConfig(
-                sequence_length=class_args.get("sequence_length"),
+                sequence_length=base_sequence_length,
                 blend=class_args.get("data_path"),
                 blend_per_split=[
                     class_args.get("train_data_path"),
@@ -113,6 +128,26 @@ def get_pretraining_dataloaders(
             node_uses_local_storage=class_args.get("node_uses_local_storage", False),
             random_seed=class_args.get("seed", args.random_args.seed),
         )
+
+        if factor > 1:
+            log_rank_0(
+                logging.INFO,
+                f"> context reshape: source_sequence_length={source_sequence_length}, model "
+                f"sequence_length={sequence_length}, factor={factor}; base build "
+                f"num_samples (train)={base_sizes[0]} -- must be identical across a context-scaling "
+                f"sweep for the runs to train on the same data",
+            )
+
+            train_ds = (
+                None if train_ds is None else ContextReshapeDataset(train_ds, sequence_length, source_sequence_length)
+            )
+            val_ds = None if val_ds is None else ContextReshapeDataset(val_ds, sequence_length, source_sequence_length)
+            test_ds = (
+                None if test_ds is None else ContextReshapeDataset(test_ds, sequence_length, source_sequence_length)
+            )
+            assert (
+                train_ds is None or len(train_ds) >= train_samples
+            ), f"reshaped train dataset has {len(train_ds)} samples < required {train_samples}"
     else:
         assert args.datasets[0].class_name == "StitchedDataset"
 

@@ -273,7 +273,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -289,7 +288,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -305,7 +303,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -321,7 +318,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -337,7 +333,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -353,7 +348,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -369,7 +363,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -385,7 +378,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -401,7 +393,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -417,7 +408,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -433,7 +423,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -449,7 +438,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -465,7 +453,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -481,7 +468,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -497,7 +483,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -513,7 +498,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -529,7 +513,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -545,7 +528,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -561,7 +543,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -577,7 +558,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -593,7 +573,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -609,7 +588,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -625,7 +603,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
@@ -641,7 +618,6 @@ model_args:
         num_ranks: 54
         num_heads: 21
         use_v_proj: false
-        use_v_silu: false
         use_q_l2norm: false
         use_shortconv: true
         use_tied_beta: false
