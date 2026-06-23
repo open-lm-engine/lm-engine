@@ -56,8 +56,13 @@ class CommonConfig(BaseArgs):
     # is_encoder_decoder: bool = False
 
     def model_post_init(self, __context: Any) -> None:
-        assert len(self.sequence_mixer_blocks) == self.num_layers
-        assert len(self.mlp_blocks) == self.num_layers
+        assert (
+            len(self.sequence_mixer_blocks) == self.num_layers
+        ), f"sequence_mixer_blocks has {len(self.sequence_mixer_blocks)} entries but num_layers={self.num_layers}"
+
+        assert (
+            len(self.mlp_blocks) == self.num_layers
+        ), f"mlp_blocks has {len(self.mlp_blocks)} entries but num_layers={self.num_layers}"
 
         if self.position_embedding_type == "rope":
             assert self.rope_theta is not None
