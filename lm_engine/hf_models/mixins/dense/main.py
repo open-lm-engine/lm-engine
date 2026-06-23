@@ -345,9 +345,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
                 model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
             else:
-                kwargs.pop("config", None)  # HF passes config= but we load it ourselves
-                config = cls.config_class.from_pretrained(pretrained_model_name_or_path)
-                model = cls(config, **kwargs)
+                model = cls(**kwargs)
                 model = model.to(dtype=dtype)
                 model.load_state_dict(SafeTensorsWeightsManager(pretrained_model_name_or_path).state_dict())
 
