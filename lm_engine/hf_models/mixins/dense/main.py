@@ -334,9 +334,8 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
             if ProcessGroupManager.is_tensor_parallel_enabled():
                 with torch.device("meta"):
-                    model = cls._from_config(**kwargs)
+                    model = cls(kwargs.pop("config"), **kwargs)
                     marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
-
                     model = model.to(dtype=dtype)
 
                 # copy to device without copying storage
