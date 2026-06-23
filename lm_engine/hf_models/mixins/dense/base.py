@@ -58,6 +58,9 @@ class PreTrainedModelMixin(nn.Module):
 
         return model
 
+    def tie_weights(self) -> None:
+        return
+
 
 class BaseModelMixin(PreTrainedModelMixin):
     mask_value = None
