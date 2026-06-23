@@ -336,8 +336,12 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 with torch.device("meta"):
                     model = cls(kwargs.pop("config"), **kwargs)
                     marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
-                    model = model.to(dtype=dtype)
 
+                for module in model.modules():
+                    if hasattr(module, "reset_parameters"):
+                        module.reset_parameters()
+
+                model = model.to(dtype=dtype)
                 # copy to device without copying storage
                 model = model.to_empty(device=torch.cuda.current_device())
                 set_parameter_marker_maps([model], marker_maps)
