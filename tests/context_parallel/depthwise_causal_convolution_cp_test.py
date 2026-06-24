@@ -9,7 +9,7 @@ import torch
 
 from lm_engine.utils import is_causal_conv1d_available
 
-from ....utils import skip_test_if_device_unavailable, slow_test
+from ..utils import skip_test_if_device_unavailable, slow_test
 
 
 @pytest.mark.parametrize("kernel_size", list(range(1, 5)))
@@ -33,7 +33,7 @@ def test_depthwise_causal_convolution_cp(kernel_size: int, use_causal_conv1d: bo
         "--nproc_per_node",
         str(gpus_per_node),
         "-m",
-        "tests.hf_models.multi_gpu.context_parallel.depthwise_causal_convolution_cp",
+        "tests.context_parallel.depthwise_causal_convolution_cp",
         "--kernel-size",
         str(kernel_size),
     ]

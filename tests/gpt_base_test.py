@@ -14,7 +14,7 @@ from lm_engine.modeling_utils.sequence_packing import (
 )
 from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, is_quack_available
 
-from ...utils import (
+from .utils import (
     assert_equal_tensors,
     from_config,
     get_dense_test_config,

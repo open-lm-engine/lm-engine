@@ -11,8 +11,7 @@ from lm_engine.parallel import ProcessGroupManager
 from lm_engine.parameter import is_parameter_initialized
 from lm_engine.utils import environment
 
-from ...utils import skip_test_if_device_unavailable
-from ..utils import load_training_args_for_unit_tests
+from ..utils import load_training_args_for_unit_tests, skip_test_if_device_unavailable
 
 
 def test_efficient_init() -> None:

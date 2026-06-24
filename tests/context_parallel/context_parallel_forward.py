@@ -18,7 +18,7 @@ from lm_engine.parallel import ProcessGroupManager, prepare_context_parallel_inp
 from lm_engine.parallel.context_parallel import _HeadTailLoadBalancer, _NoLoadBalancer
 from lm_engine.utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
-from ....utils import from_config
+from ..utils import from_config
 
 
 parser = argparse.ArgumentParser()

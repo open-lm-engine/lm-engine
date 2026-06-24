@@ -13,7 +13,7 @@ from lm_engine.kernels import enable_kernels
 from lm_engine.models import GPTBaseConfig
 from lm_engine.parallel import ProcessGroupManager
 
-from ....utils import from_config
+from ..utils import from_config
 
 
 parser = argparse.ArgumentParser()

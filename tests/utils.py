@@ -13,14 +13,20 @@ import torch
 from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM
 
+from lm_engine.arguments import TrainingArgs
 from lm_engine.model_config import CommonConfig
 from lm_engine.models import GPTBaseConfig
-from lm_engine.utils import SafeTensorsWeightsManager
+from lm_engine.utils import SafeTensorsWeightsManager, load_yaml
 from tools.model_conversion import export_to_huggingface, import_from_huggingface
 
 
 _DEBUG = False
 _RUN_SLOW = True if os.getenv("RUN_SLOW", "False").lower() in ["1", "true"] else False
+
+
+def load_training_args_for_unit_tests(filename: str) -> TrainingArgs:
+    filepath = os.path.join(os.path.dirname(__file__), filename)
+    return TrainingArgs(**load_yaml(filepath))
 
 
 def skip_test_if_device_unavailable(device: torch.device) -> None:

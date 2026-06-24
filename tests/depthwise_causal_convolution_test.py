@@ -11,7 +11,7 @@ from lm_engine.kernels import enable_kernels
 from lm_engine.modeling_utils import DepthwiseCausalConvolution
 from lm_engine.utils import is_causal_conv1d_available
 
-from ...utils import skip_test_if_device_unavailable
+from .utils import skip_test_if_device_unavailable
 
 
 _HIDDEN_SIZE = 8

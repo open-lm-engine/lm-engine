@@ -8,12 +8,13 @@ import tempfile
 import pytest
 import torch
 
-from ....utils import skip_test_if_device_unavailable, slow_test
+from ..utils import skip_test_if_device_unavailable, slow_test
 
 
 @pytest.mark.parametrize("activation_function", ["gelu", "geglu"])
+@pytest.mark.parametrize("zero_stage_ddp_sizes", [(3, 2, 2), (3, 1, 4), (0, 4, 1)])
 @slow_test
-def test_unsharding(activation_function: str) -> None:
+def test_dcp(activation_function: str, zero_stage_ddp_sizes: tuple[int, int, int]) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
 
     gpus_per_node = torch.cuda.device_count()
@@ -24,11 +25,21 @@ def test_unsharding(activation_function: str) -> None:
             "--nproc_per_node",
             str(gpus_per_node),
             "-m",
-            "tests.hf_models.multi_gpu.unsharding.unsharding",
+            "tests.dcp.dcp",
+            "--train-config",
+            "tests/dcp/train.yml",
+            "--unshard-config",
+            "tests/dcp/unshard.yml",
             "--activation-function",
             activation_function,
             "--tmp-path",
             tmp_path,
+            "--zero-stage",
+            str(zero_stage_ddp_sizes[0]),
+            "--data-parallel-replication-world-size",
+            str(zero_stage_ddp_sizes[1]),
+            "--data-parallel-sharding-world-size",
+            str(zero_stage_ddp_sizes[2]),
         ]
 
         subprocess.run(command, check=True)

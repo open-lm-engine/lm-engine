@@ -15,7 +15,7 @@ from lm_engine.utils import (
     torch_dtype_to_string,
 )
 
-from ....utils import skip_test_if_device_unavailable, slow_test
+from ..utils import skip_test_if_device_unavailable, slow_test
 
 
 @pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
@@ -57,7 +57,7 @@ def test_tensor_parallel_forward(
             "--nproc_per_node",
             str(gpus_per_node),
             "-m",
-            "tests.hf_models.multi_gpu.tensor_parallel.tensor_parallel_forward",
+            "tests.tensor_parallel.tensor_parallel_forward",
             "--position-embedding-type",
             position_embedding_type,
             "--dtype",

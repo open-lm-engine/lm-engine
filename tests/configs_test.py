@@ -11,7 +11,7 @@ from lm_engine.arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from lm_engine.utils import load_yaml
 
 
-_CONFIGS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "configs")
+_CONFIGS_DIR = os.path.join(os.path.dirname(__file__), "..", "configs")
 _ARGS_CLASS_BY_KEY = {"teacher_args": DistillationArgs, "unsharded_path": UnshardingArgs, "model_args": TrainingArgs}
 
 

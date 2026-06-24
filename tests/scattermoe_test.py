@@ -9,7 +9,7 @@ from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
 
-from ...utils import (
+from .utils import (
     assert_equal_tensors,
     from_config,
     get_dummy_inputs,
