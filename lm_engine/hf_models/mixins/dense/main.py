@@ -332,6 +332,9 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         for k in _HF_USELESS_STUFF:
             kwargs.pop(k, None)
 
+        num_pipeline_stages = kwargs.pop("num_pipeline_stages", 1)
+        pipeline_stage_id = kwargs.pop("pipeline_stage_id", 0)
+
         if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
             # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_models)
             from ....checkpointing import load_checkpoint_and_unshard
@@ -349,10 +352,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         else:
             assert iteration is None, "iteration should be None when loading from an unsharded checkpoint"
 
-            if ProcessGroupManager.is_tensor_parallel_enabled() or ProcessGroupManager.is_pipeline_parallel_enabled():
-                num_pipeline_stages = kwargs.pop("num_pipeline_stages", 1)
-                pipeline_stage_id = kwargs.pop("pipeline_stage_id", 0)
-
+            if ProcessGroupManager.is_tensor_parallel_enabled() or num_pipeline_stages > 1:
                 with torch.device("meta"):
                     model = cls(
                         config, num_pipeline_stages=num_pipeline_stages, pipeline_stage_id=pipeline_stage_id, **kwargs
@@ -366,11 +366,12 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 model = model.to(dtype=dtype)
                 # copy to device without copying storage
                 model = model.to_empty(device=torch.cuda.current_device())
-                set_parameter_marker_maps([model], marker_maps)
 
                 model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
             else:
                 model = cls(config, **kwargs)
+                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+
                 model = model.to(dtype=dtype)
                 model.load_state_dict(SafeTensorsWeightsManager(pretrained_model_name_or_path).state_dict())
 
@@ -379,6 +380,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         assert len(kwargs) == 0
 
         model = model.to(device_map[""])
+        set_parameter_marker_maps([model], marker_maps)
 
         return model
 
