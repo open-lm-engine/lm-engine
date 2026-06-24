@@ -331,7 +331,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         # drop useless stuff
 
         for k in _HF_USELESS_STUFF:
-            kwargs.pop(k)
+            kwargs.pop(k, None)
 
         if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
             # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_models)
@@ -370,7 +370,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 model = model.to(dtype=dtype)
                 model.load_state_dict(SafeTensorsWeightsManager(pretrained_model_name_or_path).state_dict())
 
-        device_map = kwargs.pop("device_map")
+        device_map = kwargs.pop("device_map", {"": None})
         assert len(device_map) == 1
         assert len(kwargs) == 0
 
