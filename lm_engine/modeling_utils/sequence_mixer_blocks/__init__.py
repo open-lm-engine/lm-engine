@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ...parallel import ProcessGroupManager
-from .gated_deltanet import GatedDeltaNet
+from .gated_deltanet import GatedDeltaNet, GatedDeltaNetArgs
 from .gru import GRU
 from .m2rnn import M2RNN
 from .mamba2 import Mamba2

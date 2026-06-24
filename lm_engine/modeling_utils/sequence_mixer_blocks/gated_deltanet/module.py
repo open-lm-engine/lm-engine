@@ -2,23 +2,20 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-# -*- coding: utf-8 -*-
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 from __future__ import annotations
 
 import torch
 import torch.nn as nn
 
-from ...generation_cache import ConstantCache, GenerationCache, GenerationState
-from ...utils import divide_if_divisible, is_fla_available
-from ..activations import silu
-from ..depthwise_causal_convolution import DepthwiseCausalConvolution
-from ..init_utils import _get_std_for_linear
-from ..linear import ParameterizedLinear
-from ..normalization import get_normalization_function
-from ..sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
-from ..softplus_decay_gate import SoftplusDecayGate
+from ....generation_cache import ConstantCache, GenerationCache, GenerationState
+from ....utils import divide_if_divisible, is_fla_available
+from ...activations import silu
+from ...depthwise_causal_convolution import DepthwiseCausalConvolution
+from ...init_utils import _get_std_for_linear
+from ...linear import ParameterizedLinear
+from ...normalization import get_normalization_function
+from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from ...softplus_decay_gate import SoftplusDecayGate
 
 
 if is_fla_available():

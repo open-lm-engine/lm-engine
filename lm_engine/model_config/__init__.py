@@ -11,9 +11,9 @@ from enum import Enum
 from typing import Any, Literal
 
 from ..arguments import BaseArgs
-from ..modeling_utils import MLPArgs, MoEArgs, SoftmaxAttentionArgs
+from ..modeling_utils import GatedDeltaNetArgs, MLPArgs, MoEArgs, SoftmaxAttentionArgs
 from ..utils import divide_if_divisible
-from .sequence_mixer import _GatedDeltaNetArgs, _GRUArgs, _M2RNNArgs, _Mamba2Args, _RNNArgs
+from .sequence_mixer import _GRUArgs, _M2RNNArgs, _Mamba2Args, _RNNArgs
 
 
 # Keys added by HuggingFace internals that are not part of our config schema
