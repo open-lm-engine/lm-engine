@@ -7,6 +7,7 @@ from .depthwise_causal_convolution import DepthwiseCausalConvolution
 from .dropout import Dropout
 from .dtensor_module import DTensorModule
 from .embedding import ParameterizedEmbedding, get_tensor_parallel_vocab_info
+from .io import BaseModelOutputWithPast, CausalLMOutputWithPast, PipelineParallelInput, PipelineParallelOutput
 from .linear import ColumnParallelLinear, ParameterizedLinear, RowParallelLinear
 from .lm_head import LMHead
 from .mlp_blocks import (

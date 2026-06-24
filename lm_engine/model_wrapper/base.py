@@ -17,7 +17,7 @@ from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
-from ..mixins import CausalLMOutputWithPast
+from ..modeling_utils import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
 from ..register_hf import is_custom_model
 from ..tokenizers import get_tokenizer

@@ -11,7 +11,7 @@ from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
 from ..loss import is_aux_loss_zero
-from ..mixins import CausalLMOutputWithPast, PipelineParallelInput, PipelineParallelOutput
+from ..modeling_utils import CausalLMOutputWithPast, PipelineParallelInput, PipelineParallelOutput
 from ..parallel import ProcessGroupManager, broadcast_tensor_parallel_input, prepare_context_parallel_input
 from ..parameter import mark_parameter_as_initialized
 from .base import ModelWrapper

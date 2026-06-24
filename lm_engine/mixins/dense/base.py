@@ -14,9 +14,9 @@ from ...kernels import is_kernel_allowed
 from ...model_config import CommonConfig
 from ...modeling_utils import Dropout, ParameterizedEmbedding, RoPE, YaRNScaledRoPE, get_normalization_function
 from ...modeling_utils.init_utils import _get_std_for_embedding
+from ...modeling_utils.io import BaseModelOutputWithPast
 from ...parallel import ProcessGroupManager, prepare_context_parallel_input
 from ...utils import divide_if_divisible, is_generation_cache_enabled
-from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
 
 

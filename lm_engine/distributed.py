@@ -33,7 +33,7 @@ from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
 from .kernels import is_kernel_allowed
 from .logging_utils import log_rank_0
-from .mixins import CausalLMOutputWithPast
+from .modeling_utils import CausalLMOutputWithPast
 from .parallel import ProcessGroupManager
 from .parameter import (
     _INIT_MARKER,

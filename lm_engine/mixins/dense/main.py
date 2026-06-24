@@ -25,6 +25,12 @@ from ...loss import (
 )
 from ...model_config import CommonConfig
 from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
+from ...modeling_utils.io import (
+    BaseModelOutputWithPast,
+    CausalLMOutputWithPast,
+    PipelineParallelInput,
+    PipelineParallelOutput,
+)
 from ...parallel import ProcessGroupManager
 from ...parameter import (
     _INIT_MARKER,
@@ -34,12 +40,6 @@ from ...parameter import (
     set_parameter_marker_maps,
 )
 from ...utils import SafeTensorsWeightsManager, divide_if_divisible, torch_dtype_to_string
-from ..modeling_outputs import (
-    BaseModelOutputWithPast,
-    CausalLMOutputWithPast,
-    PipelineParallelInput,
-    PipelineParallelOutput,
-)
 from .base import PreTrainedModelMixin
 
 
