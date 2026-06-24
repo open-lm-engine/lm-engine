@@ -10,8 +10,8 @@ from copy import deepcopy
 from enum import Enum
 from typing import Any, Literal
 
-from ..arguments import BaseArgs
-from ..modeling_utils import (
+from .arguments import BaseArgs
+from .modeling_utils import (
     GatedDeltaNetArgs,
     GRUArgs,
     M2RNNArgs,
@@ -21,7 +21,7 @@ from ..modeling_utils import (
     RNNArgs,
     SoftmaxAttentionArgs,
 )
-from ..utils import divide_if_divisible
+from .utils import divide_if_divisible
 
 
 # Keys added by HuggingFace internals that are not part of our config schema
