@@ -13,8 +13,8 @@ from torch.distributed.tensor import Replicate, Shard
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...parallel import ProcessGroupManager
+from ...parameter import mark_parameter_as_initialized
 from ...utils import divide_if_divisible
-from ..parameter import mark_parameter_as_initialized
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 

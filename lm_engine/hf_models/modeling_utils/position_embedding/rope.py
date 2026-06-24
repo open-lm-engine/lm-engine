@@ -9,7 +9,7 @@ import math
 import torch
 import torch.nn as nn
 
-from ...parameter import mark_parameter_as_initialized
+from ....parameter import mark_parameter_as_initialized
 
 
 class RoPE(nn.Module):

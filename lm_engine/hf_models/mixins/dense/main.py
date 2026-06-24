@@ -16,6 +16,13 @@ from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....parallel import ProcessGroupManager
+from ....parameter import (
+    _INIT_MARKER,
+    get_named_parameters_and_buffers,
+    get_parameter_marker_maps,
+    is_parameter_initialized,
+    set_parameter_marker_maps,
+)
 from ....utils import SafeTensorsWeightsManager, divide_if_divisible, torch_dtype_to_string
 from ...cache import GenerationCache
 from ...config import CommonConfig
@@ -27,13 +34,6 @@ from ...loss import (
     is_aux_loss_zero,
 )
 from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
-from ...parameter import (
-    _INIT_MARKER,
-    get_named_parameters_and_buffers,
-    get_parameter_marker_maps,
-    is_parameter_initialized,
-    set_parameter_marker_maps,
-)
 from ..modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
