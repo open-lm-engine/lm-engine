@@ -4,9 +4,10 @@
 
 from transformers import AutoTokenizer, GenerationConfig
 
-from ...tokenizers import get_tokenizer
-from ...utils import SafeTensorsWeightsManager, download_repo
-from ..models import GPTBaseConfig
+from lm_engine.hf_models.models import GPTBaseConfig
+from lm_engine.tokenizers import get_tokenizer
+from lm_engine.utils import SafeTensorsWeightsManager, download_repo
+
 from .granite import _export_granite_config, _import_granite_config
 from .granitemoehybrid import (
     _export_granitemoehybrid_config,
