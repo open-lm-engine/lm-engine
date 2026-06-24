@@ -7,13 +7,12 @@ import logging
 import torch
 from torch.distributed import ReduceOp
 
-from lm_engine.model_config import CommonConfig
-from lm_engine.register_hf import is_custom_model
-
 from .enums import GradientCheckpointingMethod
 from .logging_utils import ExperimentsTracker, MetricsTrackingDict, log_metrics
+from .model_config import CommonConfig
 from .modeling_utils import is_glu
 from .parallel import ProcessGroupManager
+from .register_hf import is_custom_model
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
