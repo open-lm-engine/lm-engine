@@ -5,13 +5,11 @@
 from __future__ import annotations
 
 import math
-from typing import Any
 
 import torch
 import torch.nn.functional as F
 
 from ....accelerator import Accelerator
-from ....arguments import BaseArgs
 from ....enums import Kernel
 from ....generation_cache import GenerationCache, GenerationState, LinearCache
 from ....kernels import is_kernel_allowed, wait_for_ACT
@@ -24,88 +22,12 @@ from ...dtensor_module import DTensorModule
 from ...init_utils import _get_std_for_linear
 from ...linear import ColumnParallelLinear, RowParallelLinear
 from ...position_embedding import apply_rotary_pos_emb
+from .config import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD, SoftmaxAttentionArgs
 from .flash_attention import flash_attention
 
 
 if is_torch_xla_available():
     from torch_xla.experimental.custom_kernel import flash_attention as flash_attention_tpu
-
-
-ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD = "1 / sqrt(head_dim)"
-ATTENTION_MULTIPLIER_INVERSE_METHOD = "1 / head_dim"
-
-
-def interleave_query_key_value_tensor_for_attention(
-    query_weight: torch.Tensor,
-    key_weight: torch.Tensor,
-    value_weight: torch.Tensor,
-    num_heads: int,
-    num_key_value_heads: int,
-    head_dim: int,
-) -> torch.Tensor:
-    query_heads_per_group = num_heads // num_key_value_heads
-
-    interleaved = []
-    for i in range(num_key_value_heads):
-        start_index = i * query_heads_per_group * head_dim
-        end_index = start_index + query_heads_per_group * head_dim
-        interleaved.append(query_weight[start_index:end_index])
-
-        start_index = i * head_dim
-        end_index = start_index + head_dim
-        interleaved.append(key_weight[start_index:end_index])
-        interleaved.append(value_weight[start_index:end_index])
-
-    return torch.cat(interleaved)
-
-
-def split_query_key_value_tensor_for_attention(
-    query_key_value_weight: torch.Tensor, num_heads: int, num_key_value_heads: int
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    query_heads_per_group = num_heads // num_key_value_heads
-    original_shape = query_key_value_weight.shape
-
-    query_key_value_weight = query_key_value_weight.view(num_key_value_heads, (query_heads_per_group + 2), -1)
-
-    query_weight, key_weight, value_weight = query_key_value_weight.split((query_heads_per_group, 1, 1), 1)
-
-    query_weight = query_weight.reshape(-1, *original_shape[1:])
-    key_weight = key_weight.reshape(-1, *original_shape[1:])
-    value_weight = value_weight.reshape(-1, *original_shape[1:])
-
-    return query_weight, key_weight, value_weight
-
-
-class SoftmaxAttentionArgs(BaseArgs):
-    sequence_mixer_type: str = "softmax_attention"
-    num_attention_heads: int
-    num_key_value_heads: int
-    head_dim: int | None = None
-    softmax_dropout: float = 0
-    dropout: float = 0
-    add_bias: bool = False
-    attention_multiplier: float | None = None
-    attention_multiplier_method: str | None = ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
-    attention_gate: bool = False
-    exclusive_self_attention: bool = False
-    sliding_window: int | None = None
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.attention_multiplier_method in [
-            ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
-            ATTENTION_MULTIPLIER_INVERSE_METHOD,
-            None,
-        ]
-
-        if self.attention_multiplier_method in [
-            ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
-            ATTENTION_MULTIPLIER_INVERSE_METHOD,
-        ]:
-            assert self.attention_multiplier is None
-        else:
-            assert self.attention_multiplier is not None
-
-        assert self.sequence_mixer_type == "softmax_attention"
 
 
 class SoftmaxAttention(DTensorModule):
