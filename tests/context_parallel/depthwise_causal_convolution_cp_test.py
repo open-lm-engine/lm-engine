@@ -33,7 +33,7 @@ def test_depthwise_causal_convolution_cp(kernel_size: int, use_causal_conv1d: bo
         "--nproc_per_node",
         str(gpus_per_node),
         "-m",
-        "tests.hf_models.multi_gpu.context_parallel.depthwise_causal_convolution_cp",
+        "tests.context_parallel.depthwise_causal_convolution_cp",
         "--kernel-size",
         str(kernel_size),
     ]

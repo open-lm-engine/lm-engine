@@ -54,7 +54,7 @@ def test_context_parallel_forward(
             "--nproc_per_node",
             str(gpus_per_node),
             "-m",
-            "tests.hf_models.multi_gpu.context_parallel.context_parallel_forward",
+            "tests.context_parallel.context_parallel_forward",
             "--position-embedding-type",
             position_embedding_type,
             "--dtype",

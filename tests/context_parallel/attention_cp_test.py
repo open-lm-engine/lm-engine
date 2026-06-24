@@ -46,7 +46,7 @@ def test_attention_cp(
         "--nproc_per_node",
         str(gpus_per_node),
         "-m",
-        "tests.hf_models.multi_gpu.context_parallel.attention_cp",
+        "tests.context_parallel.attention_cp",
         "--attention-implementation",
         attention_implementation,
     ]

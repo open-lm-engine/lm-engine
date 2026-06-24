@@ -24,7 +24,7 @@ def test_unsharding(activation_function: str) -> None:
             "--nproc_per_node",
             str(gpus_per_node),
             "-m",
-            "tests.hf_models.multi_gpu.unsharding.unsharding",
+            "tests.unsharding.unsharding",
             "--activation-function",
             activation_function,
             "--tmp-path",
