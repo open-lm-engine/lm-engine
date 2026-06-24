@@ -14,6 +14,7 @@ from transformers import StoppingCriteriaList
 from ....arguments import LoadArgs, MixedPrecisionArgs, UnshardingArgs
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
+from ....generation_cache import GenerationCache
 from ....kernels import is_kernel_allowed
 from ....loss import (
     add_aux_loss,
@@ -31,7 +32,6 @@ from ....parameter import (
     set_parameter_marker_maps,
 )
 from ....utils import SafeTensorsWeightsManager, divide_if_divisible, torch_dtype_to_string
-from ...cache import GenerationCache
 from ...config import CommonConfig
 from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import (

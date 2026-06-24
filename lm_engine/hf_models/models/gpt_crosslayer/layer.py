@@ -8,9 +8,9 @@ import torch
 import torch.nn as nn
 
 from ....enums import Kernel
+from ....generation_cache import GenerationCache, GenerationState, LinearCache
 from ....kernels import is_kernel_allowed
 from ....utils import divide_if_divisible
-from ...cache import GenerationCache, GenerationState, LinearCache
 from ...modeling_utils import apply_rotary_pos_emb, get_mlp_block, get_normalization_function
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer

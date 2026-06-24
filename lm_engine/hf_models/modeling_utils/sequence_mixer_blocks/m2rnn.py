@@ -10,6 +10,7 @@ from torch.distributed.tensor import DTensor, Replicate
 
 from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
+from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
 from ....parameter import (
     mark_parameter_as_initialized,
@@ -17,7 +18,6 @@ from ....parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ....utils import divide_if_divisible, is_xma_available
-from ...cache import ConstantCache, GenerationCache, GenerationState
 from ..activations import clip_gradients, is_glu, silu, tanh
 from ..decay_gate import SoftplusDecayGate
 from ..depthwise_causal_convolution import DepthwiseCausalConvolution

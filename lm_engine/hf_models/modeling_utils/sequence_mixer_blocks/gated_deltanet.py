@@ -10,8 +10,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....utils import divide_if_divisible, is_fla_available
-from ...cache import ConstantCache, GenerationCache, GenerationState
 from ..activations import silu
 from ..decay_gate import SoftplusDecayGate
 from ..depthwise_causal_convolution import DepthwiseCausalConvolution

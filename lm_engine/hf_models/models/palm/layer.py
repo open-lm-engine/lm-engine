@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from ...cache import GenerationCache
+from ....generation_cache import GenerationCache
 from ...modeling_utils import get_mlp_block, get_normalization_function, get_sequence_mixer
 from .config import PaLMConfig
 

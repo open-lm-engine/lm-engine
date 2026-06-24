@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from ....enums import Kernel
+from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
 from ....parameter import (
     mark_parameter_as_initialized,
@@ -15,7 +16,6 @@ from ....parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ....utils import divide_if_divisible, is_xma_available
-from ...cache import ConstantCache, GenerationCache, GenerationState
 from ..activations import clip_gradients, get_activation_function, is_glu, silu, tanh
 from ..depthwise_causal_convolution import DepthwiseCausalConvolution
 from ..init_utils import _get_std_for_linear

@@ -4,7 +4,7 @@
 
 import torch
 
-from ...cache import GenerationCache
+from ....generation_cache import GenerationCache
 from ...mixins import Block
 
 
