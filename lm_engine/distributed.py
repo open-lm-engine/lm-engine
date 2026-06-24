@@ -235,11 +235,8 @@ def wrap_model_container_for_distributed_training(
 
     if efficient_initialization:
         for model in model_container:
-            for param_name, parameter in model.named_parameters():
-                parameter._is_initialized = False
-
-            for param_name, parameter in model.named_buffers():
-                parameter._is_initialized = False
+            for param_name, param in get_named_parameters_and_buffers(model):
+                param._is_initialized = False
 
         marker_maps = get_parameter_marker_maps(model_container)
     else:
@@ -447,8 +444,8 @@ def wrap_model_container_for_distributed_training(
 
     for model in model_container:
         if model.is_custom_model:
-            for param_name, parameter in get_named_parameters_and_buffers(model):
-                assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
+            for param_name, param in get_named_parameters_and_buffers(model):
+                assert is_parameter_initialized(param), f"{param_name} is not initialized"
 
     if num_pipeline_stages > 1:
         micro_batch_size = args.training_parameters.micro_batch_size

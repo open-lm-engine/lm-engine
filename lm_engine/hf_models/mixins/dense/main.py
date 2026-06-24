@@ -27,7 +27,13 @@ from ...loss import (
     is_aux_loss_zero,
 )
 from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
-from ...parameter import _INIT_MARKER, get_parameter_marker_maps, set_parameter_marker_maps
+from ...parameter import (
+    _INIT_MARKER,
+    get_named_parameters_and_buffers,
+    get_parameter_marker_maps,
+    is_parameter_initialized,
+    set_parameter_marker_maps,
+)
 from ..modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -357,16 +363,15 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                     model = cls(
                         config, num_pipeline_stages=num_pipeline_stages, pipeline_stage_id=pipeline_stage_id, **kwargs
                     )
-                    marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
 
                 for module in model.modules():
                     if hasattr(module, "reset_parameters"):
                         module.reset_parameters()
 
-                model = model.to(dtype=dtype)
-                # copy to device without copying storage
-                model = model.to_empty(device=torch.cuda.current_device())
+                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
 
+                model = model.to(dtype=dtype)
+                model = model.to_empty(device=torch.cuda.current_device())
                 model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
             else:
                 model = cls(config, **kwargs)
@@ -381,6 +386,9 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
         model = model.to(device_map[""])
         set_parameter_marker_maps([model], marker_maps)
+
+        for param_name, param in get_named_parameters_and_buffers(model):
+            assert is_parameter_initialized(param), f"{param_name} is not initialized"
 
         return model
 
