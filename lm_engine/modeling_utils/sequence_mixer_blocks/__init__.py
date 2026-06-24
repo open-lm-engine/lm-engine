@@ -11,7 +11,7 @@ from .gated_deltanet import GatedDeltaNet, GatedDeltaNetArgs
 from .gru import GRU
 from .m2rnn import M2RNN
 from .mamba2 import Mamba2
-from .rnn import RNN
+from .rnn import RNN, RNNArgs
 from .softmax_attention import (
     SoftmaxAttention,
     SoftmaxAttentionArgs,
@@ -64,18 +64,10 @@ def get_sequence_mixer(
         assert not is_tp_enabled
         return RNN(
             input_size=config.hidden_size,
-            state_head_dim=block.state_head_dim,
             output_size=config.hidden_size,
-            num_input_heads=block.num_input_heads,
-            num_weight_heads=block.num_weight_heads,
-            kernel_size=block.kernel_size,
-            activation_function=block.activation_function,
-            add_bias=block.add_bias,
-            gradient_clipping=block.gradient_clipping,
             initializer_range=config.initializer_range,
             m_width=config.m_width,
             init_method=config.init_method,
-            normalization_function=block.normalization_function,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
             use_depth_scaled_init=config.use_depth_scaled_init,
@@ -144,24 +136,11 @@ def get_sequence_mixer(
         assert not is_tp_enabled
         return GatedDeltaNet(
             hidden_size=config.hidden_size,
-            k_head_dim=block.k_head_dim,
-            v_head_dim=block.v_head_dim,
-            num_k_heads=block.num_k_heads,
-            num_v_heads=block.num_v_heads,
-            use_gate=block.use_gate,
-            attention_multiplier=block.attention_multiplier,
-            allow_neg_eigval=block.allow_neg_eigval,
-            conv_size=block.kernel_size,
             layer_idx=layer_idx,
             norm_eps=config.layer_norm_epsilon,
             init_method=config.init_method,
             initializer_range=config.initializer_range,
             m_width=config.m_width,
-            A_init_min=block.A_init_min,
-            A_init_max=block.A_init_max,
-            dt_init_min=block.dt_init_min,
-            dt_init_max=block.dt_init_max,
-            dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,

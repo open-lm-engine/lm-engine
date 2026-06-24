@@ -11,9 +11,9 @@ from enum import Enum
 from typing import Any, Literal
 
 from ..arguments import BaseArgs
-from ..modeling_utils import GatedDeltaNetArgs, MLPArgs, MoEArgs, SoftmaxAttentionArgs
+from ..modeling_utils import GatedDeltaNetArgs, MLPArgs, MoEArgs, RNNArgs, SoftmaxAttentionArgs
 from ..utils import divide_if_divisible
-from .sequence_mixer import _GRUArgs, _M2RNNArgs, _Mamba2Args, _RNNArgs
+from .sequence_mixer import _GRUArgs, _M2RNNArgs, _Mamba2Args
 
 
 # Keys added by HuggingFace internals that are not part of our config schema
@@ -44,7 +44,7 @@ class CommonConfig(BaseArgs):
     embedding_init_method: Literal["normal", "mup", "fan_in"]
     use_depth_scaled_init: bool
     sequence_mixer_blocks: list[
-        SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | _RNNArgs | _M2RNNArgs | GatedDeltaNetArgs
+        SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | RNNArgs | _M2RNNArgs | GatedDeltaNetArgs
     ]
     mlp_blocks: list[MLPArgs | MoEArgs]
     tie_word_embeddings: bool

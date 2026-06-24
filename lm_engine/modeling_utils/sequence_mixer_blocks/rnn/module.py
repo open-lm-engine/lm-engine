@@ -7,21 +7,22 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from ...enums import Kernel
-from ...generation_cache import ConstantCache, GenerationCache, GenerationState
-from ...kernels import is_kernel_allowed
-from ...parameter import (
+from ....enums import Kernel
+from ....generation_cache import ConstantCache, GenerationCache, GenerationState
+from ....kernels import is_kernel_allowed
+from ....parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ...utils import divide_if_divisible, is_xma_available
-from ..activations import clip_gradients, get_activation_function, is_glu, silu, tanh
-from ..depthwise_causal_convolution import DepthwiseCausalConvolution
-from ..init_utils import _get_std_for_linear
-from ..linear import ParameterizedLinear
-from ..normalization import get_normalization_function
-from ..sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from ....utils import divide_if_divisible, is_xma_available
+from ...activations import clip_gradients, get_activation_function, is_glu, silu, tanh
+from ...depthwise_causal_convolution import DepthwiseCausalConvolution
+from ...init_utils import _get_std_for_linear
+from ...linear import ParameterizedLinear
+from ...normalization import get_normalization_function
+from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from .config import RNNArgs
 
 
 if is_xma_available():
@@ -32,18 +33,12 @@ class RNN(nn.Module):
     def __init__(
         self,
         input_size: int,
-        state_head_dim: int,
         output_size: int,
-        num_input_heads: int,
-        num_weight_heads: int,
-        kernel_size: int | None,
-        activation_function: str | None,
+        config: RNNArgs,
         add_bias: bool,
-        gradient_clipping: float | None,
         initializer_range: float,
         m_width: float,
         init_method: str,
-        normalization_function: str | None,
         num_layers: int,
         layer_idx: int,
         use_depth_scaled_init: bool,
@@ -51,19 +46,19 @@ class RNN(nn.Module):
     ) -> RNN:
         super().__init__()
 
-        self.num_input_heads = num_input_heads
-        self.num_weight_heads = num_weight_heads
-        self.num_heads = max(num_input_heads, num_weight_heads)
+        self.num_input_heads = config.num_input_heads
+        self.num_weight_heads = config.num_weight_heads
+        self.num_heads = max(config.num_input_heads, config.num_weight_heads)
 
         divide_if_divisible(self.num_heads, self.num_input_heads)
         divide_if_divisible(self.num_heads, self.num_weight_heads)
 
-        self.gradient_clipping = gradient_clipping
+        self.gradient_clipping = config.gradient_clipping
 
-        self.state_head_dim = state_head_dim
+        self.state_head_dim = config.state_head_dim
         self.state_size = self.num_heads * self.state_head_dim
-        self.kernel_size = kernel_size
-        self.activation_string = activation_function
+        self.kernel_size = config.kernel_size
+        self.activation_string = config.activation_function
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
 
@@ -93,19 +88,19 @@ class RNN(nn.Module):
             ),
         )
 
-        if kernel_size is not None:
+        if self.kernel_size is not None:
             assert not is_glu(self.activation_string)
 
             self.conv1d = DepthwiseCausalConvolution(
                 hidden_size=self.state_size,
-                kernel_size=kernel_size,
+                kernel_size=self.kernel_size,
                 activation_function=self.activation_string,
                 add_bias=add_bias,
                 std=_get_std_for_linear(
                     initializer_range=initializer_range,
                     init_method=init_method,
                     m_width=m_width,
-                    fan_in=kernel_size,
+                    fan_in=self.kernel_size,
                     num_layers=num_layers,
                     use_depth_scaled_init=False,
                 ),
@@ -131,7 +126,7 @@ class RNN(nn.Module):
             ),
         )
 
-        self.norm = get_normalization_function(normalization_function, self.state_size)
+        self.norm = get_normalization_function(config.normalization_function, self.state_size)
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)

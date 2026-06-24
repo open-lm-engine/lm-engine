@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ...softplus_decay_gate import SoftPlusDecayGateArgs
 
 

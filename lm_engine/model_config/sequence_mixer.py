@@ -46,21 +46,6 @@ class _GRUArgs(BaseArgs):
         assert self.sequence_mixer_type == "gru"
 
 
-class _RNNArgs(BaseArgs):
-    sequence_mixer_type: str = "rnn"
-    state_head_dim: int
-    num_input_heads: int
-    num_weight_heads: int
-    add_bias: bool
-    normalization_function: str | None
-    gradient_clipping: float | None
-    kernel_size: int | None
-    activation_function: str | None
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "rnn"
-
-
 class _M2RNNArgs(SoftPlusDecayGateArgs):
     sequence_mixer_type: str = "m2rnn"
     k_head_dim: int

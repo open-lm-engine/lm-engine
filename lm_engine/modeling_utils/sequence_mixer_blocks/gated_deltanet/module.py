@@ -16,6 +16,7 @@ from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from ...softplus_decay_gate import SoftplusDecayGate
+from .config import GatedDeltaNetArgs
 
 
 if is_fla_available():
@@ -26,24 +27,12 @@ class GatedDeltaNet(nn.Module):
     def __init__(
         self,
         hidden_size: int,
-        k_head_dim: int,
-        v_head_dim: int,
-        num_k_heads: int,
-        num_v_heads: int,
-        use_gate: bool,
-        attention_multiplier: float | None,
-        allow_neg_eigval: bool,
-        conv_size: int,
+        config: GatedDeltaNetArgs,
         layer_idx: int,
         norm_eps: float,
         init_method: str,
         initializer_range: float,
         m_width: float | None,
-        A_init_min: float,
-        A_init_max: float,
-        dt_init_min: float,
-        dt_init_max: float,
-        dt_init_floor: float,
         num_layers: int,
         use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
@@ -53,23 +42,23 @@ class GatedDeltaNet(nn.Module):
         assert not use_padding_free_transformer
         self.use_padding_free_transformer = use_padding_free_transformer
 
-        self.allow_neg_eigval = allow_neg_eigval
+        self.allow_neg_eigval = config.allow_neg_eigval
         self.hidden_size = hidden_size
 
-        self.use_gate = use_gate
-        self.conv_size = conv_size
+        self.use_gate = config.use_gate
+        self.kernel_size = config.kernel_size
 
-        self.num_k_heads = num_k_heads
-        self.num_v_heads = num_v_heads
+        self.num_k_heads = config.num_k_heads
+        self.num_v_heads = config.num_v_heads
 
-        self.k_head_dim = k_head_dim
-        self.v_head_dim = v_head_dim
+        self.k_head_dim = config.k_head_dim
+        self.v_head_dim = config.v_head_dim
 
         self.key_dim = self.num_k_heads * self.k_head_dim
         self.value_dim = self.num_v_heads * self.v_head_dim
         self.layer_idx = layer_idx
 
-        self.attention_multiplier = attention_multiplier
+        self.attention_multiplier = config.attention_multiplier
 
         divide_if_divisible(self.num_v_heads, self.num_k_heads)
 
@@ -85,7 +74,7 @@ class GatedDeltaNet(nn.Module):
         self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=up_std)
 
         self.ab_proj = ParameterizedLinear(
-            hidden_size, 2 * self.num_v_heads + (self.value_dim if use_gate else 0), bias=False, std=up_std
+            hidden_size, 2 * self.num_v_heads + (self.value_dim if config.use_gate else 0), bias=False, std=up_std
         )
 
         self.decay_gate = SoftplusDecayGate(
@@ -93,24 +82,23 @@ class GatedDeltaNet(nn.Module):
             output_size=self.num_v_heads,
             std=None,
             has_projection=False,
-            A_init_min=A_init_min,
-            A_init_max=A_init_max,
-            dt_init_min=dt_init_min,
-            dt_init_max=dt_init_max,
-            dt_init_floor=dt_init_floor,
+            A_init_min=config.A_init_min,
+            A_init_max=config.A_init_max,
+            dt_init_min=config.dt_init_min,
+            dt_init_max=config.dt_init_max,
+            dt_init_floor=config.dt_init_floor,
         )
 
-        self.conv_size = conv_size
         self.qkv_conv1d = DepthwiseCausalConvolution(
             hidden_size=2 * self.key_dim + self.value_dim,
-            kernel_size=conv_size,
+            kernel_size=self.kernel_size,
             activation_function="silu",
             add_bias=False,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
                 m_width=m_width,
-                fan_in=conv_size,
+                fan_in=self.kernel_size,
                 num_layers=num_layers,
                 use_depth_scaled_init=False,
             ),
