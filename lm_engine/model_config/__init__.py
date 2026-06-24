@@ -11,8 +11,8 @@ from enum import Enum
 from typing import Any, Literal
 
 from ..arguments import BaseArgs
+from ..modeling_utils import MLPArgs, MoEArgs
 from ..utils import divide_if_divisible
-from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import _GatedDeltaNetArgs, _GRUArgs, _M2RNNArgs, _Mamba2Args, _RNNArgs, _SoftmaxAttentionArgs
 
 
@@ -46,7 +46,7 @@ class CommonConfig(BaseArgs):
     sequence_mixer_blocks: list[
         _SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | _RNNArgs | _M2RNNArgs | _GatedDeltaNetArgs
     ]
-    mlp_blocks: list[_MLPArgs | _MoEArgs]
+    mlp_blocks: list[MLPArgs | MoEArgs]
     tie_word_embeddings: bool
     router_aux_loss_coef: float | None = None
     rope_dim: int | None = None

@@ -3,8 +3,8 @@
 # **************************************************
 
 from ...model_config import CommonConfig
-from .mlp import MLP, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_for_mlp
-from .moe import MoE, ParameterizedExperts
+from .mlp import MLP, MLPArgs, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_for_mlp
+from .moe import MoE, MoEArgs, ParameterizedExperts
 
 
 def get_mlp_block(
@@ -15,10 +15,7 @@ def get_mlp_block(
 
     kwargs = dict(
         hidden_size=config.hidden_size,
-        intermediate_size=block.intermediate_size,
-        activation_function=block.activation_function,
-        add_bias=block.add_bias,
-        dropout=block.dropout,
+        config=block,
         init_method=config.init_method,
         initializer_range=config.initializer_range,
         m_width=config.m_width,
@@ -31,14 +28,7 @@ def get_mlp_block(
     if mlp_type == "MLP":
         mlp = MLP(**kwargs)
     elif mlp_type == "MoE":
-        mlp = MoE(
-            **kwargs,
-            shared_intermediate_size=block.shared_intermediate_size,
-            shared_expert_gating=block.shared_expert_gating,
-            normalized_topk=block.normalized_topk,
-            num_experts=block.num_experts,
-            num_experts_per_tok=block.num_experts_per_tok,
-        )
+        mlp = MoE(**kwargs)
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")
 

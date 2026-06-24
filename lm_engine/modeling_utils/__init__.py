@@ -12,7 +12,9 @@ from .linear import ColumnParallelLinear, ParameterizedLinear, RowParallelLinear
 from .lm_head import LMHead
 from .mlp_blocks import (
     MLP,
+    MLPArgs,
     MoE,
+    MoEArgs,
     ParameterizedExperts,
     get_mlp_block,
     interleave_up_gate_tensor_for_mlp,

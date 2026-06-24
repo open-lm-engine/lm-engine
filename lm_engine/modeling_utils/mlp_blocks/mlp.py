@@ -4,10 +4,13 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 import torch.nn as nn
 
 from ...accelerator import Accelerator
+from ...arguments import BaseArgs
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
 from ...parameter import mark_parameter_as_mup_learning_rate
@@ -18,14 +21,22 @@ from ..linear import ColumnParallelLinear, RowParallelLinear
 from ..quack import mlp_fc1_gemm_act, mlp_fc1_gemm_gated
 
 
+class MLPArgs(BaseArgs):
+    mlp_type: str = "MLP"
+    intermediate_size: int
+    activation_function: str
+    dropout: float = 0
+    add_bias: bool = False
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.mlp_type == "MLP"
+
+
 class MLP(nn.Module):
     def __init__(
         self,
         hidden_size: int,
-        intermediate_size: int,
-        activation_function: str,
-        add_bias: bool,
-        dropout: float,
+        config: MLPArgs,
         init_method: str,
         initializer_range: float,
         m_width: float,
@@ -36,14 +47,16 @@ class MLP(nn.Module):
     ) -> MLP:
         super().__init__()
 
-        self.is_glu = is_glu(activation_function)
-        self.activation_function = activation_function
+        assert isinstance(config, MLPArgs)
+
+        self.is_glu = is_glu(config.activation_function)
+        self.activation_function = config.activation_function
         self.accelerator = Accelerator.get_accelerator()
 
         kwargs = dict(
             in_features=hidden_size,
-            out_features=intermediate_size,
-            bias=add_bias,
+            out_features=config.intermediate_size,
+            bias=config.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
@@ -69,17 +82,17 @@ class MLP(nn.Module):
             self.c_fc = ColumnParallelLinear(**kwargs)
             mark_parameter_as_mup_learning_rate(self.c_fc.weight)
 
-        self.act = get_activation_function(activation_function)
+        self.act = get_activation_function(self.activation_function)
 
         self.c_proj = RowParallelLinear(
-            intermediate_size,
+            config.intermediate_size,
             hidden_size,
-            bias=add_bias,
+            bias=config.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
                 m_width=m_width,
-                fan_in=intermediate_size,
+                fan_in=config.intermediate_size,
                 num_layers=num_layers,
                 use_depth_scaled_init=use_depth_scaled_init,
             ),
@@ -88,7 +101,9 @@ class MLP(nn.Module):
         )
 
         self.dropout = Dropout(
-            dropout, use_padding_free_transformer=use_padding_free_transformer, sequence_parallel=sequence_parallel
+            config.dropout,
+            use_padding_free_transformer=use_padding_free_transformer,
+            sequence_parallel=sequence_parallel,
         )
 
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)

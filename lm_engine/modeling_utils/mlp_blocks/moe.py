@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -25,7 +27,7 @@ from ..activations import get_activation_function, is_glu, sigmoid
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
 from ..linear import ColumnParallelLinear, ParameterizedLinear, ReplicatedLinear, RowParallelLinear
-from .mlp import _get_std_for_linear
+from .mlp import MLPArgs, _get_std_for_linear
 
 
 if is_xma_available() and is_triton_available():
@@ -37,6 +39,18 @@ if is_xma_available() and is_triton_available():
 
 if is_sonicmoe_available():
     from sonicmoe import moe_TC_softmax_topk_layer
+
+
+class MoEArgs(MLPArgs):
+    mlp_type: str = "MoE"
+    shared_intermediate_size: int | None
+    num_experts: int
+    num_experts_per_tok: int
+    shared_expert_gating: bool = False
+    normalized_topk: bool = True
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.mlp_type == "MoE"
 
 
 # TODO add support for combileable bincount in PyTorch directly
@@ -253,15 +267,7 @@ class MoE(DTensorModule):
     def __init__(
         self,
         hidden_size: int,
-        intermediate_size: int,
-        shared_intermediate_size: int,
-        shared_expert_gating: bool,
-        normalized_topk: bool,
-        num_experts: int,
-        num_experts_per_tok: int,
-        add_bias: bool,
-        activation_function: str,
-        dropout: float,
+        config: MoEArgs,
         init_method: str,
         initializer_range: float,
         m_width: float,
@@ -272,14 +278,16 @@ class MoE(DTensorModule):
     ) -> MoE:
         super().__init__()
 
-        self.num_experts = num_experts
-        self.top_k = num_experts_per_tok
+        assert isinstance(config, MoEArgs)
+
+        self.num_experts = config.num_experts
+        self.top_k = config.num_experts_per_tok
         self.use_padding_free_transformer = use_padding_free_transformer
         self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.shared_intermediate_size = shared_intermediate_size
-        self.shared_expert_gating = shared_expert_gating
-        self.normalized_topk = normalized_topk
+        self.intermediate_size = config.intermediate_size
+        self.shared_intermediate_size = config.shared_intermediate_size
+        self.shared_expert_gating = config.shared_expert_gating
+        self.normalized_topk = config.normalized_topk
 
         up_std = _get_std_for_linear(
             initializer_range=initializer_range,
@@ -290,22 +298,24 @@ class MoE(DTensorModule):
             use_depth_scaled_init=False,
         )
 
-        self.gate = ReplicatedLinear(in_features=self.hidden_size, out_features=num_experts, bias=False, std=up_std)
+        self.gate = ReplicatedLinear(
+            in_features=self.hidden_size, out_features=self.num_experts, bias=False, std=up_std
+        )
 
         if self.shared_expert_gating:
-            assert shared_intermediate_size is not None
+            assert self.shared_intermediate_size is not None
 
             self.shared_expert_gate = ParameterizedLinear(
                 in_features=self.hidden_size, out_features=1, bias=False, std=up_std
             )
 
-        self.is_glu = is_glu(activation_function)
+        self.is_glu = is_glu(config.activation_function)
 
         self.c_fc = ColumnParallelExperts(
-            num_experts=num_experts,
+            num_experts=self.num_experts,
             in_features=self.hidden_size,
             out_features=2 * self.intermediate_size if self.is_glu else self.intermediate_size,
-            add_bias=add_bias,
+            add_bias=config.add_bias,
             std=up_std,
         )
 
@@ -313,18 +323,18 @@ class MoE(DTensorModule):
             self.c_fc_shared = SharedExpertsColumnParallelLinear(
                 in_features=self.hidden_size,
                 out_features=2 * self.shared_intermediate_size if self.is_glu else self.shared_intermediate_size,
-                bias=add_bias,
+                bias=config.add_bias,
                 std=up_std,
             )
 
-        self.activation_function_string = activation_function
-        self.act = get_activation_function(activation_function)
+        self.activation_function_string = config.activation_function
+        self.act = get_activation_function(config.activation_function)
 
         self.c_proj = RowParallelExperts(
-            num_experts=num_experts,
+            num_experts=self.num_experts,
             in_features=self.intermediate_size,
             out_features=self.hidden_size,
-            add_bias=add_bias,
+            add_bias=config.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
@@ -339,7 +349,7 @@ class MoE(DTensorModule):
             self.c_proj_shared = SharedExpertsRowParallelLinear(
                 in_features=self.shared_intermediate_size,
                 out_features=self.hidden_size,
-                bias=add_bias,
+                bias=config.add_bias,
                 std=_get_std_for_linear(
                     initializer_range=initializer_range,
                     init_method=init_method,
@@ -350,7 +360,7 @@ class MoE(DTensorModule):
                 ),
             )
 
-        self.dropout = Dropout(dropout)
+        self.dropout = Dropout(config.dropout)
         self.placement = Shard(0) if sequence_parallel else Replicate()
 
         self.is_hopper_or_newer_gpu = torch.cuda.is_available() and torch.cuda.get_device_capability(
@@ -363,7 +373,7 @@ class MoE(DTensorModule):
         mark_parameter_as_mup_learning_rate(self.c_fc.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
-        if shared_intermediate_size is not None:
+        if self.shared_intermediate_size is not None:
             mark_parameter_as_mup_learning_rate(self.c_fc_shared.weight)
             mark_parameter_as_mup_learning_rate(self.c_proj_shared.weight)
 
