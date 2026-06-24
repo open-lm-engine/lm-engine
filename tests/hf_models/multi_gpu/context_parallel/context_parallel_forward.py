@@ -11,8 +11,9 @@ from transformers import AutoModelForCausalLM
 
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import ContextParallelLoadBalancerMethod, Kernel
-from lm_engine.hf_models import GPTBaseConfig, get_autoregressive_language_modeling_loss
 from lm_engine.kernels import enable_kernels
+from lm_engine.loss import get_autoregressive_language_modeling_loss
+from lm_engine.models import GPTBaseConfig
 from lm_engine.parallel import ProcessGroupManager, prepare_context_parallel_input
 from lm_engine.parallel.context_parallel import _HeadTailLoadBalancer, _NoLoadBalancer
 from lm_engine.utils import SafeTensorsWeightsManager, string_to_torch_dtype

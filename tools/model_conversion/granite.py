@@ -4,7 +4,7 @@
 
 from transformers import GraniteConfig, GraniteForCausalLM
 
-from lm_engine.hf_models import GPTBaseConfig
+from lm_engine.models import GPTBaseConfig
 
 
 def _import_granite_config(original_config: GraniteConfig, **kwargs) -> GPTBaseConfig:

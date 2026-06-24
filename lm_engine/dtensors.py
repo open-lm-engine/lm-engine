@@ -9,7 +9,7 @@ from torch.distributed.tensor import DTensor, Placement
 
 
 def _get_all_markers():
-    from .hf_models.parameter import _ALL_MARKERS
+    from .parameter import _ALL_MARKERS
 
     return _ALL_MARKERS
 

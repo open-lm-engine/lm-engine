@@ -4,7 +4,7 @@
 
 from transformers import AutoTokenizer, GenerationConfig
 
-from lm_engine.hf_models.models import GPTBaseConfig
+from lm_engine.models import GPTBaseConfig
 from lm_engine.tokenizers import get_tokenizer
 from lm_engine.utils import SafeTensorsWeightsManager, download_repo
 

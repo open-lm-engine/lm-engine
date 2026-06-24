@@ -7,11 +7,11 @@ import torch
 
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
-from lm_engine.hf_models.modeling_utils.sequence_packing import (
+from lm_engine.kernels import enable_kernels
+from lm_engine.modeling_utils.sequence_packing import (
     compute_cu_seqlens_and_max_seqlen_from_attention_mask,
     pack_sequence,
 )
-from lm_engine.kernels import enable_kernels
 from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, is_quack_available
 
 from ...utils import (

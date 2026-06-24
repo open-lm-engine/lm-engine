@@ -5,7 +5,7 @@
 import pytest
 import torch
 
-from lm_engine.hf_models.config import _Mamba2Args
+from lm_engine.modeling_utils import Mamba2Args
 
 from ...utils import get_dense_test_config, get_moe_test_config, model_conversion_test
 
@@ -60,7 +60,7 @@ def test_granitemoehybrid_model_conversion(device: torch.device, is_moe: bool) -
 
     for layer in range(lm_engine_config.num_layers):
         if layer % 2 == 0:
-            lm_engine_config.sequence_mixer_blocks[layer] = _Mamba2Args(
+            lm_engine_config.sequence_mixer_blocks[layer] = Mamba2Args(
                 intermediate_size=256,
                 state_size=128,
                 num_heads=128,

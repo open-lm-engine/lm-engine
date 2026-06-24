@@ -11,9 +11,9 @@ from torch.testing import assert_close as torch_assert_close
 from lm_engine.accelerator import Accelerator
 from lm_engine.arguments import KernelArgs
 from lm_engine.enums import Kernel
-from lm_engine.hf_models.modeling_utils.linear import ParameterizedLinear, linear_func
-from lm_engine.hf_models.modeling_utils.mlp_blocks import MLP
 from lm_engine.kernels import enable_kernels
+from lm_engine.modeling_utils.linear import ParameterizedLinear, linear_func
+from lm_engine.modeling_utils.mlp_blocks import MLP, MLPArgs
 from lm_engine.utils import is_quack_available
 from tests.utils import skip_test_if_device_unavailable
 
@@ -86,10 +86,9 @@ class _MLPResult(NamedTuple):
 def _make_mlp(activation_function: str, add_bias: bool) -> MLP:
     return MLP(
         hidden_size=HIDDEN_SIZE,
-        intermediate_size=INTERMEDIATE_SIZE,
-        activation_function=activation_function,
-        dropout=0,
-        add_bias=add_bias,
+        config=MLPArgs(
+            intermediate_size=INTERMEDIATE_SIZE, activation_function=activation_function, add_bias=add_bias
+        ),
         init_method="normal",
         initializer_range=0.02,
         m_width=1,

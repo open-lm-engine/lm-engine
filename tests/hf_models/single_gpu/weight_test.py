@@ -4,7 +4,7 @@
 
 import torch
 
-from lm_engine.hf_models.modeling_utils import (
+from lm_engine.modeling_utils import (
     get_sequence_mixer,
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,

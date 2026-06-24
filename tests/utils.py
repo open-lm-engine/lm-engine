@@ -13,7 +13,8 @@ import torch
 from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM
 
-from lm_engine.hf_models import CommonConfig, GPTBaseConfig
+from lm_engine.model_config import CommonConfig
+from lm_engine.models import GPTBaseConfig
 from lm_engine.utils import SafeTensorsWeightsManager
 from tools.model_conversion import export_to_huggingface, import_from_huggingface
 
