@@ -9,7 +9,7 @@ from lm_engine.modeling_utils import get_activation_function
 from lm_engine.modeling_utils.activations import get_base_activation
 from lm_engine.modeling_utils.activations.glu import GLUActivation
 
-from ...utils import assert_equal_tensors, skip_test_if_device_unavailable
+from .utils import assert_equal_tensors, skip_test_if_device_unavailable
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])

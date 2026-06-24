@@ -5,7 +5,7 @@
 import pytest
 import torch
 
-from ...utils import (
+from .utils import (
     from_config,
     get_dense_test_config,
     get_dummy_inputs,
