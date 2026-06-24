@@ -44,7 +44,7 @@ class CommonConfig(BaseArgs):
     embedding_init_method: Literal["normal", "mup", "fan_in"]
     use_depth_scaled_init: bool
     sequence_mixer_blocks: list[
-        SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | _RNNArgs | _M2RNNArgs | _GatedDeltaNetArgs
+        SoftmaxAttentionArgs | _Mamba2Args | _GRUArgs | _RNNArgs | _M2RNNArgs | GatedDeltaNetArgs
     ]
     mlp_blocks: list[MLPArgs | MoEArgs]
     tie_word_embeddings: bool
