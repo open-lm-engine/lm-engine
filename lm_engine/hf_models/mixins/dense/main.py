@@ -349,9 +349,14 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         else:
             assert iteration is None, "iteration should be None when loading from an unsharded checkpoint"
 
-            if ProcessGroupManager.is_tensor_parallel_enabled():
+            if ProcessGroupManager.is_tensor_parallel_enabled() or ProcessGroupManager.is_pipeline_parallel_enabled():
+                num_pipeline_stages = kwargs.pop("num_pipeline_stages", 1)
+                pipeline_stage_id = kwargs.pop("pipeline_stage_id", 0)
+
                 with torch.device("meta"):
-                    model = cls(config, **kwargs)
+                    model = cls(
+                        config, num_pipeline_stages=num_pipeline_stages, pipeline_stage_id=pipeline_stage_id, **kwargs
+                    )
                     marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
 
                 for module in model.modules():
