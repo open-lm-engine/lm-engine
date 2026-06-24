@@ -35,7 +35,6 @@ class RNN(nn.Module):
         input_size: int,
         output_size: int,
         config: RNNArgs,
-        add_bias: bool,
         initializer_range: float,
         m_width: float,
         init_method: str,
@@ -77,7 +76,7 @@ class RNN(nn.Module):
         self.input_projection = ParameterizedLinear(
             input_size,
             self.x_shape + self.g_shape,
-            bias=add_bias,
+            bias=config.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
@@ -95,7 +94,7 @@ class RNN(nn.Module):
                 hidden_size=self.state_size,
                 kernel_size=self.kernel_size,
                 activation_function=self.activation_string,
-                add_bias=add_bias,
+                add_bias=config.add_bias,
                 std=_get_std_for_linear(
                     initializer_range=initializer_range,
                     init_method=init_method,

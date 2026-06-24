@@ -8,23 +8,24 @@ import torch
 import torch.nn as nn
 from torch.distributed.tensor import DTensor, Replicate
 
-from ...dtensors import tensor_to_dtensor
-from ...enums import Kernel
-from ...generation_cache import ConstantCache, GenerationCache, GenerationState
-from ...kernels import is_kernel_allowed
-from ...parameter import (
+from ....dtensors import tensor_to_dtensor
+from ....enums import Kernel
+from ....generation_cache import ConstantCache, GenerationCache, GenerationState
+from ....kernels import is_kernel_allowed
+from ....parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ...utils import divide_if_divisible, is_xma_available
-from ..activations import clip_gradients, is_glu, silu, tanh
-from ..depthwise_causal_convolution import DepthwiseCausalConvolution
-from ..init_utils import _get_std_for_linear
-from ..linear import ParameterizedLinear
-from ..normalization import get_normalization_function
-from ..sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
-from ..softplus_decay_gate import SoftplusDecayGate
+from ....utils import divide_if_divisible, is_xma_available
+from ...activations import clip_gradients, is_glu, silu, tanh
+from ...depthwise_causal_convolution import DepthwiseCausalConvolution
+from ...init_utils import _get_std_for_linear
+from ...linear import ParameterizedLinear
+from ...normalization import get_normalization_function
+from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from ...softplus_decay_gate import SoftplusDecayGate
+from .config import M2RNNArgs
 
 
 if is_xma_available():
@@ -35,55 +36,39 @@ class M2RNN(nn.Module):
     def __init__(
         self,
         input_size: int,
-        k_head_dim: int,
-        v_head_dim: int,
         output_size: int,
-        num_q_heads: int,
-        num_k_heads: int,
-        num_v_heads: int,
-        num_f_heads: int,
-        num_g_heads: int,
-        num_weight_heads: int,
-        use_residual: bool,
-        kernel_size: int | None,
-        activation_function: str | None,
-        add_bias: bool,
-        gradient_clipping: float | None,
+        config: M2RNNArgs,
         initializer_range: float,
         m_width: float,
         init_method: str,
-        normalization_function: str | None,
-        A_init_min: float,
-        A_init_max: float,
-        dt_init_min: float,
-        dt_init_max: float,
-        dt_init_floor: float,
         num_layers: int,
         layer_idx: int,
         use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
-    ) -> m2rnn:
+    ) -> M2RNN:
         super().__init__()
 
         self.input_size = input_size
-        self.k_head_dim = k_head_dim
-        self.v_head_dim = v_head_dim
+        self.k_head_dim = config.k_head_dim
+        self.v_head_dim = config.v_head_dim
         self.output_size = output_size
-        self.kernel_size = kernel_size
-        self.activation_string = activation_function
-        self.gradient_clipping = gradient_clipping
+        self.kernel_size = config.kernel_size
+        self.activation_string = config.activation_function
+        self.gradient_clipping = config.gradient_clipping
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
-        self.use_residual = use_residual
+        self.use_residual = config.use_residual
 
-        self.num_q_heads = num_q_heads
-        self.num_k_heads = num_k_heads
-        self.num_v_heads = num_v_heads
-        self.num_f_heads = num_f_heads
-        self.num_g_heads = num_g_heads
-        self.num_weight_heads = num_weight_heads
+        self.num_q_heads = config.num_q_heads
+        self.num_k_heads = config.num_k_heads
+        self.num_v_heads = config.num_v_heads
+        self.num_f_heads = config.num_f_heads
+        self.num_g_heads = config.num_g_heads
+        self.num_weight_heads = config.num_weight_heads
 
-        self.num_heads = max(num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads)
+        self.num_heads = max(
+            config.num_q_heads, config.num_k_heads, config.num_v_heads, config.num_f_heads, config.num_weight_heads
+        )
 
         divide_if_divisible(self.num_heads, self.num_q_heads)
         divide_if_divisible(self.num_heads, self.num_k_heads)
@@ -102,7 +87,7 @@ class M2RNN(nn.Module):
         self.input_projection = ParameterizedLinear(
             self.input_size,
             self.conv_dim + self.num_f_heads + self.g_shape,
-            bias=add_bias,
+            bias=config.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
@@ -118,28 +103,28 @@ class M2RNN(nn.Module):
             output_size=self.num_heads,
             std=None,
             has_projection=False,
-            A_init_min=A_init_min,
-            A_init_max=A_init_max,
-            dt_init_min=dt_init_min,
-            dt_init_max=dt_init_max,
-            dt_init_floor=dt_init_floor,
+            A_init_min=config.A_init_min,
+            A_init_max=config.A_init_max,
+            dt_init_min=config.dt_init_min,
+            dt_init_max=config.dt_init_max,
+            dt_init_floor=config.dt_init_floor,
         )
 
-        if kernel_size is None:
-            assert activation_function is None
+        if config.kernel_size is None:
+            assert config.activation_function is None
         else:
             assert self.activation_string is None or not is_glu(self.activation_string)
 
             self.conv1d = DepthwiseCausalConvolution(
                 hidden_size=self.conv_dim,
-                kernel_size=kernel_size,
+                kernel_size=config.kernel_size,
                 activation_function=self.activation_string,
-                add_bias=add_bias,
+                add_bias=config.add_bias,
                 std=_get_std_for_linear(
                     initializer_range=initializer_range,
                     init_method=init_method,
                     m_width=m_width,
-                    fan_in=kernel_size,
+                    fan_in=config.kernel_size,
                     num_layers=num_layers,
                     use_depth_scaled_init=False,
                 ),
@@ -167,7 +152,7 @@ class M2RNN(nn.Module):
             ),
         )
 
-        self.g_norm = get_normalization_function(normalization_function, self.num_heads * self.v_head_dim)
+        self.g_norm = get_normalization_function(config.normalization_function, self.num_heads * self.v_head_dim)
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.state_weight)

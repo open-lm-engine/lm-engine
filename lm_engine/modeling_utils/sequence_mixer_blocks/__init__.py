@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 
 from ...parallel import ProcessGroupManager
 from .gated_deltanet import GatedDeltaNet, GatedDeltaNetArgs
-from .gru import GRU
-from .m2rnn import M2RNN
-from .mamba2 import Mamba2
+from .gru import GRU, GRUArgs
+from .m2rnn import M2RNN, M2RNNArgs
+from .mamba2 import Mamba2, Mamba2Args
 from .rnn import RNN, RNNArgs
 from .softmax_attention import (
     SoftmaxAttention,
@@ -39,22 +39,11 @@ def get_sequence_mixer(
         assert not is_tp_enabled
         return GRU(
             input_size=config.hidden_size,
-            state_head_dim=block.state_head_dim,
             output_size=config.hidden_size,
-            num_input_heads=block.num_input_heads,
-            num_forget_input_heads=block.num_forget_input_heads,
-            num_reset_input_heads=block.num_reset_input_heads,
-            num_weight_heads=block.num_weight_heads,
-            num_forget_weight_heads=block.num_forget_weight_heads,
-            num_reset_weight_heads=block.num_reset_weight_heads,
-            kernel_size=block.kernel_size,
-            activation_function=block.activation_function,
-            add_bias=block.add_bias,
-            gradient_clipping=block.gradient_clipping,
+            config=block,
             initializer_range=config.initializer_range,
             m_width=config.m_width,
             init_method=config.init_method,
-            normalization_function=block.normalization_function,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
             use_depth_scaled_init=config.use_depth_scaled_init,
@@ -65,6 +54,7 @@ def get_sequence_mixer(
         return RNN(
             input_size=config.hidden_size,
             output_size=config.hidden_size,
+            config=block,
             initializer_range=config.initializer_range,
             m_width=config.m_width,
             init_method=config.init_method,
@@ -76,29 +66,11 @@ def get_sequence_mixer(
     elif sequence_mixer_type == "m2rnn":
         return M2RNN(
             input_size=config.hidden_size,
-            k_head_dim=block.k_head_dim,
-            v_head_dim=block.v_head_dim,
             output_size=config.hidden_size,
-            num_q_heads=block.num_q_heads,
-            num_k_heads=block.num_k_heads,
-            num_v_heads=block.num_v_heads,
-            num_f_heads=block.num_f_heads,
-            num_g_heads=block.num_g_heads,
-            num_weight_heads=block.num_weight_heads,
-            use_residual=block.use_residual,
-            kernel_size=block.kernel_size,
-            activation_function=block.activation_function,
-            add_bias=block.add_bias,
-            gradient_clipping=block.gradient_clipping,
+            config=block,
             initializer_range=config.initializer_range,
             m_width=config.m_width,
             init_method=config.init_method,
-            normalization_function=block.normalization_function,
-            A_init_min=block.A_init_min,
-            A_init_max=block.A_init_max,
-            dt_init_min=block.dt_init_min,
-            dt_init_max=block.dt_init_max,
-            dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
             use_depth_scaled_init=config.use_depth_scaled_init,
@@ -108,26 +80,11 @@ def get_sequence_mixer(
         assert not is_tp_enabled
         return Mamba2(
             hidden_size=config.hidden_size,
-            ssm_state_size=block.state_size,
-            ssm_intermediate_size=block.intermediate_size,
-            ssm_num_heads=block.num_heads,
-            conv_kernel_size=block.conv_kernel_size,
-            time_step_limit=block.time_step_limit,
-            add_bias=block.add_bias,
-            use_conv_bias=block.use_conv_bias,
-            ssm_activation_function=block.activation_function,
-            num_groups=block.num_groups,
-            chunk_size=block.chunk_size,
+            config=block,
             layer_norm_epsilon=config.layer_norm_epsilon,
             initializer_range=config.initializer_range,
             init_method=config.init_method,
-            normalization_function=block.normalization_function,
             m_width=config.m_width,
-            A_init_min=block.A_init_min,
-            A_init_max=block.A_init_max,
-            dt_init_min=block.dt_init_min,
-            dt_init_max=block.dt_init_max,
-            dt_init_floor=block.dt_init_floor,
             num_layers=config.num_layers,
             layer_idx=layer_idx,
             use_depth_scaled_init=config.use_depth_scaled_init,
@@ -136,6 +93,7 @@ def get_sequence_mixer(
         assert not is_tp_enabled
         return GatedDeltaNet(
             hidden_size=config.hidden_size,
+            config=block,
             layer_idx=layer_idx,
             norm_eps=config.layer_norm_epsilon,
             init_method=config.init_method,

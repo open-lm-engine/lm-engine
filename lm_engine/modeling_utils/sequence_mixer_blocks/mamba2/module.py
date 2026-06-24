@@ -8,21 +8,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ...enums import Kernel
-from ...generation_cache import ConstantCache, GenerationCache, GenerationState
-from ...kernels import is_kernel_allowed
-from ...parameter import (
+from ....enums import Kernel
+from ....generation_cache import ConstantCache, GenerationCache, GenerationState
+from ....kernels import is_kernel_allowed
+from ....parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ...utils import divide_if_divisible, is_mamba_2_ssm_available
-from ..activations import silu
-from ..depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
-from ..init_utils import _get_std_for_linear
-from ..linear import ParameterizedLinear
-from ..normalization import get_normalization_function
-from ..softplus_decay_gate import SoftplusDecayGate
+from ....utils import divide_if_divisible, is_mamba_2_ssm_available
+from ...activations import silu
+from ...depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
+from ...init_utils import _get_std_for_linear
+from ...linear import ParameterizedLinear
+from ...normalization import get_normalization_function
+from ...softplus_decay_gate import SoftplusDecayGate
+from .config import Mamba2Args
 
 
 if is_mamba_2_ssm_available():
@@ -94,54 +95,39 @@ class Mamba2(nn.Module):
     def __init__(
         self,
         hidden_size: int,
-        ssm_state_size: int,
-        ssm_intermediate_size: int,
-        ssm_num_heads: int,
-        conv_kernel_size: int,
-        time_step_limit: int,
-        add_bias: bool,
-        use_conv_bias: bool,
-        ssm_activation_function: str,
-        num_groups: int,
-        chunk_size: int,
+        config: Mamba2Args,
         layer_norm_epsilon: float,
         initializer_range: float,
         m_width: float,
-        A_init_min: float,
-        A_init_max: float,
-        dt_init_min: float,
-        dt_init_max: float,
-        dt_init_floor: float,
         init_method: str,
-        normalization_function: str | None,
         num_layers: int,
         layer_idx: int,
         use_depth_scaled_init: bool,
     ) -> Mamba2:
         super().__init__()
 
-        self.num_heads = ssm_num_heads
+        self.num_heads = config.num_heads
         self.hidden_size = hidden_size
-        self.ssm_state_size = ssm_state_size
-        self.conv_kernel_size = conv_kernel_size
-        self.intermediate_size = ssm_intermediate_size
+        self.ssm_state_size = config.state_size
+        self.conv_kernel_size = config.conv_kernel_size
+        self.intermediate_size = config.intermediate_size
         self.layer_idx = layer_idx
-        self.use_conv_bias = use_conv_bias
-        self.activation_string = ssm_activation_function
+        self.use_conv_bias = config.use_conv_bias
+        self.activation_string = config.activation_function
 
-        self.n_groups = num_groups
-        self.head_dim = divide_if_divisible(ssm_intermediate_size, ssm_num_heads, "")
-        self.chunk_size = chunk_size
+        self.n_groups = config.num_groups
+        self.head_dim = divide_if_divisible(config.intermediate_size, config.num_heads, "")
+        self.chunk_size = config.chunk_size
 
-        self.time_step_limit = time_step_limit
+        self.time_step_limit = config.time_step_limit
 
         # 1D convolutional layer
         self.conv_dim = self.intermediate_size + 2 * self.n_groups * self.ssm_state_size
         self.conv1d = DepthwiseCausalConvolution(
             hidden_size=self.conv_dim,
             kernel_size=self.conv_kernel_size,
-            activation_function=ssm_activation_function,
-            add_bias=use_conv_bias,
+            activation_function=config.activation_function,
+            add_bias=config.use_conv_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
@@ -157,7 +143,7 @@ class Mamba2(nn.Module):
         self.in_proj = ParameterizedLinear(
             self.hidden_size,
             self.intermediate_size + self.conv_dim + self.num_heads,
-            bias=add_bias,
+            bias=config.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
@@ -173,19 +159,21 @@ class Mamba2(nn.Module):
             output_size=self.num_heads,
             std=None,
             has_projection=False,
-            A_init_min=A_init_min,
-            A_init_max=A_init_max,
-            dt_init_min=dt_init_min,
-            dt_init_max=dt_init_max,
-            dt_init_floor=dt_init_floor,
+            A_init_min=config.A_init_min,
+            A_init_max=config.A_init_max,
+            dt_init_min=config.dt_init_min,
+            dt_init_max=config.dt_init_max,
+            dt_init_floor=config.dt_init_floor,
         )
 
-        self.norm = get_normalization_function(normalization_function, self.intermediate_size, eps=layer_norm_epsilon)
+        self.norm = get_normalization_function(
+            config.normalization_function, self.intermediate_size, eps=layer_norm_epsilon
+        )
 
         self.out_proj = ParameterizedLinear(
             self.intermediate_size,
             self.hidden_size,
-            bias=add_bias,
+            bias=config.add_bias,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
