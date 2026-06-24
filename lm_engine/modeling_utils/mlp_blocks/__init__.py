@@ -2,9 +2,16 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from ...model_config import CommonConfig
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from .mlp import MLP, MLPArgs, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_for_mlp
 from .moe import MoE, MoEArgs, ParameterizedExperts
+
+
+if TYPE_CHECKING:
+    from ...model_config import CommonConfig
 
 
 def get_mlp_block(
