@@ -7,13 +7,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from lm_engine.parameter import is_parameter_with_mup_learning_rate, is_parameter_with_no_weight_decay
-
 from ..arguments import BaseArgs
 from ..containers import ModelContainer
 from ..enums import ParamsGroupMethod
 from ..logging_utils import log_rank_0
 from ..model_wrapper import ModelWrapper
+from ..parameter import is_parameter_with_mup_learning_rate, is_parameter_with_no_weight_decay
 
 
 class _ParamsGroup(BaseArgs):
