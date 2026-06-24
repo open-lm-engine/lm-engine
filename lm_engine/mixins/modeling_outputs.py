@@ -5,17 +5,16 @@
 from dataclasses import dataclass
 
 import torch
-from transformers.modeling_outputs import ModelOutput
 
 
 @dataclass
-class BaseModelOutputWithPast(ModelOutput):
+class BaseModelOutputWithPast:
     last_hidden_state: torch.Tensor | None = None
     cache_params: tuple[tuple[torch.Tensor]] | None = None
 
 
 @dataclass
-class CausalLMOutputWithPast(ModelOutput):
+class CausalLMOutputWithPast:
     loss: torch.Tensor | None = None
     aux_loss: torch.Tensor | float | None = None
     logits: torch.Tensor | None = None
@@ -24,12 +23,12 @@ class CausalLMOutputWithPast(ModelOutput):
 
 
 @dataclass
-class PipelineParallelInput(ModelOutput):
+class PipelineParallelInput:
     hidden_states: torch.Tensor | None = None
     aux_loss: torch.Tensor | float | None = None
 
 
 @dataclass
-class PipelineParallelOutput(ModelOutput):
+class PipelineParallelOutput:
     hidden_states: torch.Tensor | None = None
     aux_loss: torch.Tensor | float | None = None
