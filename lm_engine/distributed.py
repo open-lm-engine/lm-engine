@@ -37,6 +37,7 @@ from .hf_models import (
     get_named_parameters_and_buffers,
     get_parameter_marker_maps,
     is_parameter_initialized,
+    mark_parameter_as_initialized,
     set_parameter_marker_maps,
 )
 from .kernels import is_kernel_allowed
@@ -343,8 +344,6 @@ def wrap_model_container_for_distributed_training(
                 )
 
                 if efficient_initialization:
-                    # contributed by Yu Chin Fabian Lim
-                    # original reference https://github.com/fabianlim/accelerate/pull/1
                     if model_name is None:
                         model = model.to_empty(device=device)
 
@@ -357,6 +356,7 @@ def wrap_model_container_for_distributed_training(
                             model = model.to(device)
                         else:
                             model = model.to_empty(device=device)
+
                             for module in model.modules():
                                 if hasattr(module, "reset_parameters"):
                                     with torch.device(device):
@@ -365,8 +365,6 @@ def wrap_model_container_for_distributed_training(
                         new_state_dict = model.state_dict()
 
                         for param_name, param in old_state_dict.items():
-                            # TP groups are contained within a DP shard, so full_tensor()
-                            # only needs TP peers — all of whom share the same dp_rank.
                             if ProcessGroupManager.get_data_parallel_rank() == 0:
                                 full_tensor = param.full_tensor() if isinstance(param, DTensor) else param
                             else:
@@ -384,7 +382,7 @@ def wrap_model_container_for_distributed_training(
                         # load_state_dict(assign=True) replaces tensors with new DTensor
                         # objects that don't carry the _is_initialized attribute — restore it.
                         for _, param in get_named_parameters_and_buffers(model):
-                            param._is_initialized = True
+                            mark_parameter_as_initialized(param)
         elif fsdp_algorithm == 1:
             log_rank_0(logging.INFO, "using FSDP-1")
             assert num_pipeline_stages == 1
