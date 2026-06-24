@@ -15,41 +15,38 @@ from lm_engine.utils import (
     torch_dtype_to_string,
 )
 
-from ....utils import skip_test_if_device_unavailable, slow_test
+from ..utils import skip_test_if_device_unavailable, slow_test
 
 
 @pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
-@pytest.mark.parametrize(
-    "attention_implementation", ["sdpa", "flash_attention_2", "flash_attention_3", "flash_attention_4"]
-)
-@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("use_padding_free_transformer", [False, True])
-@pytest.mark.parametrize("sequence_parallel", [False, True])
+@pytest.mark.parametrize("attention_implementation", ["flash_attention_2", "flash_attention_3", "flash_attention_4"])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
+@pytest.mark.parametrize("load_balancing_method", [None, "headtail"])
+@pytest.mark.parametrize("sliding_window", [None, 128, 256])
 @slow_test
-def test_tensor_parallel_forward(
+def test_context_parallel_forward(
     position_embedding_type: str,
     attention_implementation: str,
     dtype: torch.dtype,
-    use_padding_free_transformer: bool,
-    sequence_parallel: bool,
+    load_balancing_method: str | None,
+    sliding_window: int | None,
 ) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
 
-    if (attention_implementation, dtype) not in [("sdpa", torch.float32)] + [
-        (f"flash_attention_{i}", torch.float16) for i in range(2, 5)
-    ]:
-        pytest.skip("skipping test since running all takes too long")
+    if sliding_window is not None and load_balancing_method is not None:
+        pytest.skip("sliding window is incompatible with load balancing")
 
     for i, func in zip(
-        range(2, 5), [is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available]
+        range(2, 5),
+        [is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available],
     ):
         if attention_implementation == f"flash_attention_{i}" and not func():
             pytest.skip(f"skipping test because flash attention {i} is unavailable")
 
-    if use_padding_free_transformer and attention_implementation not in [f"flash_attention_{i}" for i in range(2, 5)]:
-        pytest.skip("skipping test since flash attention is needed for padding free transformer")
-
     gpus_per_node = torch.cuda.device_count()
+
+    if gpus_per_node < 2:
+        pytest.skip("context parallel requires at least 2 GPUs")
 
     with tempfile.TemporaryDirectory() as tmp_path:
         command = [
@@ -57,7 +54,7 @@ def test_tensor_parallel_forward(
             "--nproc_per_node",
             str(gpus_per_node),
             "-m",
-            "tests.hf_models.multi_gpu.tensor_parallel.tensor_parallel_forward",
+            "tests.hf_models.multi_gpu.context_parallel.context_parallel_forward",
             "--position-embedding-type",
             position_embedding_type,
             "--dtype",
@@ -68,10 +65,10 @@ def test_tensor_parallel_forward(
             tmp_path,
         ]
 
-        if use_padding_free_transformer:
-            command.append("--use-padding-free-transformer")
+        if load_balancing_method is not None:
+            command.extend(["--load-balancing-method", load_balancing_method])
 
-        if sequence_parallel:
-            command.append("--sequence-parallel")
+        if sliding_window is not None:
+            command.extend(["--sliding-window", str(sliding_window)])
 
         subprocess.run(command, check=True)

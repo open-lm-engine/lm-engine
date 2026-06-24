@@ -8,7 +8,7 @@ import tempfile
 import pytest
 import torch
 
-from ....utils import skip_test_if_device_unavailable, slow_test
+from ..utils import skip_test_if_device_unavailable, slow_test
 
 
 @pytest.mark.parametrize("activation_function", ["gelu", "geglu"])

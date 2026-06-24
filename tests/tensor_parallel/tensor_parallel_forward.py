@@ -16,7 +16,7 @@ from lm_engine.models import GPTBaseConfig
 from lm_engine.parallel import ProcessGroupManager
 from lm_engine.utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
-from ....utils import from_config
+from ..utils import from_config
 
 
 parser = argparse.ArgumentParser()

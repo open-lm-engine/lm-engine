@@ -9,7 +9,7 @@ import torch
 
 from lm_engine.utils import is_causal_conv1d_available
 
-from ....utils import skip_test_if_device_unavailable, slow_test
+from ..utils import skip_test_if_device_unavailable, slow_test
 
 
 @pytest.mark.parametrize("kernel_size", list(range(1, 5)))
