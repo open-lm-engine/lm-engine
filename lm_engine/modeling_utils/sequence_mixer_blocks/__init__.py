@@ -6,20 +6,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lm_engine.modeling_utils.sequence_mixer_blocks.attention import (
-    SoftmaxAttention,
-    SoftmaxAttentionArgs,
-    interleave_query_key_value_tensor_for_attention,
-    split_query_key_value_tensor_for_attention,
-)
-
 from ...parallel import ProcessGroupManager
-from .attention import flash_attention
 from .gated_deltanet import GatedDeltaNet
 from .gru import GRU
 from .m2rnn import M2RNN
 from .mamba2 import Mamba2
 from .rnn import RNN
+from .softmax_attention import (
+    SoftmaxAttention,
+    SoftmaxAttentionArgs,
+    flash_attention,
+    interleave_query_key_value_tensor_for_attention,
+    split_query_key_value_tensor_for_attention,
+)
 
 
 if TYPE_CHECKING:
