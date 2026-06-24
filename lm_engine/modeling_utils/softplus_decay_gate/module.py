@@ -11,14 +11,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed.tensor import DTensor, Replicate
 
-from ..dtensors import tensor_to_dtensor
-from ..parameter import (
+from ...dtensors import tensor_to_dtensor
+from ...parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from .dtensor_module import DTensorModule
-from .linear import ParameterizedLinear
+from ..dtensor_module import DTensorModule
+from ..linear import ParameterizedLinear
 
 
 class SoftplusDecayGate(DTensorModule):

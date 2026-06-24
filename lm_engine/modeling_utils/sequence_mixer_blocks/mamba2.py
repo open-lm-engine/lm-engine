@@ -18,11 +18,11 @@ from ...parameter import (
 )
 from ...utils import divide_if_divisible, is_mamba_2_ssm_available
 from ..activations import silu
-from ..decay_gate import SoftplusDecayGate
 from ..depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
 from ..init_utils import _get_std_for_linear
 from ..linear import ParameterizedLinear
 from ..normalization import get_normalization_function
+from ..softplus_decay_gate import SoftplusDecayGate
 
 
 if is_mamba_2_ssm_available():

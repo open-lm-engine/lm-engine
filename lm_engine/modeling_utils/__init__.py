@@ -30,4 +30,5 @@ from .sequence_mixer_blocks import (
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,
 )
+from .softplus_decay_gate import SoftplusDecayGate, SoftPlusDecayGateArgs
 from .TP import tensor_parallel_split_safetensor_slice

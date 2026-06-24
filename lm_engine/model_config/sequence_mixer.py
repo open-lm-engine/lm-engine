@@ -5,22 +5,10 @@
 from typing import Any
 
 from ..arguments import BaseArgs
+from ..modeling_utils import SoftPlusDecayGateArgs
 
 
-class _SoftPlusDecayArgs(BaseArgs):
-    A_init_min: float = 0
-    A_init_max: float = 16
-    dt_init_min: float = 0.001
-    dt_init_max: float = 0.1
-    dt_init_floor: float = 1e-4
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.A_init_min >= 0
-        assert self.A_init_min <= self.A_init_max
-        assert self.dt_init_min <= self.dt_init_max
-
-
-class _Mamba2Args(_SoftPlusDecayArgs):
+class _Mamba2Args(SoftPlusDecayGateArgs):
     sequence_mixer_type: str = "mamba2"
     state_size: int
     intermediate_size: int
@@ -73,7 +61,7 @@ class _RNNArgs(BaseArgs):
         assert self.sequence_mixer_type == "rnn"
 
 
-class _M2RNNArgs(_SoftPlusDecayArgs):
+class _M2RNNArgs(SoftPlusDecayGateArgs):
     sequence_mixer_type: str = "m2rnn"
     k_head_dim: int
     v_head_dim: int
@@ -95,7 +83,7 @@ class _M2RNNArgs(_SoftPlusDecayArgs):
         assert self.sequence_mixer_type == "m2rnn"
 
 
-class _GatedDeltaNetArgs(_SoftPlusDecayArgs):
+class _GatedDeltaNetArgs(SoftPlusDecayGateArgs):
     sequence_mixer_type: str = "gated_deltanet"
     k_head_dim: int
     v_head_dim: int
