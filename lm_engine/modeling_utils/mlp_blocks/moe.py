@@ -41,18 +41,6 @@ if is_sonicmoe_available():
     from sonicmoe import moe_TC_softmax_topk_layer
 
 
-class MoEArgs(MLPArgs):
-    mlp_type: str = "MoE"
-    shared_intermediate_size: int | None
-    num_experts: int
-    num_experts_per_tok: int
-    shared_expert_gating: bool = False
-    normalized_topk: bool = True
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.mlp_type == "MoE"
-
-
 # TODO add support for combileable bincount in PyTorch directly
 @torch.library.custom_op("lm_engine::bincount", mutates_args={})
 def bincount(x: torch.Tensor, minlength: int) -> torch.Tensor:
@@ -261,6 +249,18 @@ class RowParallelExperts(ParameterizedExperts, DTensorModule):
         return "num_experts={}, in_features_per_tp_rank={}, out_features={}".format(
             self.num_experts, self.in_features_per_tp_rank, self.out_features
         )
+
+
+class MoEArgs(MLPArgs):
+    mlp_type: str = "MoE"
+    shared_intermediate_size: int | None
+    num_experts: int
+    num_experts_per_tok: int
+    shared_expert_gating: bool = False
+    normalized_topk: bool = True
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.mlp_type == "MoE"
 
 
 class MoE(DTensorModule):

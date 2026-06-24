@@ -5,18 +5,16 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
 import torch
 import torch.nn.functional as F
 
 from ....accelerator import Accelerator
+from ....arguments import BaseArgs
 from ....enums import Kernel
 from ....generation_cache import GenerationCache, GenerationState, LinearCache
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....model_config.sequence_mixer import (
-    ATTENTION_MULTIPLIER_INVERSE_METHOD,
-    ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
-)
 from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import divide_if_divisible, is_torch_xla_available
 from ...activations import sigmoid
@@ -31,6 +29,10 @@ from .flash_attention import flash_attention
 
 if is_torch_xla_available():
     from torch_xla.experimental.custom_kernel import flash_attention as flash_attention_tpu
+
+
+ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD = "1 / sqrt(head_dim)"
+ATTENTION_MULTIPLIER_INVERSE_METHOD = "1 / head_dim"
 
 
 def interleave_query_key_value_tensor_for_attention(
@@ -74,22 +76,44 @@ def split_query_key_value_tensor_for_attention(
     return query_weight, key_weight, value_weight
 
 
-class Attention(DTensorModule):
+class SoftmaxAttentionArgs(BaseArgs):
+    sequence_mixer_type: str = "softmax_attention"
+    num_attention_heads: int
+    num_key_value_heads: int
+    head_dim: int | None = None
+    softmax_dropout: float = 0
+    dropout: float = 0
+    add_bias: bool = False
+    attention_multiplier: float | None = None
+    attention_multiplier_method: str | None = ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
+    attention_gate: bool = False
+    exclusive_self_attention: bool = False
+    sliding_window: int | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        assert self.attention_multiplier_method in [
+            ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
+            ATTENTION_MULTIPLIER_INVERSE_METHOD,
+            None,
+        ]
+
+        if self.attention_multiplier_method in [
+            ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
+            ATTENTION_MULTIPLIER_INVERSE_METHOD,
+        ]:
+            assert self.attention_multiplier is None
+        else:
+            assert self.attention_multiplier is not None
+
+        assert self.sequence_mixer_type == "softmax_attention"
+
+
+class SoftmaxAttention(DTensorModule):
     def __init__(
         self,
         hidden_size: int,
-        num_attention_heads: int,
-        num_key_value_heads: int,
-        head_dim: int | None,
-        attention_multiplier: float | None,
-        attention_multiplier_method: str | None,
-        sliding_window: int | None,
+        config: SoftmaxAttentionArgs,
         position_embedding_type: str,
-        attention_gate: bool,
-        exclusive_self_attention: bool,
-        add_bias: bool,
-        softmax_dropout: float,
-        dropout: float,
         init_method: str,
         initializer_range: float,
         m_width: float,
@@ -99,17 +123,19 @@ class Attention(DTensorModule):
         use_depth_scaled_init: bool,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
-    ) -> Attention:
+    ) -> SoftmaxAttention:
         super().__init__()
+
+        assert isinstance(config, SoftmaxAttentionArgs)
 
         self.causal = causal
         self.global_hidden_size = hidden_size
-        self.global_num_heads = num_attention_heads
-        self.global_num_key_value_heads = num_key_value_heads
-        self.add_bias = add_bias
-        self.sliding_window = sliding_window
-        self.attention_gate = attention_gate
-        self.exclusive_self_attention = exclusive_self_attention
+        self.global_num_heads = config.num_attention_heads
+        self.global_num_key_value_heads = config.num_key_value_heads
+        self.add_bias = config.add_bias
+        self.sliding_window = config.sliding_window
+        self.attention_gate = config.attention_gate
+        self.exclusive_self_attention = config.exclusive_self_attention
 
         self.use_padding_free_transformer = use_padding_free_transformer
         self.sequence_parallel = sequence_parallel
@@ -124,10 +150,12 @@ class Attention(DTensorModule):
             self.global_num_heads, self.tp_world_size, "num_heads must be divisible by TP world size"
         )
 
-        self.head_dim = divide_if_divisible(self.hidden_size, self.num_heads, "") if head_dim is None else head_dim
+        self.head_dim = (
+            divide_if_divisible(self.hidden_size, self.num_heads, "") if config.head_dim is None else config.head_dim
+        )
         self.position_embedding_type = position_embedding_type
-        self.attention_multiplier = attention_multiplier
-        self.attention_multiplier_method = attention_multiplier_method
+        self.attention_multiplier = config.attention_multiplier
+        self.attention_multiplier_method = config.attention_multiplier_method
         self.layer_idx = layer_idx
 
         if self.attention_multiplier_method is not None:
@@ -185,16 +213,16 @@ class Attention(DTensorModule):
             sequence_parallel=sequence_parallel,
         )
 
-        self.softmax_dropout_p = softmax_dropout
+        self.softmax_dropout_p = config.softmax_dropout
 
         self.softmax_dropout = Dropout(
-            softmax_dropout,
+            config.softmax_dropout,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
 
         self.dropout = Dropout(
-            dropout,
+            config.dropout,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )

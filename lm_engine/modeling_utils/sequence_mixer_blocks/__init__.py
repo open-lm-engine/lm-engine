@@ -7,7 +7,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from lm_engine.modeling_utils.sequence_mixer_blocks.attention import (
-    Attention,
+    SoftmaxAttention,
+    SoftmaxAttentionArgs,
     interleave_query_key_value_tensor_for_attention,
     split_query_key_value_tensor_for_attention,
 )
@@ -24,7 +25,7 @@ from .rnn import RNN
 if TYPE_CHECKING:
     from ...model_config import CommonConfig
 
-SEQUENCE_MIXER_TYPE = Attention | GRU | Mamba2 | RNN | GatedDeltaNet
+SEQUENCE_MIXER_TYPE = SoftmaxAttention | GRU | Mamba2 | RNN | GatedDeltaNet
 
 
 def get_sequence_mixer(
@@ -167,20 +168,10 @@ def get_sequence_mixer(
             use_padding_free_transformer=use_padding_free_transformer,
         )
     elif sequence_mixer_type == "softmax_attention":
-        return Attention(
+        return SoftmaxAttention(
             hidden_size=config.hidden_size,
-            num_attention_heads=block.num_attention_heads,
-            num_key_value_heads=block.num_key_value_heads,
-            head_dim=block.head_dim,
-            attention_multiplier=block.attention_multiplier,
-            attention_multiplier_method=block.attention_multiplier_method,
-            sliding_window=block.sliding_window,
+            config=block,
             position_embedding_type=config.position_embedding_type,
-            attention_gate=block.attention_gate,
-            exclusive_self_attention=block.exclusive_self_attention,
-            add_bias=block.add_bias,
-            softmax_dropout=block.softmax_dropout,
-            dropout=block.dropout,
             init_method=config.init_method,
             initializer_range=config.initializer_range,
             m_width=config.m_width,
