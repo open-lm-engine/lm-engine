@@ -38,6 +38,18 @@ from ..modeling_outputs import (
 from .base import PreTrainedModelMixin
 
 
+_HF_USELESS_STUFF = [
+    "revision",
+    "subfolder",
+    "gguf_file",
+    "quantization_config",
+    "max_memory",
+    "name_or_path",
+    "trust_remote_code",
+    "adapter_kwargs",
+]
+
+
 class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
     base_model_class = None
 
@@ -315,6 +327,12 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         iteration: int | None = None,
         **kwargs,
     ) -> CausalLMModelMixin:
+        config = kwargs.pop("config")
+        # drop useless stuff
+
+        for k in _HF_USELESS_STUFF:
+            kwargs.pop(k)
+
         if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
             # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_models)
             from ....checkpointing import load_checkpoint_and_unshard
@@ -334,7 +352,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
             if ProcessGroupManager.is_tensor_parallel_enabled():
                 with torch.device("meta"):
-                    model = cls(kwargs.pop("config"), **kwargs)
+                    model = cls(config, **kwargs)
                     marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
 
                 for module in model.modules():
@@ -348,9 +366,15 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
                 model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
             else:
-                model = cls(**kwargs)
+                model = cls(config, **kwargs)
                 model = model.to(dtype=dtype)
                 model.load_state_dict(SafeTensorsWeightsManager(pretrained_model_name_or_path).state_dict())
+
+        device_map = kwargs.pop("device_map")
+        assert len(device_map) == 1
+        assert len(kwargs) == 0
+
+        model = model.to(device_map[""])
 
         return model
 
