@@ -13,6 +13,7 @@ from torch.distributed.tensor import Partial, Replicate, Shard
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
+from ....loss import add_aux_loss
 from ....parallel import ProcessGroupManager
 from ....parameter import (
     mark_parameter_as_initialized,
@@ -20,7 +21,6 @@ from ....parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ....utils import divide_if_divisible, is_sonicmoe_available, is_triton_available, is_xma_available
-from ...loss import add_aux_loss
 from ..activations import get_activation_function, is_glu, sigmoid
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule

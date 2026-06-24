@@ -6,11 +6,11 @@ import torch
 import torch.nn.functional as F
 from torch.distributed.tensor import DTensor, Replicate, Shard
 
-from ..dtensors import tensor_to_dtensor
-from ..enums import Kernel
-from ..kernels import is_kernel_allowed
-from ..parallel import ProcessGroupManager
-from ..utils import is_xma_available
+from .dtensors import tensor_to_dtensor
+from .enums import Kernel
+from .kernels import is_kernel_allowed
+from .parallel import ProcessGroupManager
+from .utils import is_xma_available
 
 
 if is_xma_available():
