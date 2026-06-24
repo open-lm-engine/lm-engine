@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 
 from ....accelerator import Accelerator
-from ....arguments import BaseArgs
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....parameter import mark_parameter_as_mup_learning_rate
