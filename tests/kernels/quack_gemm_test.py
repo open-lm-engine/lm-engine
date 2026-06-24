@@ -11,9 +11,9 @@ from torch.testing import assert_close as torch_assert_close
 from lm_engine.accelerator import Accelerator
 from lm_engine.arguments import KernelArgs
 from lm_engine.enums import Kernel
-from lm_engine.hf_models.modeling_utils.linear import ParameterizedLinear, linear_func
-from lm_engine.hf_models.modeling_utils.mlp_blocks import MLP
 from lm_engine.kernels import enable_kernels
+from lm_engine.modeling_utils.linear import ParameterizedLinear, linear_func
+from lm_engine.modeling_utils.mlp_blocks import MLP
 from lm_engine.utils import is_quack_available
 from tests.utils import skip_test_if_device_unavailable
 

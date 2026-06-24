@@ -7,11 +7,12 @@ import logging
 import torch
 from torch.distributed import ReduceOp
 
-from .accelerator import Accelerator
+from lm_engine.model_config import CommonConfig
+from lm_engine.register_hf import is_custom_model
+
 from .enums import GradientCheckpointingMethod
-from .hf_models import CommonConfig, is_custom_model
-from .hf_models.modeling_utils import is_glu
 from .logging_utils import ExperimentsTracker, MetricsTrackingDict, log_metrics
+from .modeling_utils import is_glu
 from .parallel import ProcessGroupManager
 
 

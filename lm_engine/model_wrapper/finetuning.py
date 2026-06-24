@@ -9,9 +9,9 @@ import torch.distributed
 
 from ..accelerator import Accelerator
 from ..enums import Kernel
-from ..hf_models import CausalLMOutputWithPast
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
+from ..mixins import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
 from .base import ModelWrapper
 

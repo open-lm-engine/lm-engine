@@ -14,15 +14,12 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
-from ..hf_models import (
-    CausalLMOutputWithPast,
-    get_autoregressive_language_modeling_loss,
-    is_aux_loss_zero,
-    is_custom_model,
-)
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
+from ..loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
+from ..mixins import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
+from ..register_hf import is_custom_model
 from ..tokenizers import get_tokenizer
 from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
