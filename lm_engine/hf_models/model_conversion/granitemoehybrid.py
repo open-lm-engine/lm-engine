@@ -28,9 +28,17 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "sequence_mixer_type": "softmax_attention",
                 "num_attention_heads": original_config.num_attention_heads,
                 "num_key_value_heads": original_config.num_key_value_heads,
-                "attention_multiplier": original_config.attention_multiplier,
-                "add_bias": original_config.attention_bias,
+                "head_dim": None,
                 "softmax_dropout": original_config.attention_dropout,
+                "dropout": 0,
+                "attention_multiplier": original_config.attention_multiplier,
+                "attention_multiplier_method": (
+                    "1 / sqrt(head_dim)" if original_config.attention_multiplier is None else None
+                ),
+                "add_bias": original_config.attention_bias,
+                "attention_gate": False,
+                "exclusive_self_attention": False,
+                "sliding_window": None,
             }
         elif layer_type == "mamba":
             sequence_mixer_block = {
@@ -43,6 +51,14 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "use_conv_bias": original_config.mamba_conv_bias,
                 "num_groups": original_config.mamba_n_groups,
                 "chunk_size": original_config.mamba_chunk_size,
+                "activation_function": "silu",
+                "normalization_function": "rmsnorm",
+                "time_step_limit": (0, float("inf")),
+                "A_init_min": 0,
+                "A_init_max": 16,
+                "dt_init_min": 0.001,
+                "dt_init_max": 0.1,
+                "dt_init_floor": 1e-4,
             }
         else:
             raise ValueError(f"unexpected layer_type ({layer_type})")
@@ -58,6 +74,7 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "intermediate_size": original_config.shared_intermediate_size,
                 "activation_function": "swiglu",
                 "add_bias": False,
+                "dropout": 0,
             }
         else:
             mlp_block = {
@@ -70,6 +87,9 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "num_experts_per_tok": original_config.num_experts_per_tok,
                 "activation_function": "swiglu",
                 "add_bias": False,
+                "dropout": 0,
+                "shared_expert_gating": False,
+                "normalized_topk": True,
             }
 
         mlp_blocks.append(mlp_block)
@@ -82,11 +102,17 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
         position_embedding_type="nope",
         normalization_function="rmsnorm",
         layer_norm_epsilon=original_config.rms_norm_eps,
+        embedding_dropout=0,
         use_cache=original_config.use_cache,
         tie_word_embeddings=original_config.tie_word_embeddings,
         initializer_range=original_config.initializer_range,
+        rope_theta=original_config.rope_theta,
         rope_scaling=original_config.rope_scaling,
+        init_method="normal",
+        embedding_init_method="normal",
+        use_depth_scaled_init=True,
         router_aux_loss_coef=original_config.router_aux_loss_coef,
+        rope_dim=None,
         bos_token_id=original_config.bos_token_id,
         eos_token_id=original_config.eos_token_id,
         pad_token_id=original_config.pad_token_id,

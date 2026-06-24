@@ -2,13 +2,15 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-import itertools
-
 import pytest
 import torch
 
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
+from lm_engine.hf_models.modeling_utils.sequence_packing import (
+    compute_cu_seqlens_and_max_seqlen_from_attention_mask,
+    pack_sequence,
+)
 from lm_engine.kernels import enable_kernels
 from lm_engine.utils import is_flash_attention_2_available, is_flash_attention_3_available, is_quack_available
 
@@ -101,8 +103,20 @@ def test_sdpa_padding_free_transformer_equivalence(
     sdpa_loss = sdpa_output.loss
 
     with enable_kernels([kernel]):
-        input_ids, attention_mask, labels = get_dummy_inputs(device, return_list=True)
-        flash_output = flash_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+        position_ids = attention_mask.to(torch.int64).cumsum(-1) - 1
+        input_ids, labels, position_ids = pack_sequence(
+            inputs=(input_ids, labels, position_ids), cu_seqlens=cu_seqlens
+        )
+
+        flash_output = flash_model(
+            input_ids=input_ids,
+            position_ids=position_ids,
+            labels=labels,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+        )
+
         flash_logits = flash_output.logits
         flash_loss = flash_output.loss
 
@@ -168,57 +182,6 @@ def test_sdpa_flash_attention_equivalence(
     )
 
     assert_equal_tensors(sdpa_loss, flash_loss, False, atol_float32=1.2e-4, rtol_float32=0)
-
-
-@pytest.mark.parametrize("device", [torch.device("cuda")])
-@pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
-@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
-def test_padding_free_transformer_with_list_and_tensor(
-    device: torch.device, position_embedding_type: str, dtype: torch.dtype
-) -> None:
-    skip_test_if_device_unavailable(device)
-
-    kernel = None
-    if is_flash_attention_3_available():
-        kernel = Kernel.flash_attention_3
-    if is_flash_attention_2_available():
-        kernel = Kernel.flash_attention_2
-
-    if kernel is None:
-        pytest.skip("skipping test because flash attention 2 or 3 is unavailable")
-
-    Accelerator.set_seed(SEED)
-
-    config = get_dense_test_config(position_embedding_type, num_layers=1)
-
-    model = from_config(config, dtype=dtype, use_padding_free_transformer=True).to(device)
-    model.eval()
-
-    with enable_kernels([kernel]):
-        input_ids, attention_mask, labels = get_dummy_inputs(device, return_list=True)
-        list_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-        list_logits = list_output.logits
-        list_loss = list_output.loss
-
-        seqlens = torch.tensor([0] + [len(i) for i in input_ids])
-        cu_seqlens = seqlens.cumsum(dim=-1).to(device, torch.int32)
-        max_seqlen = seqlens.max().item()
-        position_ids = torch.tensor(list(itertools.chain(*[list(range(len(i))) for i in input_ids])), device=device)
-        input_ids = torch.tensor(list(itertools.chain(*input_ids)), device=device)
-        labels = torch.tensor(list(itertools.chain(*labels)), device=device)
-        tensor_output = model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            position_ids=position_ids,
-            labels=labels,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-        )
-        tensor_logits = tensor_output.logits
-        tensor_loss = tensor_output.loss
-
-    assert_equal_tensors(list_logits, tensor_logits, True)
-    assert_equal_tensors(list_loss, tensor_loss, True)
 
 
 @pytest.mark.parametrize("device", [torch.device("cuda")])

@@ -12,9 +12,8 @@ from typing import Any, Callable
 
 import torch
 import torch.distributed
-from torch.distributed import ProcessGroup
+from torch.distributed import DeviceMesh, ProcessGroup, init_device_mesh
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
-from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 
 from ..accelerator import Accelerator
 from ..enums import ContextParallelLoadBalancerMethod

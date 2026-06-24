@@ -3,7 +3,7 @@
 # **************************************************
 
 import torch
-from torch.distributed._tensor.placement_types import Placement, Replicate, Shard
+from torch.distributed.tensor import Placement, Replicate, Shard
 
 from ...parallel import ProcessGroupManager
 from ...utils import divide_if_divisible

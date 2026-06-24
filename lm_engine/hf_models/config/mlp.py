@@ -10,7 +10,7 @@ from ...arguments import BaseArgs
 class _MLPArgs(BaseArgs):
     mlp_type: str = "MLP"
     intermediate_size: int
-    activation_function: str = "gelu_pytorch_tanh"
+    activation_function: str
     dropout: float = 0
     add_bias: bool = False
 
@@ -20,9 +20,9 @@ class _MLPArgs(BaseArgs):
 
 class _MoEArgs(_MLPArgs):
     mlp_type: str = "MoE"
-    shared_intermediate_size: int | None = None
-    num_experts: int = 8
-    num_experts_per_tok: int = 2
+    shared_intermediate_size: int | None
+    num_experts: int
+    num_experts_per_tok: int
     shared_expert_gating: bool = False
     normalized_topk: bool = True
 

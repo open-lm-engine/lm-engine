@@ -55,6 +55,17 @@ def get_dense_test_config(
         num_layers=num_layers,
         position_embedding_type=position_embedding_type,
         normalization_function=normalization_function,
+        layer_norm_epsilon=1e-5,
+        embedding_dropout=0,
+        initializer_range=0.02,
+        use_cache=True,
+        rope_theta=10000,
+        rope_scaling=None,
+        init_method="normal",
+        embedding_init_method="normal",
+        use_depth_scaled_init=True,
+        router_aux_loss_coef=0.001,
+        rope_dim=None,
         tie_word_embeddings=False,
         bos_token_id=0,
         eos_token_id=1,
@@ -68,12 +79,25 @@ def get_dense_test_config(
                 "add_bias": add_bias,
                 "num_attention_heads": num_attention_heads,
                 "num_key_value_heads": num_key_value_heads,
+                "head_dim": None,
+                "softmax_dropout": 0,
+                "dropout": 0,
                 "attention_multiplier": attention_multiplier,
+                "attention_multiplier_method": None if attention_multiplier is not None else "1 / sqrt(head_dim)",
+                "attention_gate": False,
+                "exclusive_self_attention": False,
+                "sliding_window": None,
             }
             for _ in range(num_layers)
         ],
         mlp_blocks=[
-            {"mlp_type": "MLP", "activation_function": activation_function, "add_bias": add_bias}
+            {
+                "mlp_type": "MLP",
+                "activation_function": activation_function,
+                "add_bias": add_bias,
+                "intermediate_size": 128,
+                "dropout": 0,
+            }
             for _ in range(num_layers)
         ],
     )
@@ -103,7 +127,14 @@ def get_moe_test_config(
         "add_bias": add_bias,
         "num_attention_heads": num_attention_heads,
         "num_key_value_heads": num_key_value_heads,
+        "head_dim": None,
+        "softmax_dropout": 0,
+        "dropout": 0,
         "attention_multiplier": attention_multiplier,
+        "attention_multiplier_method": None if attention_multiplier is not None else "1 / sqrt(head_dim)",
+        "attention_gate": False,
+        "exclusive_self_attention": False,
+        "sliding_window": None,
     }
 
     return GPTBaseConfig(
@@ -113,6 +144,17 @@ def get_moe_test_config(
         num_layers=num_layers,
         position_embedding_type=position_embedding_type,
         normalization_function=normalization_function,
+        layer_norm_epsilon=1e-5,
+        embedding_dropout=0,
+        initializer_range=0.02,
+        use_cache=True,
+        rope_theta=10000,
+        rope_scaling=None,
+        init_method="normal",
+        embedding_init_method="normal",
+        use_depth_scaled_init=True,
+        router_aux_loss_coef=0.001,
+        rope_dim=None,
         tie_word_embeddings=False,
         bos_token_id=0,
         eos_token_id=1,
@@ -128,6 +170,9 @@ def get_moe_test_config(
                 "num_experts_per_tok": num_experts_per_tok,
                 "normalized_topk": normalized_topk,
                 "activation_function": activation_function,
+                "add_bias": add_bias,
+                "intermediate_size": 128,
+                "dropout": 0,
                 "shared_intermediate_size": None if shared_n_inner is None else shared_n_inner,
                 "shared_expert_gating": shared_expert_gating,
             }
@@ -136,16 +181,10 @@ def get_moe_test_config(
     )
 
 
-def get_dummy_inputs(device: torch.device, return_list: bool = False) -> tuple[torch.Tensor | list[int]]:
-    if return_list:
-        # needed for flash attention
-        input_ids = [list(range(5, 15)), list(range(10, 15))]
-        attention_mask = None
-        labels = [[-100] * 6 + list(range(11, 15)), [-100] * 2 + list(range(12, 15))]
-    else:
-        input_ids = torch.tensor([list(range(5, 15)), [0] * 5 + list(range(10, 15))], device=device)
-        attention_mask = torch.tensor([[1] * 10, [0] * 5 + [1] * 5], device=device)
-        labels = torch.tensor([[-100] * 6 + list(range(11, 15)), [-100] * 7 + list(range(12, 15))], device=device)
+def get_dummy_inputs(device: torch.device) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    input_ids = torch.tensor([list(range(5, 15)), [0] * 5 + list(range(10, 15))], device=device)
+    attention_mask = torch.tensor([[1] * 10, [0] * 5 + [1] * 5], device=device)
+    labels = torch.tensor([[-100] * 6 + list(range(11, 15)), [-100] * 7 + list(range(12, 15))], device=device)
 
     return input_ids, attention_mask, labels
 

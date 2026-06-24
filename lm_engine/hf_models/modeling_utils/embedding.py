@@ -9,7 +9,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributed._tensor.placement_types import Replicate, Shard
+from torch.distributed.tensor import Replicate, Shard
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...parallel import ProcessGroupManager

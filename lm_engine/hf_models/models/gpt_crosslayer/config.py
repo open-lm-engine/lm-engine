@@ -4,14 +4,17 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ...config import CommonConfig
 
 
 class GPTCrossLayerConfig(CommonConfig):
-    model_type = "gpt_crosslayer"
+    model_type: str = "gpt_crosslayer"
+    sharing_pattern: list[int] | None = None
 
     def __init__(self, sharing_pattern: list[int] | None = None, **kwargs) -> GPTCrossLayerConfig:
-        super().__init__(**kwargs)
+        super().__init__(sharing_pattern=sharing_pattern, **kwargs)
 
         if sharing_pattern is None:
             self.sharing_pattern = list(range(self.num_layers))
@@ -35,3 +38,7 @@ class GPTCrossLayerConfig(CommonConfig):
                     assert self.mlp_blocks[i] == self.mlp_blocks[j]
 
         assert self.init_method == "normal"
+
+    def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
+        assert self.model_type == "gpt_crosslayer"

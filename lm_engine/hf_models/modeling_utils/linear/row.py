@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from torch.distributed._tensor.placement_types import Replicate, Shard
+from torch.distributed.tensor import Replicate, Shard
 
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
 from ....parallel import ProcessGroupManager

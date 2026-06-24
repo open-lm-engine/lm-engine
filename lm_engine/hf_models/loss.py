@@ -4,8 +4,7 @@
 
 import torch
 import torch.nn.functional as F
-from torch.distributed._tensor.api import DTensor
-from torch.distributed._tensor.placement_types import Replicate, Shard
+from torch.distributed.tensor import DTensor, Replicate, Shard
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel

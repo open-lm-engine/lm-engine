@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from torch.distributed._tensor.api import DTensor
-from torch.distributed._tensor.placement_types import Replicate
+from torch.distributed.tensor import DTensor, Replicate
 
 from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel

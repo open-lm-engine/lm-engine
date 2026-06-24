@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import torch.nn as nn
-from torch.distributed._tensor.placement_types import Replicate
+from torch.distributed.tensor import Replicate
 
 from ....dtensors import tensor_to_dtensor
 from ....parallel import ProcessGroupManager

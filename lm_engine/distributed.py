@@ -13,7 +13,6 @@ import torch.nn as nn
 from torch.distributed._composable.fsdp import CPUOffloadPolicy
 from torch.distributed._composable.fsdp import MixedPrecisionPolicy as MixedPrecision2
 from torch.distributed._composable.fsdp import OffloadPolicy, fully_shard
-from torch.distributed._tensor.placement_types import Shard
 from torch.distributed.fsdp import CPUOffload
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision as MixedPrecision1
@@ -26,6 +25,7 @@ from torch.distributed.pipelining.schedules import (
     _PipelineSchedule,
     get_schedule_class,
 )
+from torch.distributed.tensor import DTensor, Shard, distribute_tensor
 
 from .accelerator import Accelerator
 from .containers import ModelContainer
@@ -37,6 +37,7 @@ from .hf_models import (
     get_named_parameters_and_buffers,
     get_parameter_marker_maps,
     is_parameter_initialized,
+    mark_parameter_as_initialized,
     set_parameter_marker_maps,
 )
 from .kernels import is_kernel_allowed
@@ -235,11 +236,8 @@ def wrap_model_container_for_distributed_training(
 
     if efficient_initialization:
         for model in model_container:
-            for param_name, parameter in model.named_parameters():
-                parameter._is_initialized = False
-
-            for param_name, parameter in model.named_buffers():
-                parameter._is_initialized = False
+            for param_name, param in get_named_parameters_and_buffers(model):
+                param._is_initialized = False
 
         marker_maps = get_parameter_marker_maps(model_container)
     else:
@@ -320,6 +318,11 @@ def wrap_model_container_for_distributed_training(
                     return Shard(0)
 
             for i, model in enumerate(model_container):
+                # Capture weights before FSDP sharding; params may be TP DTensors
+                # if the model was loaded from a checkpoint with TP already applied.
+                if efficient_initialization and model_name is not None:
+                    old_state_dict = model.state_dict()
+
                 for module in model.modules():
                     if isinstance(module, tuple(block_classes)):
                         fully_shard(
@@ -341,8 +344,6 @@ def wrap_model_container_for_distributed_training(
                 )
 
                 if efficient_initialization:
-                    # contributed by Yu Chin Fabian Lim
-                    # original reference https://github.com/fabianlim/accelerate/pull/1
                     if model_name is None:
                         model = model.to_empty(device=device)
 
@@ -351,7 +352,37 @@ def wrap_model_container_for_distributed_training(
                                 with torch.device(device):
                                     module.reset_parameters()
                     else:
-                        raise NotImplementedError
+                        if ProcessGroupManager.get_data_parallel_rank() == 0:
+                            model = model.to(device)
+                        else:
+                            model = model.to_empty(device=device)
+
+                            for module in model.modules():
+                                if hasattr(module, "reset_parameters"):
+                                    with torch.device(device):
+                                        module.reset_parameters()
+
+                        new_state_dict = model.state_dict()
+
+                        for param_name, param in old_state_dict.items():
+                            if ProcessGroupManager.get_data_parallel_rank() == 0:
+                                full_tensor = param.full_tensor() if isinstance(param, DTensor) else param
+                            else:
+                                full_tensor = torch.empty(param.shape, dtype=param.dtype, device=device)
+
+                            new_state_dict[param_name] = distribute_tensor(
+                                full_tensor,
+                                device_mesh=new_state_dict[param_name].device_mesh,
+                                placements=new_state_dict[param_name].placements,
+                            )
+
+                        model.load_state_dict(new_state_dict, assign=True)
+                        del old_state_dict, new_state_dict
+
+                        # load_state_dict(assign=True) replaces tensors with new DTensor
+                        # objects that don't carry the _is_initialized attribute — restore it.
+                        for _, param in get_named_parameters_and_buffers(model):
+                            mark_parameter_as_initialized(param)
         elif fsdp_algorithm == 1:
             log_rank_0(logging.INFO, "using FSDP-1")
             assert num_pipeline_stages == 1
@@ -411,8 +442,8 @@ def wrap_model_container_for_distributed_training(
 
     for model in model_container:
         if model.is_custom_model:
-            for param_name, parameter in get_named_parameters_and_buffers(model):
-                assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
+            for param_name, param in get_named_parameters_and_buffers(model):
+                assert is_parameter_initialized(param), f"{param_name} is not initialized"
 
     if num_pipeline_stages > 1:
         micro_batch_size = args.training_parameters.micro_batch_size

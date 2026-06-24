@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
-from torch.distributed.device_mesh import DeviceMesh
+from torch.distributed import DeviceMesh
 from torch.distributed.tensor import DTensor, Partial, Replicate, Shard, distribute_tensor
 from torch.distributed.tensor._dtensor_spec import DTensorSpec
 from torch.distributed.tensor._redistribute import redistribute_local_tensor

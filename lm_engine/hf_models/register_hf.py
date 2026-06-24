@@ -33,7 +33,7 @@ _CUSTOM_MODEL_CLASSES = []
 
 def register_model_classes() -> None:
     for config_class, auto_model_class, auto_model_for_causal_lm_class in _CUSTOM_MODEL_REGISTRY:
-        model_type = config_class.model_type
+        model_type = config_class.model_fields["model_type"].default
 
         AutoConfig.register(model_type, config_class)
         AutoModel.register(config_class, auto_model_class)

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from transformers import GenerationConfig, PreTrainedModel
 
 from ....accelerator import Accelerator
 from ....enums import Kernel
@@ -21,15 +20,14 @@ from ..modeling_outputs import BaseModelOutputWithPast
 from .layer import Block
 
 
-class PreTrainedModelMixin(PreTrainedModel):
+class PreTrainedModelMixin(nn.Module):
     config_class = None
     layer_class = Block
-    base_model_prefix = "transformer"
-    causal = True
     _no_split_modules = ["Block"]
 
     def __init__(self, config: CommonConfig, *args, **kwargs) -> PreTrainedModelMixin:
-        super().__init__(config, *args, **kwargs)
+        super().__init__()
+        self.config = config
 
         self.sequence_parallel = kwargs.get("sequence_parallel", False)
         self.num_pipeline_stages = kwargs.get("num_pipeline_stages", 1)
@@ -40,15 +38,28 @@ class PreTrainedModelMixin(PreTrainedModel):
         self.is_pipeline_parallel_enabled = self.num_pipeline_stages > 1
 
         assert self.config_class is not None
-        self.generation_config = GenerationConfig.from_model_config(self.config)
 
         self.use_padding_free_transformer = kwargs.get("use_padding_free_transformer", False)
         self._tied_word_embeddings = config.tie_word_embeddings
 
         self._has_mamba2 = any([block.sequence_mixer_type == "mamba2" for block in self.config.sequence_mixer_blocks])
 
+        self.bos_token_id = self.config.bos_token_id
+        self.eos_token_id = self.config.eos_token_id
+        self.pad_token_id = self.config.pad_token_id
+
         if self.is_pipeline_parallel_enabled and self._tied_word_embeddings:
             raise NotImplementedError()
+
+    @classmethod
+    def _from_config(cls, config: CommonConfig, **kwargs) -> PreTrainedModelMixin:
+        model = cls(config, **kwargs)
+        model = model.to(kwargs.pop("dtype", kwargs.pop("torch_dtype", None)))
+
+        return model
+
+    def tie_weights(self) -> None:
+        return
 
 
 class BaseModelMixin(PreTrainedModelMixin):
