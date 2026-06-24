@@ -9,8 +9,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributed._tensor.api import DTensor
-from torch.distributed._tensor.placement_types import Replicate
+from torch.distributed.tensor import DTensor, Replicate
 
 from ...dtensors import tensor_to_dtensor
 from ..parameter import (

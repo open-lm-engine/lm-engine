@@ -8,8 +8,7 @@ import os
 
 import torch
 import torch.nn.functional as F
-from torch.distributed._tensor.placement_types import Replicate, Shard
-from torch.distributed.tensor import DTensor, distribute_tensor
+from torch.distributed.tensor import DTensor, Replicate, Shard, distribute_tensor
 from transformers import StoppingCriteriaList
 
 from ....arguments import LoadArgs, MixedPrecisionArgs, UnshardingArgs

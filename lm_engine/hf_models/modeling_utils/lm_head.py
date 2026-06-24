@@ -4,8 +4,8 @@
 
 import torch
 import torch.nn.functional as F
-from torch.distributed._tensor.placement_types import Replicate, Shard
-from torch.distributed.device_mesh import DeviceMesh
+from torch.distributed import DeviceMesh
+from torch.distributed.tensor import Replicate, Shard
 
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
 from ..modeling_utils import ParameterizedEmbedding

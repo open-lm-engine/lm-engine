@@ -5,7 +5,7 @@
 import argparse
 import os
 
-from torch.distributed._tensor.api import DTensor
+from torch.distributed.tensor import DTensor
 from transformers import AutoModelForCausalLM
 
 from lm_engine.enums import Kernel
