@@ -14,15 +14,12 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
-from ..hf_models import (
-    CausalLMOutputWithPast,
-    get_autoregressive_language_modeling_loss,
-    is_aux_loss_zero,
-    is_custom_model,
-)
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
+from ..loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
+from ..modeling_utils import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
+from ..register_hf import is_custom_model
 from ..tokenizers import get_tokenizer
 from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
@@ -83,7 +80,6 @@ class ModelWrapper(nn.Module):
         use_model_parallelism = ProcessGroupManager.is_tensor_parallel_enabled() or self.is_pipeline_parallel_enabled
 
         self._setup_config()
-        self.is_custom_model = is_custom_model(self.config.model_type)
 
         total_parameters, active_parameters = self.calculate_num_parameters()
 
@@ -171,7 +167,10 @@ class ModelWrapper(nn.Module):
             else AutoConfig.from_pretrained(self.model_name, trust_remote_code=self.trust_remote_code)
         )
 
-        assert not self.config.is_encoder_decoder, "we don't support encoder-decoder models"
+        self.is_custom_model = is_custom_model(self.config.model_type)
+
+        if not self.is_custom_model:
+            assert not self.config.is_encoder_decoder, "we don't support encoder-decoder models"
 
         self.tie_word_embeddings = self.config.tie_word_embeddings
         self.router_aux_loss_coef = getattr(self.config, "router_aux_loss_coef", None)

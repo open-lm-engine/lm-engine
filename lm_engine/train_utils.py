@@ -8,10 +8,11 @@ import torch
 from torch.distributed import ReduceOp
 
 from .enums import GradientCheckpointingMethod
-from .hf_models import CommonConfig, is_custom_model
-from .hf_models.modeling_utils import is_glu
 from .logging_utils import ExperimentsTracker, MetricsTrackingDict, log_metrics
+from .model_config import CommonConfig
+from .modeling_utils import is_glu
 from .parallel import ProcessGroupManager
+from .register_hf import is_custom_model
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:

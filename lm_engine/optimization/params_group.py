@@ -10,9 +10,9 @@ from typing import Any
 from ..arguments import BaseArgs
 from ..containers import ModelContainer
 from ..enums import ParamsGroupMethod
-from ..hf_models import is_parameter_with_mup_learning_rate, is_parameter_with_no_weight_decay
 from ..logging_utils import log_rank_0
 from ..model_wrapper import ModelWrapper
+from ..parameter import is_parameter_with_mup_learning_rate, is_parameter_with_no_weight_decay
 
 
 class _ParamsGroup(BaseArgs):

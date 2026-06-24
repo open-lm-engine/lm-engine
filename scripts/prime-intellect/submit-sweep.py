@@ -1,12 +1,18 @@
-import os
-import re
-import time
-import json
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
 import argparse
 import itertools
+import json
+import os
+import re
 import subprocess
+import time
+
 import jinja2
 import jinja2.meta
+
 
 CONFIG_PATH = "configs/research/delta-mlp/config_rendered.yml"
 SUBMIT_PATH = "scripts/prime-intellect/submit.sh"
@@ -141,9 +147,12 @@ def main() -> None:
         submit_cmd = [
             "bash",
             SUBMIT_PATH,
-            "--name", name,
-            "--config", CONFIG_PATH,
-            "--max-length", str(args.max_length),
+            "--name",
+            name,
+            "--config",
+            CONFIG_PATH,
+            "--max-length",
+            str(args.max_length),
         ]
         print(json.dumps(params, indent=2))
         print(f"\n[INFO] {' '.join(diff_cmd)}")

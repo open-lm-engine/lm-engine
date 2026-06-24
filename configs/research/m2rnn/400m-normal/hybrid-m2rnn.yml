@@ -45,6 +45,18 @@ model_args:
     pad_token_id: 100256
     vocab_size: 100352
     max_position_embeddings: 4096
+    rope_theta: 10000
+    rope_scaling: null
+    rope_dim: null
+    embedding_dropout: 0
+    use_cache: true
+    embedding_init_method: normal
+    use_depth_scaled_init: true
+    router_aux_loss_coef: 0.001
+    tie_word_embeddings: false
+    m_emb: null
+    m_width: null
+    m_residual: null
     sequence_mixer_blocks:
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
@@ -61,6 +73,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -76,6 +93,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -91,6 +113,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -106,10 +133,23 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -125,6 +165,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -140,6 +185,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -155,6 +205,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -170,6 +225,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -185,6 +245,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -200,6 +265,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -215,10 +285,23 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -234,6 +317,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -249,6 +337,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -264,6 +357,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -279,6 +377,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -294,6 +397,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -309,6 +417,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -324,10 +437,23 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 16
         num_key_value_heads: 16
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -343,6 +469,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -358,6 +489,11 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
       - sequence_mixer_type: m2rnn
         k_head_dim: 64
         v_head_dim: 16
@@ -373,103 +509,132 @@ model_args:
         kernel_size: 4
         add_bias: false
         gradient_clipping: 1
+        A_init_min: 0
+        A_init_max: 16
+        dt_init_min: 0.001
+        dt_init_max: 0.1
+        dt_init_floor: 0.0001
     mlp_blocks:
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
       - activation_function: swiglu
         mlp_type: MLP
         add_bias: false
         intermediate_size: 2752
+        dropout: 0
   efficient_initialization: false
 
 tuning_args:
