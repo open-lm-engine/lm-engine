@@ -45,6 +45,3 @@ def register_model_classes() -> None:
 
 def is_custom_model(model_type: str) -> bool:
     return model_type in _CUSTOM_MODEL_TYPES
-
-
-register_model_classes()
