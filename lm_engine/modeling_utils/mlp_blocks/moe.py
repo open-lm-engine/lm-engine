@@ -26,8 +26,9 @@ from ...utils import divide_if_divisible, is_sonicmoe_available, is_triton_avail
 from ..activations import get_activation_function, is_glu, sigmoid
 from ..dropout import Dropout
 from ..dtensor_module import DTensorModule
+from ..init_utils import _get_std_for_linear
 from ..linear import ColumnParallelLinear, ParameterizedLinear, ReplicatedLinear, RowParallelLinear
-from .mlp import MLPArgs, _get_std_for_linear
+from .mlp import MLPArgs
 
 
 if is_xma_available() and is_triton_available():
