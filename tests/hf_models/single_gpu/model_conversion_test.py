@@ -5,7 +5,7 @@
 import pytest
 import torch
 
-from lm_engine.hf_models.config import _Mamba2Args
+from lm_engine.model_config import _Mamba2Args
 
 from ...utils import get_dense_test_config, get_moe_test_config, model_conversion_test
 

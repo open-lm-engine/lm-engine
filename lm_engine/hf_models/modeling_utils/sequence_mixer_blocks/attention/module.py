@@ -13,9 +13,12 @@ from .....accelerator import Accelerator
 from .....enums import Kernel
 from .....generation_cache import GenerationCache, GenerationState, LinearCache
 from .....kernels import is_kernel_allowed, wait_for_ACT
+from .....model_config.sequence_mixer import (
+    ATTENTION_MULTIPLIER_INVERSE_METHOD,
+    ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD,
+)
 from .....parameter import mark_parameter_as_mup_learning_rate
 from .....utils import divide_if_divisible, is_torch_xla_available
-from ....config.sequence_mixer import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
 from ...activations import sigmoid
 from ...chunk import contiguous_split
 from ...dropout import Dropout

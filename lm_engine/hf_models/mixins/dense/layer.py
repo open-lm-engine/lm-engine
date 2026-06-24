@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 
 from ....generation_cache import GenerationCache
-from ...config import CommonConfig
+from ....model_config import CommonConfig
 from ...modeling_utils import get_mlp_block, get_normalization_function, get_sequence_mixer
 
 

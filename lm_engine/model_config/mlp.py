@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from ...arguments import BaseArgs
+from ..arguments import BaseArgs
 
 
 class _MLPArgs(BaseArgs):

@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from ...arguments import BaseArgs
+from ..arguments import BaseArgs
 
 
 ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD = "1 / sqrt(head_dim)"

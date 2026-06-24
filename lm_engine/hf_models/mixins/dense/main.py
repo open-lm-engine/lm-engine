@@ -23,6 +23,7 @@ from ....loss import (
     get_aux_loss,
     is_aux_loss_zero,
 )
+from ....model_config import CommonConfig
 from ....parallel import ProcessGroupManager
 from ....parameter import (
     _INIT_MARKER,
@@ -32,7 +33,6 @@ from ....parameter import (
     set_parameter_marker_maps,
 )
 from ....utils import SafeTensorsWeightsManager, divide_if_divisible, torch_dtype_to_string
-from ...config import CommonConfig
 from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
 from ..modeling_outputs import (
     BaseModelOutputWithPast,

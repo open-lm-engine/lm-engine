@@ -3,6 +3,7 @@
 # **************************************************
 
 from ..loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
+from ..model_config import CommonConfig
 from ..parameter import (
     _INIT_MARKER,
     get_named_parameters_and_buffers,
@@ -15,7 +16,6 @@ from ..parameter import (
     mark_parameter_as_no_weight_decay,
     set_parameter_marker_maps,
 )
-from .config import CommonConfig
 from .mixins import CausalLMOutputWithPast, PipelineParallelInput, PipelineParallelOutput
 from .models import (
     GPTBaseConfig,

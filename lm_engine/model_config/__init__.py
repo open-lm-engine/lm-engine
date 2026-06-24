@@ -10,8 +10,8 @@ from copy import deepcopy
 from enum import Enum
 from typing import Any, Literal
 
-from ...arguments import BaseArgs
-from ...utils import divide_if_divisible
+from ..arguments import BaseArgs
+from ..utils import divide_if_divisible
 from .mlp import _MLPArgs, _MoEArgs
 from .sequence_mixer import _GatedDeltaNetArgs, _GRUArgs, _M2RNNArgs, _Mamba2Args, _RNNArgs, _SoftmaxAttentionArgs
 

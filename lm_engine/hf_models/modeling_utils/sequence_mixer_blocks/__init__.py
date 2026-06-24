@@ -2,8 +2,8 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
+from ....model_config import CommonConfig
 from ....parallel import ProcessGroupManager
-from ...config import CommonConfig
 from .attention import (
     Attention,
     flash_attention,

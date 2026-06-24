@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...config import CommonConfig
+from ....model_config import CommonConfig
 
 
 class GPTCrossLayerConfig(CommonConfig):

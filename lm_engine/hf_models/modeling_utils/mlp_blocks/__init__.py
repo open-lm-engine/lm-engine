@@ -2,7 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from ...config import CommonConfig
+from ....model_config import CommonConfig
 from .mlp import MLP, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_for_mlp
 from .moe import MoE, ParameterizedExperts
 
