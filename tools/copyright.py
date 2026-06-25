@@ -14,6 +14,7 @@ parser.add_argument("--exclude", type=str, required=False)
 parser.add_argument("--header", type=str, required=True)
 parser.add_argument("--extra-name", type=str, required=False)
 parser.add_argument("--no-contributors", action="store_true", required=False)
+parser.add_argument("--check", action="store_true", required=False)
 args = parser.parse_args()
 
 
@@ -121,11 +122,14 @@ def _build_html_header(file: str) -> str:
     )
 
 
-def _check_and_add_copyright_header(file: str, build_header_fn, pattern: re.Pattern) -> None:
+def _check_and_add_copyright_header(file: str, build_header_fn, pattern: re.Pattern) -> bool:
     code = open(file, "r").read()
 
     if len(code) == 0:
-        return
+        return True
+
+    if args.check:
+        return bool(pattern.match(code))
 
     header = build_header_fn(file)
     code_stripped = pattern.sub("", code)
@@ -135,6 +139,7 @@ def _check_and_add_copyright_header(file: str, build_header_fn, pattern: re.Patt
         code = f"{header}{code}"
 
     open(file, "w").writelines([code])
+    return True
 
 
 def _is_banned(path: str) -> bool:
@@ -150,6 +155,7 @@ def _is_banned(path: str) -> bool:
 directory = os.path.realpath(args.repo)
 _AUTHOR_MAP = {} if args.no_contributors else _build_author_map(directory)
 
+missing = []
 for root, dirs, files in os.walk(directory):
     if _is_banned(root):
         continue
@@ -160,9 +166,18 @@ for root, dirs, files in os.walk(directory):
         if _is_banned(file):
             continue
 
+        ok = True
         if any([file.endswith(i) for i in _CPP_LIKE_EXTENSIONS]):
-            _check_and_add_copyright_header(file, _build_cpp_header, _CPP_PATTERN)
+            ok = _check_and_add_copyright_header(file, _build_cpp_header, _CPP_PATTERN)
         elif any([file.endswith(i) for i in _PYTHON_LIKE_EXTENSIONS]):
-            _check_and_add_copyright_header(file, _build_python_header, _PYTHON_PATTERN)
+            ok = _check_and_add_copyright_header(file, _build_python_header, _PYTHON_PATTERN)
         elif any([file.endswith(i) for i in _HTML_LIKE_EXTENSIONS]):
-            _check_and_add_copyright_header(file, _build_html_header, _HTML_PATTERN)
+            ok = _check_and_add_copyright_header(file, _build_html_header, _HTML_PATTERN)
+
+        if not ok:
+            missing.append(os.path.relpath(file, directory))
+
+if missing:
+    for f in sorted(missing):
+        print(f"No copyright found on '{f}'.")
+    raise SystemExit(1)

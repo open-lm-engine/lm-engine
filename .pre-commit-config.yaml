@@ -11,11 +11,12 @@ repos:
         entry: python tools/copyright.py --repo . --header "Copyright (c) 2026, Mayank Mishra" --no-contributors
         types: [python]
         pass_filenames: false
-  - repo: https://github.com/sbrunner/hooks
-    rev: 1.8.0
-    hooks:
-      - id: copyright-required
+      - id: check-copyright
+        name: check copyright year
+        language: python
+        entry: python tools/copyright.py --repo . --header "Copyright (c) 2026, Mayank Mishra" --no-contributors --check
         types: [python]
+        pass_filenames: false
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1
     hooks:
