@@ -1,0 +1,8 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+one_date_re: '\bCopyright \(c\) (?P<year>[0-9]{4}), Mayank Mishra\b'
+two_date_re: '\bCopyright \(c\) (?P<from>[0-9]{4})-(?P<to>[0-9]{4}), Mayank Mishra\b'
+one_date_format: 'Copyright (c) {year}, Mayank Mishra'
+two_date_format: 'Copyright (c) {from}-{to}, Mayank Mishra'
