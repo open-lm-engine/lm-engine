@@ -12,6 +12,7 @@ from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
+from ....logging_utils import print_ranks_all
 from ....parallel import ProcessGroupManager
 from ....parameter import (
     mark_parameter_as_initialized,
@@ -228,13 +229,7 @@ class Mamba2(nn.Module):
         all_exp_A = all_exp_A.reshape(cp_world_size, batch_size, self.num_heads)
         all_final = all_final.reshape(cp_world_size, batch_size, self.num_heads, self.head_dim, self.ssm_state_size)
 
-        # Serial prefix scan (O(cp_world_size) local work, no extra communication)
-        s_init = torch.zeros_like(all_final[0])
-        for r in range(cp_rank):
-            transition = all_exp_A[r][:, :, None, None]  # broadcast over (head_dim, state_size)
-            s_init = transition * s_init + all_final[r]
-
-        return s_init
+        return _SerialPrefixScan.apply(all_exp_A, all_final, cp_rank)
 
     def forward(
         self,
@@ -699,3 +694,53 @@ class Mamba2(nn.Module):
     def reset_parameters(self) -> None:
         nn.init.ones_(self.D)
         mark_parameter_as_initialized(self.D)
+
+
+class _SerialPrefixScan(torch.autograd.Function):
+    """Serial prefix scan over CP ranks with manual backward.
+
+    Forward:  s[r] = exp_A[r] * s[r-1] + final[r],  s[-1] = 0
+    Backward: chain-rule through the linear recurrence without re-entering autograd.
+    """
+
+    @staticmethod
+    def forward(ctx, all_exp_A, all_final, cp_rank):
+        # all_exp_A : [cp_world_size, batch, num_heads]
+        # all_final : [cp_world_size, batch, num_heads, head_dim, state_size]
+        prev_states = []
+        s = torch.zeros_like(all_final[0])
+        for r in range(cp_rank):
+            prev_states.append(s)
+            s = all_exp_A[r][:, :, None, None] * s + all_final[r]
+        ctx.save_for_backward(all_exp_A, *prev_states)
+        ctx.cp_rank = cp_rank
+        ctx.all_final_shape = all_final.shape
+        return s
+
+    @staticmethod
+    def backward(ctx, grad_s):
+        all_exp_A = ctx.saved_tensors[0]
+        prev_states = ctx.saved_tensors[1:]
+        cp_rank = ctx.cp_rank
+
+        grad_all_exp_A = torch.zeros_like(all_exp_A)
+        grad_all_final = torch.zeros(ctx.all_final_shape, dtype=grad_s.dtype, device=grad_s.device)
+
+        for r in range(cp_rank - 1, -1, -1):
+            grad_all_final[r] = grad_s
+            grad_all_exp_A[r] = (grad_s * prev_states[r]).sum(dim=(-2, -1))
+            grad_s = grad_s * all_exp_A[r][:, :, None, None]
+
+        return grad_all_exp_A, grad_all_final, None
+
+
+class _F(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x):
+        return x
+
+    @staticmethod
+    def backward(ctx, x):
+        print_ranks_all(x)
+        exit()
+        return x
