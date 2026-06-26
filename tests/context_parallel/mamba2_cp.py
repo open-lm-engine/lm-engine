@@ -79,12 +79,24 @@ if rank == 0:
 
     assert_close(out_cp_full, out_ref)
 
-# ---- backward (smoke test: verify no crash and grads are populated) ----
+# ---- backward (correctness: compare input grads against non-CP reference) ----
 x_local_bwd = x_local.detach().requires_grad_(True)
 with enable_kernels(kernels):
     out_local_bwd = mamba2(x_local_bwd)
     out_local_bwd.sum().backward()
 
 assert x_local_bwd.grad is not None
+
+grad_parts = [torch.zeros_like(x_local_bwd.grad) for _ in range(cp_world_size)]
+torch.distributed.all_gather(grad_parts, x_local_bwd.grad.contiguous(), group=cp_group)
+grad_cp_full = torch.cat(grad_parts, dim=1)
+
+if rank == 0:
+    x_full_bwd = x_full.detach().requires_grad_(True)
+    with enable_kernels(kernels), ProcessGroupManager.set_dummy_context_parallel_world_size(1):
+        out_ref_bwd = mamba2(x_full_bwd)
+        out_ref_bwd.sum().backward()
+
+    assert_close(grad_cp_full, x_full_bwd.grad)
 
 ProcessGroupManager.destroy_process_groups()
