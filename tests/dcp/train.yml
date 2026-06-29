@@ -15,7 +15,7 @@ datasets:
       sequence_length: 512
 
 tokenizer_args:
-  tokenizer_name: EleutherAI/gpt-neox-20b
+  tokenizer_name: bigcode/starcoder
 
 model_args:
   pretrained_config:
