@@ -15,7 +15,7 @@ datasets:
       sequence_length: 512
 
 tokenizer_args:
-  tokenizer_name: open-lm-engine/hybrid-m2rnn-410m
+  tokenizer_name: open-lm-engine/m2rnn-400m
 
 model_args:
   pretrained_config:
