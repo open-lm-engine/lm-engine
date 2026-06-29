@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
 from .indexed_dataset import MMapIndexedDataset, MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
 
 

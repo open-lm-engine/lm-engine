@@ -15,7 +15,7 @@ datasets:
       sequence_length: 512
 
 tokenizer_args:
-  tokenizer_name: EleutherAI/gpt-neox-20b
+  tokenizer_name: open-lm-engine/m2rnn-400m
 
 model_args:
   pretrained_config:
@@ -33,9 +33,9 @@ model_args:
     rope_dim: 64
     vocab_size: 50304
     tie_word_embeddings: true
-    bos_token_id: 0
-    eos_token_id: 0
-    pad_token_id: 0
+    bos_token_id: 100257
+    eos_token_id: 100257
+    pad_token_id: 100256
     m_width: 9
     m_emb: 12
     m_residual: 0.22

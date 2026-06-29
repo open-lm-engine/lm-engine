@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 import logging

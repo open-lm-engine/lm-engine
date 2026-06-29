@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
 from .blended_megatron_dataset_builder import build
 from .blended_megatron_dataset_config import GPTDatasetConfig
 from .gpt_dataset import GPTDataset
