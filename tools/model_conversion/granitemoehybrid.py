@@ -106,8 +106,10 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
         use_cache=original_config.use_cache,
         tie_word_embeddings=original_config.tie_word_embeddings,
         initializer_range=original_config.initializer_range,
-        rope_theta=original_config.rope_theta,
-        rope_scaling=original_config.rope_scaling,
+        rope_theta=original_config.rope_parameters["rope_theta"],
+        rope_scaling=(
+            None if original_config.rope_parameters.get("rope_type") == "default" else original_config.rope_parameters
+        ),
         init_method="normal",
         embedding_init_method="normal",
         use_depth_scaled_init=True,
