@@ -4,14 +4,14 @@
 
 import pytest
 import torch
-from einops import rearrange, repeat
+from einops import repeat
 
-import lm_engine.modeling_utils.mlp_blocks.delta_mlp as delta_mlp_module
+import lm_engine.modeling_utils.mlp_blocks.delta_mlp.module as delta_mlp_module
 from lm_engine.enums import Kernel
 from lm_engine.generation_cache import ConstantCache, GenerationCache, GenerationState, LinearCache
 from lm_engine.kernels import enable_kernels
-from lm_engine.modeling_utils import DeltaMLP, get_normalization_function
-from lm_engine.utils import is_causal_conv1d_available, is_fla_available, is_quack_available
+from lm_engine.modeling_utils import DeltaMLP, DeltaMLPArgs
+from lm_engine.utils import is_causal_conv1d_available, is_fla_available
 
 
 pytestmark = pytest.mark.skipif(
@@ -20,10 +20,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 if is_fla_available():
-    from lm_engine.hf_models.modeling_utils.mlp_blocks.delta_mlp.utils import chunk_delta_rule
-
-if is_quack_available():
-    from quack.rmsnorm import rmsnorm
+    from lm_engine.modeling_utils.mlp_blocks.delta_mlp.utils import chunk_delta_rule
 
 
 def _leaf(tensor: torch.Tensor) -> torch.Tensor:
@@ -51,8 +48,7 @@ def prepare_data(
 
 
 def _delta_mlp_kwargs(**overrides) -> dict:
-    kwargs = dict(
-        hidden_size=32,
+    config_kwargs = dict(
         intermediate_size=64,
         activation_function="silu",
         add_bias=False,
@@ -64,27 +60,34 @@ def _delta_mlp_kwargs(**overrides) -> dict:
         use_shortconv=False,
         use_tied_beta=False,
         use_decay_beta=False,
-        use_head_o_norm=False,
+        use_o_norm=False,
         allow_neg_eigval=False,
-        conv_size=4,
-        layer_idx=0,
-        norm_eps=1e-6,
-        init_method="normal",
-        initializer_range=0.02,
-        m_width=None,
+        kernel_size=4,
         A_init_min=0,
         A_init_max=16,
         dt_init_min=0.001,
         dt_init_max=0.1,
         dt_init_floor=1e-4,
+        value_scale=None,
+    )
+    kwargs = dict(
+        hidden_size=32,
+        layer_idx=0,
+        norm_eps=1e-6,
+        init_method="normal",
+        initializer_range=0.02,
+        m_width=None,
         num_layers=1,
         use_depth_scaled_init=False,
-        value_scale=None,
-        use_v_silu=True,
-        use_v_norm=False,
         sequence_parallel=False,
     )
-    kwargs.update(overrides)
+    for key, value in overrides.items():
+        if key in config_kwargs:
+            config_kwargs[key] = value
+        else:
+            kwargs[key] = value
+
+    kwargs["config"] = DeltaMLPArgs(**config_kwargs)
     return kwargs
 
 
@@ -142,34 +145,20 @@ def _split_prefix_suffix(inputs: list[torch.Tensor], prefix_lengths: list[int]) 
 
 
 @pytest.mark.parametrize(
-    "HK, HV, HB",
+    "H, HV",
     [
-        (1, 4, 8),
-        (4, 1, 8),
-        (8, 4, 1),
-        (2, 8, 4),
-        (4, 8, 2),
-        (8, 2, 4),
-        (1, 1, 7),
-        (7, 1, 1),
-        (1, 7, 1),
-        (5, 5, 1),
-        (1, 5, 5),
-        (5, 1, 5),
-    ],
-)
-@pytest.mark.parametrize(
-    "use_v_norm",
-    [
-        True,
-        False,
-    ],
-)
-@pytest.mark.parametrize(
-    "use_o_norm",
-    [
-        True,
-        False,
+        (1, 1),
+        (4, 4),
+        (8, 8),
+        (4, 1),
+        (8, 1),
+        (5, 1),
+        (7, 1),
+        (4, 2),
+        (8, 2),
+        (8, 4),
+        (6, 2),
+        (6, 3),
     ],
 )
 @pytest.mark.parametrize(
@@ -180,50 +169,21 @@ def _split_prefix_suffix(inputs: list[torch.Tensor], prefix_lengths: list[int]) 
         torch.bfloat16,
     ],
 )
-def test_broadcast(HK: int, HV: int, HB: int, use_v_norm: bool, use_o_norm: bool, dtype: torch.dtype) -> None:
+def test_broadcast(H: int, HV: int, dtype: torch.dtype) -> None:
     B, T, DK, DV = 7, 1024, 128, 64
-    H = max(HK, HV, HB)
-    assert H % HK == 0
     assert H % HV == 0
-    assert H % HB == 0
     q, k, v, b, S = prepare_data(
         B=B,
         T=T,
         H=H,
         DK=DK,
         DV=DV,
-        HK=HK,
+        HK=H,
         HV=HV,
-        HB=HB,
+        HB=H,
         dtype=dtype,
         device="cuda",
     )
-
-    if use_v_norm:
-        v_norm0 = get_normalization_function("rmsnorm", H * DV, eps=1e-6).to(dtype=dtype, device="cuda")
-        v_norm1 = get_normalization_function("rmsnorm", H * DV, eps=1e-6).to(dtype=dtype, device="cuda")
-        v_norm_w = torch.randn(H * DV, dtype=dtype, device="cuda")
-        v_norm_w0 = _leaf(v_norm_w)
-        v_norm_w1 = _leaf(v_norm_w)
-        with torch.no_grad():
-            v_norm0.weight.copy_(v_norm_w0)
-            v_norm1.weight.copy_(v_norm_w1)
-    else:
-        v_norm0 = None
-        v_norm1 = None
-
-    if use_o_norm:
-        o_norm0 = get_normalization_function("rmsnorm", H * DV, eps=1e-6).to(dtype=dtype, device="cuda")
-        o_norm1 = get_normalization_function("rmsnorm", H * DV, eps=1e-6).to(dtype=dtype, device="cuda")
-        o_norm_w = torch.randn(H * DV, dtype=dtype, device="cuda")
-        o_norm_w0 = _leaf(o_norm_w)
-        o_norm_w1 = _leaf(o_norm_w)
-        with torch.no_grad():
-            o_norm0.weight.copy_(o_norm_w0)
-            o_norm1.weight.copy_(o_norm_w1)
-    else:
-        o_norm0 = None
-        o_norm1 = None
 
     q0 = _leaf(q)
     k0 = _leaf(k)
@@ -236,13 +196,10 @@ def test_broadcast(HK: int, HV: int, HB: int, use_v_norm: bool, use_o_norm: bool
         v=v0,
         beta=b0,
         initial_state=S0,
-        output_final_state=False,
+        output_final_state=True,
         cu_seqlens=None,
         use_q_l2norm_in_kernel=True,
         use_k_l2norm_in_kernel=True,
-        v_norm=v_norm0,
-        o_norm=o_norm0,
-        allow_fp32=True,
     )
 
     q1 = _leaf(q)
@@ -251,40 +208,20 @@ def test_broadcast(HK: int, HV: int, HB: int, use_v_norm: bool, use_o_norm: bool
     b1 = _leaf(b)
     S1 = _leaf(S)
 
-    q1_broadcast = repeat(q1, "... h d -> ... (h g) d", g=H // HK)
-    k1_broadcast = repeat(k1, "... h d -> ... (h g) d", g=H // HK)
     v1_broadcast = repeat(v1, "... h d -> ... (h g) d", g=H // HV)
-    b1_broadcast = repeat(b1, "... h   -> ... (h g)  ", g=H // HB)
     S1_broadcast = repeat(S1, "1 ... -> b ...", b=B)
 
-    if use_v_norm:
-        assert v_norm1 is not None
-        v1_broadcast = rearrange(v1_broadcast, "b t h d -> (b t) (h d)", b=B, t=T, h=H, d=DV)
-        # v1_broadcast = v_norm1(v1_broadcast)
-        v1_broadcast = rmsnorm(v1_broadcast, weight=v_norm1.weight, eps=v_norm1.eps)
-        v1_broadcast = rearrange(v1_broadcast, "(b t) (h d) -> b t h d", b=B, t=T, h=H, d=DV)
-
     o1, S1_ = chunk_delta_rule(
-        q=q1_broadcast,
-        k=k1_broadcast,
+        q=q1,
+        k=k1,
         v=v1_broadcast,
-        beta=b1_broadcast,
+        beta=b1,
         initial_state=S1_broadcast,
-        output_final_state=False,
+        output_final_state=True,
         cu_seqlens=None,
         use_q_l2norm_in_kernel=True,
         use_k_l2norm_in_kernel=True,
-        v_norm=None,
-        o_norm=None,
-        allow_fp32=True,
     )
-
-    if use_o_norm:
-        assert o_norm1 is not None
-        o1 = rearrange(o1, "b t h d -> (b t) (h d)", b=B, t=T, h=H, d=DV)
-        # o1 = o_norm1(o1)
-        o1 = rmsnorm(o1, weight=o_norm1.weight, eps=o_norm1.eps)
-        o1 = rearrange(o1, "(b t) (h d) -> b t h d", b=B, t=T, h=H, d=DV)
 
     (o0 / max(DK, DV)).sum().backward()
     (o1 / max(DK, DV)).sum().backward()
@@ -296,10 +233,6 @@ def test_broadcast(HK: int, HV: int, HB: int, use_v_norm: bool, use_o_norm: bool
     torch.testing.assert_close(v0.grad, v1.grad)
     torch.testing.assert_close(b0.grad, b1.grad)
     torch.testing.assert_close(S0.grad, S1.grad)
-    if use_v_norm:
-        torch.testing.assert_close(v_norm0.weight.grad, v_norm1.weight.grad)
-    if use_o_norm:
-        torch.testing.assert_close(o_norm0.weight.grad, o_norm1.weight.grad)
 
 
 @pytest.mark.parametrize("use_shortconv", [False, True])
@@ -432,7 +365,7 @@ def test_packed_cache_continuation(
             cu_seqlens=_cu_seqlens([prefix_lengths[i] for i in prefixed_idx], device=device),
             max_seqlen=max(prefix_lengths[i] for i in prefixed_idx),
         )
-        conv_state, recurrent_state = cache.get_cache(layer_idx=0, empty_value=(None, None))
+        conv_state, recurrent_state = cache.get_cache(layer_idx=0, empty_value=(None, None), cache_name="delta_mlp")
 
         if has_fresh:
             # Rebuild a full-batch state: prefilled state scattered into the
@@ -458,6 +391,7 @@ def test_packed_cache_continuation(
                     GenerationState(state=mixed_recurrent_state, method=ConstantCache),
                 ),
                 layer_idx=0,
+                cache_name="delta_mlp",
             )
         else:
             # Direct packed prefill must write one state row per request.
@@ -586,6 +520,7 @@ def _fresh_zero_state_cache(model: DeltaMLP, batch_size: int) -> GenerationCache
             GenerationState(state=model.initial_recurrent_state(batch_size=batch_size), method=ConstantCache),
         ),
         layer_idx=0,
+        cache_name="delta_mlp",
     )
     return cache
 
