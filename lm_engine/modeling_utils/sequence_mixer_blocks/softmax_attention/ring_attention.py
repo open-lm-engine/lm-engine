@@ -507,6 +507,7 @@ class _RingAttention(torch.autograd.Function):
         return dq, dk, dv, *[None] * 7
 
 
+@torch.compiler.disable
 def ring_attention_function(
     q: torch.Tensor,
     k: torch.Tensor,

@@ -38,28 +38,7 @@ def get_mlp_block(
     elif mlp_type == "MoE":
         mlp = MoE(**kwargs)
     elif mlp_type == "DeltaMLP":
-        mlp = DeltaMLP(
-            **kwargs,
-            num_ranks=block.num_ranks,
-            num_heads=block.num_heads,
-            use_v_proj=block.use_v_proj,
-            use_q_l2norm=block.use_q_l2norm,
-            use_shortconv=block.use_shortconv,
-            use_tied_beta=block.use_tied_beta,
-            use_decay_beta=block.use_decay_beta,
-            allow_neg_eigval=block.allow_neg_eigval,
-            use_o_norm=block.use_o_norm,
-            conv_size=block.kernel_size,
-            layer_idx=layer_idx,
-            norm_eps=config.layer_norm_epsilon,
-            A_init_min=block.A_init_min,
-            A_init_max=block.A_init_max,
-            dt_init_min=block.dt_init_min,
-            dt_init_max=block.dt_init_max,
-            dt_init_floor=block.dt_init_floor,
-            value_scale=block.value_scale,
-            use_b_proj_per_row_hyperball=block.use_b_proj_per_row_hyperball,
-        )
+        mlp = DeltaMLP(**kwargs, layer_idx=layer_idx, norm_eps=config.layer_norm_epsilon)
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")
 

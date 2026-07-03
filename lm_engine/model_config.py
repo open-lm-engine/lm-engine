@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 from .arguments import BaseArgs
 from .modeling_utils import (
+    DeltaMLPArgs,
     GatedDeltaNetArgs,
     GRUArgs,
     M2RNNArgs,
@@ -52,7 +53,7 @@ class CommonConfig(BaseArgs):
     embedding_init_method: Literal["normal", "mup", "fan_in"]
     use_depth_scaled_init: bool
     sequence_mixer_blocks: list[SoftmaxAttentionArgs | Mamba2Args | GRUArgs | RNNArgs | M2RNNArgs | GatedDeltaNetArgs]
-    mlp_blocks: list[MLPArgs | MoEArgs]
+    mlp_blocks: list[MLPArgs | MoEArgs | DeltaMLPArgs]
     tie_word_embeddings: bool
     router_aux_loss_coef: float | None = None
     rope_dim: int | None = None
