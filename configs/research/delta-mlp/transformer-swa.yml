@@ -31,7 +31,7 @@ kernel_args:
     - rnn
     - gru
     - flash_attention_3
-    - hyperball_adam
+    - adam_hyperball
 
 model_args:
   pretrained_config:
@@ -295,7 +295,7 @@ training_parameters:
 
 optimizer_args:
   params_group_method: hyperball
-  class_name: HyperballAdamW
+  class_name: AdamHyperball
   class_args:
     lr: 7e-3
     weight_decay: 0.1

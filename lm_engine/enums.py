@@ -61,12 +61,12 @@ class ExperimentsTrackerName(Enum):
 
 class Kernel(Enum):
     # XMA
+    adam_hyperball = "adam_hyperball"
     causal_conv1d = "causal_conv1d"
     continuous_count = "continuous_count"
     cross_entropy = "cross_entropy"
     fused_linear_cross_entropy = "fused_linear_cross_entropy"
     gru = "gru"
-    hyperball_adam = "hyperball_adam"
     m2rnn = "m2rnn"
     pack_sequence = "pack_sequence"
     rmsnorm = "rmsnorm"

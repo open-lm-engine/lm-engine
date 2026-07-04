@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.optim import AdamW
 
-from lm_engine.optimization.adam_hyperball import HyperballAdamW
+from lm_engine.optimization.adam_hyperball import AdamHyperball
 
 
 LR = 0.01
@@ -25,7 +25,7 @@ WEIGHT_DECAY = 0.1
 )
 def test_hyperball(param_data, grad_sequences):
     p = torch.tensor(param_data, dtype=torch.float32)
-    opt = HyperballAdamW([{"params": [p], "hyperball": True, "weight_decay": 0}], lr=LR, betas=BETAS, eps=EPS)
+    opt = AdamHyperball([{"params": [p], "hyperball": True, "weight_decay": 0}], lr=LR, betas=BETAS, eps=EPS)
 
     W_ref = torch.tensor(param_data, dtype=torch.float32)
     opt_ref = AdamW([W_ref], lr=LR, betas=BETAS, eps=EPS, weight_decay=0.0)
@@ -53,7 +53,7 @@ def test_hyperball(param_data, grad_sequences):
 def test_norm_preserved() -> None:
     p = torch.tensor([3.0, 4.0], dtype=torch.float32)
     R = p.data.norm().item()
-    opt = HyperballAdamW([{"params": [p], "hyperball": True, "weight_decay": 0}], lr=LR, betas=BETAS, eps=EPS)
+    opt = AdamHyperball([{"params": [p], "hyperball": True, "weight_decay": 0}], lr=LR, betas=BETAS, eps=EPS)
 
     for _ in range(20):
         p.grad = torch.randn_like(p.data)
@@ -64,7 +64,7 @@ def test_norm_preserved() -> None:
 def test_zero_grad_skipped() -> None:
     p = torch.tensor([3.0, 4.0], dtype=torch.float32)
     W_before = p.data.clone()
-    opt = HyperballAdamW([{"params": [p], "hyperball": True, "weight_decay": 0}], lr=LR, betas=BETAS, eps=EPS)
+    opt = AdamHyperball([{"params": [p], "hyperball": True, "weight_decay": 0}], lr=LR, betas=BETAS, eps=EPS)
 
     p.grad = torch.zeros_like(p.data)
     opt.step()

@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.optim import AdamW
 
-from lm_engine.optimization.adam_hyperball import HyperballAdamW
+from lm_engine.optimization.adam_hyperball import AdamHyperball
 
 
 LR = 0.01
@@ -27,7 +27,7 @@ def test_adamw(param_data, grad_data, steps, weight_decay):
     p_ours = torch.tensor(param_data, dtype=torch.float32)
     p_ref = torch.tensor(param_data, dtype=torch.float32)
 
-    opt_ours = HyperballAdamW([p_ours], lr=LR, betas=BETAS, eps=EPS, weight_decay=weight_decay)
+    opt_ours = AdamHyperball([p_ours], lr=LR, betas=BETAS, eps=EPS, weight_decay=weight_decay)
     opt_ref = AdamW([p_ref], lr=LR, betas=BETAS, eps=EPS, weight_decay=weight_decay)
 
     grads = [torch.tensor(grad_data, dtype=torch.float32) for _ in range(steps)]

@@ -11,7 +11,7 @@ from ..mlp import MLPArgs
 
 class MoEArgs(MLPArgs):
     mlp_type: str = "MoE"
-    shared_intermediate_size: int | None
+    shared_intermediate_size: int | None = None
     num_experts: int
     num_experts_per_tok: int
     shared_expert_gating: bool = False

@@ -17,28 +17,18 @@ from ..utils import is_xma_available
 
 
 if is_xma_available():
-    from xma import hyperball_adam
+    from xma import adam_hyperball
 
 
-class HyperballAdamW(Optimizer):
-    """Hyperball optimizer with AdamW fallback for non-projection parameters.
+# compile makes a single graph which is very useful when we are using DTensors
+@torch.compile
+def _foreach_normalize(x_list: list[torch.Tensor], eps: float) -> None:
+    u = torch._foreach_norm(x_list, dtype=torch.float32)
+    torch._foreach_add_(u, eps)
+    torch._foreach_div_(x_list, u)
 
-    For parameter groups with hyperball=True (projection weight matrices):
-        Constrains weights to lie on a hypersphere of fixed radius R = ||W_0||_F.
-        Uses Adam to compute the update direction u_t, then applies:
-            W_{t+1} = R * Normalize(W_t - lr * R * Normalize(u_t))
 
-    For all other parameter groups:
-        Standard AdamW update with optional weight decay.
-
-    Args:
-        params: iterable of parameters or param groups
-        lr: learning rate (eta in the Hyperball formula)
-        betas: coefficients for computing running averages of gradient and its square
-        eps: term added to denominator for numerical stability
-        weight_decay: weight decay coefficient (applied only to non-hyperball groups)
-    """
-
+class AdamHyperball(Optimizer):
     def __init__(
         self,
         params,
@@ -48,7 +38,7 @@ class HyperballAdamW(Optimizer):
         weight_decay: float = 0.1,
         hyperball: bool = False,
         maximize: bool = False,
-    ) -> HyperballAdamW:
+    ) -> AdamHyperball:
         defaults = dict(
             lr=lr,
             betas=betas,
@@ -74,16 +64,16 @@ class HyperballAdamW(Optimizer):
 
         for group in self.param_groups:
             beta1, beta2 = group["betas"]
+            params: list[torch.Tensor] = []
+            grads: list[torch.Tensor] = []
+            exp_avgs: list[torch.Tensor] = []
+            exp_avg_sqs: list[torch.Tensor] = []
+            state_steps: list[torch.Tensor | int] = []
 
             if group["hyperball"]:
-                params = []
-                grads = []
-                exp_avgs = []
-                exp_avg_sqs = []
-                Rs = []
-                state_steps = []
+                Rs: list[torch.Tensor] = []
 
-                self._init_hyperball_group(
+                self._init_adam_hyperball_group(
                     group=group,
                     params=params,
                     grads=grads,
@@ -93,8 +83,8 @@ class HyperballAdamW(Optimizer):
                     state_steps=state_steps,
                 )
 
-                if is_kernel_allowed(Kernel.hyperball_adam):
-                    hyperball_adam(
+                if is_kernel_allowed(Kernel.adam_hyperball):
+                    adam_hyperball(
                         params=params,
                         grads=grads,
                         exp_avgs=exp_avgs,
@@ -104,7 +94,6 @@ class HyperballAdamW(Optimizer):
                         beta1=beta1,
                         beta2=beta2,
                         maximize=group["maximize"],
-                        foreach=group["foreach"],
                         state_steps=state_steps,
                         eps=group["eps"],
                     )
@@ -114,33 +103,38 @@ class HyperballAdamW(Optimizer):
                     if group["maximize"]:
                         lr = -lr
 
-                    for i, (W, dW, exp_avg, exp_avg_sq, t, R) in enumerate(
-                        zip(params, grads, exp_avgs, exp_avg_sqs, state_steps, Rs)
-                    ):
-                        exp_avg.mul_(beta1).add_(dW, alpha=1 - beta1)
-                        exp_avg_sq.mul_(beta2).addcmul_(dW, dW, value=1 - beta2)
+                    # update momentum
+                    torch._foreach_mul_(exp_avgs, beta1)
+                    torch._foreach_add_(exp_avgs, grads, alpha=1 - beta1)
 
-                        bc1 = 1 / (1 - beta1**t)
-                        bc2 = 1 / (1 - beta2**t)
-                        u = exp_avg * bc1 / (exp_avg_sq * bc2).sqrt_().add_(eps)
+                    # update variance
+                    torch._foreach_mul_(exp_avg_sqs, beta2)
+                    torch._foreach_addcmul_(exp_avg_sqs, grads, grads, value=1 - beta2)
 
-                        # Normalize update direction
-                        u /= u.norm() + eps
+                    # get copy of variables to prevent updating inplace accidentaly
+                    exp_avgs = torch._foreach_mul(exp_avgs, [1 / (1 - beta1**t) for t in state_steps])
+                    exp_avg_sqs = torch._foreach_mul(exp_avg_sqs, [1 / (1 - beta2**t) for t in state_steps])
 
-                        # Step on the sphere surface, then project back
-                        u *= lr * R
-                        W -= u
-                        W /= W.norm() + eps
-                        W *= R
+                    # compute Adam update
+                    torch._foreach_sqrt_(exp_avg_sqs)
+                    torch._foreach_add_(exp_avg_sqs, eps)
+                    torch._foreach_div_(exp_avgs, exp_avg_sqs)
 
-                        state_steps[i] += 1
+                    # normalize the Adam update
+                    _foreach_normalize(x_list=exp_avgs, eps=eps)
+
+                    # update the parameter
+                    lr_Rs = torch._foreach_mul(Rs, lr)
+                    torch._foreach_mul_(exp_avgs, lr_Rs)
+                    torch._foreach_sub_(params, exp_avgs)
+
+                    # normalize the updated parameter
+                    _foreach_normalize(x_list=params, eps=eps)
+
+                    # project parameters on hyperball of radius R
+                    torch._foreach_mul_(params, Rs)
             else:
-                params: list[torch.Tensor] = []
-                grads: list[torch.Tensor] = []
-                exp_avgs: list[torch.Tensor] = []
-                exp_avg_sqs: list[torch.Tensor] = []
                 max_exp_avg_sqs: list[torch.Tensor] = []
-                state_steps: list[torch.Tensor] = []
 
                 has_complex = AdamW._init_group(
                     self,
@@ -179,7 +173,7 @@ class HyperballAdamW(Optimizer):
 
         return loss
 
-    def _init_hyperball_group(
+    def _init_adam_hyperball_group(
         self,
         group: dict,
         params: list[torch.Tensor],

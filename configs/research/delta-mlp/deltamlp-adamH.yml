@@ -31,7 +31,7 @@ kernel_args:
     - rnn
     - gru
     - flash_attention_3
-    - hyperball_adam
+    - adam_hyperball
     - causal_conv1d
 
 model_args:
@@ -776,7 +776,7 @@ training_parameters:
 
 optimizer_args:
   params_group_method: hyperball
-  class_name: HyperballAdamW
+  class_name: AdamHyperball
   class_args:
     lr: 5e-3
     weight_decay: 0.1
