@@ -588,8 +588,8 @@ class Mamba2(nn.Module):
             dt = dt[:, :, None].expand(-1, -1, self.head_dim)
             dt_bias = self.decay_gate.dt_bias[:, None, ...].expand(-1, self.head_dim)
             D = self.D[:, None, ...].expand(-1, self.head_dim)
-            B = B.view(batch_size, self.n_groups, B.shape[1] // self.n_groups)
-            C = C.view(batch_size, self.n_groups, C.shape[1] // self.n_groups)
+            B = B.reshape(batch_size, self.n_groups, -1)
+            C = C.reshape(batch_size, self.n_groups, -1)
             hidden_states_reshaped = hidden_states.view(batch_size, self.num_heads, self.head_dim)
             hidden_states = selective_state_update(
                 ssm_state,
