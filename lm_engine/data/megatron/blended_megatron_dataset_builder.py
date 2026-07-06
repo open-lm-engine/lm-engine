@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import math
 import os
-from typing import Any
 
 import numpy as np
 
@@ -20,6 +19,7 @@ from ...tokenizers import TOKENIZER_TYPE
 from ...utils import is_multi_storage_client_available
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
+from .concatenated_dataset import ConcatenatedDataset
 from .gpt_dataset import GPTDataset
 from .indexed_dataset import MMapIndexedDataset, get_idx_path
 from .utils import Split, normalize
@@ -35,11 +35,10 @@ def build(
     tokenizer: TOKENIZER_TYPE,
     node_uses_local_storage: bool,
     random_seed: int,
-) -> list[BlendedDataset | GPTDataset | None]:
+) -> list[BlendedDataset | ConcatenatedDataset | GPTDataset | None]:
     blended_datasets = []
 
     if config.blend is not None:
-        blend = config.blend
         split = getattr(config, "split_vector")
 
         # Blend consists of a single prefix
@@ -244,8 +243,10 @@ def _build_megatron_dataset_splits(
 
 
 def _build_generic_dataset(
-    cls: type[BlendedDataset | GPTDataset | MMapIndexedDataset], node_uses_local_storage: bool, **kwargs: Any
-) -> BlendedDataset | GPTDataset | MMapIndexedDataset | None:
+    cls: type[BlendedDataset | ConcatenatedDataset | GPTDataset | MMapIndexedDataset],
+    node_uses_local_storage: bool,
+    **kwargs,
+) -> BlendedDataset | ConcatenatedDataset | GPTDataset | MMapIndexedDataset | None:
     if ProcessGroupManager.is_initialized():
         caching_allowed = ProcessGroupManager.get_global_rank() == 0 or (
             node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0

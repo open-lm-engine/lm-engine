@@ -21,9 +21,11 @@ class BlendedMegatronDatasetConfig:
 
         sequence_length (int): The sequence length.
 
-        blend (list[str] | None): The blend string, consisting of either a single dataset or a
-        flattened sequential sequence of weight-dataset pairs. For example, ["dataset-path1"] and
-        ["50", "dataset-path1", "50", "dataset-path2"] are both valid. Not to be used with
+        blend (list[str] | None): The blend string, consisting of either a plain list of dataset
+        paths (weighted by each dataset's number of samples, as if they were simply concatenated)
+        or a flattened sequential sequence of weight-dataset pairs. For example, ["dataset-path1"],
+        ["dataset-path1", "dataset-path2"], and ["50", "dataset-path1", "50", "dataset-path2"] are
+        all valid. Not to be used with
         'blend_per_split'. Defaults to None.
 
         blend_per_split (blend_per_split: list[list[str] | None]): A set of blend
