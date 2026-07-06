@@ -23,7 +23,7 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
     for layer_idx in range(original_config.num_hidden_layers):
         layer_type = original_config.layer_types[layer_idx]
 
-        if layer_type == "attention":
+        if layer_type == "full_attention":
             sequence_mixer_block = {
                 "sequence_mixer_type": "softmax_attention",
                 "num_attention_heads": original_config.num_attention_heads,
@@ -40,7 +40,7 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "exclusive_self_attention": False,
                 "sliding_window": None,
             }
-        elif layer_type == "mamba":
+        elif layer_type == "linear_attention":
             sequence_mixer_block = {
                 "sequence_mixer_type": "mamba2",
                 "state_size": original_config.mamba_d_state,
