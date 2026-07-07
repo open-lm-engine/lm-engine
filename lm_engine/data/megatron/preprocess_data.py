@@ -2,8 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
-
 from __future__ import annotations
 
 import gzip
@@ -18,7 +16,9 @@ from transformers import AutoTokenizer
 
 from ...tokenizers import TOKENIZER_TYPE, get_tokenizer
 from ...utils import is_zstandard_available
-from .indexed_dataset import DType, MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
+from .bin import get_bin_path
+from .dtype import DType
+from .indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
 
 
 if is_zstandard_available():

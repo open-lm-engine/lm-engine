@@ -2,8 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
-
 from __future__ import annotations
 
 import logging
