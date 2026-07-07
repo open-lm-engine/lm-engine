@@ -83,3 +83,7 @@ class _MultiStorageClientBinReader(_BinReader):
         size = count * DType.size(dtype)
         buffer = self._client.read(path=self._bin_path, byte_range=msc.types.Range(offset=offset, size=size))
         return np.frombuffer(buffer, dtype=dtype)
+
+
+def get_bin_path(path_prefix: str) -> str:
+    return f"{path_prefix}.bin"
