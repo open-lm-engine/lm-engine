@@ -290,6 +290,7 @@ def train(
     test_dataloaders: list[DataLoader],
     experiments_tracker: ExperimentsTracker,
     starting_iteration: int = 0,
+    starting_cumulative_cost_usd: float = 0.0,
 ) -> None:
     """main training loop for the program
 
@@ -304,6 +305,8 @@ def train(
         test_dataloaders (list[DataLoader]): test dataloaders
         experiments_tracker (ExperimentsTracker): metrics tracker
         starting_iteration (int): starting iteration
+        starting_cumulative_cost_usd (float): cumulative training cost (USD) carried over from a
+        prior run, so cost tracking survives checkpoint resumes
     """
 
     num_training_steps = args.training_parameters.num_training_steps
@@ -390,7 +393,7 @@ def train(
         None if cost_per_accelerator_per_hour is None else cost_per_accelerator_per_hour / 3600
     )
     num_accelerators = ProcessGroupManager.get_world_size()
-    cumulative_cost_usd = 0.0
+    cumulative_cost_usd = starting_cumulative_cost_usd
 
     start_time = time.perf_counter()
     steps_since_start_time = 0
@@ -485,6 +488,7 @@ def train(
                 metadata = {
                     "consumed_samples": global_step * global_batch_size,
                     "commit_id": Repo(Path(__file__).parents[1]).git.rev_parse("HEAD"),
+                    "cumulative_cost_usd": cumulative_cost_usd,
                 }
 
             save_checkpoint(
@@ -769,6 +773,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
             test_dataloaders=test_dataloaders,
             experiments_tracker=experiments_tracker,
             starting_iteration=starting_iteration,
+            starting_cumulative_cost_usd=metadata.get("cumulative_cost_usd", 0.0),
         )
 
     experiments_tracker.finish()
