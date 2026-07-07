@@ -365,9 +365,7 @@ def _get_num_epochs(num_tokens_per_epoch: int, seq_length: int, num_samples: int
 
     Args:
         num_tokens_per_epoch (int): The number of tokens in a single epoch
-
         seq_length (int): The sequence length in tokens
-
         num_samples (int): The total number of samples
 
     Returns:
