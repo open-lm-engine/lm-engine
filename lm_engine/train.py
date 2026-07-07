@@ -290,7 +290,7 @@ def train(
     test_dataloaders: list[DataLoader],
     experiments_tracker: ExperimentsTracker,
     starting_iteration: int = 0,
-    starting_cumulative_cost_usd: float = 0.0,
+    starting_cumulative_cost_usd: float = 0,
 ) -> None:
     """main training loop for the program
 
