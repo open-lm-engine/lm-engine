@@ -388,11 +388,13 @@ def train(
     torch_profiler = TorchProfiler(args.logging_args.torch_profiler_trace_path)
     torch_profiler.__enter__()
 
-    cost_per_accelerator_per_hour = args.logging_args.cost_per_accelerator_per_hour
-    cost_per_accelerator_per_second = (
-        None if cost_per_accelerator_per_hour is None else cost_per_accelerator_per_hour / 3600
-    )
     num_accelerators = ProcessGroupManager.get_world_size()
+
+    cost_per_accelerator_per_second = (
+        None
+        if args.logging_args.cost_per_accelerator_per_hour is None
+        else args.logging_args.cost_per_accelerator_per_hour / 3600
+    )
     cumulative_cost_usd = starting_cumulative_cost_usd
 
     start_time = time.perf_counter()
