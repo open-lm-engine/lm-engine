@@ -220,7 +220,6 @@ def build(
                         ConcatenatedDataset,
                         node_uses_local_storage=node_uses_local_storage,
                         datasets=megatron_datasets[i],
-                        sizes=[sizes_per_dataset[j][i] for j in range(len(prefix_per_dataset))],
                     )
                 )
             else:
@@ -300,7 +299,6 @@ def build(
                             ConcatenatedDataset,
                             node_uses_local_storage=node_uses_local_storage,
                             datasets=megatron_datasets,
-                            sizes=[sizes_per_dataset[j][i] for j in range(len(prefix_per_dataset))],
                         )
                     )
                 else:
