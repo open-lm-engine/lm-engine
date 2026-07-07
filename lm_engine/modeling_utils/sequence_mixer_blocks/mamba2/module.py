@@ -365,12 +365,7 @@ class Mamba2(nn.Module):
             # Note: there is no need to pad parameter matrices here, as there is just one new token
             # for batched generation
             # A, dt_bias don't depend on head_dim, so dt is computed at (B, N) and broadcast below
-            _, dt = self.decay_gate(
-                x=dt[:, 0, :],
-                final_exponential=False,
-                dt_min=self.time_step_limit[0],
-                dt_max=self.time_step_limit[1],
-            )
+            dt = self.decay_gate.get_dt(x=dt[:, 0, :], dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
             # dt -> (B, N)
             A = A[..., None, None].expand(self.num_heads, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
             # A -> (N, head_dim, ssm_state_size)
@@ -431,12 +426,7 @@ class Mamba2(nn.Module):
             y = y.reshape(batch_size, -1)[:, None, ...]
         else:
             # begin ssd naive implementation without einsums
-            _, dt = self.decay_gate(
-                x=dt,
-                final_exponential=False,
-                dt_min=self.time_step_limit[0],
-                dt_max=self.time_step_limit[1],
-            )
+            dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
             hidden_states = hidden_states.reshape(batch_size, seq_len, -1, self.head_dim).float()
             B = B.reshape(batch_size, seq_len, -1, self.ssm_state_size).float()
@@ -674,11 +664,8 @@ class Mamba2(nn.Module):
                 if ProcessGroupManager.is_context_parallel_enabled():
                     # Compute the correct initial SSM state for this CP rank.
                     # Pass 1: run scan with zero initial to get the local final state.
-                    _, dt_softplused = self.decay_gate(
-                        x=dt,
-                        final_exponential=False,
-                        dt_min=self.time_step_limit[0],
-                        dt_max=self.time_step_limit[1],
+                    dt_softplused = self.decay_gate.get_dt(
+                        x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]
                     )
 
                     scan_output_zero, ssm_state_zero = mamba_chunk_scan_combined(

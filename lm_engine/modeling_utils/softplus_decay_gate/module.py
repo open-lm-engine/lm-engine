@@ -74,14 +74,7 @@ class SoftplusDecayGate(DTensorModule):
         dt_max: float = float("inf"),
         output_dtype: torch.dtype = torch.float32,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        if self.has_projection:
-            x = self.proj(x)
-
-        dt = F.softplus(x.float() + self.dt_bias)
-
-        if (dt_min, dt_max) != (0, float("inf")):
-            dt = dt.clamp(min=dt_min, max=dt_max)
-
+        dt = self.get_dt(x=x, dt_min=dt_min, dt_max=dt_max)
         x = -self.A_log.float().exp() * dt
 
         if final_exponential:
@@ -90,6 +83,17 @@ class SoftplusDecayGate(DTensorModule):
         x = x.to(output_dtype)
 
         return x, dt
+
+    def get_dt(self, x: torch.Tensor, dt_min: float = 0, dt_max: float = float("inf")) -> torch.Tensor:
+        if self.has_projection:
+            x = self.proj(x)
+
+        dt = F.softplus(x.float() + self.dt_bias)
+
+        if (dt_min, dt_max) != (0, float("inf")):
+            dt = dt.clamp(min=dt_min, max=dt_max)
+
+        return dt
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
