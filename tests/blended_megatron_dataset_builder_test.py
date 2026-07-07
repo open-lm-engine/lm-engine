@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import torch
 
+from lm_engine.data.megatron.bin import get_bin_path
 from lm_engine.data.megatron.blended_dataset import BlendedDataset
 from lm_engine.data.megatron.blended_megatron_dataset_builder import (
     _get_blend_from_list,
@@ -19,7 +20,7 @@ from lm_engine.data.megatron.blended_megatron_dataset_builder import (
 )
 from lm_engine.data.megatron.blended_megatron_dataset_config import GPTDatasetConfig
 from lm_engine.data.megatron.concatenated_dataset import ConcatenatedDataset
-from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
+from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
 from lm_engine.data.megatron.utils import compile_helpers, normalize
 from lm_engine.parallel import ProcessGroupManager
 

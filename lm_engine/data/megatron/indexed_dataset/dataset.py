@@ -13,8 +13,8 @@ import torch
 from ....defaults import MSC_PREFIX
 from ..bin import _MMapBinReader, _MultiStorageClientBinReader, get_bin_path
 from ..dtype import DType
-from ..indexed_dataset import get_idx_path
 from .reader import _IndexReader
+from .utils import get_idx_path
 
 
 class MMapIndexedDataset(torch.utils.data.Dataset):
