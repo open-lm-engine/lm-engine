@@ -364,19 +364,17 @@ class Mamba2(nn.Module):
 
             # Note: there is no need to pad parameter matrices here, as there is just one new token
             # for batched generation
-            dt = dt[:, 0, :][:, None, ...]
-            # dt -> (B, 1, N)
-            dt = dt.transpose(1, 2).expand(batch_size, dt.shape[-1], self.head_dim)
-            # dt -> (B, N, head_dim)
-            dt_bias = self.decay_gate.dt_bias[..., None].expand(self.decay_gate.dt_bias.shape[0], self.head_dim)
-
-            dt = F.softplus(dt + dt_bias.to(dt.dtype))
-            dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
-            # dt -> (B, N, head_dim)
+            # A, dt_bias don't depend on head_dim, so dt is computed at (B, N) and broadcast below
+            _, dt = self.decay_gate(
+                x=dt[:, 0, :],
+                final_exponential=False,
+                dt_min=self.time_step_limit[0],
+                dt_max=self.time_step_limit[1],
+            )
+            # dt -> (B, N)
             A = A[..., None, None].expand(self.num_heads, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
             # A -> (N, head_dim, ssm_state_size)
-            dA = (torch.exp(dt[..., None] * A)).to(device=cache_device)
-            # A -> (N, head_dim, ssm_state_size)
+            dA = (torch.exp(dt[:, :, None, None] * A)).to(device=cache_device)
             # dA -> (B, N, head_dim, ssm_state_size)
 
             # Discretize B
@@ -393,10 +391,10 @@ class Mamba2(nn.Module):
             B, C = [i.reshape(batch_size, -1, i.shape[-1]) for i in (B, C)]
             # B, C -> (B, N, ssm_state_size)
 
-            # (B, N, head_dim, 1) * (B, N, 1, ssm_state_size)
+            # (B, N, 1, 1) * (B, N, 1, ssm_state_size), broadcasts against head_dim below
             # B is same as k and is shared across heads and dt is used to expand it
-            dB = dt[..., None] * B[..., None, :]
-            # dB -> (B, N, head_dim, ssm_state_size)
+            dB = dt[..., None, None] * B[..., None, :]
+            # dB -> (B, N, 1, ssm_state_size)
 
             # Discretize x into dB
             hidden_states = hidden_states.reshape(batch_size, -1, self.head_dim)
@@ -433,8 +431,13 @@ class Mamba2(nn.Module):
             y = y.reshape(batch_size, -1)[:, None, ...]
         else:
             # begin ssd naive implementation without einsums
-            dt = F.softplus(dt + self.decay_gate.dt_bias)
-            dt = torch.clamp(dt, self.time_step_limit[0], self.time_step_limit[1])
+            _, dt = self.decay_gate(
+                x=dt,
+                final_exponential=False,
+                dt_min=self.time_step_limit[0],
+                dt_max=self.time_step_limit[1],
+            )
+
             hidden_states = hidden_states.reshape(batch_size, seq_len, -1, self.head_dim).float()
             B = B.reshape(batch_size, seq_len, -1, self.ssm_state_size).float()
             C = C.reshape(batch_size, seq_len, -1, self.ssm_state_size).float()
@@ -671,9 +674,13 @@ class Mamba2(nn.Module):
                 if ProcessGroupManager.is_context_parallel_enabled():
                     # Compute the correct initial SSM state for this CP rank.
                     # Pass 1: run scan with zero initial to get the local final state.
-                    dt_softplused = F.softplus(dt + self.decay_gate.dt_bias)
-                    if self.time_step_limit != (0.0, float("inf")):
-                        dt_softplused = dt_softplused.clamp(*self.time_step_limit)
+                    _, dt_softplused = self.decay_gate(
+                        x=dt,
+                        final_exponential=False,
+                        dt_min=self.time_step_limit[0],
+                        dt_max=self.time_step_limit[1],
+                    )
+
                     scan_output_zero, ssm_state_zero = mamba_chunk_scan_combined(
                         hidden_states.view(batch_size, seq_len, -1, self.head_dim),
                         dt,
