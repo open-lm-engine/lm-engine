@@ -164,7 +164,7 @@ class GatedDeltaNet(nn.Module):
         if self.allow_neg_eigval:
             beta = beta * 2
 
-        g = self.decay_gate(x=a, final_exponential=False)
+        g, _ = self.decay_gate(x=a, final_exponential=False)
 
         if self.use_padding_free_transformer:
             assert cache_params is None
