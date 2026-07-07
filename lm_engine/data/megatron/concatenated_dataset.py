@@ -24,8 +24,4 @@ class ConcatenatedDataset(torch.utils.data.ConcatDataset):
 
     def __init__(self, datasets: list[GPTDataset], caching_allowed: bool) -> ConcatenatedDataset:
         assert all(map(lambda _: type(_) == type(datasets[0]), datasets))
-
         super().__init__([torch.utils.data.Subset(dataset, range(dataset.num_samples)) for dataset in datasets])
-
-        # accepted for a uniform constructor signature with BlendedDataset; concatenation needs no cache
-        self.caching_allowed = caching_allowed
