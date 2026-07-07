@@ -378,6 +378,8 @@ class LoggingArgs(BaseArgs):
     # torch profiler trace path, specifying a path will enable the torch profiler
     # this can cause some performance impact so use sparingly
     torch_profiler_trace_path: str | None = None
+    # cost per accelerator per hour in USD; if set, training cost is tracked and logged
+    cost_per_accelerator_per_hour: float | None = None
 
     def model_post_init(self, __context: Any) -> None:
         if self.experiments_tracker_name == ExperimentsTrackerName.aim:
