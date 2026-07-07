@@ -380,6 +380,8 @@ class LoggingArgs(BaseArgs):
     torch_profiler_trace_path: str | None = None
     # interval for logging per-parameter and per-gradient norms and histograms, None disables it
     log_parameter_and_gradient_interval: int | None = None
+    # cost per accelerator per hour in USD; if set, training cost is tracked and logged
+    cost_per_accelerator_per_hour: float | None = None
 
     def model_post_init(self, __context: Any) -> None:
         if self.experiments_tracker_name == ExperimentsTrackerName.aim:
