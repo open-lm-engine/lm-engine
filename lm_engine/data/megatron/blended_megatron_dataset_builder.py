@@ -29,6 +29,131 @@ if is_multi_storage_client_available():
     import multistorageclient as msc
 
 
+def _resolve_idx_path(
+    path_prefix: str, node_uses_local_storage: bool, config: BlendedMegatronDatasetConfig
+) -> str | None:
+    """Download the .idx file for a dataset prefix to local disk if it lives on a multi-storage
+    client, so that it can be opened by MMapIndexedDataset
+
+    Args:
+        path_prefix (str): The MMapIndexedDataset .bin and .idx file prefix
+        node_uses_local_storage (bool): Whether the node caches data on local storage
+        config (BlendedMegatronDatasetConfig): The config object which informs dataset creation
+
+    Returns:
+        str | None: The local .idx path, or None when the prefix already lives on local storage
+    """
+
+    if not path_prefix.startswith(MSC_PREFIX):
+        return None
+
+    remote_idx_path = get_idx_path(path_prefix)
+    idx_path = os.path.join(config.path_to_cache, "cloud-idx-cache", remote_idx_path.removeprefix(MSC_PREFIX))
+
+    log_rank_0(logging.INFO, f"downloading {remote_idx_path} to {idx_path}")
+
+    if (
+        ProcessGroupManager.get_global_rank() == 0
+        or (node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0)
+        or ProcessGroupManager.is_tensor_parallel_first_rank()
+    ):
+        msc.download_file(remote_idx_path, idx_path)
+
+    ProcessGroupManager.barrier()
+
+    assert os.path.exists(idx_path)
+
+    return idx_path
+
+
+def _get_blend_from_list(blend: list[str]) -> tuple[list[str], list[float] | None]:
+    """Parse a blend list into dataset prefixes and, optionally, their sampling weights
+
+    Args:
+        blend (list[str]): Either a plain list of dataset prefixes, e.g.
+        ["path/to/dataset_1_prefix", "path/to/dataset_2_prefix"], in which case the datasets are
+        sampled equally, or a flattened sequence of weight-prefix pairs, e.g. ["30",
+        "path/to/dataset_1_prefix", "70", "path/to/dataset_2_prefix"]
+
+    Returns:
+        tuple[list[str], list[float] | None]: The dataset prefixes, and the (unnormalized)
+        weights, or None if the blend contains no weights and the datasets should be sampled
+        equally
+    """
+
+    # An odd-length blend can't be weight-prefix pairs, so it must be a plain list of prefixes
+    if len(blend) % 2 == 1:
+        return [prefix.strip() for prefix in blend], None
+
+    raw_weight_per_dataset, raw_prefix_per_dataset = zip(*[(blend[i], blend[i + 1]) for i in range(0, len(blend), 2)])
+
+    weight_per_dataset = []
+    for weight in raw_weight_per_dataset:
+        try:
+            weight_per_dataset.append(float(weight))
+        except ValueError:
+            # not every entry parses as a weight, so treat the whole blend as a plain list of prefixes
+            return [prefix.strip() for prefix in blend], None
+
+    return [prefix.strip() for prefix in raw_prefix_per_dataset], weight_per_dataset
+
+
+def _get_num_samples_per_prefix(
+    prefixes: list[str], node_uses_local_storage: bool, config: BlendedMegatronDatasetConfig
+) -> list[int]:
+    """Get the number of samples available in each dataset prefix, used to weight an unweighted
+    blend as if the datasets were simply concatenated
+
+    Args:
+        prefixes (list[str]): The MMapIndexedDataset .bin and .idx file prefixes
+        node_uses_local_storage (bool): Whether the node caches data on local storage
+        config (BlendedMegatronDatasetConfig): The config object which informs dataset creation
+
+    Returns:
+        list[int]: The number of samples in each dataset prefix
+    """
+
+    num_samples = []
+    for prefix in prefixes:
+        idx_path = _resolve_idx_path(prefix, node_uses_local_storage, config)
+        num_samples.append(len(MMapIndexedDataset(prefix, GPTDataset.is_multimodal(), idx_path=idx_path)))
+
+    return num_samples
+
+
+def _get_sizes_for_blend(weights: list[float], target_num_samples_per_split: list[int]) -> list[list[int]]:
+    """Determine the contribution of the MegatronDataset splits to the BlendedDataset splits
+
+    Args:
+        weights (list[float]): The normalized weight for each dataset in the blend e.g. [0.3, 0.7]
+
+        target_num_samples_per_split (list[int]): The number of samples to target for each
+        BlendedDataset split
+
+    Returns:
+        list[list[int]]: The number of samples to request per MegatronDataset per split
+    """
+
+    # Use 0.5% target margin to ensure we satiate the network
+    return [
+        [int(math.ceil(target_num_samples * weight * 1.005)) for target_num_samples in target_num_samples_per_split]
+        for weight in weights
+    ]
+
+
+def _get_appropriate_dtype_for_range(split_idx_bounds: list[int]) -> np.dtype:
+    max_value = max(split_idx_bounds)
+
+    if max_value <= np.iinfo(np.int32).max:
+        dtype = np.int32
+    elif max_value <= np.iinfo(np.int64).max:
+        dtype = np.int64
+    else:
+        raise ValueError("value for split idx is too large")
+
+    return dtype
+
+
 def build(
     sizes: list[int],
     config: BlendedMegatronDatasetConfig,
@@ -40,11 +165,12 @@ def build(
 
     if config.blend is not None:
         split = getattr(config, "split_vector")
+        prefix_per_dataset, weight_per_dataset = _get_blend_from_list(config.blend)
 
         # Blend consists of a single prefix
-        if len(blend) == 1:
+        if len(prefix_per_dataset) == 1:
             return _build_megatron_dataset_splits(
-                blend[0],
+                prefix_per_dataset[0],
                 split,
                 sizes,
                 node_uses_local_storage=node_uses_local_storage,
@@ -53,10 +179,15 @@ def build(
                 random_seed=random_seed,
             )
 
-        # Blend consists of multiple weights and prefixes
-        prefix_per_dataset, weight_per_dataset, sizes_per_dataset = _get_prefixes_weights_and_sizes_for_blend(
-            blend, sizes
-        )
+        # Blend consists of multiple prefixes; when no weights were provided, the datasets are
+        # concatenated (each contributing samples proportional to its own size) rather than
+        # weighted and randomly interleaved
+        is_concatenated = weight_per_dataset is None
+        if is_concatenated:
+            weight_per_dataset = _get_num_samples_per_prefix(prefix_per_dataset, node_uses_local_storage, config)
+
+        weight_per_dataset = normalize(weight_per_dataset)
+        sizes_per_dataset = _get_sizes_for_blend(weight_per_dataset, sizes)
 
         # Sum over all contributing datasets, per split
         size_per_split = list(map(sum, zip(*sizes_per_dataset)))
@@ -82,6 +213,16 @@ def build(
             if split[i] == 0.0:
                 assert all(is_none)
                 blended_datasets.append(None)
+            elif is_concatenated:
+                assert all(is_none) or not any(is_none)
+                blended_datasets.append(
+                    _build_generic_dataset(
+                        ConcatenatedDataset,
+                        node_uses_local_storage=node_uses_local_storage,
+                        datasets=megatron_datasets[i],
+                        sizes=[sizes_per_dataset[j][i] for j in range(len(prefix_per_dataset))],
+                    )
+                )
             else:
                 assert all(is_none) or not any(is_none)
                 blended_datasets.append(
@@ -108,11 +249,13 @@ def build(
             sizes_spoof = [0] * len(Split)
             sizes_spoof[i] = sizes[i]
 
+            prefix_per_dataset, weight_per_dataset = _get_blend_from_list(blend)
+
             # Blend consists of a sigle prefix
-            if len(blend) == 1:
+            if len(prefix_per_dataset) == 1:
                 blended_datasets.append(
                     _build_megatron_dataset_splits(
-                        blend[0],
+                        prefix_per_dataset[0],
                         split_spoof,
                         sizes_spoof,
                         node_uses_local_storage=node_uses_local_storage,
@@ -122,11 +265,18 @@ def build(
                     )[i]
                 )
 
-            # Blend consists of multiple weights and prefixes
+            # Blend consists of multiple prefixes; when no weights were provided, the datasets are
+            # concatenated (each contributing samples proportional to its own size) rather than
+            # weighted and randomly interleaved
             else:
-                prefix_per_dataset, weight_per_dataset, sizes_per_dataset = _get_prefixes_weights_and_sizes_for_blend(
-                    blend, sizes_spoof
-                )
+                is_concatenated = weight_per_dataset is None
+                if is_concatenated:
+                    weight_per_dataset = _get_num_samples_per_prefix(
+                        prefix_per_dataset, node_uses_local_storage, config
+                    )
+
+                weight_per_dataset = normalize(weight_per_dataset)
+                sizes_per_dataset = _get_sizes_for_blend(weight_per_dataset, sizes_spoof)
 
                 size_per_split = list(map(sum, zip(*sizes_per_dataset)))
                 megatron_datasets = []
@@ -144,16 +294,26 @@ def build(
                         )[i]
                     )
 
-                blended_datasets.append(
-                    _build_generic_dataset(
-                        BlendedDataset,
-                        node_uses_local_storage=node_uses_local_storage,
-                        datasets=megatron_datasets,
-                        weights=weight_per_dataset,
-                        size=size_per_split[i],
-                        config=config,
+                if is_concatenated:
+                    blended_datasets.append(
+                        _build_generic_dataset(
+                            ConcatenatedDataset,
+                            node_uses_local_storage=node_uses_local_storage,
+                            datasets=megatron_datasets,
+                            sizes=[sizes_per_dataset[j][i] for j in range(len(prefix_per_dataset))],
+                        )
                     )
-                )
+                else:
+                    blended_datasets.append(
+                        _build_generic_dataset(
+                            BlendedDataset,
+                            node_uses_local_storage=node_uses_local_storage,
+                            datasets=megatron_datasets,
+                            weights=weight_per_dataset,
+                            size=size_per_split[i],
+                            config=config,
+                        )
+                    )
 
     return blended_datasets
 
@@ -171,34 +331,14 @@ def _build_megatron_dataset_splits(
 
     Args:
         path_prefix (str): The MMapIndexedDataset .bin and .idx file prefix
-
         split (list[float]): The dataset split ratios (must sum to 1.00)
-
         sizes (list[int]): The number of total samples to draw from each split
 
     Returns:
         list[GPTDataset | None]: The GPTDataset (or None) per split
     """
 
-    idx_path = None
-
-    # download the idx file manually first
-    if path_prefix.startswith(MSC_PREFIX):
-        remote_idx_path = get_idx_path(path_prefix)
-        idx_path = os.path.join(config.path_to_cache, "cloud-idx-cache", remote_idx_path.removeprefix(MSC_PREFIX))
-
-        log_rank_0(logging.INFO, f"downloading {remote_idx_path} to {idx_path}")
-
-        if (
-            ProcessGroupManager.get_global_rank() == 0
-            or (node_uses_local_storage and ProcessGroupManager.get_local_rank() == 0)
-            or ProcessGroupManager.is_tensor_parallel_first_rank()
-        ):
-            msc.download_file(remote_idx_path, idx_path)
-
-        ProcessGroupManager.barrier()
-
-        assert os.path.exists(idx_path)
+    idx_path = _resolve_idx_path(path_prefix, node_uses_local_storage, config)
 
     if not ProcessGroupManager.is_initialized() or ProcessGroupManager.is_tensor_parallel_first_rank():
         indexed_dataset = MMapIndexedDataset(path_prefix, GPTDataset.is_multimodal(), idx_path=idx_path)
@@ -300,46 +440,3 @@ def _get_split_indices(split: list[float], num_elements: int) -> list[int]:
     assert split_indices[-1] == num_elements
 
     return split_indices
-
-
-def _get_prefixes_weights_and_sizes_for_blend(
-    blend: list[str], target_num_samples_per_split: list[int]
-) -> tuple[list[str], list[float], list[list[int]]]:
-    """Determine the contribution of the MegatronDataset splits to the BlendedDataset splits
-
-    Args:
-        blend (list[str]): e.g. ["30", "path/to/dataset_1_prefix", "70",
-        "path/to/dataset_2_prefix"]
-
-        target_num_samples_per_split (list[int]): The number of samples to target for each
-        BlendedDataset split
-
-    Returns:
-        tuple[list[str], list[float], list[list[int]]]: The prefix strings e.g.
-        ["path/to/dataset_1_prefix", "path/to/dataset_2_prefix"], the normalized weights e.g.
-        [0.3, 0.7], and the number of samples to request per MegatronDataset per split
-    """
-
-    weights, prefixes = zip(*[(float(blend[i]), blend[i + 1].strip()) for i in range(0, len(blend), 2)])
-    weights = normalize(weights)
-
-    # Use 0.5% target margin to ensure we satiate the network
-    sizes_per_dataset = [
-        [int(math.ceil(target_num_samples * weight * 1.005)) for target_num_samples in target_num_samples_per_split]
-        for weight in weights
-    ]
-
-    return prefixes, weights, sizes_per_dataset
-
-
-def _get_appropriate_dtype_for_range(split_idx_bounds: list[int]) -> np.dtype:
-    max_value = max(split_idx_bounds)
-
-    if max_value <= np.iinfo(np.int32).max:
-        dtype = np.int32
-    elif max_value <= np.iinfo(np.int64).max:
-        dtype = np.int64
-    else:
-        raise ValueError("value for split idx is too large")
-
-    return dtype
