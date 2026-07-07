@@ -190,7 +190,7 @@ class M2RNN(nn.Module):
         x = self.input_projection(x)
         x, f, g = x.split((self.conv_dim, self.num_f_heads, self.g_shape), dim=-1)
 
-        f = self.decay_gate(f, final_exponential=True, output_dtype=f.dtype)
+        f, _ = self.decay_gate(f, final_exponential=True, output_dtype=f.dtype)
 
         if self.kernel_size is not None:
             x, c = self.conv1d(
