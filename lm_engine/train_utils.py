@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import logging
@@ -8,16 +8,11 @@ import torch
 from torch.distributed import ReduceOp
 
 from .enums import GradientCheckpointingMethod
-from .hf_models import CommonConfig, is_custom_model
-from .hf_models.modeling_utils import is_glu
-from .utils import (
-    Accelerator,
-    ExperimentsTracker,
-    MetricsTrackingDict,
-    ProcessGroupManager,
-    divide_if_divisible,
-    log_metrics,
-)
+from .logging_utils import ExperimentsTracker, MetricsTrackingDict, log_metrics
+from .model_config import CommonConfig
+from .modeling_utils import is_glu
+from .parallel import ProcessGroupManager
+from .register_hf import is_custom_model
 
 
 def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsTrackingDict:
@@ -26,18 +21,9 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
 
     tensor = [metrics_tracker[key] for key in metrics_tracker]
     tensor = torch.stack(tensor)
-    # NOTE the cpu() call was to save memory but might not be needed anymore
-    # tensor = torch.stack(tensor) / ProcessGroupManager.get_data_parallel_world_size()
-    # tensor = tensor.cpu()
-    # gloo op doesn't support averaging so we do sum and divide by world size above
 
-    accelerator = Accelerator.get_accelerator()
-
-    if accelerator == Accelerator.tpu:
-        torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
-        tensor = tensor * (1 / ProcessGroupManager.get_data_parallel_world_size())
-    else:
-        torch.distributed.all_reduce(tensor, op=ReduceOp.AVG, group=ProcessGroupManager.get_data_parallel_group())
+    torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
+    tensor = tensor / ProcessGroupManager.get_data_loading_world_size()
 
     for i, key in enumerate(metrics_tracker):
         metrics_tracker[key] = tensor[i]
@@ -125,21 +111,7 @@ def get_model_tflops(
         sequence_mixer_type = block.sequence_mixer_type
         gradient_checkpointing_enabled = layer_idx < num_layers_checkpointed
 
-        if sequence_mixer_type == "causal_convolution":
-            sequence_mixer_flops = _get_linear_flops(
-                b * s, h, block.in_channels, gradient_checkpointing=gradient_checkpointing_enabled
-            )
-            sequence_mixer_flops += divide_if_divisible(
-                _get_linear_flops(
-                    b * s, block.in_channels, block.out_channels, gradient_checkpointing=gradient_checkpointing_enabled
-                ),
-                block.num_groups,
-                "",
-            )
-            sequence_mixer_flops += _get_linear_flops(
-                b * s, block.out_channels, h, gradient_checkpointing=gradient_checkpointing_enabled
-            )
-        elif sequence_mixer_type == "softmax_attention":
+        if sequence_mixer_type == "softmax_attention":
             # QKV projection FLOPs
             sequence_mixer_flops = _get_linear_flops(
                 b * s,

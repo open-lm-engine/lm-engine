@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 datasets:
@@ -34,208 +34,700 @@ model_args:
     bos_token_id: 0
     eos_token_id: 0
     pad_token_id: 0
+    rope_scaling: null
+    rope_dim: null
+    embedding_dropout: 0
+    use_cache: true
+    embedding_init_method: normal
+    use_depth_scaled_init: true
+    router_aux_loss_coef: 0.001
+    tie_word_embeddings: false
+    m_emb: null
+    m_width: null
+    m_residual: null
+    init_method: normal
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
       - sequence_mixer_type: softmax_attention
         num_attention_heads: 36
         add_bias: false
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        num_key_value_heads: 36
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
     mlp_blocks:
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
       - mlp_type: MLP
         activation_function: swiglu
+        add_bias: false
+        dropout: 0
+        intermediate_size: 9216
   efficient_initialization: false
 
 tuning_args:

@@ -1,8 +1,22 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 repos:
+  - repo: local
+    hooks:
+      - id: add-copyright
+        name: add copyright header
+        language: python
+        entry: python tools/copyright.py --repo . --header "Copyright (c) 2026, Mayank Mishra" --no-contributors
+        types: [python]
+        pass_filenames: false
+      - id: check-copyright
+        name: check copyright year
+        language: python
+        entry: python tools/copyright.py --repo . --header "Copyright (c) 2026, Mayank Mishra" --no-contributors --check
+        types: [python]
+        pass_filenames: false
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1
     hooks:

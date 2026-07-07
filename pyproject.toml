@@ -15,14 +15,14 @@ authors = [
     { name = "Mayank Mishra", email = "mayank31398@gmail.com" },
 ]
 dependencies = [
-    "datasets>=4.4.1",
-    "gitpython>=3.1.45",
-    "multi-storage-client[google-cloud-storage]>=0.36.0",
-    "ninja>=1.13.0",
-    "numpy>=2.3.5",
-    "pydantic>=2.12.4",
-    "transformers==4.57.3",
-    "wandb>=0.23.0",
+    "datasets==5.0.0",
+    "gitpython==3.1.50",
+    "multi-storage-client[google-cloud-storage]==0.51.0",
+    "ninja==1.13.0",
+    "numpy==2.5.1",
+    "pydantic==2.13.4",
+    "transformers==5.13.0",
+    "wandb==0.28.0",
 ]
 
 [project.urls]
@@ -34,21 +34,29 @@ cuda = [
     "torch==2.10.0",
 ]
 dev = [
-    "pre-commit>=4.4.0",
-    "pytest>=9.0.1",
+    "pre-commit==4.6.0",
+    "pytest==9.1.1",
 ]
 mamba2 = [
-    "mamba-ssm>=2.2.6.post3",
+    "mamba-ssm==2.2.6.post3",
+]
+quack = [
+    "quack-kernels==0.4.1",
+]
+xma = [
+    "accelerated-model-architectures",
 ]
 tpu = [
+    "google-api-core==2.31.0",
+    "google-cloud-storage==3.12.0",
     "torch==2.10.0",
     "torch-xla[pallas,tpu]==2.9.0",
 ]
 data = [
-    "ray[default]>=2.52.1",
+    "ray[default]==2.56.0",
     "torch==2.10.0",
-    "zstandard>=0.25.0",
-    "aiobotocore>=3.0.0",
+    "zstandard==0.25.0",
+    "aiobotocore==3.7.0",
 ]
 torch = [
     "torch==2.10.0",
@@ -56,6 +64,9 @@ torch = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["lm_engine"]
+
+[tool.uv.sources]
+accelerated-model-architectures = { path = "submodules/accelerated-model-architectures", editable = true, extra = "xma" }
 
 [tool.isort]
 ensure_newline_before_comments = true

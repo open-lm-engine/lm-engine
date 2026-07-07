@@ -1,6 +1,3 @@
-[submodule "copyright"]
-	path = copyright
-	url = https://github.com/mayank31398/copyright
-[submodule "accelerated-model-architectures"]
-	path = accelerated-model-architectures
+[submodule "submodules/accelerated-model-architectures"]
+	path = submodules/accelerated-model-architectures
 	url = https://github.com/open-lm-engine/accelerated-model-architectures

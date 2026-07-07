@@ -1,18 +1,18 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
+
+from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import torch
 import torch.nn as nn
 from torch.distributed._composable.fsdp import CPUOffloadPolicy
 from torch.distributed._composable.fsdp import MixedPrecisionPolicy as MixedPrecision2
 from torch.distributed._composable.fsdp import OffloadPolicy, fully_shard
-from torch.distributed._tensor import distribute_tensor
-from torch.distributed._tensor.placement_types import Shard
 from torch.distributed.fsdp import CPUOffload
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision as MixedPrecision1
@@ -25,29 +25,31 @@ from torch.distributed.pipelining.schedules import (
     _PipelineSchedule,
     get_schedule_class,
 )
+from torch.distributed.tensor import DTensor, Shard, distribute_tensor
 
-from .arguments import TrainingArgs
+from .accelerator import Accelerator
 from .containers import ModelContainer
 from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing
-from .hf_models import (
+from .kernels import is_kernel_allowed
+from .logging_utils import log_rank_0
+from .modeling_utils import CausalLMOutputWithPast
+from .parallel import ProcessGroupManager
+from .parameter import (
     _INIT_MARKER,
-    _OPTIMIZER_SPLIT_FUNCTION,
-    CausalLMOutputWithPast,
+    get_named_parameters_and_buffers,
     get_parameter_marker_maps,
     is_parameter_initialized,
+    mark_parameter_as_initialized,
     set_parameter_marker_maps,
 )
-from .kernels import is_kernel_allowed
-from .utils import (
-    Accelerator,
-    ProcessGroupManager,
-    get_module_class_from_name,
-    is_torch_xla_available,
-    is_torchao_available,
-    log_rank_0,
-    string_to_torch_dtype,
-)
+from .utils import get_module_class_from_name, is_torch_xla_available, is_torchao_available, string_to_torch_dtype
+
+
+if not is_torch_xla_available():
+    from .parallel import MixedPrecisionPolicy as SimpleMixedPrecisionPolicy
+    from .parallel import data_parallel as simple_fsdp_data_parallel
+    from .parallel import get_simple_fsdp_compile_backend
 
 
 if is_torch_xla_available():
@@ -59,6 +61,9 @@ if is_torchao_available():
     from torchao.float8 import ScalingType
 
     from .fp8 import FP8Manager
+
+if TYPE_CHECKING:
+    from .arguments import TrainingArgs
 
 torch._inductor.config.reorder_for_compute_comm_overlap = True
 
@@ -120,8 +125,12 @@ def _get_fsdp_mixed_precision(
 
     if fsdp_algorithm == 1:
         mixed_precision = MixedPrecision1(param_dtype=dtype, reduce_dtype=communication_dtype, buffer_dtype=dtype)
-    else:
+    elif fsdp_algorithm == 2:
         mixed_precision = MixedPrecision2(param_dtype=dtype, reduce_dtype=communication_dtype)
+    elif fsdp_algorithm == 3:
+        mixed_precision = SimpleMixedPrecisionPolicy(param_dtype=dtype, reduce_dtype=communication_dtype)
+    else:
+        raise ValueError(f"unexpected fsdp_algorithm {(fsdp_algorithm)}")
 
     return mixed_precision
 
@@ -140,6 +149,7 @@ def wrap_model_container_for_distributed_training(
     """
 
     stage = args.distributed_args.stage
+    zero3 = stage == 3
     cpu_offload = args.distributed_args.cpu_offload
     torch_compile = args.distributed_args.torch_compile
     dtype = args.mixed_precision_args.dtype
@@ -154,11 +164,22 @@ def wrap_model_container_for_distributed_training(
     if torch_compile:
         log_rank_0(logging.INFO, "using torch compile")
 
+    device = Accelerator.get_current_device()
+
     if fsdp_algorithm is None:
         for i, model in enumerate(model_container):
-            model = model.to(Accelerator.get_current_device())
+            if efficient_initialization:
+                model = model.to_empty(device=device)
+
+                for module in model.modules():
+                    if hasattr(module, "reset_parameters"):
+                        with torch.device(device):
+                            module.reset_parameters()
+            else:
+                model = model.to(device)
+
             if torch_compile:
-                model = torch.compile(model)
+                model = torch.compile(model, backend=Accelerator.get_torch_compile_backend())
 
             model_container[i] = model
 
@@ -204,6 +225,8 @@ def wrap_model_container_for_distributed_training(
         assert len(block_names) == 1
 
         for model in model_container:
+            log_rank_0(logging.INFO, "using activation checkpointing")
+
             apply_gradient_checkpointing(
                 model,
                 args.distributed_args.gradient_checkpointing_method,
@@ -213,11 +236,8 @@ def wrap_model_container_for_distributed_training(
 
     if efficient_initialization:
         for model in model_container:
-            for param_name, parameter in model.named_parameters():
-                parameter._is_initialized = False
-
-            for param_name, parameter in model.named_buffers():
-                parameter._is_initialized = False
+            for param_name, param in get_named_parameters_and_buffers(model):
+                param._is_initialized = False
 
         marker_maps = get_parameter_marker_maps(model_container)
     else:
@@ -226,10 +246,10 @@ def wrap_model_container_for_distributed_training(
     accelerator = Accelerator.get_accelerator()
 
     if accelerator == Accelerator.tpu:
-        assert (
-            ProcessGroupManager.get_data_parallel_world_size()
-            == ProcessGroupManager.get_data_parallel_sharding_world_size()
-        )
+        assert not ProcessGroupManager.is_tensor_parallel_enabled()
+        assert ProcessGroupManager.get_pipeline_parallel_world_size() == 1
+        assert ProcessGroupManager.get_context_parallel_world_size() == 1
+        assert ProcessGroupManager.get_data_parallel_world_size() == data_parallel_sharding_world_size
 
         assert num_pipeline_stages == 1
         assert fsdp_algorithm == 1
@@ -257,30 +277,50 @@ def wrap_model_container_for_distributed_training(
             fsdp_algorithm=2 if use_ddp else fsdp_algorithm,
         )
 
-        if use_ddp or fsdp_algorithm == 2:
+        if fsdp_algorithm == 3:
+            log_rank_0(logging.INFO, "using simple FSDP")
+
+            assert num_pipeline_stages == 1, "simple FSDP does not support pipeline parallelism"
+            assert not cpu_offload, "simple FSDP does not support CPU offload"
+            assert not efficient_initialization, "simple FSDP does not support efficient initialization"
+            assert stage in [0, 3], "simple FSDP supports only stage 0 (DDP) and stage 3 (FSDP)"
+
+            if use_ddp:
+                simple_mode = "replicate"
+                simple_mesh = dp_mesh["ddp"]
+            elif data_parallel_replication_world_size > 1:
+                simple_mode = "hybrid_shard"
+                simple_mesh = dp_mesh
+            else:
+                simple_mode = "fully_shard"
+                simple_mesh = dp_mesh["fsdp"]
+
+            for i, model in enumerate(model_container):
+                model = model.to(Accelerator.get_current_device())
+                model_container[i] = simple_fsdp_data_parallel(
+                    model, device_mesh=simple_mesh, mode=simple_mode, mp_policy=mixed_precision_policy
+                )
+        elif use_ddp or fsdp_algorithm == 2:
             log_rank_0(logging.INFO, "using FSDP-2")
-            zero3 = stage == 3
 
             def _sharding_function(parameter: nn.Parameter) -> Shard:
-                dps = (
-                    ProcessGroupManager.get_data_parallel_world_size()
-                    if data_parallel_sharding_world_size is None
-                    else data_parallel_sharding_world_size
-                )
-
-                if parameter.size(0) > dps or parameter.dim() == 1:
+                if parameter.size(0) > data_parallel_sharding_world_size or parameter.dim() == 1:
                     return Shard(0)
                 else:
                     for dim in range(1, parameter.dim()):
-                        if parameter.size(dim) > dps and parameter.size(dim) % dps == 0:
+                        if (
+                            parameter.size(dim) > data_parallel_sharding_world_size
+                            and parameter.size(dim) % data_parallel_sharding_world_size == 0
+                        ):
                             return Shard(dim)
 
                     log_rank_0(logging.WARN, "sharding along dim=0 since no suitable sharding dimension was found")
                     return Shard(0)
 
             for i, model in enumerate(model_container):
+                # Capture weights before FSDP sharding; params may be TP DTensors
+                # if the model was loaded from a checkpoint with TP already applied.
                 if efficient_initialization and model_name is not None:
-                    # state dict with Tensors
                     old_state_dict = model.state_dict()
 
                 for module in model.modules():
@@ -304,10 +344,6 @@ def wrap_model_container_for_distributed_training(
                 )
 
                 if efficient_initialization:
-                    device = Accelerator.get_current_device()
-
-                    # contributed by Yu Chin Fabian Lim
-                    # original reference https://github.com/fabianlim/accelerate/pull/1
                     if model_name is None:
                         model = model.to_empty(device=device)
 
@@ -326,12 +362,11 @@ def wrap_model_container_for_distributed_training(
                                     with torch.device(device):
                                         module.reset_parameters()
 
-                        # state dict with DTensors
                         new_state_dict = model.state_dict()
 
                         for param_name, param in old_state_dict.items():
                             if ProcessGroupManager.get_data_parallel_rank() == 0:
-                                full_tensor = param
+                                full_tensor = param.full_tensor() if isinstance(param, DTensor) else param
                             else:
                                 full_tensor = torch.empty(param.shape, dtype=param.dtype, device=device)
 
@@ -343,6 +378,11 @@ def wrap_model_container_for_distributed_training(
 
                         model.load_state_dict(new_state_dict, assign=True)
                         del old_state_dict, new_state_dict
+
+                        # load_state_dict(assign=True) replaces tensors with new DTensor
+                        # objects that don't carry the _is_initialized attribute — restore it.
+                        for _, param in get_named_parameters_and_buffers(model):
+                            mark_parameter_as_initialized(param)
         elif fsdp_algorithm == 1:
             log_rank_0(logging.INFO, "using FSDP-1")
             assert num_pipeline_stages == 1
@@ -360,7 +400,7 @@ def wrap_model_container_for_distributed_training(
                     cpu_offload=CPUOffload(offload_params=True) if cpu_offload else None,
                     mixed_precision=mixed_precision_policy,
                     auto_wrap_policy=partial(transformer_auto_wrap_policy, transformer_layer_cls=block_classes),
-                    device_id=Accelerator.get_current_device(),
+                    device_id=device,
                     limit_all_gathers=True,
                     use_orig_params=True,
                     # https://github.com/meta-llama/llama-recipes/blob/492455dc080f6c25f356e283e443be0cce86aaeb/src/llama_recipes/finetuning.py#L191
@@ -372,8 +412,18 @@ def wrap_model_container_for_distributed_training(
             raise ValueError(f"unexpected fsdp_algorithm ({fsdp_algorithm})")
 
     if torch_compile:
+        backend = Accelerator.get_torch_compile_backend()
+        fullgraph = False
+
+        if fsdp_algorithm == 3:
+            backend = get_simple_fsdp_compile_backend(
+                fsdp_reshard_after_forward=zero3, auto_bucketing=True, backend=backend
+            )
+
+            fullgraph = True
+
         for i, model in enumerate(model_container):
-            model_container[i] = torch.compile(model)
+            model_container[i] = torch.compile(model, backend=backend, fullgraph=fullgraph)
 
     set_parameter_marker_maps(
         model_container,
@@ -391,11 +441,9 @@ def wrap_model_container_for_distributed_training(
     pipeline_schedule = None
 
     for model in model_container:
-        for param_name, parameter in model.named_parameters():
-            assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
-
-        for param_name, parameter in model.named_buffers():
-            assert is_parameter_initialized(parameter), f"{param_name} is not initialized"
+        if model.is_custom_model:
+            for param_name, param in get_named_parameters_and_buffers(model):
+                assert is_parameter_initialized(param), f"{param_name} is not initialized"
 
     if num_pipeline_stages > 1:
         micro_batch_size = args.training_parameters.micro_batch_size
@@ -426,7 +474,7 @@ def wrap_model_container_for_distributed_training(
                 model,
                 stage_index=model.pipeline_stage_id,
                 num_stages=num_pipeline_stages,
-                device=Accelerator.get_current_device(),
+                device=device,
                 input_args=dummy_input_tensor,
                 output_args=dummy_output_tensor,
                 group=ProcessGroupManager.get_pipeline_parallel_group(),
@@ -451,13 +499,12 @@ def wrap_model_container_for_distributed_training(
                 aux_loss=aux_loss,
                 last_hidden_state=input if use_fused_linear_cross_entropy else None,
             )
-            loss = model.get_loss(output, target, lm_loss_multiplier)
 
-            return loss
+            return model.get_loss(output, target, lm_loss_multiplier)
 
         pipeline_schedule = _get_pipeline_parallel_schedule(
             pipeline_parallel_schedule=args.distributed_args.pipeline_parallel_schedule,
-            gradient_accumulation_steps=args.training_parameters.gradient_accumulation_steps,
+            gradient_accumulation_steps=gradient_accumulation_steps,
             pipeline_stages=pipeline_stages,
             loss_fn=_pipeline_parallel_loss,
         )

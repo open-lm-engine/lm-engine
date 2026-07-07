@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # This source code is licensed under the MIT license found in the
@@ -20,7 +24,8 @@ import numpy as np
 import torch
 
 from ...defaults import MSC_PREFIX
-from ...utils import is_multi_storage_client_available, log_rank_0
+from ...logging_utils import log_rank_0
+from ...utils import is_multi_storage_client_available
 from .bin import _MMapBinReader, _MultiStorageClientBinReader
 from .dtype import DType
 

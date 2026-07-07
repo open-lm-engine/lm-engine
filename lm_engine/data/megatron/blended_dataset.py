@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 from __future__ import annotations
@@ -12,7 +16,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from ...utils import log_rank_0
+from ...logging_utils import log_rank_0
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .gpt_dataset import GPTDataset
 from .utils import build_blending_indices, normalize

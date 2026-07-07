@@ -1,5 +1,4 @@
-accelerated-model-architectures/
-copyright/
+submodules/
 lm_engine/data/megatron/
 lm_engine/utils/object_storage.py
 .venv/

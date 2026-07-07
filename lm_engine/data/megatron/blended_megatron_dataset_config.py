@@ -1,10 +1,14 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 
 import logging
 import re
 from dataclasses import dataclass, field
 
-from ...utils import log_rank_0
+from ...logging_utils import log_rank_0
 from .utils import Split, normalize
 
 

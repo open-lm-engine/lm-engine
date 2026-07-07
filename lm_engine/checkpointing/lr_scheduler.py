@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from ..arguments import TrainingArgs
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..optimization import get_scheduler_container
-from ..utils import ProcessGroupManager
+from ..parallel import ProcessGroupManager
 
 
 class _LRSchedulerSaver(Stateful):

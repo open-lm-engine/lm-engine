@@ -1,0 +1,85 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+from __future__ import annotations
+
+import torch
+
+from ..accelerator import Accelerator
+from ..parallel import ProcessGroupManager
+from ..utils import is_torch_neuronx_available, is_torch_xla_available
+
+
+if is_torch_xla_available():
+    from torch_xla.debug.profiler import start_trace as xla_start_trace
+    from torch_xla.debug.profiler import stop_trace as xla_stop_trace
+
+
+if is_torch_neuronx_available():
+    from torch_neuronx.profiling import NeuronConfig, NeuronProfiler, ProfileMode
+
+
+class TorchProfiler:
+    def __init__(self, path: str | None, wait: int = 5, active: int = 1, warmup: int = 5) -> TorchProfiler:
+        self.path = path
+        self.start_step = wait + warmup
+        self.end_step = self.start_step + active
+
+        if path is None:
+            self._profiler = None
+            return
+
+        self._step = 0
+
+        accelerator = Accelerator.get_accelerator()
+        experimental_config = None
+        self._profiler = None
+
+        if accelerator == Accelerator.trainium:
+            experimental_config = NeuronConfig(
+                modes=[ProfileMode.DEVICE, ProfileMode.RUNTIME],
+                max_events_per_nc=100000,
+                profile_output_dir=path,
+                capture_enabled_for_nc="0",
+            )
+
+            exporter = NeuronProfiler(experimental_config)
+
+        if accelerator != Accelerator.tpu:
+            self._profiler = torch.profiler.profile(
+                activities=[torch.profiler.ProfilerActivity.CPU, Accelerator.get_profiler_activity()],
+                schedule=torch.profiler.schedule(
+                    wait=wait if ProcessGroupManager.get_global_rank() == 0 else 150000,
+                    warmup=warmup,
+                    active=active,
+                    repeat=1,
+                ),
+                experimental_config=experimental_config,
+                on_trace_ready=(
+                    exporter.export_trace
+                    if accelerator == Accelerator.trainium
+                    else torch.profiler.tensorboard_trace_handler(path)
+                ),
+                record_shapes=True,
+                profile_memory=True,
+            )
+
+    def __enter__(self):
+        if self._profiler is not None:
+            self._profiler.__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._profiler is not None:
+            self._profiler.__exit__(exc_type, exc_val, exc_tb)
+
+    def step(self) -> None:
+        if self.path is not None and Accelerator.get_accelerator() == Accelerator.tpu:
+            self._step += 1
+            if self._step == self.start_step:
+                xla_start_trace(self.path)
+            elif self._step == self.end_step:
+                xla_stop_trace()
+                self.path = None
+        elif self._profiler is not None:
+            self._profiler.step()

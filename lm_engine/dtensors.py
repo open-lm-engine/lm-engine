@@ -1,16 +1,15 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import torch
 import torch.nn as nn
-from torch.distributed._tensor.api import DTensor
-from torch.distributed._tensor.placement_types import Placement
-from torch.distributed.device_mesh import DeviceMesh
+from torch.distributed import DeviceMesh
+from torch.distributed.tensor import DTensor, Placement
 
 
 def _get_all_markers():
-    from .hf_models.parameter import _ALL_MARKERS
+    from .parameter import _ALL_MARKERS
 
     return _ALL_MARKERS
 

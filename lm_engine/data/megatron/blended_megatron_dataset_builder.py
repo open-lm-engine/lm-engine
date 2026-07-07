@@ -1,3 +1,7 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 
 from __future__ import annotations
@@ -10,8 +14,10 @@ from typing import Any
 import numpy as np
 
 from ...defaults import MSC_PREFIX
+from ...logging_utils import log_rank_0
+from ...parallel import ProcessGroupManager
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import Communication, ProcessGroupManager, is_multi_storage_client_available, log_rank_0
+from ...utils import is_multi_storage_client_available
 from .blended_dataset import BlendedDataset
 from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
 from .gpt_dataset import GPTDataset
@@ -191,7 +197,7 @@ def _build_megatron_dataset_splits(
         ):
             msc.download_file(remote_idx_path, idx_path)
 
-        Communication.barrier()
+        ProcessGroupManager.barrier()
 
         assert os.path.exists(idx_path)
 
@@ -260,7 +266,7 @@ def _build_generic_dataset(
                 )
                 raise Exception(log) from err
 
-        Communication.barrier()
+        ProcessGroupManager.barrier()
 
         # After, build on other ranks
         if not caching_allowed and ProcessGroupManager.is_tensor_parallel_first_rank():
