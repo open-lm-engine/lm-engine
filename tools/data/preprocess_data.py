@@ -24,7 +24,7 @@ from transformers import AutoTokenizer
 
 from lm_engine.data.megatron.bin import get_bin_path
 from lm_engine.data.megatron.dtype import DType
-from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
+from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
 from lm_engine.defaults import MSC_PREFIX
 from lm_engine.logging_utils import log_rank_0, set_logger
 from lm_engine.tokenizers import TOKENIZER_TYPE, get_tokenizer
