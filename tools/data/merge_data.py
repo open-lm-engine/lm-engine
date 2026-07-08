@@ -13,7 +13,8 @@ import multistorageclient as msc
 from google.cloud import storage
 from tqdm import tqdm
 
-from lm_engine.data.megatron.merge_data import merge_files
+from lm_engine.data.megatron.bin import get_bin_path
+from lm_engine.data.megatron.indexed_dataset import MMapIndexedDataset, MMapIndexedDatasetBuilder, get_idx_path
 from lm_engine.defaults import MSC_PREFIX
 from lm_engine.utils import is_ray_available
 
@@ -29,6 +30,17 @@ if is_ray_available():
             print(f"Error processing {output_prefix}: {e}")
             traceback.print_exc()
             raise e
+
+
+def merge_files(input_prefixes: list[str], output_prefix: str) -> None:
+    builder = MMapIndexedDatasetBuilder(
+        get_bin_path(output_prefix), dtype=MMapIndexedDataset(input_prefixes[0]).index.dtype
+    )
+
+    for input_prefix in input_prefixes:
+        builder.add_index(input_prefix)
+
+    builder.finalize(get_idx_path(output_prefix))
 
 
 def get_args() -> Namespace:
