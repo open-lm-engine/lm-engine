@@ -254,8 +254,7 @@ class GPTDataset(torch.utils.data.Dataset):
         )
 
         num_tokens_per_epoch = np.sum(self.indexed_dataset.sequence_lengths[self.indexed_indices])
-        sequence_length = self.sequence_length
-        num_epochs = _get_num_epochs(num_tokens_per_epoch, sequence_length, self.num_samples)
+        num_epochs = _get_num_epochs(num_tokens_per_epoch, self.sequence_length, self.num_samples)
 
         log_rank_0(logging.INFO, f"> Tokens per epoch: {num_tokens_per_epoch}")
         log_rank_0(logging.INFO, f"> Number of epochs: {num_epochs}")
@@ -267,9 +266,9 @@ class GPTDataset(torch.utils.data.Dataset):
                 separate_final_epoch = False
             else:
                 # Get the number of samples for the last epoch
-                num_samples_sans_final_epoch = ((num_epochs - 1) * num_tokens_per_epoch - 1) // sequence_length
+                num_samples_sans_final_epoch = ((num_epochs - 1) * num_tokens_per_epoch - 1) // self.sequence_length
                 num_samples_from_final_epoch = self.num_samples - num_samples_sans_final_epoch
-                num_samples_per_epoch = (num_tokens_per_epoch - 1) // sequence_length
+                num_samples_per_epoch = (num_tokens_per_epoch - 1) // self.sequence_length
 
                 # num_samples_from_final_epoch should be non-negative
                 assert num_samples_from_final_epoch >= 0
@@ -315,7 +314,7 @@ class GPTDataset(torch.utils.data.Dataset):
             sample_index = build_sample_idx(
                 self.indexed_dataset.sequence_lengths,
                 document_index,
-                sequence_length,
+                self.sequence_length,
                 num_epochs,
                 num_tokens_per_epoch,
             )
