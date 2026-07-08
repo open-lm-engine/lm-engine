@@ -2,13 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-# Copyright (c) Facebook, Inc. and its affiliates.
-#
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
-# Essentially re-written in entirety
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -48,9 +41,7 @@ class _MMapBinReader(_BinReader):
 
         Args:
             dtype (type[np.number]): Data-type of the returned array.
-
             count (int): Number of items to read.
-
             offset (int): Start reading from this offset (in bytes).
 
         Returns:
@@ -83,3 +74,7 @@ class _MultiStorageClientBinReader(_BinReader):
         size = count * DType.size(dtype)
         buffer = self._client.read(path=self._bin_path, byte_range=msc.types.Range(offset=offset, size=size))
         return np.frombuffer(buffer, dtype=dtype)
+
+
+def get_bin_path(path_prefix: str) -> str:
+    return f"{path_prefix}.bin"

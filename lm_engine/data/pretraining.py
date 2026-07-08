@@ -14,7 +14,7 @@ from ..tokenizers import TOKENIZER_TYPE
 from ..utils import divide_if_divisible
 from .context_reshape import ContextReshapeDataset
 from .dataloader import ResumableDataLoader
-from .megatron import GPTDataset, GPTDatasetConfig, MegatronBatchSampler, Split, build, compile_helpers
+from .megatron import GPTDataset, MegatronBatchSampler, Split, build, compile_helpers
 from .stitched import OrderingStrategy, StitchedDatasetConfig, StitchedSequenceDataset
 from .stitched import build_sample_index as build_stitched_sample_index
 
@@ -111,19 +111,17 @@ def get_pretraining_dataloaders(
 
         train_ds, val_ds, test_ds = build(
             sizes=base_sizes,
-            config=GPTDatasetConfig(
-                sequence_length=base_sequence_length,
-                blend=class_args.get("data_path"),
-                blend_per_split=[
-                    class_args.get("train_data_path"),
-                    class_args.get("val_data_path"),
-                    class_args.get("test_data_path"),
-                ],
-                split=class_args.get("split"),
-                path_to_cache=class_args.get("data_cache_path"),
-                fim_rate=class_args.get("fim_rate", 0),
-                fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
-            ),
+            sequence_length=base_sequence_length,
+            blend=class_args.get("data_path"),
+            blend_per_split=[
+                class_args.get("train_data_path"),
+                class_args.get("val_data_path"),
+                class_args.get("test_data_path"),
+            ],
+            split=class_args.get("split"),
+            path_to_cache=class_args.get("data_cache_path"),
+            fim_rate=class_args.get("fim_rate", 0),
+            fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
             tokenizer=tokenizer,
             node_uses_local_storage=class_args.get("node_uses_local_storage", False),
             random_seed=class_args.get("seed", args.random_args.seed),
