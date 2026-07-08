@@ -11,7 +11,7 @@ from ..logging_utils import log_rank_0
 from ..parallel import ProcessGroupManager
 from ..tokenizers import TOKENIZER_TYPE
 from .dataloader import ResumableDataLoader
-from .megatron import GPTDataset, GPTDatasetConfig, MegatronBatchSampler, build, compile_helpers
+from .megatron import GPTDataset, MegatronBatchSampler, build, compile_helpers
 
 
 def _get_train_val_test_samples(
@@ -92,19 +92,17 @@ def get_pretraining_dataloaders(
                 args.training_parameters.eval_interval,
                 class_args.get("eval_steps"),
             ),
-            config=GPTDatasetConfig(
-                sequence_length=class_args.get("sequence_length"),
-                blend=class_args.get("data_path"),
-                blend_per_split=[
-                    class_args.get("train_data_path"),
-                    class_args.get("val_data_path"),
-                    class_args.get("test_data_path"),
-                ],
-                split=class_args.get("split"),
-                path_to_cache=class_args.get("data_cache_path"),
-                fim_rate=class_args.get("fim_rate", 0),
-                fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
-            ),
+            sequence_length=class_args.get("sequence_length"),
+            blend=class_args.get("data_path"),
+            blend_per_split=[
+                class_args.get("train_data_path"),
+                class_args.get("val_data_path"),
+                class_args.get("test_data_path"),
+            ],
+            split=class_args.get("split"),
+            path_to_cache=class_args.get("data_cache_path"),
+            fim_rate=class_args.get("fim_rate", 0),
+            fim_spm_rate=class_args.get("fim_spm_rate", 0.5),
             tokenizer=tokenizer,
             node_uses_local_storage=class_args.get("node_uses_local_storage", False),
             random_seed=class_args.get("seed", args.random_args.seed),

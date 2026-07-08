@@ -18,7 +18,6 @@ from lm_engine.data.megatron.blended_megatron_dataset_builder import (
     _resolve_idx_path,
     build,
 )
-from lm_engine.data.megatron.blended_megatron_dataset_config import GPTDatasetConfig
 from lm_engine.data.megatron.concatenated_dataset import ConcatenatedDataset
 from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
 from lm_engine.data.megatron.utils import compile_helpers, normalize
@@ -70,7 +69,7 @@ def test_get_sizes_for_blend() -> None:
 
 
 def test_resolve_idx_path_returns_none_for_local_prefix() -> None:
-    assert _resolve_idx_path("/some/local/path", node_uses_local_storage=False, config=None) is None
+    assert _resolve_idx_path("/some/local/path", node_uses_local_storage=False, path_to_cache=None) is None
 
 
 def _build_dataset(bin_path: str, idx_path: str, num_documents: int, document: np.ndarray) -> None:
@@ -92,7 +91,9 @@ def test_get_num_samples_per_prefix() -> None:
         _build_dataset(get_bin_path(prefix1), get_idx_path(prefix1), num_documents=200, document=np.arange(8))
         _build_dataset(get_bin_path(prefix2), get_idx_path(prefix2), num_documents=400, document=np.arange(8))
 
-        num_samples = _get_num_samples_per_prefix([prefix1, prefix2], node_uses_local_storage=False, config=None)
+        num_samples = _get_num_samples_per_prefix(
+            [prefix1, prefix2], node_uses_local_storage=False, path_to_cache=None
+        )
 
         assert num_samples == [200, 400]
 
@@ -116,16 +117,12 @@ def test_build_with_unweighted_blend_is_concatenated_by_num_samples(monkeypatch:
         _build_dataset(get_bin_path(prefix1), get_idx_path(prefix1), num_documents=200, document=np.arange(8))
         _build_dataset(get_bin_path(prefix2), get_idx_path(prefix2), num_documents=400, document=np.arange(8))
 
-        config = GPTDatasetConfig(
+        train_dataset, val_dataset, test_dataset = build(
+            sizes=[50, 0, 0],
             sequence_length=4,
             blend=[prefix1, prefix2],
             split="100,0,0",
             path_to_cache=os.path.join(tmpdir, "cache"),
-        )
-
-        train_dataset, val_dataset, test_dataset = build(
-            sizes=[50, 0, 0],
-            config=config,
             tokenizer=None,
             node_uses_local_storage=False,
             random_seed=1234,
@@ -153,15 +150,11 @@ def test_build_with_unweighted_blend_per_split_is_concatenated_by_num_samples(mo
         _build_dataset(get_bin_path(prefix1), get_idx_path(prefix1), num_documents=200, document=np.arange(8))
         _build_dataset(get_bin_path(prefix2), get_idx_path(prefix2), num_documents=400, document=np.arange(8))
 
-        config = GPTDatasetConfig(
+        train_dataset, val_dataset, test_dataset = build(
+            sizes=[50, 0, 0],
             sequence_length=4,
             blend_per_split=[[prefix1, prefix2], None, None],
             path_to_cache=os.path.join(tmpdir, "cache"),
-        )
-
-        train_dataset, val_dataset, test_dataset = build(
-            sizes=[50, 0, 0],
-            config=config,
             tokenizer=None,
             node_uses_local_storage=False,
             random_seed=1234,
@@ -189,18 +182,14 @@ def test_build_with_explicitly_weighted_blend_uses_blended_dataset(monkeypatch: 
         _build_dataset(get_bin_path(prefix1), get_idx_path(prefix1), num_documents=200, document=np.arange(8))
         _build_dataset(get_bin_path(prefix2), get_idx_path(prefix2), num_documents=400, document=np.arange(8))
 
-        config = GPTDatasetConfig(
+        train_dataset, val_dataset, test_dataset = build(
+            sizes=[50, 0, 0],
             sequence_length=4,
             # explicit weights ignore the datasets' actual sizes: this should still be a
             # weighted random blend, not a concatenation
             blend=["30", prefix1, "70", prefix2],
             split="100,0,0",
             path_to_cache=os.path.join(tmpdir, "cache"),
-        )
-
-        train_dataset, val_dataset, test_dataset = build(
-            sizes=[50, 0, 0],
-            config=config,
             tokenizer=None,
             node_uses_local_storage=False,
             random_seed=1234,

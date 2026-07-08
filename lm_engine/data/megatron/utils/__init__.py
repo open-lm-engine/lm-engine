@@ -4,6 +4,7 @@
 
 import logging
 import os
+import re
 from enum import Enum
 
 import numpy as np
@@ -22,8 +23,6 @@ _HELPERS = None
 
 
 def compile_helpers() -> None:
-    """Compile C++ helper functions at runtime. Make sure this is invoked on a single process."""
-
     global _HELPERS
     log_rank_0(logging.INFO, "compiling helpers.cpp")
 
@@ -58,15 +57,17 @@ def build_sample_idx(
 
 
 def normalize(weights: list[float]) -> list[float]:
-    """Do non-exponentiated normalization
-
-    Args:
-        weights (list[float]): The weights
-
-    Returns:
-        list[float]: The normalized weights
-    """
     w = np.array(weights, dtype=np.float64)
     w_sum = np.sum(w)
     w = (w / w_sum).tolist()
     return w
+
+
+def parse_and_normalize_split(split: str) -> list[float]:
+    split = list(map(float, re.findall(r"[.0-9]+", split)))
+    split = split + [0.0 for _ in range(len(Split) - len(split))]
+
+    assert len(split) == len(Split)
+    assert all(map(lambda _: _ >= 0.0, split))
+
+    return normalize(split)
