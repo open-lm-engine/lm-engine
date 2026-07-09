@@ -20,7 +20,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from lm_engine.data.megatron import Split
-from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_bin_path, get_idx_path
+from lm_engine.data.megatron.bin import get_bin_path
+from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
 from lm_engine.data.stitched.builder import build_sample_index
 from lm_engine.data.stitched.config import OrderingStrategy, StitchedDatasetConfig
 from lm_engine.data.stitched.dataset import StitchedSequenceDataset
