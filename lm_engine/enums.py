@@ -71,6 +71,7 @@ class Kernel(Enum):
     rmsnorm_memory_efficient = "rmsnorm_memory_efficient"
     rnn = "rnn"
     scattermoe = "scattermoe"
+    swiglu_packed = "swiglu_packed"
     unpack_sequence = "unpack_sequence"
     # quack
     quack_gemm = "quack_gemm"

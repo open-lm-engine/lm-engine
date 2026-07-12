@@ -8,7 +8,12 @@ import torch
 import torch.nn as nn
 
 from ...kernels import Kernel, is_kernel_allowed, wait_for_ACT
+from ...utils import is_xma_available
 from .base import get_base_activation
+
+
+if is_xma_available():
+    from xma import swiglu_packed
 
 
 _GLU_BASE_MAPPING = {
@@ -38,14 +43,20 @@ class GLUActivation(nn.Module):
         if x is None:
             assert u is not None
             assert g is not None
+
+            x = u * self.base_activation(g)
         else:
             assert u is None
             assert g is None
 
-            u = x[..., 1::2]
-            g = x[..., ::2]
-
-        x = u * self.base_activation(g)
+            if is_kernel_allowed(Kernel.swiglu_packed) and isinstance(self.base_activation, nn.SiLU):
+                x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+                x = swiglu_packed(x)
+                x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
+            else:
+                u = x[..., 1::2]
+                g = x[..., ::2]
+                x = u * self.base_activation(g)
 
         return x
 
