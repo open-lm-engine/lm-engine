@@ -41,18 +41,22 @@ class GLUActivation(nn.Module):
         self, x: torch.Tensor | None, u: torch.Tensor | None = None, g: torch.Tensor | None = None
     ) -> torch.Tensor:
         if x is None:
+            assert u is not None
+            assert g is not None
+
             x = u * self.base_activation(g)
-        elif is_kernel_allowed(Kernel.swiglu_packed) and isinstance(self.base_activation, nn.SiLU):
-            x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
-            x = swiglu_packed(x)
-            x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
         else:
             assert u is None
             assert g is None
 
-            u = x[..., 1::2]
-            g = x[..., ::2]
-            x = u * self.base_activation(g)
+            if is_kernel_allowed(Kernel.swiglu_packed) and isinstance(self.base_activation, nn.SiLU):
+                x = wait_for_ACT(x, wait_in_forward=True, wait_in_backward=False)
+                x = swiglu_packed(x)
+                x = wait_for_ACT(x, wait_in_forward=False, wait_in_backward=True)
+            else:
+                u = x[..., 1::2]
+                g = x[..., ::2]
+                x = u * self.base_activation(g)
 
         return x
 
