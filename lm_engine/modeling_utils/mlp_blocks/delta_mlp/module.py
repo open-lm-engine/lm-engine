@@ -457,7 +457,7 @@ class DeltaMLP(nn.Module):
         v = v * self.value_scale
 
         if self.use_decay_beta:
-            beta = self.decay_gate(x=b, final_exponential=True, output_dtype=b.dtype)
+            beta, _ = self.decay_gate(x=b, final_exponential=True, output_dtype=b.dtype)
         else:
             beta = b.sigmoid()
 

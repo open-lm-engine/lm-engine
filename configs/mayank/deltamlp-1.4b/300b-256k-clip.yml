@@ -639,33 +639,34 @@ tuning_args:
   tuning_method: pretraining
 
 save_args:
-  save_path: checkpoints
-  save_interval: 2500
+  save_path: checkpoints/deltamlp-1.4b-256k-300b-clip
+  save_interval: 1000
 
 # load_args:
-#   load_path: /workspace/main/lm-engine/checkpoints
+#   load_path: checkpoints/deltamlp-1.4b-256k-300b-clip
 
 logging_args:
   log_interval: 10
+  cost_per_accelerator_per_hour: 2.2
   experiments_tracker_name: wandb
   wandb_args:
     project: mayank-experiments
-    name: delta-mlp-1.4b
+    name: deltamlp-1.4b-256k-300b-clip
 
 training_parameters:
-  num_training_steps: 12500
+  num_training_steps: 37500
   eval_interval: 1250
   micro_batch_size: 1
   global_batch_size: 32
   eval_during_training: true
-  gradient_clipping: null
+  gradient_clipping: 1
 
 optimizer_args:
   params_group_method: hyperball
   class_name: MuonHSplit
   class_args:
-    # 0.03 B^0.54 T^-0.38
-    lr: 0.0161467765
+    # 0.210 * B^0.54 * D^(-0.38) * N^(-0.103)
+    lr: 0.008499178563
     weight_decay: 0.1
     betas:
       - 0.9
@@ -681,7 +682,7 @@ lr_scheduler_args:
   lr_decay_style: cosine
   num_warmup_steps: 1250
   num_constant_steps: 0
-  num_decay_steps: 11250
+  num_decay_steps: 36250
 
 mixed_precision_args:
   dtype: bf16
@@ -690,6 +691,10 @@ distributed_args:
   stage: 3
   torch_compile: true
   zero_topology:
-    data_parallel_replication_world_size: 16
+    data_parallel_replication_world_size: 32
     data_parallel_sharding_world_size: 8
-  context_parallel_world_size: 16
+  context_parallel_world_size: 8
+  gradient_checkpointing_method: block
+  gradient_checkpointing_args:
+    num_blocks: 18
+    use_reentrant: true
