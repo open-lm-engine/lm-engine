@@ -26,7 +26,6 @@ from uuid import uuid4
 import pytest
 import torch
 
-import lm_engine.hf_models  # noqa: F401
 from lm_engine.arguments import TrainingArgs
 from lm_engine.logging_utils import log_rank_0
 from lm_engine.utils import load_yaml
@@ -311,18 +310,18 @@ def _parse_worker_args() -> argparse.Namespace:
 
 
 def _run_pretrain(args: TrainingArgs) -> None:
-    import lm_engine.pretrain as pretrain
+    import lm_engine.train as train
 
     with (
-        patch.object(pretrain, "get_args", return_value=args),
-        patch.object(pretrain, "get_pretraining_dataloaders", _synthetic_pretraining_dataloaders),
+        patch.object(train, "get_args", return_value=args),
+        patch.object(train, "get_pretraining_dataloaders", _synthetic_pretraining_dataloaders),
         # This E2E smoke covers the training path. Checkpoint save/reload should
         # stay in a separate test so this remains fast and side-effect-light.
-        patch.object(pretrain, "save_checkpoint"),
+        patch.object(train, "save_checkpoint"),
     ):
         # pretrain.main expects an args class and calls get_args(args_class).
         # The patched get_args returns the smoke TrainingArgs above.
-        pretrain.main(TrainingArgs)
+        train.main(TrainingArgs)
 
 
 def _write_sentinel(path: str | None) -> None:
