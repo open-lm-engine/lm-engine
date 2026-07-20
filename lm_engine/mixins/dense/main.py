@@ -56,7 +56,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         cache_params: GenerationCache | None = None,
         attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        use_cache: bool | None = None,
         output_parallel_lm_logits: bool = False,
         pipeline_parallel_input: PipelineParallelInput | None = None,
     ) -> CausalLMOutputWithPast | PipelineParallelOutput:
@@ -82,7 +81,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                     attention_mask_info.attention_mask is None
                 ), "attention_mask should not be passed when specifying cu_seqlens"
 
-                if use_cache or cache_params is not None:
+                if cache_params is not None:
                     raise NotImplementedError("KV caching is not supported with padding_free transformer")
         else:
             assert input_ids is None
@@ -93,7 +92,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             cache_params=cache_params,
             attention_mask_info=attention_mask_info,
             position_info=position_info,
-            use_cache=use_cache,
         )
 
         hidden_states = transformer_outputs.last_hidden_state

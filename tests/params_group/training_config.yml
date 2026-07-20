@@ -42,7 +42,6 @@ model_args:
     init_method: mup
     embedding_init_method: normal
     use_depth_scaled_init: true
-    use_cache: true
     router_aux_loss_coef: 0.001
     sequence_mixer_blocks:
       - sequence_mixer_type: softmax_attention

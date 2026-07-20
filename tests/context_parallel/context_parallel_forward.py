@@ -50,7 +50,6 @@ config = GPTBaseConfig(
     hidden_size=128,
     normalization_function="layernorm",
     initializer_range=0.02,
-    use_cache=True,
     bos_token_id=0,
     eos_token_id=1,
     pad_token_id=2,

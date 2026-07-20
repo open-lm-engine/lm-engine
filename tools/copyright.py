@@ -139,6 +139,7 @@ def _check_and_add_copyright_header(file: str, build_header_fn, pattern: re.Patt
         code = f"{header}{code}"
 
     open(file, "w").writelines([code])
+
     return True
 
 
@@ -146,7 +147,7 @@ def _is_banned(path: str) -> bool:
     assert not path.endswith("/")
 
     for banned_directory in _BANNED:
-        if path.startswith(banned_directory):
+        if path == banned_directory or path.startswith(banned_directory + os.sep):
             return True
 
     return False

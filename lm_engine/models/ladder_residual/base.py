@@ -25,26 +25,18 @@ class LadderResidualModel(LadderResidualPreTrainedModel, BaseModelMixin):
         cache_params: GenerationCache | None = None,
         attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        use_cache: bool | None = None,
     ) -> BaseModelOutputWithPast:
-        (
-            use_cache,
-            hidden_states,
-            attention_mask_info,
-            position_info,
-            cache_params,
-        ) = self._prepare_a_bunch_of_stuff(
+        hidden_states, attention_mask_info, position_info, cache_params = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
             cache_params=cache_params,
             attention_mask_info=attention_mask_info,
             position_info=position_info,
-            use_cache=use_cache,
         )
 
         current_attention_out = None
         current_mlp_out = None
 
-        if is_generation_cache_enabled() and use_cache and cache_params is None:
+        if is_generation_cache_enabled() and cache_params is None:
             cache_params = GenerationCache()
 
         for block in self.h:

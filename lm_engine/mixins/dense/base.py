@@ -126,17 +126,13 @@ class BaseModelMixin(PreTrainedModelMixin):
         cache_params: GenerationCache | None = None,
         attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        use_cache: bool | None = None,
     ) -> BaseModelOutputWithPast:
         if self.is_first_stage:
-            use_cache, hidden_states, attention_mask_info, position_info, cache_params = (
-                self._prepare_a_bunch_of_stuff(
-                    input_ids=input_ids,
-                    cache_params=cache_params,
-                    attention_mask_info=attention_mask_info,
-                    position_info=position_info,
-                    use_cache=use_cache,
-                )
+            hidden_states, attention_mask_info, position_info, cache_params = self._prepare_a_bunch_of_stuff(
+                input_ids=input_ids,
+                cache_params=cache_params,
+                attention_mask_info=attention_mask_info,
+                position_info=position_info,
             )
         else:
             assert not ProcessGroupManager.is_context_parallel_enabled()
@@ -167,7 +163,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             if self.use_rope:
                 position_info.rope_cos_sin = self._get_rope_cos_sin(key_length, position_info.position_ids)
 
-        if is_generation_cache_enabled() and use_cache and cache_params is None:
+        if is_generation_cache_enabled() and cache_params is None:
             cache_params = GenerationCache()
 
         for layer_idx in range(self.layer_start_id, self.layer_end_id):
@@ -197,11 +193,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         cache_params: GenerationCache | None = None,
         attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        use_cache: bool | None = None,
-    ) -> tuple[bool, torch.Tensor, AttentionMaskInfo, PositionInfo, GenerationCache | None]:
-        if use_cache is None:
-            use_cache = False if self.use_padding_free_transformer else self.config.use_cache
-
+    ) -> tuple[torch.Tensor, AttentionMaskInfo, PositionInfo, GenerationCache | None]:
         input_shape = input_ids.size()
 
         # special handling for padding free transformer with list inputs
@@ -263,7 +255,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             device=input_ids.device,
         )
 
-        return use_cache, hidden_states, attention_mask_info, position_info, cache_params
+        return hidden_states, attention_mask_info, position_info, cache_params
 
     def _setup_positional_encoding(self) -> None:
         max_position_embeddings = self.config.max_position_embeddings

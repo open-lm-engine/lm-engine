@@ -38,7 +38,6 @@ class CommonConfig(BaseArgs):
     normalization_function: str
     layer_norm_epsilon: float = 1e-5
     initializer_range: float
-    use_cache: bool
     bos_token_id: int
     eos_token_id: int
     pad_token_id: int

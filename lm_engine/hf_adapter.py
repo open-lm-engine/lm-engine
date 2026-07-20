@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import nullcontext
 
 import torch
 from transformers import GenerationMixin, PretrainedConfig, PreTrainedModel
@@ -24,7 +25,12 @@ from .parameter import (
     is_parameter_initialized,
     set_parameter_marker_maps,
 )
-from .utils import SafeTensorsWeightsManager, torch_dtype_to_string
+from .utils import (
+    SafeTensorsWeightsManager,
+    disable_generation_cache,
+    is_generation_cache_enabled,
+    torch_dtype_to_string,
+)
 
 
 _MODEL_TYPE_TO_CAUSAL_LM_CLASS: dict[str, type[CausalLMModelMixin]] = {}
@@ -213,13 +219,18 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
     ) -> _HFCausalLMOutputWithPast:
         assert inputs_embeds is None, "LLMAdapter_HF does not support inputs_embeds"
 
-        outputs = self.model(
-            input_ids=input_ids,
-            cache_params=past_key_values,
-            attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask),
-            position_info=PositionInfo(position_ids=position_ids),
-            use_cache=use_cache,
-        )
+        with nullcontext() if use_cache else disable_generation_cache():
+            if use_cache:
+                assert is_generation_cache_enabled()
+            else:
+                assert not is_generation_cache_enabled()
+
+            outputs = self.model(
+                input_ids=input_ids,
+                cache_params=past_key_values,
+                attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask),
+                position_info=PositionInfo(position_ids=position_ids),
+            )
 
         # loss is computed here, not by the wrapped model: the model's own loss path is tensor-parallel/aux-loss
         # aware and belongs to the training loop, whereas this adapter only ever runs plain, single-device inference
