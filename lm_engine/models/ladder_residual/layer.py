@@ -6,7 +6,7 @@ import torch
 
 from ...generation_cache import GenerationCache
 from ...mixins import Block
-from ...modeling_utils import PositionInfo
+from ...modeling_utils import AttentionMaskInfo, PositionInfo
 
 
 class LadderResidualBlock(Block):
@@ -16,10 +16,8 @@ class LadderResidualBlock(Block):
         current_mlp_out: torch.Tensor | None,
         residual: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> tuple[torch.Tensor]:
         if current_attention_out is not None:
             residual = residual + current_attention_out
@@ -28,10 +26,8 @@ class LadderResidualBlock(Block):
         current_attention_out = self._sequence_mixer_forward(
             current_attention_out,
             cache_params=cache_params,
-            attention_mask=attention_mask,
+            attention_mask_info=attention_mask_info,
             position_info=position_info,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         if self.m_residual is not None:

@@ -8,7 +8,13 @@ import torch
 import torch.nn as nn
 
 from ...generation_cache import GenerationCache
-from ...modeling_utils import PositionInfo, get_mlp_block, get_normalization_function, get_sequence_mixer
+from ...modeling_utils import (
+    AttentionMaskInfo,
+    PositionInfo,
+    get_mlp_block,
+    get_normalization_function,
+    get_sequence_mixer,
+)
 from .config import PaLMConfig
 
 
@@ -41,10 +47,8 @@ class PaLMBlock(nn.Module):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         r = x
         x = self.ln(x)
@@ -54,10 +58,8 @@ class PaLMBlock(nn.Module):
         a = self.sequence_mixer(
             x,
             cache_params=cache_params,
-            attention_mask=attention_mask,
+            attention_mask_info=attention_mask_info,
             position_info=position_info,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         m = self.mlp_block(x)

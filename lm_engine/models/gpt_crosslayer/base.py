@@ -8,7 +8,7 @@ import torch
 
 from ...generation_cache import GenerationCache
 from ...mixins import BaseModelMixin, PreTrainedModelMixin
-from ...modeling_utils import BaseModelOutputWithPast, PositionInfo
+from ...modeling_utils import AttentionMaskInfo, BaseModelOutputWithPast, PositionInfo
 from ...utils import is_generation_cache_enabled
 from .config import GPTCrossLayerConfig
 from .layer import GPTCrossLayerBlock
@@ -29,26 +29,22 @@ class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
         self,
         input_ids: torch.Tensor | None = None,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
         use_cache: bool | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> BaseModelOutputWithPast:
         (
             use_cache,
             hidden_states,
-            attention_mask,
+            attention_mask_info,
             position_info,
             cache_params,
         ) = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
             cache_params=cache_params,
-            attention_mask=attention_mask,
+            attention_mask_info=attention_mask_info,
             position_info=position_info,
             use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         if is_generation_cache_enabled() and use_cache and cache_params is None:
@@ -63,10 +59,8 @@ class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
                 key=key,
                 value=value,
                 cache_params=cache_params,
-                attention_mask=attention_mask,
+                attention_mask_info=attention_mask_info,
                 position_info=position_info,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
             )
 
         del key, value

@@ -10,7 +10,13 @@ import torch.nn as nn
 from ...enums import Kernel
 from ...generation_cache import GenerationCache, GenerationState, LinearCache
 from ...kernels import is_kernel_allowed
-from ...modeling_utils import PositionInfo, apply_rotary_pos_emb, get_mlp_block, get_normalization_function
+from ...modeling_utils import (
+    AttentionMaskInfo,
+    PositionInfo,
+    apply_rotary_pos_emb,
+    get_mlp_block,
+    get_normalization_function,
+)
 from ...utils import divide_if_divisible
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer
@@ -65,10 +71,8 @@ class GPTCrossLayerBlock(nn.Module):
         key: torch.Tensor,
         value: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         if self.kv_proj is not None:
             key, value = self.kv_proj(hidden_states)
@@ -97,10 +101,8 @@ class GPTCrossLayerBlock(nn.Module):
             hidden_states,
             key=key,
             value=value,
-            attention_mask=attention_mask,
+            attention_mask_info=attention_mask_info,
             position_info=position_info,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         if self.m_residual is not None:

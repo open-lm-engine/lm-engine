@@ -6,7 +6,7 @@ import torch
 
 from ...generation_cache import GenerationCache
 from ...mixins import BaseModelMixin, PreTrainedModelMixin
-from ...modeling_utils import BaseModelOutputWithPast, PositionInfo
+from ...modeling_utils import AttentionMaskInfo, BaseModelOutputWithPast, PositionInfo
 from ...utils import is_generation_cache_enabled
 from .config import LadderResidualConfig
 from .layer import LadderResidualBlock
@@ -23,26 +23,22 @@ class LadderResidualModel(LadderResidualPreTrainedModel, BaseModelMixin):
         self,
         input_ids: torch.Tensor | None = None,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
         use_cache: bool | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> BaseModelOutputWithPast:
         (
             use_cache,
             hidden_states,
-            attention_mask,
+            attention_mask_info,
             position_info,
             cache_params,
         ) = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
             cache_params=cache_params,
-            attention_mask=attention_mask,
+            attention_mask_info=attention_mask_info,
             position_info=position_info,
             use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         current_attention_out = None
@@ -57,10 +53,8 @@ class LadderResidualModel(LadderResidualPreTrainedModel, BaseModelMixin):
                 current_mlp_out=current_mlp_out,
                 residual=hidden_states,
                 cache_params=cache_params,
-                attention_mask=attention_mask,
+                attention_mask_info=attention_mask_info,
                 position_info=position_info,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
             )
 
         hidden_states = hidden_states + current_attention_out + current_mlp_out

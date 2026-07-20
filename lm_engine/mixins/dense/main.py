@@ -24,7 +24,14 @@ from ...loss import (
     is_aux_loss_zero,
 )
 from ...model_config import CommonConfig
-from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear, PositionInfo
+from ...modeling_utils import (
+    AttentionMaskInfo,
+    DTensorModule,
+    LMHead,
+    ParameterizedEmbedding,
+    ParameterizedLinear,
+    PositionInfo,
+)
 from ...modeling_utils.io import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -137,11 +144,11 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
             cache_params=cache_params,
-            attention_mask=attention_mask,
+            attention_mask_info=AttentionMaskInfo(
+                attention_mask=attention_mask, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+            ),
             position_info=PositionInfo(position_ids=position_ids),
             use_cache=use_cache,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         hidden_states = transformer_outputs.last_hidden_state

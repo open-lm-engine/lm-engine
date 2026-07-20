@@ -9,7 +9,13 @@ import torch.nn as nn
 
 from ...generation_cache import GenerationCache
 from ...model_config import CommonConfig
-from ...modeling_utils import PositionInfo, get_mlp_block, get_normalization_function, get_sequence_mixer
+from ...modeling_utils import (
+    AttentionMaskInfo,
+    PositionInfo,
+    get_mlp_block,
+    get_normalization_function,
+    get_sequence_mixer,
+)
 
 
 class Block(nn.Module):
@@ -57,10 +63,8 @@ class Block(nn.Module):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         r = x
 
@@ -68,10 +72,8 @@ class Block(nn.Module):
         x = self._sequence_mixer_forward(
             x=x,
             cache_params=cache_params,
-            attention_mask=attention_mask,
+            attention_mask_info=attention_mask_info,
             position_info=position_info,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
         )
 
         if self.m_residual is not None:
@@ -94,29 +96,27 @@ class Block(nn.Module):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
             x = self.sequence_mixer(
                 x,
                 cache_params=cache_params,
-                attention_mask=attention_mask,
+                attention_mask_info=attention_mask_info,
                 position_info=position_info,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
             )
         elif self.sequence_mixer_type == "mamba2":
-            x = self.sequence_mixer(x, cache_params=cache_params, attention_mask=attention_mask)
+            x = self.sequence_mixer(
+                x, cache_params=cache_params, attention_mask=attention_mask_info.get_mamba_mask(cache_params)
+            )
         elif self.sequence_mixer_type in ["gru", "rnn", "m2rnn", "gated_deltanet"]:
             x = self.sequence_mixer(
                 x,
                 cache_params=cache_params,
-                attention_mask=attention_mask,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
+                attention_mask=attention_mask_info.get_mamba_mask(cache_params),
+                cu_seqlens=attention_mask_info.cu_seqlens,
+                max_seqlen=attention_mask_info.max_seqlen,
             )
         else:
             raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")

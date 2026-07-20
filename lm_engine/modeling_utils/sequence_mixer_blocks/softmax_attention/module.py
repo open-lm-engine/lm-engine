@@ -16,6 +16,7 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import divide_if_divisible, is_torch_xla_available
 from ...activations import sigmoid
+from ...attention_mask_info import AttentionMaskInfo
 from ...chunk import contiguous_split
 from ...dropout import Dropout
 from ...dtensor_module import DTensorModule
@@ -156,10 +157,8 @@ class SoftmaxAttention(DTensorModule):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
         position_info: PositionInfo = PositionInfo(),
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
     ) -> torch.Tensor:
         use_flash_attention = (
             is_kernel_allowed(Kernel.flash_attention_2)
@@ -225,9 +224,9 @@ class SoftmaxAttention(DTensorModule):
                 q=q,
                 k=k,
                 v=v,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-                attention_mask=attention_mask,
+                cu_seqlens=attention_mask_info.cu_seqlens,
+                max_seqlen=attention_mask_info.max_seqlen,
+                attention_mask=attention_mask_info.causal_mask,
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
@@ -240,7 +239,7 @@ class SoftmaxAttention(DTensorModule):
             assert self.sliding_window is None
 
             if accelerator == Accelerator.tpu:
-                assert attention_mask is None
+                assert attention_mask_info.causal_mask is None
                 assert self.softmax_dropout_p == 0
 
                 x = flash_attention_tpu(
@@ -255,9 +254,9 @@ class SoftmaxAttention(DTensorModule):
                     query=q.transpose(1, 2),
                     key=k.transpose(1, 2),
                     value=v.transpose(1, 2),
-                    attn_mask=attention_mask,
+                    attn_mask=attention_mask_info.causal_mask,
                     dropout_p=self.softmax_dropout_p if self.training else 0,
-                    is_causal=self.causal if attention_mask is None else False,
+                    is_causal=self.causal if attention_mask_info.causal_mask is None else False,
                     scale=self.attention_multiplier,
                     enable_gqa=True,
                 )
