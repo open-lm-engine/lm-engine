@@ -167,9 +167,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             cache_params = GenerationCache()
 
         for layer_idx in range(self.layer_start_id, self.layer_end_id):
-            block = self.h[str(layer_idx)]
-
-            hidden_states = block(
+            hidden_states = self.h[str(layer_idx)](
                 hidden_states,
                 cache_params=cache_params,
                 attention_mask_info=attention_mask_info,
