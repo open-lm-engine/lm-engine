@@ -148,7 +148,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             else:
                 key_length = (
                     hidden_states.size(1)
-                    * (ProcessGroupManager.get_tensor_parallel_world_size() if self.self.sequence_parallel else 1)
+                    * (ProcessGroupManager.get_tensor_parallel_world_size() if self.sequence_parallel else 1)
                     * ProcessGroupManager.get_context_parallel_world_size()
                 )
 
