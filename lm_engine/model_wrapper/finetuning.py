@@ -31,6 +31,7 @@ class ModelWrapperForFinetuning(ModelWrapper):
         batch = self._broadcast_inputs_for_tensor_parallel(batch)
 
         if not self.is_custom_model:
+            assert not is_kernel_allowed(Kernel.coda_linear_cross_entropy)
             assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         labels = batch.pop("labels")

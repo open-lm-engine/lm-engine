@@ -156,7 +156,9 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
         if self.is_last_stage:
             if labels is None:
-                if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
+                if is_kernel_allowed(Kernel.coda_linear_cross_entropy) or is_kernel_allowed(
+                    Kernel.fused_linear_cross_entropy
+                ):
                     if self.m_width is not None:
                         hidden_states = hidden_states * (1 / self.m_width)
                 else:
@@ -167,6 +169,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             else:
                 assert not self.is_pipeline_parallel_enabled
                 assert not ProcessGroupManager.is_context_parallel_enabled()
+                assert not is_kernel_allowed(Kernel.coda_linear_cross_entropy)
                 assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
                 lm_logits = self.get_lm_logits(hidden_states)
