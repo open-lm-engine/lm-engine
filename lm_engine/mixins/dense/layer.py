@@ -70,10 +70,7 @@ class Block(nn.Module):
 
         x = self.ln_1(x)
         x = self._sequence_mixer_forward(
-            x=x,
-            cache_params=cache_params,
-            attention_mask_info=attention_mask_info,
-            position_info=position_info,
+            x=x, cache_params=cache_params, attention_mask_info=attention_mask_info, position_info=position_info
         )
 
         if self.m_residual is not None:
@@ -101,10 +98,7 @@ class Block(nn.Module):
     ) -> torch.Tensor:
         if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
             x = self.sequence_mixer(
-                x,
-                cache_params=cache_params,
-                attention_mask_info=attention_mask_info,
-                position_info=position_info,
+                x, cache_params=cache_params, attention_mask_info=attention_mask_info, position_info=position_info
             )
         elif self.sequence_mixer_type == "mamba2":
             x = self.sequence_mixer(
