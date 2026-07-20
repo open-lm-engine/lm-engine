@@ -113,7 +113,9 @@ class ModelWrapper(nn.Module):
         lm_loss_multiplier: float = 1,
     ) -> dict[str, torch.Tensor]:
         tensor_parallel_enabled = ProcessGroupManager.is_tensor_parallel_enabled()
-        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(Kernel.fused_linear_cross_entropy)
+        use_fused_linear_cross_entropy_kernel = is_kernel_allowed(
+            Kernel.coda_linear_cross_entropy
+        ) or is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         lm_loss = get_autoregressive_language_modeling_loss(
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,

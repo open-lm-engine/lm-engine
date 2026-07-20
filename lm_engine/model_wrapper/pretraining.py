@@ -100,12 +100,18 @@ class ModelWrapperForPretraining(ModelWrapper):
         """
 
         if not self.is_custom_model:
+            assert not is_kernel_allowed(Kernel.coda_linear_cross_entropy)
             assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         if isinstance(batch, torch.Tensor):
             batch = {"text": batch}
 
         if self.is_pipeline_parallel_enabled:
+            # the last PP stage sends logits through the pipeline schedule,
+            # which is incompatible with skipping the LM head
+            assert not is_kernel_allowed(Kernel.coda_linear_cross_entropy)
+            assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
+
             batch["aux_loss_from_pipeline_parallel"] = aux_loss_from_pipeline_parallel
         else:
             assert aux_loss_from_pipeline_parallel == 0
