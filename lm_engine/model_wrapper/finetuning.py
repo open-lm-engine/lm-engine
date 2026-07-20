@@ -11,7 +11,7 @@ from ..accelerator import Accelerator
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
-from ..modeling_utils import CausalLMOutputWithPast
+from ..modeling_utils import AttentionMaskInfo, CausalLMOutputWithPast, PositionInfo
 from ..parallel import ProcessGroupManager
 from .base import ModelWrapper
 
@@ -34,13 +34,27 @@ class ModelWrapperForFinetuning(ModelWrapper):
             assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         labels = batch.pop("labels")
-        model_outputs: CausalLMOutputWithPast = self.model(**batch)
+        cu_seqlens = batch.pop("cu_seqlens", None)
+        position_info = PositionInfo(position_ids=batch.pop("position_ids", None))
+
+        attention_mask_info = AttentionMaskInfo(
+            attention_mask=batch.pop("attention_mask", None),
+            cu_seqlens=cu_seqlens,
+            max_seqlen=batch.pop("max_seqlen", None),
+        )
+
+        if self.is_custom_model:
+            model_outputs: CausalLMOutputWithPast = self.model(
+                attention_mask_info=attention_mask_info, position_info=position_info, **batch
+            )
+        else:
+            model_outputs: CausalLMOutputWithPast = self.model(**batch)
 
         output = self.get_loss(
             model_outputs=model_outputs,
             labels=labels,
             shift_logits_and_labels=True,
-            cu_seqlens=batch.get("cu_seqlens", None),
+            cu_seqlens=cu_seqlens,
             lm_loss_multiplier=lm_loss_multiplier,
         )
 

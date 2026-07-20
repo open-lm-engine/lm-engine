@@ -54,12 +54,10 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        position_ids: torch.Tensor | list[list[int]] | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
+        position_info: PositionInfo = PositionInfo(),
         use_cache: bool | None = None,
         output_parallel_lm_logits: bool = False,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
         pipeline_parallel_input: PipelineParallelInput | None = None,
     ) -> CausalLMOutputWithPast | PipelineParallelOutput:
         if self.is_pipeline_parallel_enabled:
@@ -72,11 +70,17 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
             if self.use_padding_free_transformer:
                 assert (
-                    cu_seqlens is not None
+                    attention_mask_info.cu_seqlens is not None
                 ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
-                assert position_ids is not None, "position_ids needs to be specified when specifying cu_seqlens"
-                assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
-                assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
+                assert (
+                    position_info.position_ids is not None
+                ), "position_ids needs to be specified when specifying cu_seqlens"
+                assert (
+                    attention_mask_info.max_seqlen is not None
+                ), "max_seqlen needs to be specified when specifying cu_seqlens"
+                assert (
+                    attention_mask_info.attention_mask is None
+                ), "attention_mask should not be passed when specifying cu_seqlens"
 
                 if use_cache or cache_params is not None:
                     raise NotImplementedError("KV caching is not supported with padding_free transformer")
@@ -87,10 +91,8 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
             input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
             cache_params=cache_params,
-            attention_mask_info=AttentionMaskInfo(
-                attention_mask=attention_mask, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
-            ),
-            position_info=PositionInfo(position_ids=position_ids),
+            attention_mask_info=attention_mask_info,
+            position_info=position_info,
             use_cache=use_cache,
         )
 

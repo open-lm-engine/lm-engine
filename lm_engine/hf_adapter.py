@@ -15,7 +15,7 @@ from .generation_cache import GenerationCache
 from .loss import get_autoregressive_language_modeling_loss
 from .mixins.dense.main import CausalLMModelMixin
 from .model_config import CommonConfig
-from .modeling_utils import ParameterizedEmbedding, ParameterizedLinear
+from .modeling_utils import AttentionMaskInfo, ParameterizedEmbedding, ParameterizedLinear, PositionInfo
 from .parallel import ProcessGroupManager
 from .parameter import (
     _INIT_MARKER,
@@ -216,8 +216,8 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
         outputs = self.model(
             input_ids=input_ids,
             cache_params=past_key_values,
-            attention_mask=attention_mask,
-            position_ids=position_ids,
+            attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask),
+            position_info=PositionInfo(position_ids=position_ids),
             use_cache=use_cache,
         )
 

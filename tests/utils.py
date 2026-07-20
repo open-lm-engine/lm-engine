@@ -17,6 +17,7 @@ from lm_engine.arguments import TrainingArgs
 from lm_engine.hf_adapter import LLMAdapter_HF
 from lm_engine.loss import get_autoregressive_language_modeling_loss
 from lm_engine.model_config import CommonConfig
+from lm_engine.modeling_utils import AttentionMaskInfo
 from lm_engine.models import GPTBaseConfig
 from lm_engine.register_hf import get_causal_lm_class, is_custom_model
 from lm_engine.utils import SafeTensorsWeightsManager, load_yaml
@@ -329,7 +330,9 @@ def model_conversion_test(
 
     # the lm_engine model itself no longer computes loss (that now lives in `LLMAdapter_HF`), so it's computed
     # here on the returned logits instead
-    lm_engine_output = lm_engine_model(input_ids=input_ids, attention_mask=attention_mask)
+    lm_engine_output = lm_engine_model(
+        input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask)
+    )
     lm_engine_logits = lm_engine_output.logits
     lm_engine_loss = get_autoregressive_language_modeling_loss(
         lm_logits=lm_engine_logits, labels=labels, shift_logits_and_labels=True

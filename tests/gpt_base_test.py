@@ -9,6 +9,7 @@ from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
 from lm_engine.loss import get_autoregressive_language_modeling_loss
+from lm_engine.modeling_utils import AttentionMaskInfo, PositionInfo
 from lm_engine.modeling_utils.io import CausalLMOutputWithPast
 from lm_engine.modeling_utils.sequence_packing import (
     compute_cu_seqlens_and_max_seqlen_from_attention_mask,
@@ -60,12 +61,12 @@ def test_quack_gemm_model_equivalence(device: torch.device, dtype: torch.dtype) 
     model = from_config(config, dtype=dtype).to(device)
     model.eval()
 
-    expected_output = model(input_ids=input_ids, attention_mask=attention_mask)
+    expected_output = model(input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask))
     expected_logits = expected_output.logits
     expected_loss = _get_loss(expected_output, labels)
 
     with enable_kernels([Kernel.quack_gemm]):
-        quack_output = model(input_ids=input_ids, attention_mask=attention_mask)
+        quack_output = model(input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask))
         quack_logits = quack_output.logits
         quack_loss = _get_loss(quack_output, labels)
 
@@ -114,7 +115,7 @@ def test_sdpa_padding_free_transformer_equivalence(
     flash_model.load_state_dict(sdpa_model.state_dict())
 
     input_ids, attention_mask, labels = get_dummy_inputs(device)
-    sdpa_output = sdpa_model(input_ids=input_ids, attention_mask=attention_mask)
+    sdpa_output = sdpa_model(input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask))
     sdpa_loss = _get_loss(sdpa_output, labels)
     attention_mask = attention_mask.to(torch.bool)
     sdpa_logits = sdpa_output.logits
@@ -129,9 +130,8 @@ def test_sdpa_padding_free_transformer_equivalence(
 
         flash_output = flash_model(
             input_ids=input_ids,
-            position_ids=position_ids,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
+            position_info=PositionInfo(position_ids=position_ids),
+            attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
         )
 
         flash_logits = flash_output.logits
@@ -175,12 +175,12 @@ def test_sdpa_flash_attention_equivalence(
     model = from_config(config, dtype=dtype).to(device)
     model.eval()
 
-    sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask)
+    sdpa_output = model(input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask))
     sdpa_logits = sdpa_output.logits
     sdpa_loss = _get_loss(sdpa_output, labels)
 
     with enable_kernels([kernel]):
-        flash_output = model(input_ids=input_ids, attention_mask=attention_mask)
+        flash_output = model(input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask))
         flash_logits = flash_output.logits
         flash_loss = _get_loss(flash_output, labels)
 
@@ -217,7 +217,7 @@ def test_sdpa_flash_enabled(device: torch.device, position_embedding_type: str, 
     input_ids, _, labels = get_dummy_inputs(device)
     attention_mask = torch.ones_like(input_ids, dtype=torch.int, device=device)
 
-    sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask)
+    sdpa_output = model(input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask))
     sdpa_logits = sdpa_output.logits
     sdpa_loss = _get_loss(sdpa_output, labels)
 
@@ -266,7 +266,9 @@ def test_flash_attention_equivalence_with_and_without_attention_masks(
     model.eval()
 
     with enable_kernels([kernel]):
-        output_with_mask = model(input_ids=input_ids, attention_mask=attention_mask)
+        output_with_mask = model(
+            input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask)
+        )
         logits_with_mask = output_with_mask.logits
         loss_with_mask = _get_loss(output_with_mask, labels)
 

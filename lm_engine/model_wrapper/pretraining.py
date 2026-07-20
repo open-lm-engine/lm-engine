@@ -11,7 +11,13 @@ from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
 from ..loss import is_aux_loss_zero
-from ..modeling_utils import CausalLMOutputWithPast, PipelineParallelInput, PipelineParallelOutput
+from ..modeling_utils import (
+    AttentionMaskInfo,
+    CausalLMOutputWithPast,
+    PipelineParallelInput,
+    PipelineParallelOutput,
+    PositionInfo,
+)
 from ..parallel import ProcessGroupManager, broadcast_tensor_parallel_input, prepare_context_parallel_input
 from ..parameter import mark_parameter_as_initialized
 from .base import ModelWrapper
@@ -112,7 +118,18 @@ class ModelWrapperForPretraining(ModelWrapper):
 
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
-        output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)
+        position_info = PositionInfo(position_ids=batch.pop("position_ids", None))
+
+        attention_mask_info = AttentionMaskInfo(
+            cu_seqlens=batch.pop("cu_seqlens", None), max_seqlen=batch.pop("max_seqlen", None)
+        )
+
+        if self.is_custom_model:
+            output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(
+                attention_mask_info=attention_mask_info, position_info=position_info, **batch
+            )
+        else:
+            output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch)
 
         if self.is_pipeline_parallel_enabled:
             # aux_loss is returned as a 0 dimensional tensor

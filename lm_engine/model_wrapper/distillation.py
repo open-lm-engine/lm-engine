@@ -15,7 +15,7 @@ from ..hf_adapter import LLMAdapter_HF
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss
-from ..modeling_utils import CausalLMOutputWithPast, PipelineParallelOutput
+from ..modeling_utils import AttentionMaskInfo, CausalLMOutputWithPast, PipelineParallelOutput, PositionInfo
 from ..parallel import ProcessGroupManager
 from ..register_hf import is_custom_model
 from ..utils import string_to_torch_dtype
@@ -111,7 +111,18 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
 
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
-        output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)
+        position_ids = batch.pop("position_ids", None)
+        cu_seqlens = batch.pop("cu_seqlens", None)
+        max_seqlen = batch.pop("max_seqlen", None)
+
+        if self.is_custom_model:
+            output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(
+                attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
+                position_info=PositionInfo(position_ids=position_ids),
+                **batch,
+            )
+        else:
+            output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch)
 
         assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
@@ -134,7 +145,15 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         lm_loss = lm_loss * lm_loss_multiplier
 
         with torch.no_grad():
-            output: CausalLMOutputWithPast | PipelineParallelOutput = self.teacher_model(**batch, return_dict=True)
+            if is_custom_model(self.teacher_config.model_type):
+                output: CausalLMOutputWithPast | PipelineParallelOutput = self.teacher_model(
+                    attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
+                    position_info=PositionInfo(position_ids=position_ids),
+                    **batch,
+                )
+            else:
+                output: CausalLMOutputWithPast | PipelineParallelOutput = self.teacher_model(**batch)
+
             teacher_logits = output.logits
             teacher_logits = teacher_logits.float()
 
