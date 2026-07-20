@@ -16,6 +16,7 @@ from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss
 from ..modeling_utils import CausalLMOutputWithPast, PipelineParallelOutput
 from ..parallel import ProcessGroupManager
+from ..register_hf import get_causal_lm_class, is_custom_model
 from ..utils import string_to_torch_dtype
 from .pretraining import ModelWrapperForPretraining
 
@@ -168,9 +169,18 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
     def _setup_model(self) -> None:
         super()._setup_model()
 
-        self.teacher_model = AutoModelForCausalLM.from_pretrained(
-            self.teacher_model_name, dtype=string_to_torch_dtype(self.teacher_model_dtype)
-        )
+        # bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter (`LLMAdapter_HF`)
+        # for our custom architectures, and construct the raw class directly instead
+        if is_custom_model(self.teacher_config.model_type):
+            self.teacher_model = get_causal_lm_class(self.teacher_config.model_type).from_pretrained(
+                self.teacher_model_name,
+                config=self.teacher_config,
+                dtype=string_to_torch_dtype(self.teacher_model_dtype),
+            )
+        else:
+            self.teacher_model = AutoModelForCausalLM.from_pretrained(
+                self.teacher_model_name, dtype=string_to_torch_dtype(self.teacher_model_dtype)
+            )
 
         self.teacher_model.eval()
 

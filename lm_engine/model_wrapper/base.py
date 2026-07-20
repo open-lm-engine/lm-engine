@@ -19,7 +19,7 @@ from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
 from ..modeling_utils import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
-from ..register_hf import is_custom_model
+from ..register_hf import get_causal_lm_class, is_custom_model
 from ..tokenizers import get_tokenizer
 from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
@@ -241,7 +241,17 @@ class ModelWrapper(nn.Module):
             kwargs = {"dtype": string_to_torch_dtype(self.dtype)}
 
         with context:
-            if self.model_name is None:
+            if self.is_custom_model:
+                # bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter
+                # (`LLMAdapter_HF`) for our custom architectures, and construct the raw class directly instead
+                model_class = get_causal_lm_class(self.config.model_type)
+
+                if self.model_name is None:
+                    self.model = model_class._from_config(**model_kwargs, **kwargs)
+                else:
+                    model_kwargs.setdefault("config", self.config)
+                    self.model = model_class.from_pretrained(**model_kwargs, **kwargs)
+            elif self.model_name is None:
                 self.model = AutoModelForCausalLM.from_config(**model_kwargs, **kwargs)
             else:
                 self.model = AutoModelForCausalLM.from_pretrained(**model_kwargs, **kwargs)
@@ -263,7 +273,11 @@ class ModelWrapper(nn.Module):
                         model_kwargs.pop("pretrained_model_name_or_path")
                     )
 
-                model: nn.Module = AutoModelForCausalLM.from_config(**model_kwargs)
+                model: nn.Module = (
+                    get_causal_lm_class(self.config.model_type)._from_config(**model_kwargs)
+                    if self.is_custom_model
+                    else AutoModelForCausalLM.from_config(**model_kwargs)
+                )
 
                 num_parameters = 0
                 for param in model.parameters():

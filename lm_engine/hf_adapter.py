@@ -14,20 +14,22 @@ from .model_config import CommonConfig
 from .modeling_utils import ParameterizedEmbedding, ParameterizedLinear
 
 
+_MODEL_TYPE_TO_CAUSAL_LM_CLASS: dict[str, type[CausalLMModelMixin]] = {}
+
+
 class LLMAdapter_HFConfig(PretrainedConfig):
     """Wraps a lm_engine `CommonConfig` so it satisfies `transformers.PreTrainedModel`'s requirement that `config`
     be an instance of `PretrainedConfig`. Only ever used by `LLMAdapter_HF`, never for training."""
 
     model_type = "lm_engine_hf_adapter"
 
-    def __init__(self, common_config: CommonConfig | None = None, **kwargs) -> LLMAdapter_HFConfig:
-        if common_config is not None:
-            kwargs = {**common_config.to_dict(), **kwargs}
-
+    @classmethod
+    def from_common_config(cls, common_config: CommonConfig) -> LLMAdapter_HFConfig:
+        kwargs = common_config.to_dict()
         kwargs.setdefault("is_decoder", True)
         kwargs.setdefault("use_cache", True)
 
-        super().__init__(**kwargs)
+        return cls(**kwargs)
 
 
 class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
@@ -52,9 +54,34 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
         assert not model.is_pipeline_parallel_enabled, "LLMAdapter_HF does not support pipeline parallelism"
         assert not model.use_padding_free_transformer, "LLMAdapter_HF does not support the padding-free transformer"
 
-        super().__init__(LLMAdapter_HFConfig(model.config))
+        super().__init__(type(self).config_class.from_common_config(model.config))
 
         self.model = model
+
+    @classmethod
+    def _get_causal_lm_class(cls, config: CommonConfig) -> type[CausalLMModelMixin]:
+        model_type = config.model_type
+        assert model_type in _MODEL_TYPE_TO_CAUSAL_LM_CLASS, (
+            f"unknown model_type ({model_type}) for LLMAdapter_HF, has `register_hf.register_model_classes` been "
+            "called?"
+        )
+        return _MODEL_TYPE_TO_CAUSAL_LM_CLASS[model_type]
+
+    @classmethod
+    def _from_config(cls, config: CommonConfig, **kwargs) -> LLMAdapter_HF:
+        model = cls._get_causal_lm_class(config)._from_config(config, **kwargs)
+        return cls(model)
+
+    @classmethod
+    def from_pretrained(
+        cls, pretrained_model_name_or_path: str, *model_args, config: CommonConfig | None = None, **kwargs
+    ) -> LLMAdapter_HF:
+        assert config is not None, "LLMAdapter_HF.from_pretrained needs `config` (an lm_engine CommonConfig)"
+
+        model = cls._get_causal_lm_class(config).from_pretrained(
+            pretrained_model_name_or_path, *model_args, config=config, **kwargs
+        )
+        return cls(model)
 
     @classmethod
     def _supports_default_dynamic_cache(cls) -> bool:
@@ -105,3 +132,16 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
             logits=outputs.logits,
             past_key_values=outputs.cache_params,
         )
+
+
+def build_hf_adapter_classes(config_class: type[CommonConfig]) -> type[LLMAdapter_HF]:
+    """Builds an `LLMAdapter_HF` subclass for one lm_engine architecture, with `config_class` named to match
+    `config_class` (e.g. `GPTBaseConfig`). `transformers.AutoModelForCausalLM.register` requires
+    `model_class.config_class.__name__ == config_class.__name__`, and since a single `LLMAdapter_HF` wraps every
+    lm_engine architecture, each one needs its own identically-named config shim to pass that check."""
+
+    adapter_config_class = type(config_class.__name__, (LLMAdapter_HFConfig,), {})
+    adapter_model_class = type(f"{config_class.__name__}LLMAdapter_HF", (LLMAdapter_HF,), {})
+    adapter_model_class.config_class = adapter_config_class
+
+    return adapter_model_class

@@ -16,6 +16,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from lm_engine.arguments import TrainingArgs
 from lm_engine.model_config import CommonConfig
 from lm_engine.models import GPTBaseConfig
+from lm_engine.register_hf import get_causal_lm_class, is_custom_model
 from lm_engine.utils import SafeTensorsWeightsManager, load_yaml
 from tools.model_conversion import export_to_huggingface, import_from_huggingface
 
@@ -199,12 +200,16 @@ def get_dummy_inputs(device: torch.device) -> tuple[torch.Tensor, torch.Tensor, 
 
 def from_config(config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
     use_padding_free_transformer = kwargs.pop("use_padding_free_transformer", False)
+    dtype = kwargs.pop("dtype", None)
 
-    model = AutoModelForCausalLM.from_config(
-        config,
-        use_padding_free_transformer=use_padding_free_transformer,
-        dtype=kwargs.pop("dtype", None),
-    )
+    if is_custom_model(config.model_type):
+        model = get_causal_lm_class(config.model_type)._from_config(
+            config, use_padding_free_transformer=use_padding_free_transformer, dtype=dtype
+        )
+    else:
+        model = AutoModelForCausalLM.from_config(
+            config, use_padding_free_transformer=use_padding_free_transformer, dtype=dtype
+        )
 
     if use_padding_free_transformer:
         assert model.use_padding_free_transformer
