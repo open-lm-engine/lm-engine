@@ -15,6 +15,7 @@ from ....kernels import is_kernel_allowed
 from ....modeling_utils import (
     Dropout,
     ParameterizedLinear,
+    PositionInfo,
     apply_rotary_pos_emb,
     flash_attention,
     get_normalization_function,
@@ -88,7 +89,7 @@ class CrossLayerAttention(nn.Module):
         key: torch.Tensor,
         value: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
+        position_info: PositionInfo = PositionInfo(),
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
@@ -100,7 +101,7 @@ class CrossLayerAttention(nn.Module):
                 query = query.view(total_q, self.num_heads, -1)
 
                 if self.position_embedding_type == "rope":
-                    query = apply_rotary_pos_emb(query, rope_cos_sin)
+                    query = apply_rotary_pos_emb(query, position_info.rope_cos_sin)
 
                 hidden_states = flash_attention(
                     q=query,
@@ -127,7 +128,7 @@ class CrossLayerAttention(nn.Module):
                 if self.position_embedding_type == "rope":
                     # TODO avoid this extra transpose
                     query = query.transpose(1, 2)
-                    query = apply_rotary_pos_emb(query, rope_cos_sin)
+                    query = apply_rotary_pos_emb(query, position_info.rope_cos_sin)
                     query = query.transpose(1, 2)
 
                 hidden_states = flash_attention(
@@ -154,7 +155,7 @@ class CrossLayerAttention(nn.Module):
             query = query.transpose(1, 2)
 
             if self.position_embedding_type == "rope":
-                query = apply_rotary_pos_emb(query, rope_cos_sin)
+                query = apply_rotary_pos_emb(query, position_info.rope_cos_sin)
 
             hidden_states = F.scaled_dot_product_attention(
                 query,

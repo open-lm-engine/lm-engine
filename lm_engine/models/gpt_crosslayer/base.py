@@ -40,7 +40,6 @@ class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
             hidden_states,
             attention_mask,
             position_info,
-            rope_cos_sin,
             cache_params,
         ) = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
@@ -65,7 +64,7 @@ class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
                 value=value,
                 cache_params=cache_params,
                 attention_mask=attention_mask,
-                rope_cos_sin=rope_cos_sin,
+                position_info=position_info,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )

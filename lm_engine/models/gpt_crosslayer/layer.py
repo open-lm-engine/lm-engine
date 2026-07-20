@@ -10,7 +10,7 @@ import torch.nn as nn
 from ...enums import Kernel
 from ...generation_cache import GenerationCache, GenerationState, LinearCache
 from ...kernels import is_kernel_allowed
-from ...modeling_utils import apply_rotary_pos_emb, get_mlp_block, get_normalization_function
+from ...modeling_utils import PositionInfo, apply_rotary_pos_emb, get_mlp_block, get_normalization_function
 from ...utils import divide_if_divisible
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer
@@ -66,7 +66,7 @@ class GPTCrossLayerBlock(nn.Module):
         value: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
+        position_info: PositionInfo = PositionInfo(),
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
@@ -74,7 +74,7 @@ class GPTCrossLayerBlock(nn.Module):
             key, value = self.kv_proj(hidden_states)
 
             if self.position_embedding_type == "rope":
-                key = apply_rotary_pos_emb(key, rope_cos_sin)
+                key = apply_rotary_pos_emb(key, position_info.rope_cos_sin)
 
             if cache_params is not None:
                 key, value = cache_params.update(
@@ -98,7 +98,7 @@ class GPTCrossLayerBlock(nn.Module):
             key=key,
             value=value,
             attention_mask=attention_mask,
-            rope_cos_sin=rope_cos_sin,
+            position_info=position_info,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
         )

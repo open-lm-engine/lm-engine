@@ -21,7 +21,7 @@ from ...dropout import Dropout
 from ...dtensor_module import DTensorModule
 from ...init_utils import _get_std_for_linear
 from ...linear import ColumnParallelLinear, RowParallelLinear
-from ...position_embedding import apply_rotary_pos_emb
+from ...position_embedding import PositionInfo, apply_rotary_pos_emb
 from .config import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD, SoftmaxAttentionArgs
 from .flash_attention import flash_attention
 
@@ -157,7 +157,7 @@ class SoftmaxAttention(DTensorModule):
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
+        position_info: PositionInfo = PositionInfo(),
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
@@ -205,7 +205,7 @@ class SoftmaxAttention(DTensorModule):
             v_xsa = v
 
         if self.position_embedding_type == "rope":
-            q, k = [apply_rotary_pos_emb(i, cos_sin=rope_cos_sin) for i in (q, k)]
+            q, k = [apply_rotary_pos_emb(i, cos_sin=position_info.rope_cos_sin) for i in (q, k)]
 
         if cache_params is not None:
             k, v = cache_params.update(

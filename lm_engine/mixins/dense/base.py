@@ -150,16 +150,14 @@ class BaseModelMixin(PreTrainedModelMixin):
         max_seqlen: int | None = None,
     ) -> BaseModelOutputWithPast:
         if self.is_first_stage:
-            use_cache, hidden_states, causal_mask, position_info, rope_cos_sin, cache_params = (
-                self._prepare_a_bunch_of_stuff(
-                    input_ids=input_ids,
-                    cache_params=cache_params,
-                    attention_mask=attention_mask,
-                    position_info=position_info,
-                    use_cache=use_cache,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
-                )
+            use_cache, hidden_states, causal_mask, position_info, cache_params = self._prepare_a_bunch_of_stuff(
+                input_ids=input_ids,
+                cache_params=cache_params,
+                attention_mask=attention_mask,
+                position_info=position_info,
+                use_cache=use_cache,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
             )
         else:
             assert not ProcessGroupManager.is_context_parallel_enabled()
@@ -187,7 +185,8 @@ class BaseModelMixin(PreTrainedModelMixin):
                 device=hidden_states.device,
             )
 
-            rope_cos_sin = self._get_rope_cos_sin(key_length, position_info.position_ids) if self.use_rope else None
+            if self.use_rope:
+                position_info.rope_cos_sin = self._get_rope_cos_sin(key_length, position_info.position_ids)
 
         if is_generation_cache_enabled() and use_cache and cache_params is None:
             cache_params = GenerationCache()
@@ -209,7 +208,7 @@ class BaseModelMixin(PreTrainedModelMixin):
                 hidden_states,
                 cache_params=cache_params,
                 attention_mask=mamba_mask if is_linear_layer else causal_mask,
-                rope_cos_sin=rope_cos_sin,
+                position_info=position_info,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
@@ -275,7 +274,7 @@ class BaseModelMixin(PreTrainedModelMixin):
         use_cache: bool | None = None,
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
-    ) -> tuple[bool, torch.Tensor, torch.Tensor, PositionInfo, torch.Tensor | None, GenerationCache | None]:
+    ) -> tuple[bool, torch.Tensor, torch.Tensor, PositionInfo, GenerationCache | None]:
         if use_cache is None:
             use_cache = False if self.use_padding_free_transformer else self.config.use_cache
 
@@ -328,13 +327,14 @@ class BaseModelMixin(PreTrainedModelMixin):
         if self.m_emb is not None:
             hidden_states = hidden_states * self.m_emb
 
-        rope_cos_sin = self._get_rope_cos_sin(key_length, position_info.position_ids) if self.use_rope else None
+        if self.use_rope:
+            position_info.rope_cos_sin = self._get_rope_cos_sin(key_length, position_info.position_ids)
 
         attention_mask = self._get_maybe_causal_mask(
             attention_mask, batch_size, query_length, key_length, hidden_states.dtype, input_ids.device
         )
 
-        return use_cache, hidden_states, attention_mask, position_info, rope_cos_sin, cache_params
+        return use_cache, hidden_states, attention_mask, position_info, cache_params
 
     def _setup_positional_encoding(self) -> None:
         max_position_embeddings = self.config.max_position_embeddings

@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from ...generation_cache import GenerationCache
 from ...model_config import CommonConfig
-from ...modeling_utils import get_mlp_block, get_normalization_function, get_sequence_mixer
+from ...modeling_utils import PositionInfo, get_mlp_block, get_normalization_function, get_sequence_mixer
 
 
 class Block(nn.Module):
@@ -62,7 +62,7 @@ class Block(nn.Module):
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
+        position_info: PositionInfo = PositionInfo(),
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
@@ -73,7 +73,7 @@ class Block(nn.Module):
             x=x,
             cache_params=cache_params,
             attention_mask=attention_mask,
-            rope_cos_sin=rope_cos_sin,
+            position_info=position_info,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
         )
@@ -99,7 +99,7 @@ class Block(nn.Module):
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
+        position_info: PositionInfo = PositionInfo(),
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
@@ -108,7 +108,7 @@ class Block(nn.Module):
                 x,
                 cache_params=cache_params,
                 attention_mask=attention_mask,
-                rope_cos_sin=rope_cos_sin,
+                position_info=position_info,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
