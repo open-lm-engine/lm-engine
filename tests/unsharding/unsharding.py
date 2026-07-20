@@ -6,12 +6,12 @@ import argparse
 import os
 
 from torch.distributed.tensor import DTensor
-from transformers import AutoModelForCausalLM
 
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
 from lm_engine.models import GPTBaseConfig
 from lm_engine.parallel import ProcessGroupManager
+from lm_engine.register_hf import get_causal_lm_class
 
 from ..utils import from_config
 
@@ -109,7 +109,9 @@ if is_tp_first_rank:
 
 ProcessGroupManager.barrier()
 
-model_tp = AutoModelForCausalLM.from_pretrained(args.tmp_path)
+# bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter (`LLMAdapter_HF`) for our
+# custom architectures, and construct the raw lm_engine class directly instead
+model_tp = get_causal_lm_class(config.model_type).from_pretrained(args.tmp_path)
 tp_state_dict = model_tp.state_dict()
 
 cpu_state_dict = {key: value.to("cpu") for key, value in tp_state_dict.items()}

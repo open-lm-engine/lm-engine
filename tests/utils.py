@@ -14,6 +14,7 @@ from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM
 
 from lm_engine.arguments import TrainingArgs
+from lm_engine.loss import get_autoregressive_language_modeling_loss
 from lm_engine.model_config import CommonConfig
 from lm_engine.models import GPTBaseConfig
 from lm_engine.register_hf import get_causal_lm_class, is_custom_model
@@ -323,11 +324,13 @@ def model_conversion_test(
     hf_logits = hf_output.logits
     hf_loss = hf_output.loss
 
-    lm_engine_output = lm_engine_model(
-        input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True
-    )
+    # the lm_engine model itself no longer computes loss (that now lives in `LLMAdapter_HF`), so it's computed
+    # here on the returned logits instead
+    lm_engine_output = lm_engine_model(input_ids=input_ids, attention_mask=attention_mask)
     lm_engine_logits = lm_engine_output.logits
-    lm_engine_loss = lm_engine_output.loss
+    lm_engine_loss = get_autoregressive_language_modeling_loss(
+        lm_logits=lm_engine_logits, labels=labels, shift_logits_and_labels=True
+    )
 
     # we don't care about what happens on masked values (they don't match btw)
     hf_logits[attention_mask == 0] = 0

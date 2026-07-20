@@ -63,9 +63,6 @@ class PreTrainedModelMixin(nn.Module):
 
         return model
 
-    def tie_weights(self) -> None:
-        return
-
 
 class BaseModelMixin(PreTrainedModelMixin):
     def __init__(self, config: CommonConfig, **kwargs) -> BaseModelMixin:

@@ -9,6 +9,7 @@ from transformers import GenerationMixin, PretrainedConfig, PreTrainedModel
 from transformers.modeling_outputs import CausalLMOutputWithPast as _HFCausalLMOutputWithPast
 
 from .generation_cache import GenerationCache
+from .loss import get_autoregressive_language_modeling_loss
 from .mixins.dense.main import CausalLMModelMixin
 from .model_config import CommonConfig
 from .modeling_utils import ParameterizedEmbedding, ParameterizedLinear
@@ -123,12 +124,24 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
             cache_params=past_key_values,
             attention_mask=attention_mask,
             position_ids=position_ids,
-            labels=labels,
             use_cache=use_cache,
         )
 
+        # loss is computed here, not by the wrapped model: the model's own loss path is tensor-parallel/aux-loss
+        # aware and belongs to the training loop, whereas this adapter only ever runs plain, single-device inference
+        loss = None
+        if labels is not None:
+            loss = get_autoregressive_language_modeling_loss(
+                lm_logits=outputs.logits,
+                labels=labels,
+                reduction="mean",
+                shift_logits_and_labels=True,
+                tensor_parallel_enabled=False,
+                use_padding_free_transformer=False,
+            )
+
         return _HFCausalLMOutputWithPast(
-            loss=outputs.loss,
+            loss=loss,
             logits=outputs.logits,
             past_key_values=outputs.cache_params,
         )

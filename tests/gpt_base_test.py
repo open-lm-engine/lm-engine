@@ -8,6 +8,8 @@ import torch
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
+from lm_engine.loss import get_autoregressive_language_modeling_loss
+from lm_engine.modeling_utils.io import CausalLMOutputWithPast
 from lm_engine.modeling_utils.sequence_packing import (
     compute_cu_seqlens_and_max_seqlen_from_attention_mask,
     pack_sequence,
@@ -26,6 +28,22 @@ from .utils import (
 SEED = 1234
 
 
+def _get_loss(
+    output: CausalLMOutputWithPast,
+    labels: torch.Tensor,
+    cu_seqlens: torch.Tensor | None = None,
+    use_padding_free_transformer: bool = False,
+) -> torch.Tensor:
+    return get_autoregressive_language_modeling_loss(
+        lm_logits=output.logits,
+        labels=labels,
+        cu_seqlens=cu_seqlens,
+        use_padding_free_transformer=use_padding_free_transformer,
+        shift_logits_and_labels=True,
+        reduction="mean",
+    )
+
+
 @pytest.mark.parametrize("device", [torch.device("cuda")])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
 def test_quack_gemm_model_equivalence(device: torch.device, dtype: torch.dtype) -> None:
@@ -42,14 +60,14 @@ def test_quack_gemm_model_equivalence(device: torch.device, dtype: torch.dtype) 
     model = from_config(config, dtype=dtype).to(device)
     model.eval()
 
-    expected_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    expected_output = model(input_ids=input_ids, attention_mask=attention_mask)
     expected_logits = expected_output.logits
-    expected_loss = expected_output.loss
+    expected_loss = _get_loss(expected_output, labels)
 
     with enable_kernels([Kernel.quack_gemm]):
-        quack_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        quack_output = model(input_ids=input_ids, attention_mask=attention_mask)
         quack_logits = quack_output.logits
-        quack_loss = quack_output.loss
+        quack_loss = _get_loss(quack_output, labels)
 
     expected_logits[attention_mask == 0] = 0
     quack_logits[attention_mask == 0] = 0
@@ -96,11 +114,11 @@ def test_sdpa_padding_free_transformer_equivalence(
     flash_model.load_state_dict(sdpa_model.state_dict())
 
     input_ids, attention_mask, labels = get_dummy_inputs(device)
-    sdpa_output = sdpa_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    sdpa_output = sdpa_model(input_ids=input_ids, attention_mask=attention_mask)
+    sdpa_loss = _get_loss(sdpa_output, labels)
     attention_mask = attention_mask.to(torch.bool)
     sdpa_logits = sdpa_output.logits
     sdpa_logits = torch.cat([sdpa_logits[i, ex, :] for i, ex in enumerate(attention_mask)])
-    sdpa_loss = sdpa_output.loss
 
     with enable_kernels([kernel]):
         cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
@@ -112,13 +130,12 @@ def test_sdpa_padding_free_transformer_equivalence(
         flash_output = flash_model(
             input_ids=input_ids,
             position_ids=position_ids,
-            labels=labels,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
         )
 
         flash_logits = flash_output.logits
-        flash_loss = flash_output.loss
+        flash_loss = _get_loss(flash_output, labels, cu_seqlens=cu_seqlens, use_padding_free_transformer=True)
 
     assert_equal_tensors(
         sdpa_logits,
@@ -158,14 +175,14 @@ def test_sdpa_flash_attention_equivalence(
     model = from_config(config, dtype=dtype).to(device)
     model.eval()
 
-    sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask)
     sdpa_logits = sdpa_output.logits
-    sdpa_loss = sdpa_output.loss
+    sdpa_loss = _get_loss(sdpa_output, labels)
 
     with enable_kernels([kernel]):
-        flash_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        flash_output = model(input_ids=input_ids, attention_mask=attention_mask)
         flash_logits = flash_output.logits
-        flash_loss = flash_output.loss
+        flash_loss = _get_loss(flash_output, labels)
 
     # we don't care about what happens on masked values (they don't match btw)
     sdpa_logits[attention_mask == 0] = 0
@@ -200,13 +217,13 @@ def test_sdpa_flash_enabled(device: torch.device, position_embedding_type: str, 
     input_ids, _, labels = get_dummy_inputs(device)
     attention_mask = torch.ones_like(input_ids, dtype=torch.int, device=device)
 
-    sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    sdpa_output = model(input_ids=input_ids, attention_mask=attention_mask)
     sdpa_logits = sdpa_output.logits
-    sdpa_loss = sdpa_output.loss
+    sdpa_loss = _get_loss(sdpa_output, labels)
 
-    flash_output = model(input_ids=input_ids, labels=labels)
+    flash_output = model(input_ids=input_ids)
     flash_logits = flash_output.logits
-    flash_loss = flash_output.loss
+    flash_loss = _get_loss(flash_output, labels)
 
     assert_equal_tensors(
         sdpa_logits,
@@ -249,13 +266,13 @@ def test_flash_attention_equivalence_with_and_without_attention_masks(
     model.eval()
 
     with enable_kernels([kernel]):
-        output_with_mask = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        output_with_mask = model(input_ids=input_ids, attention_mask=attention_mask)
         logits_with_mask = output_with_mask.logits
-        loss_with_mask = output_with_mask.loss
+        loss_with_mask = _get_loss(output_with_mask, labels)
 
-        output_without_mask = model(input_ids=input_ids, labels=labels)
+        output_without_mask = model(input_ids=input_ids)
         logits_without_mask = output_without_mask.logits
-        loss_without_mask = output_without_mask.loss
+        loss_without_mask = _get_loss(output_without_mask, labels)
 
     assert_equal_tensors(logits_with_mask, logits_without_mask, True)
     assert_equal_tensors(loss_with_mask, loss_without_mask, True)
