@@ -56,10 +56,7 @@ class PaLMBlock(nn.Module):
         # NOTE we can contenate the input matrices of attention and MLP here for speedup
         # but right now we avoid it since this code is only used for accuracy benchmarking at small scale
         a = self.sequence_mixer(
-            x,
-            cache_params=cache_params,
-            attention_mask_info=attention_mask_info,
-            position_info=position_info,
+            x, cache_params=cache_params, attention_mask_info=attention_mask_info, position_info=position_info
         )
 
         m = self.mlp_block(x)
