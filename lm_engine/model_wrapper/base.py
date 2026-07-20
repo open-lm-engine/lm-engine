@@ -247,7 +247,12 @@ class ModelWrapper(nn.Module):
                 model_class = get_causal_lm_class(self.config.model_type)
 
                 if self.model_name is None:
-                    self.model = model_class._from_config(**model_kwargs, **kwargs)
+                    construct_kwargs = {**model_kwargs, **kwargs}
+                    config = construct_kwargs.pop("config")
+                    dtype = construct_kwargs.pop("dtype", construct_kwargs.pop("torch_dtype", None))
+
+                    self.model = model_class(config, **construct_kwargs)
+                    self.model = self.model.to(dtype)
                 else:
                     model_kwargs.setdefault("config", self.config)
                     self.model = model_class.from_pretrained(**model_kwargs, **kwargs)
@@ -273,11 +278,11 @@ class ModelWrapper(nn.Module):
                         model_kwargs.pop("pretrained_model_name_or_path")
                     )
 
-                model: nn.Module = (
-                    get_causal_lm_class(self.config.model_type)._from_config(**model_kwargs)
-                    if self.is_custom_model
-                    else AutoModelForCausalLM.from_config(**model_kwargs)
-                )
+                if self.is_custom_model:
+                    config = model_kwargs.pop("config")
+                    model: nn.Module = get_causal_lm_class(self.config.model_type)(config, **model_kwargs)
+                else:
+                    model: nn.Module = AutoModelForCausalLM.from_config(**model_kwargs)
 
                 num_parameters = 0
                 for param in model.parameters():

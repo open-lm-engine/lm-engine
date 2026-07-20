@@ -47,21 +47,12 @@ class PreTrainedModelMixin(nn.Module):
         self.use_padding_free_transformer = kwargs.get("use_padding_free_transformer", False)
         self._tied_word_embeddings = config.tie_word_embeddings
 
-        self._has_mamba2 = any([block.sequence_mixer_type == "mamba2" for block in self.config.sequence_mixer_blocks])
-
         self.bos_token_id = self.config.bos_token_id
         self.eos_token_id = self.config.eos_token_id
         self.pad_token_id = self.config.pad_token_id
 
         if self.is_pipeline_parallel_enabled and self._tied_word_embeddings:
             raise NotImplementedError()
-
-    @classmethod
-    def _from_config(cls, config: CommonConfig, **kwargs) -> PreTrainedModelMixin:
-        model = cls(config, **kwargs)
-        model = model.to(kwargs.pop("dtype", kwargs.pop("torch_dtype", None)))
-
-        return model
 
 
 class BaseModelMixin(PreTrainedModelMixin):

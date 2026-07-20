@@ -133,7 +133,7 @@ with enable_kernels(kernels):
 
         # bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter (`LLMAdapter_HF`)
         # for our custom architectures, and construct the raw lm_engine class directly instead
-        model_tp = get_causal_lm_class(config.model_type)._from_config(
+        model_tp = get_causal_lm_class(config.model_type)(
             config,
             use_padding_free_transformer=args.use_padding_free_transformer,
             sequence_parallel=args.sequence_parallel,

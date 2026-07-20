@@ -70,7 +70,9 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
 
     @classmethod
     def _from_config(cls, config: CommonConfig, **kwargs) -> LLMAdapter_HF:
-        model = cls._get_causal_lm_class(config)._from_config(config, **kwargs)
+        dtype = kwargs.pop("dtype", kwargs.pop("torch_dtype", None))
+        model = cls._get_causal_lm_class(config)(config, **kwargs)
+        model = model.to(dtype)
         return cls(model)
 
     @classmethod

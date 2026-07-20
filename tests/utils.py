@@ -204,9 +204,10 @@ def from_config(config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
     dtype = kwargs.pop("dtype", None)
 
     if is_custom_model(config.model_type):
-        model = get_causal_lm_class(config.model_type)._from_config(
-            config, use_padding_free_transformer=use_padding_free_transformer, dtype=dtype
+        model = get_causal_lm_class(config.model_type)(
+            config, use_padding_free_transformer=use_padding_free_transformer
         )
+        model = model.to(dtype)
     else:
         model = AutoModelForCausalLM.from_config(
             config, use_padding_free_transformer=use_padding_free_transformer, dtype=dtype

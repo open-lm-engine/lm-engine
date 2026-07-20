@@ -127,7 +127,7 @@ with enable_kernels(kernels):
     # bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter (`LLMAdapter_HF`) for
     # our custom architectures, and construct the raw lm_engine class directly instead
     with torch.device("meta"):
-        model_cp = get_causal_lm_class(config.model_type)._from_config(config)
+        model_cp = get_causal_lm_class(config.model_type)(config)
 
     # copy to device without copying storage
     model_cp = model_cp.to_empty(device=torch.cuda.current_device())
