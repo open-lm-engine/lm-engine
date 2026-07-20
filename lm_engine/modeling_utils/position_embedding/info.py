@@ -23,8 +23,7 @@ class PositionInfo:
         key_length: int,
         device: torch.device,
     ) -> None:
-        if self.position_ids is not None:
-            return
+        assert self.position_ids is None
 
         if attention_mask is not None and attention_mask.dim() == 2:
             assert not ProcessGroupManager.is_context_parallel_enabled()
