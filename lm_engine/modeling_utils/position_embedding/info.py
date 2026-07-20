@@ -12,36 +12,41 @@ from ...parallel import ProcessGroupManager, prepare_context_parallel_input
 
 @dataclass
 class PositionInfo:
-    position_ids: torch.Tensor | None
-    rope_cos_sin: torch.Tensor | None
+    position_ids: torch.Tensor | None = None
+    rope_cos_sin: torch.Tensor | None = None
 
     def reset_parameters(
-        self, attention_mask: torch.Tensor, past_length: int, query_length: int, key_length: int
-    ) -> torch.Tensor:
-        if self.position_ids is None:
-            if attention_mask is not None and attention_mask.dim() == 2:
-                assert not ProcessGroupManager.is_context_parallel_enabled()
-                # create position_ids on the fly for batch generation
-                position_ids = (
-                    attention_mask.to(
-                        torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.int64
-                    ).cumsum(-1)
-                    - 1
-                )
+        self,
+        attention_mask: torch.Tensor | None,
+        past_length: int,
+        query_length: int,
+        key_length: int,
+        device: torch.device,
+    ) -> None:
+        if self.position_ids is not None:
+            return
 
-                position_ids.masked_fill_(attention_mask == 0, 0)
-                if past_length > 0:
-                    position_ids = position_ids[:, past_length:key_length:]
-            else:
-                position_ids = torch.arange(
-                    past_length,
-                    key_length,
-                    dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.int64,
-                    device=Accelerator.get_current_device(),
-                )
+        if attention_mask is not None and attention_mask.dim() == 2:
+            assert not ProcessGroupManager.is_context_parallel_enabled()
+            # create position_ids on the fly for batch generation
+            position_ids = (
+                attention_mask.to(
+                    torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.int64
+                ).cumsum(-1)
+                - 1
+            )
 
-                position_ids = position_ids.unsqueeze(0).view(-1, query_length)
+            position_ids.masked_fill_(attention_mask == 0, 0)
+            if past_length > 0:
+                position_ids = position_ids[:, past_length:key_length:]
+        else:
+            position_ids = torch.arange(
+                past_length,
+                key_length,
+                dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.int64,
+                device=device,
+            )
 
-            self.position_ids = prepare_context_parallel_input(inputs=(position_ids,))[0]
+            position_ids = position_ids.unsqueeze(0).view(-1, query_length)
 
-        return self.position_ids
+        self.position_ids = prepare_context_parallel_input(inputs=(position_ids,))[0]

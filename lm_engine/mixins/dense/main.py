@@ -24,7 +24,7 @@ from ...loss import (
     is_aux_loss_zero,
 )
 from ...model_config import CommonConfig
-from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
+from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear, PositionInfo
 from ...modeling_utils.io import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -138,7 +138,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
             cache_params=cache_params,
             attention_mask=attention_mask,
-            position_ids=position_ids,
+            position_info=PositionInfo(position_ids=position_ids),
             use_cache=use_cache,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
