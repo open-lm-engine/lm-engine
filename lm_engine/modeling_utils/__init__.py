@@ -3,6 +3,7 @@
 # **************************************************
 
 from .activations import get_activation_function, is_glu
+from .attention_mask_info import AttentionMaskInfo
 from .depthwise_causal_convolution import DepthwiseCausalConvolution
 from .dropout import Dropout
 from .dtensor_module import DTensorModule
@@ -21,7 +22,7 @@ from .mlp_blocks import (
     split_up_gate_tensor_for_mlp,
 )
 from .normalization import get_normalization_function
-from .position_embedding import RoPE, YaRNScaledRoPE, apply_rotary_pos_emb
+from .position_embedding import PositionInfo, RoPE, YaRNScaledRoPE, apply_rotary_pos_emb
 from .sequence_mixer_blocks import (
     GRU,
     M2RNN,

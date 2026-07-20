@@ -7,13 +7,16 @@ import os
 
 import torch
 import torch.distributed
-from transformers import AutoModelForCausalLM
 
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
+from lm_engine.hf_adapter import LLMAdapter_HF
 from lm_engine.kernels import enable_kernels
+from lm_engine.loss import get_autoregressive_language_modeling_loss
+from lm_engine.modeling_utils import AttentionMaskInfo, PositionInfo
 from lm_engine.models import GPTBaseConfig
 from lm_engine.parallel import ProcessGroupManager
+from lm_engine.register_hf import get_causal_lm_class
 from lm_engine.utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
 from ..utils import from_config
@@ -43,7 +46,6 @@ config = GPTBaseConfig(
     hidden_size=128,
     normalization_function="layernorm",
     initializer_range=0.02,
-    use_cache=True,
     bos_token_id=0,
     eos_token_id=1,
     pad_token_id=2,
@@ -121,7 +123,8 @@ with enable_kernels(kernels):
 
         model.eval()
 
-        model.save_pretrained(args.tmp_path, safe_serialization=True)
+        # `save_pretrained` now lives on `LLMAdapter_HF`, not the raw model class
+        LLMAdapter_HF(model).save_pretrained(args.tmp_path, safe_serialization=True)
         model = model.to(dtype)
 
     ProcessGroupManager.barrier()
@@ -130,7 +133,9 @@ with enable_kernels(kernels):
     with torch.device("meta"):
         # try sharding vocab matrices if really struggling for memory
 
-        model_tp = AutoModelForCausalLM.from_config(
+        # bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter (`LLMAdapter_HF`)
+        # for our custom architectures, and construct the raw lm_engine class directly instead
+        model_tp = get_causal_lm_class(config.model_type)(
             config,
             use_padding_free_transformer=args.use_padding_free_transformer,
             sequence_parallel=args.sequence_parallel,
@@ -167,24 +172,33 @@ with enable_kernels(kernels):
 
         output_tp = model_tp(
             input_ids=input_ids.view(-1),
-            labels=labels.view(-1),
-            cu_seqlens=cu_seqlens,
-            max_seqlen=sequence_length,
-            position_ids=position_ids,
+            attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=sequence_length),
+            position_info=PositionInfo(position_ids=position_ids),
         )
+        loss_labels = labels.view(-1)
     else:
-        output_tp = model_tp(input_ids=input_ids, labels=labels)
+        output_tp = model_tp(input_ids=input_ids)
+        loss_labels = labels
 
-    loss_tp = output_tp.loss
+    # the model itself no longer computes loss (that now lives in `LLMAdapter_HF`); by the time `.logits` is
+    # returned it has already been all-gathered to a plain (non-parallel) tensor, so loss is computed the same,
+    # non-tensor-parallel way for both the tensor-parallel and reference model
     logits_tp = output_tp.logits[..., : config.vocab_size]
+    loss_tp = get_autoregressive_language_modeling_loss(
+        lm_logits=logits_tp,
+        labels=loss_labels,
+        cu_seqlens=cu_seqlens if args.use_padding_free_transformer else None,
+        use_padding_free_transformer=args.use_padding_free_transformer,
+        shift_logits_and_labels=True,
+    )
 
     if torch.distributed.get_rank() == 0:
         # loss computation hangs if we don't use dummy tensor parallel world size
         with ProcessGroupManager.set_dummy_tensor_parallel_world_size(1):
-            output = model(input_ids=input_ids, labels=labels)
+            output = model(input_ids=input_ids)
 
-        loss = output.loss
         logits = output.logits
+        loss = get_autoregressive_language_modeling_loss(lm_logits=logits, labels=labels, shift_logits_and_labels=True)
 
         if args.use_padding_free_transformer:
             logits_tp = logits_tp.reshape(batch_size, sequence_length, -1)

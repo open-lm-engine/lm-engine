@@ -14,8 +14,12 @@ from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM
 
 from lm_engine.arguments import TrainingArgs
+from lm_engine.hf_adapter import LLMAdapter_HF
+from lm_engine.loss import get_autoregressive_language_modeling_loss
 from lm_engine.model_config import CommonConfig
+from lm_engine.modeling_utils import AttentionMaskInfo
 from lm_engine.models import GPTBaseConfig
+from lm_engine.register_hf import get_causal_lm_class, is_custom_model
 from lm_engine.utils import SafeTensorsWeightsManager, load_yaml
 from tools.model_conversion import export_to_huggingface, import_from_huggingface
 
@@ -66,7 +70,6 @@ def get_dense_test_config(
         layer_norm_epsilon=1e-5,
         embedding_dropout=0,
         initializer_range=0.02,
-        use_cache=True,
         rope_theta=10000,
         rope_scaling=None,
         init_method="normal",
@@ -155,7 +158,6 @@ def get_moe_test_config(
         layer_norm_epsilon=1e-5,
         embedding_dropout=0,
         initializer_range=0.02,
-        use_cache=True,
         rope_theta=10000,
         rope_scaling=None,
         init_method="normal",
@@ -199,12 +201,17 @@ def get_dummy_inputs(device: torch.device) -> tuple[torch.Tensor, torch.Tensor, 
 
 def from_config(config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
     use_padding_free_transformer = kwargs.pop("use_padding_free_transformer", False)
+    dtype = kwargs.pop("dtype", None)
 
-    model = AutoModelForCausalLM.from_config(
-        config,
-        use_padding_free_transformer=use_padding_free_transformer,
-        dtype=kwargs.pop("dtype", None),
-    )
+    if is_custom_model(config.model_type):
+        model = get_causal_lm_class(config.model_type)(
+            config, use_padding_free_transformer=use_padding_free_transformer
+        )
+        model = model.to(dtype)
+    else:
+        model = AutoModelForCausalLM.from_config(
+            config, use_padding_free_transformer=use_padding_free_transformer, dtype=dtype
+        )
 
     if use_padding_free_transformer:
         assert model.use_padding_free_transformer
@@ -296,7 +303,8 @@ def model_conversion_test(
         export_path = os.path.join(tmp_path, "export")
         import_path = os.path.join(tmp_path, "import")
 
-        lm_engine_model.save_pretrained(save_path, safe_serialization=True)
+        # `save_pretrained` now lives on `LLMAdapter_HF`, not the raw model class
+        LLMAdapter_HF(lm_engine_model).save_pretrained(save_path, safe_serialization=True)
 
         export_to_huggingface(save_path, model_type, export_path)
         import_from_huggingface(export_path, import_path, **kwargs)
@@ -318,11 +326,15 @@ def model_conversion_test(
     hf_logits = hf_output.logits
     hf_loss = hf_output.loss
 
+    # the lm_engine model itself no longer computes loss (that now lives in `LLMAdapter_HF`), so it's computed
+    # here on the returned logits instead
     lm_engine_output = lm_engine_model(
-        input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True
+        input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask)
     )
     lm_engine_logits = lm_engine_output.logits
-    lm_engine_loss = lm_engine_output.loss
+    lm_engine_loss = get_autoregressive_language_modeling_loss(
+        lm_logits=lm_engine_logits, labels=labels, shift_logits_and_labels=True
+    )
 
     # we don't care about what happens on masked values (they don't match btw)
     hf_logits[attention_mask == 0] = 0

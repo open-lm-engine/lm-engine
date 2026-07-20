@@ -17,6 +17,7 @@ from ....parameter import (
 )
 from ....utils import divide_if_divisible, is_xma_available
 from ...activations import clip_gradients, get_activation_function, is_glu, sigmoid, silu, tanh
+from ...attention_mask_info import AttentionMaskInfo
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
@@ -165,16 +166,22 @@ class GRU(nn.Module):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
     ) -> torch.Tensor:
         if self.use_padding_free_transformer:
             assert cache_params is None
-            assert attention_mask is None
+            assert attention_mask_info.attention_mask is None
+
+            attention_mask = None
+            cu_seqlens = attention_mask_info.cu_seqlens
+            max_seqlen = attention_mask_info.max_seqlen
         else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
+            assert attention_mask_info.cu_seqlens is None
+            assert attention_mask_info.max_seqlen is None
+
+            attention_mask = attention_mask_info.get_linear_attention_mask(cache_params)
+            cu_seqlens = None
+            max_seqlen = None
 
             B, S = x.size()[:2]
 

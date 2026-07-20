@@ -103,7 +103,6 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
         normalization_function="rmsnorm",
         layer_norm_epsilon=original_config.rms_norm_eps,
         embedding_dropout=0,
-        use_cache=original_config.use_cache,
         tie_word_embeddings=original_config.tie_word_embeddings,
         initializer_range=original_config.initializer_range,
         rope_theta=original_config.rope_parameters["rope_theta"],
@@ -307,7 +306,7 @@ def _export_granitemoehybrid_config(config: GPTBaseConfig) -> GraniteMoeHybridCo
         intermediate_size=config.check_equal_for_all_and_get_value("mlp_blocks", "intermediate_size"),
         hidden_act="silu",
         rms_norm_eps=config.layer_norm_epsilon,
-        use_cache=config.use_cache,
+        use_cache=True,
         attention_bias=config.check_equal_for_all_and_get_value(
             key="sequence_mixer_blocks", key_block="add_bias", sequence_mixer_type="softmax_attention"
         ),

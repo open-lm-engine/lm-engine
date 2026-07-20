@@ -10,10 +10,12 @@ import torch.nn as nn
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....utils import divide_if_divisible, is_fla_available
 from ...activations import silu
+from ...attention_mask_info import AttentionMaskInfo
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
+from ...position_embedding import PositionInfo
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import GatedDeltaNetArgs
@@ -124,10 +126,22 @@ class GatedDeltaNet(nn.Module):
         self,
         hidden_states: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
+        position_info: PositionInfo = PositionInfo(),
     ) -> torch.Tensor:
+        if self.use_padding_free_transformer:
+            assert cache_params is None
+            assert attention_mask_info.attention_mask is None
+
+            attention_mask = None
+            cu_seqlens = attention_mask_info.cu_seqlens
+        else:
+            assert attention_mask_info.cu_seqlens is None
+            assert attention_mask_info.max_seqlen is None
+
+            attention_mask = attention_mask_info.get_linear_attention_mask(cache_params)
+            cu_seqlens = None
+
         use_cache = cache_params is not None
 
         c, h = (
@@ -166,17 +180,11 @@ class GatedDeltaNet(nn.Module):
 
         g, _ = self.decay_gate(x=a, final_exponential=False)
 
-        if self.use_padding_free_transformer:
-            assert cache_params is None
-            assert attention_mask is None
-        else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
-
+        if not self.use_padding_free_transformer:
             B, S = q.size()[:2]
 
             if attention_mask is not None:
-                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+                cu_seqlens, _ = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
                 q, k, v, g, beta = pack_sequence(inputs=(q, k, v, g, beta), cu_seqlens=cu_seqlens)
 
         # change to inference mode.

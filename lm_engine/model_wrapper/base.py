@@ -14,12 +14,13 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
+from ..hf_adapter import LLMAdapter_HF
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
 from ..modeling_utils import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
-from ..register_hf import is_custom_model
+from ..register_hf import get_causal_lm_class, is_custom_model
 from ..tokenizers import get_tokenizer
 from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
@@ -119,7 +120,11 @@ class ModelWrapper(nn.Module):
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
             labels=labels,
             hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
-            vocab_weight=self.model.get_output_embeddings().weight if use_fused_linear_cross_entropy_kernel else None,
+            vocab_weight=(
+                LLMAdapter_HF(self.model).get_output_embeddings().weight
+                if use_fused_linear_cross_entropy_kernel
+                else None
+            ),
             cu_seqlens=cu_seqlens,
             use_padding_free_transformer=self.use_padding_free_transformer,
             reduction="sum",
@@ -151,7 +156,11 @@ class ModelWrapper(nn.Module):
         self.tokenizer.save_pretrained(save_path, legacy_format=False)
 
         if state_dict is None:
-            self.model.save_pretrained(save_path)
+            if self.is_custom_model:
+                # `save_pretrained` now lives on `LLMAdapter_HF`, not the raw model class
+                LLMAdapter_HF(self.model).save_pretrained(save_path)
+            else:
+                self.model.save_pretrained(save_path)
         else:
             for key in list(state_dict.keys()):
                 assert key.startswith("model.")
@@ -241,7 +250,24 @@ class ModelWrapper(nn.Module):
             kwargs = {"dtype": string_to_torch_dtype(self.dtype)}
 
         with context:
-            if self.model_name is None:
+            if self.is_custom_model:
+                # bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter
+                # (`LLMAdapter_HF`) for our custom architectures, and construct the raw class directly instead
+                model_class = get_causal_lm_class(self.config.model_type)
+
+                if self.model_name is None:
+                    construct_kwargs = {**model_kwargs, **kwargs}
+                    config = construct_kwargs.pop("config")
+                    dtype = construct_kwargs.pop("dtype", construct_kwargs.pop("torch_dtype", None))
+
+                    self.model = model_class(config, **construct_kwargs)
+                    self.model = self.model.to(dtype)
+                else:
+                    # `from_pretrained` now lives on `LLMAdapter_HF` (it delegates to `model_class` internally
+                    # via `config.model_type`); unwrap `.model` to get back the raw, un-adapted model for training
+                    model_kwargs.setdefault("config", self.config)
+                    self.model = LLMAdapter_HF.from_pretrained(**model_kwargs, **kwargs).model
+            elif self.model_name is None:
                 self.model = AutoModelForCausalLM.from_config(**model_kwargs, **kwargs)
             else:
                 self.model = AutoModelForCausalLM.from_pretrained(**model_kwargs, **kwargs)
@@ -263,7 +289,11 @@ class ModelWrapper(nn.Module):
                         model_kwargs.pop("pretrained_model_name_or_path")
                     )
 
-                model: nn.Module = AutoModelForCausalLM.from_config(**model_kwargs)
+                if self.is_custom_model:
+                    config = model_kwargs.pop("config")
+                    model: nn.Module = get_causal_lm_class(self.config.model_type)(config, **model_kwargs)
+                else:
+                    model: nn.Module = AutoModelForCausalLM.from_config(**model_kwargs)
 
                 num_parameters = 0
                 for param in model.parameters():
