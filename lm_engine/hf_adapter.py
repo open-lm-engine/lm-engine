@@ -52,7 +52,11 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
     base_model_prefix = "model"
 
     def __init__(self, model: CausalLMModelMixin) -> LLMAdapter_HF:
-        assert not model.is_pipeline_parallel_enabled, "LLMAdapter_HF does not support pipeline parallelism"
+        # NOTE: pipeline parallelism is allowed through for now so `model_wrapper/base.py::get_loss` can wrap a
+        # pipeline-parallel model just to reach `get_output_embeddings()` (only ever called on the last stage,
+        # where `lm_head`/`wte` are guaranteed to exist). `forward()`/`generate()` still assume a single-stage
+        # model and were never updated to handle `PipelineParallelOutput` — don't call them through this adapter
+        # on a pipeline-parallel model.
         assert not model.use_padding_free_transformer, "LLMAdapter_HF does not support the padding-free transformer"
 
         super().__init__(type(self).config_class.from_common_config(model.config))
@@ -97,16 +101,17 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
         return True
 
     def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.model.get_input_embeddings()
+        return self.model.transformer.wte
 
     def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
-        self.model.set_input_embeddings(value)
+        self.model.transformer.wte = value
 
     def get_output_embeddings(self) -> ParameterizedLinear:
-        return self.model.get_output_embeddings()
+        return self.model.transformer.wte if self.model._tied_word_embeddings else self.model.lm_head
 
     def set_output_embeddings(self, new_embeddings: ParameterizedLinear) -> None:
-        self.model.set_output_embeddings(new_embeddings)
+        if not self.model._tied_word_embeddings:
+            self.model.lm_head = new_embeddings
 
     def forward(
         self,
