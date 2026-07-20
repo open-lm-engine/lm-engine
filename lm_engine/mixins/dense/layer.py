@@ -14,11 +14,7 @@ from ...modeling_utils import PositionInfo, get_mlp_block, get_normalization_fun
 
 class Block(nn.Module):
     def __init__(
-        self,
-        config: CommonConfig,
-        use_padding_free_transformer: bool,
-        layer_idx: int,
-        sequence_parallel: bool,
+        self, config: CommonConfig, use_padding_free_transformer: bool, layer_idx: int, sequence_parallel: bool
     ) -> Block:
         super().__init__()
 
