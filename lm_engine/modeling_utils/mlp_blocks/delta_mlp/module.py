@@ -11,9 +11,10 @@ import torch.nn as nn
 from einops import rearrange
 
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
+from ....kernels import Kernel, is_kernel_allowed
 from ....parallel import ProcessGroupManager
 from ....parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_per_row_hyperball
-from ....utils import divide_if_divisible, is_fla_available
+from ....utils import divide_if_divisible, is_coda_available, is_fla_available
 from ...activations import get_activation_function
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
@@ -34,6 +35,10 @@ if is_fla_available():
     from .utils import chunk_delta_rule, fused_recurrent_delta_rule
 
     build_cp_context = torch.compiler.disable(build_cp_context)
+
+
+if is_coda_available():
+    from coda.kernels.functional.swiglu import linear_swiglu
 
 
 class DeltaMLP(nn.Module):
@@ -397,8 +402,15 @@ class DeltaMLP(nn.Module):
         if recurrent_state is None:
             recurrent_state = self.initial_recurrent_state()
 
-        q = self.q_proj(hidden_states)
-        q = self.act(q)
+        if is_kernel_allowed(Kernel.coda_linear_swiglu):
+            q = linear_swiglu(
+                rearrange(hidden_states, "b t d -> (b t) d", b=batch_size),
+                self.q_proj.weight,
+            )
+            q = rearrange(q, "(b t) d -> b t d", b=batch_size)
+        else:
+            q = self.q_proj(hidden_states)
+            q = self.act(q)
 
         k = self.k_proj(hidden_states)
         v = self.v_proj(hidden_states) if self.use_v_proj else hidden_states
