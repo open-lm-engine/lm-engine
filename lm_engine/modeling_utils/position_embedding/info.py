@@ -15,8 +15,8 @@ class PositionInfo:
     position_ids: torch.Tensor | None
     rope_cos_sin: torch.Tensor | None
 
-    def get_position_ids(
-        self, attention_mask: torch.Tensor, past_length: int, query_length: int, key_length: int, device: torch.device
+    def reset_parameters(
+        self, attention_mask: torch.Tensor, past_length: int, query_length: int, key_length: int
     ) -> torch.Tensor:
         if self.position_ids is None:
             if attention_mask is not None and attention_mask.dim() == 2:
@@ -37,7 +37,7 @@ class PositionInfo:
                     past_length,
                     key_length,
                     dtype=torch.int32 if Accelerator.get_accelerator() == Accelerator.trainium else torch.int64,
-                    device=device,
+                    device=Accelerator.get_current_device(),
                 )
 
                 position_ids = position_ids.unsqueeze(0).view(-1, query_length)
