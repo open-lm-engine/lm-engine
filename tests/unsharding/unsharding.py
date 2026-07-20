@@ -8,10 +8,10 @@ import os
 from torch.distributed.tensor import DTensor
 
 from lm_engine.enums import Kernel
+from lm_engine.hf_adapter import LLMAdapter_HF
 from lm_engine.kernels import enable_kernels
 from lm_engine.models import GPTBaseConfig
 from lm_engine.parallel import ProcessGroupManager
-from lm_engine.register_hf import get_causal_lm_class
 
 from ..utils import from_config
 
@@ -105,13 +105,14 @@ if is_tp_first_rank:
     with ProcessGroupManager.set_dummy_tensor_parallel_world_size(1):
         model = from_config(config)
 
-    model.save_pretrained(args.tmp_path, safe_serialization=True)
+    # `save_pretrained` now lives on `LLMAdapter_HF`, not the raw model class
+    LLMAdapter_HF(model).save_pretrained(args.tmp_path, safe_serialization=True)
 
 ProcessGroupManager.barrier()
 
-# bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter (`LLMAdapter_HF`) for our
-# custom architectures, and construct the raw lm_engine class directly instead
-model_tp = get_causal_lm_class(config.model_type).from_pretrained(args.tmp_path)
+# `from_pretrained` now lives on `LLMAdapter_HF` (it delegates to the raw class internally via
+# `config.model_type`); unwrap `.model` to get back the raw, un-adapted model
+model_tp = LLMAdapter_HF.from_pretrained(args.tmp_path, config=config).model
 tp_state_dict = model_tp.state_dict()
 
 cpu_state_dict = {key: value.to("cpu") for key, value in tp_state_dict.items()}

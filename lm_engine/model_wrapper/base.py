@@ -156,7 +156,11 @@ class ModelWrapper(nn.Module):
         self.tokenizer.save_pretrained(save_path, legacy_format=False)
 
         if state_dict is None:
-            self.model.save_pretrained(save_path)
+            if self.is_custom_model:
+                # `save_pretrained` now lives on `LLMAdapter_HF`, not the raw model class
+                LLMAdapter_HF(self.model).save_pretrained(save_path)
+            else:
+                self.model.save_pretrained(save_path)
         else:
             for key in list(state_dict.keys()):
                 assert key.startswith("model.")
@@ -259,8 +263,10 @@ class ModelWrapper(nn.Module):
                     self.model = model_class(config, **construct_kwargs)
                     self.model = self.model.to(dtype)
                 else:
+                    # `from_pretrained` now lives on `LLMAdapter_HF` (it delegates to `model_class` internally
+                    # via `config.model_type`); unwrap `.model` to get back the raw, un-adapted model for training
                     model_kwargs.setdefault("config", self.config)
-                    self.model = model_class.from_pretrained(**model_kwargs, **kwargs)
+                    self.model = LLMAdapter_HF.from_pretrained(**model_kwargs, **kwargs).model
             elif self.model_name is None:
                 self.model = AutoModelForCausalLM.from_config(**model_kwargs, **kwargs)
             else:

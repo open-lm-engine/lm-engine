@@ -10,6 +10,7 @@ import torch.distributed
 
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
+from lm_engine.hf_adapter import LLMAdapter_HF
 from lm_engine.kernels import enable_kernels
 from lm_engine.loss import get_autoregressive_language_modeling_loss
 from lm_engine.models import GPTBaseConfig
@@ -122,7 +123,8 @@ with enable_kernels(kernels):
 
         model.eval()
 
-        model.save_pretrained(args.tmp_path, safe_serialization=True)
+        # `save_pretrained` now lives on `LLMAdapter_HF`, not the raw model class
+        LLMAdapter_HF(model).save_pretrained(args.tmp_path, safe_serialization=True)
         model = model.to(dtype)
 
     ProcessGroupManager.barrier()

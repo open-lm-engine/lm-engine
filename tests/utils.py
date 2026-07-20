@@ -14,6 +14,7 @@ from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM
 
 from lm_engine.arguments import TrainingArgs
+from lm_engine.hf_adapter import LLMAdapter_HF
 from lm_engine.loss import get_autoregressive_language_modeling_loss
 from lm_engine.model_config import CommonConfig
 from lm_engine.models import GPTBaseConfig
@@ -303,7 +304,8 @@ def model_conversion_test(
         export_path = os.path.join(tmp_path, "export")
         import_path = os.path.join(tmp_path, "import")
 
-        lm_engine_model.save_pretrained(save_path, safe_serialization=True)
+        # `save_pretrained` now lives on `LLMAdapter_HF`, not the raw model class
+        LLMAdapter_HF(lm_engine_model).save_pretrained(save_path, safe_serialization=True)
 
         export_to_huggingface(save_path, model_type, export_path)
         import_from_huggingface(export_path, import_path, **kwargs)

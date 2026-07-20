@@ -11,12 +11,13 @@ import torch.nn.functional as F
 from transformers import AutoConfig, AutoModelForCausalLM
 
 from ..enums import Kernel, KLDivergenceMethod
+from ..hf_adapter import LLMAdapter_HF
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss
 from ..modeling_utils import CausalLMOutputWithPast, PipelineParallelOutput
 from ..parallel import ProcessGroupManager
-from ..register_hf import get_causal_lm_class, is_custom_model
+from ..register_hf import is_custom_model
 from ..utils import string_to_torch_dtype
 from .pretraining import ModelWrapperForPretraining
 
@@ -169,14 +170,14 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
     def _setup_model(self) -> None:
         super()._setup_model()
 
-        # bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter (`LLMAdapter_HF`)
-        # for our custom architectures, and construct the raw class directly instead
+        # `from_pretrained` lives on `LLMAdapter_HF` for our custom architectures (it delegates to the raw class
+        # internally via `config.model_type`); unwrap `.model` to get back the raw, un-adapted model for training
         if is_custom_model(self.teacher_config.model_type):
-            self.teacher_model = get_causal_lm_class(self.teacher_config.model_type).from_pretrained(
+            self.teacher_model = LLMAdapter_HF.from_pretrained(
                 self.teacher_model_name,
                 config=self.teacher_config,
                 dtype=string_to_torch_dtype(self.teacher_model_dtype),
-            )
+            ).model
         else:
             self.teacher_model = AutoModelForCausalLM.from_pretrained(
                 self.teacher_model_name, dtype=string_to_torch_dtype(self.teacher_model_dtype)

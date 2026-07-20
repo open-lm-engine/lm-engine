@@ -4,26 +4,16 @@
 
 from __future__ import annotations
 
-import os
-
 import torch
 from torch.distributed.tensor import DTensor, Replicate, Shard, distribute_tensor
 
-from ...arguments import LoadArgs, MixedPrecisionArgs, UnshardingArgs
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...generation_cache import GenerationCache
 from ...kernels import is_kernel_allowed
 from ...loss import add_aux_loss, clear_aux_loss, get_aux_loss
 from ...model_config import CommonConfig
-from ...modeling_utils import (
-    AttentionMaskInfo,
-    DTensorModule,
-    LMHead,
-    ParameterizedEmbedding,
-    ParameterizedLinear,
-    PositionInfo,
-)
+from ...modeling_utils import AttentionMaskInfo, DTensorModule, LMHead, PositionInfo
 from ...modeling_utils.io import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -31,27 +21,8 @@ from ...modeling_utils.io import (
     PipelineParallelOutput,
 )
 from ...parallel import ProcessGroupManager
-from ...parameter import (
-    _INIT_MARKER,
-    get_named_parameters_and_buffers,
-    get_parameter_marker_maps,
-    is_parameter_initialized,
-    set_parameter_marker_maps,
-)
-from ...utils import SafeTensorsWeightsManager, divide_if_divisible, torch_dtype_to_string
+from ...utils import SafeTensorsWeightsManager, divide_if_divisible
 from .base import PreTrainedModelMixin
-
-
-_HF_USELESS_STUFF = [
-    "revision",
-    "subfolder",
-    "gguf_file",
-    "quantization_config",
-    "max_memory",
-    "name_or_path",
-    "trust_remote_code",
-    "adapter_kwargs",
-]
 
 
 class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
@@ -167,78 +138,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             output = PipelineParallelOutput(hidden_states=hidden_states, aux_loss=aux_loss)
 
         return output
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        pretrained_model_name_or_path: str,
-        dtype: torch.dtype = torch.float32,
-        iteration: int | None = None,
-        **kwargs,
-    ) -> CausalLMModelMixin:
-        config = kwargs.pop("config")
-        # drop useless stuff
-
-        for k in _HF_USELESS_STUFF:
-            kwargs.pop(k, None)
-
-        num_pipeline_stages = kwargs.pop("num_pipeline_stages", 1)
-        pipeline_stage_id = kwargs.pop("pipeline_stage_id", 0)
-
-        if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
-            # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_models)
-            from ...checkpointing import load_checkpoint_and_unshard
-
-            assert not ProcessGroupManager.is_tensor_parallel_enabled()
-
-            unshard_args = UnshardingArgs(
-                load_args=LoadArgs(load_path=pretrained_model_name_or_path, iteration=iteration),
-                mixed_precision_args=MixedPrecisionArgs(dtype=torch_dtype_to_string(dtype)),
-                unsharded_path="",
-            )
-
-            model_wrapper, _, _ = load_checkpoint_and_unshard(unshard_args)
-            model = model_wrapper.model
-        else:
-            assert iteration is None, "iteration should be None when loading from an unsharded checkpoint"
-
-            if ProcessGroupManager.is_tensor_parallel_enabled() or num_pipeline_stages > 1:
-                with torch.device("meta"):
-                    model = cls(
-                        config, num_pipeline_stages=num_pipeline_stages, pipeline_stage_id=pipeline_stage_id, **kwargs
-                    )
-
-                for module in model.modules():
-                    if hasattr(module, "reset_parameters"):
-                        module.reset_parameters()
-
-                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
-
-                model = model.to(dtype=dtype)
-                model = model.to_empty(device=torch.cuda.current_device())
-                model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
-            else:
-                model = cls(config, **kwargs)
-                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
-
-                model = model.to(dtype=dtype)
-                model.load_state_dict(SafeTensorsWeightsManager(pretrained_model_name_or_path).state_dict())
-
-        device_map = kwargs.pop("device_map", {"": None})
-        assert len(device_map) == 1
-        assert len(kwargs) == 0
-
-        model = model.to(device_map[""])
-        set_parameter_marker_maps([model], marker_maps)
-
-        for param_name, param in get_named_parameters_and_buffers(model):
-            assert is_parameter_initialized(param), f"{param_name} is not initialized"
-
-        return model
-
-    def save_pretrained(self, save_directory: str, **kwargs) -> None:
-        self.config.save_pretrained(save_directory)
-        SafeTensorsWeightsManager.save_state_dict(self.state_dict(), save_directory)
 
     def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
         with torch.device(torch.cuda.current_device()):
