@@ -5,6 +5,8 @@
 import pytest
 import torch
 
+from lm_engine.hf_adapter import LLMAdapter_HF
+
 from .utils import (
     from_config,
     get_dense_test_config,
@@ -32,4 +34,7 @@ def test_generation_works(device: torch.device, position_embedding_type: str, dt
 
         input_ids, attention_mask, _ = get_dummy_inputs(device)
 
-        model.generate(input_ids=input_ids, attention_mask=attention_mask)
+        # generation now goes through the real `transformers.GenerationMixin.generate()` via the HF-compatibility
+        # adapter; the model itself no longer has its own hand-rolled generate()
+        hf_model = LLMAdapter_HF(model)
+        hf_model.generate(input_ids=input_ids, attention_mask=attention_mask, max_new_tokens=20, do_sample=False)
