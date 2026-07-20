@@ -33,8 +33,6 @@ def test_generation_works(device: torch.device, position_embedding_type: str, dt
         model.eval()
 
         input_ids, attention_mask, _ = get_dummy_inputs(device)
-
-        # generation now goes through the real `transformers.GenerationMixin.generate()` via the HF-compatibility
-        # adapter; the model itself no longer has its own hand-rolled generate()
-        hf_model = LLMAdapter_HF(model)
-        hf_model.generate(input_ids=input_ids, attention_mask=attention_mask, max_new_tokens=20, do_sample=False)
+        LLMAdapter_HF(model).generate(
+            input_ids=input_ids, attention_mask=attention_mask, max_new_tokens=20, do_sample=False
+        )
