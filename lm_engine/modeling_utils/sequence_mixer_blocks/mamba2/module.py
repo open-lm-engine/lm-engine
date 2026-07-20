@@ -20,10 +20,12 @@ from ....parameter import (
 )
 from ....utils import divide_if_divisible, is_mamba_2_ssm_available
 from ...activations import silu
+from ...attention_mask_info import AttentionMaskInfo
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
+from ...position_embedding import PositionInfo
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import Mamba2Args
 
@@ -276,8 +278,13 @@ class Mamba2(nn.Module):
         self,
         hidden_states: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
+        position_info: PositionInfo = PositionInfo(),
     ) -> torch.Tensor:
+        assert attention_mask_info.cu_seqlens is None
+        assert attention_mask_info.max_seqlen is None
+
+        attention_mask = attention_mask_info.get_linear_attention_mask(cache_params)
         hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
 
         if is_kernel_allowed(Kernel.mamba2_ssm):

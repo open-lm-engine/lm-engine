@@ -26,7 +26,6 @@ class Block(nn.Module):
 
         hidden_size = config.hidden_size
         self.m_residual = config.m_residual
-        self.sequence_mixer_type = config.sequence_mixer_blocks[layer_idx].sequence_mixer_type
 
         self.ln_1 = get_normalization_function(
             config.normalization_function,
@@ -69,8 +68,8 @@ class Block(nn.Module):
         r = x
 
         x = self.ln_1(x)
-        x = self._sequence_mixer_forward(
-            x=x, cache_params=cache_params, attention_mask_info=attention_mask_info, position_info=position_info
+        x = self.sequence_mixer(
+            x, cache_params=cache_params, attention_mask_info=attention_mask_info, position_info=position_info
         )
 
         if self.m_residual is not None:
@@ -86,33 +85,5 @@ class Block(nn.Module):
             x = x * self.m_residual
 
         x = x + r
-
-        return x
-
-    def _sequence_mixer_forward(
-        self,
-        x: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
-    ) -> torch.Tensor:
-        if self.sequence_mixer_type in ["softmax_attention", "multihead_latent_attention"]:
-            x = self.sequence_mixer(
-                x, cache_params=cache_params, attention_mask_info=attention_mask_info, position_info=position_info
-            )
-        elif self.sequence_mixer_type == "mamba2":
-            x = self.sequence_mixer(
-                x, cache_params=cache_params, attention_mask=attention_mask_info.get_mamba_mask(cache_params)
-            )
-        elif self.sequence_mixer_type in ["gru", "rnn", "m2rnn", "gated_deltanet"]:
-            x = self.sequence_mixer(
-                x,
-                cache_params=cache_params,
-                attention_mask=attention_mask_info.get_mamba_mask(cache_params),
-                cu_seqlens=attention_mask_info.cu_seqlens,
-                max_seqlen=attention_mask_info.max_seqlen,
-            )
-        else:
-            raise ValueError(f"unexpected sequence_mixer_type ({self.sequence_mixer_type})")
 
         return x

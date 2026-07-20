@@ -23,7 +23,7 @@ class LadderResidualBlock(Block):
             residual = residual + current_attention_out
 
         current_attention_out = self.ln_1(residual)
-        current_attention_out = self._sequence_mixer_forward(
+        current_attention_out = self.sequence_mixer(
             current_attention_out,
             cache_params=cache_params,
             attention_mask_info=attention_mask_info,

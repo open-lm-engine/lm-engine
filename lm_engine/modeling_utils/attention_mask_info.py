@@ -47,7 +47,7 @@ class AttentionMaskInfo:
 
         self._causal_mask_computed = True
 
-    def get_mamba_mask(self, cache_params: GenerationCache | None) -> torch.Tensor | None:
+    def get_linear_attention_mask(self, cache_params: GenerationCache | None) -> torch.Tensor | None:
         if not self._mamba_mask_computed:
             mamba_mask = self.attention_mask
             if (
