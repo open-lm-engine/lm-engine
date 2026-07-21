@@ -113,7 +113,7 @@ def test_sample_index_shape(simple_env):
     _, sample_index = build_sample_index(config, Split.train, num_samples, caching_allowed=False)
 
     assert sample_index.shape == (num_samples + 1, 3), sample_index.shape
-    assert sample_index.dtype == np.int32
+    assert sample_index.dtype == np.int64
 
 
 def test_sample_index_boundaries_are_seq_len_apart(simple_env):
@@ -262,6 +262,11 @@ def test_no_token_gaps_or_overlaps(simple_env):
     We verify this by checking that sample[i+1][0] == sample[i][-1],
     i.e. the last token of sample i equals the first token of sample i+1
     (they share the boundary token since we use seq_len+1 per sample).
+
+    __getitem__ applies a deterministic per-split permutation, so ds[i] are
+    not stream-consecutive. This tiling invariant is a property of the
+    underlying sample_index (built in stream order), so we fetch in stream
+    order via _fetch_tokens, which bypasses the permutation.
     """
     seq_len = 5
     config = StitchedDatasetConfig(
@@ -276,13 +281,49 @@ def test_no_token_gaps_or_overlaps(simple_env):
 
     prev = None
     for i in range(len(ds)):
-        curr = ds[i]["text"]
+        curr = ds._fetch_tokens(i)
         if prev is not None:
-            assert prev[-1].item() == curr[0].item(), (
+            assert prev[-1] == curr[0], (
                 f"gap/overlap at boundary between sample {i-1} and {i}: "
-                f"prev[-1]={prev[-1].item()}, curr[0]={curr[0].item()}"
+                f"prev[-1]={prev[-1]}, curr[0]={curr[0]}"
             )
         prev = curr
+
+
+def test_multi_epoch_replay(simple_env):
+    """num_samples beyond one epoch replays it, reshuffled per epoch.
+
+    Mirrors the pretraining wiring: build one epoch (num_samples=None), then serve
+    a larger count. Every sample must be full length and each epoch window must be
+    a permutation of the single-epoch sample set.
+    """
+    seq_len = 5
+    config = StitchedDatasetConfig(
+        stitched_seq_path=simple_env["stitched_seq_path"],
+        tokenized_data_root=simple_env["data_root"],
+        sequence_length=seq_len,
+        ordering_strategy=OrderingStrategy.as_stored,
+        split_ratio=(1.0, 0.0, 0.0),
+    )
+    stitched_seq, sample_index = build_sample_index(config, Split.train, None, caching_allowed=False)
+    epoch = len(sample_index) - 1  # 16
+
+    ds = StitchedSequenceDataset(config, Split.train, stitched_seq, sample_index, num_samples=2 * epoch + 3)
+    assert len(ds) == 2 * epoch + 3
+
+    canonical = sorted(tuple(ds._fetch_tokens(i).tolist()) for i in range(epoch))
+    windows = []
+    for start in (0, epoch):
+        window = [tuple(ds[start + j]["text"].tolist()) for j in range(epoch)]
+        assert sorted(window) == canonical, "each epoch must visit every sample exactly once"
+        windows.append(window)
+    assert windows[0] != windows[1], "epochs should be reshuffled independently"
+
+    # Partial final epoch, plus determinism across instances (needed for resumption).
+    ds2 = StitchedSequenceDataset(config, Split.train, stitched_seq, sample_index, num_samples=2 * epoch + 3)
+    for i in (0, epoch, 2 * epoch + 2):
+        assert ds[i]["text"].shape == (seq_len + 1,)
+        assert torch.equal(ds[i]["text"], ds2[i]["text"]), "replay must be deterministic"
 
 
 def _reference_samples(ds: StitchedSequenceDataset) -> dict[int, torch.Tensor]:

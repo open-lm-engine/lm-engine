@@ -4,7 +4,7 @@
 
 """Build (or load cached) the sample_index for StitchedSequenceDataset.
 
-sample_index shape: [N+1, 3]  dtype: int32
+sample_index shape: [N+1, 3]  dtype: int64
 Each row encodes a boundary as (collection_idx, doc_offset_within_collection, token_offset_within_doc).
 Sample i spans from sample_index[i] to sample_index[i+1].
 """
@@ -27,7 +27,7 @@ from .config import StitchedDatasetConfig
 def build_sample_index(
     config: StitchedDatasetConfig,
     split: Split,
-    num_samples: int,
+    num_samples: int | None,
     caching_allowed: bool,
 ) -> tuple[pd.DataFrame, np.ndarray]:
     """Build (or load from cache) the sample_index for a given split.
@@ -45,7 +45,7 @@ def build_sample_index(
 
     Returns:
         stitched_seq: Full stitched_seq DataFrame (all collections, all splits).
-        sample_index: int32 array of shape [N+1, 3] encoding sample boundaries.
+        sample_index: int64 array of shape [N+1, 3] encoding sample boundaries.
     """
 
     stitched_seq = pd.read_parquet(config.stitched_seq_path)
@@ -214,7 +214,7 @@ def build_sample_index(
     # Boundary i+1 is the last label token of sample i AND the first input token
     # of sample i+1 — the same token, shared due to the label shift (input=tokens[:-1],
     # labels=tokens[1:]).
-    sample_index = np.stack([coll_indices, doc_offsets_within_coll, token_offsets], axis=1).astype(np.int32)
+    sample_index = np.stack([coll_indices, doc_offsets_within_coll, token_offsets], axis=1).astype(np.int64)
 
     log_rank_0(logging.INFO, f"  Built sample_index shape={sample_index.shape} in {time.time()-t0:.1f}s")
 

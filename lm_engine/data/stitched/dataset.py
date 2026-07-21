@@ -23,10 +23,14 @@ time (micro-batch assembly is done by MegatronBatchSampler, same as GPTDataset).
 
 from __future__ import annotations
 
+import logging
+import math
+
 import numpy as np
 import pandas as pd
 import torch
 
+from ...logging_utils import log_rank_0
 from ..megatron import Split
 from .config import OrderingStrategy, StitchedDatasetConfig
 from .ordering import get_doc_order
@@ -40,7 +44,9 @@ class StitchedSequenceDataset(torch.utils.data.Dataset):
         config: StitchedDatasetConfig instance.
         split: Which split (train / val / test).
         stitched_seq: Full DataFrame [shard, coll_beg, coll_end] (all collections); c-values in sample_index are global row indices into this.
-        sample_index: int32 array of shape [N+1, 3].
+        sample_index: int64 array of shape [N+1, 3] encoding one full pass (epoch) over the split.
+        num_samples: Total samples to serve. If it exceeds one epoch, the epoch is
+            replayed with a per-epoch reshuffle. None serves exactly one epoch.
     """
 
     def __init__(
@@ -49,14 +55,25 @@ class StitchedSequenceDataset(torch.utils.data.Dataset):
         split: Split,
         stitched_seq: pd.DataFrame,
         sample_index: np.ndarray,
+        num_samples: int | None = None,
     ) -> None:
         self.config = config
         self.split = split
         self.stitched_seq = stitched_seq
-        self.sample_index = sample_index  # [N+1, 3] int32
+        self.sample_index = sample_index  # [N+1, 3] int64
 
         assert sample_index.ndim == 2 and sample_index.shape[1] == 3
-        self._num_samples = len(sample_index) - 1
+        self._n_epoch_samples = len(sample_index) - 1  # samples in one pass over the split
+        assert self._n_epoch_samples > 0, "sample_index must encode at least one sample"
+
+        self._num_samples = self._n_epoch_samples if num_samples is None else int(num_samples)
+        if self._num_samples > self._n_epoch_samples:
+            log_rank_0(
+                logging.INFO,
+                f"StitchedSequenceDataset[{split.name}]: serving {self._num_samples} samples over "
+                f"{self._n_epoch_samples}/epoch (~{math.ceil(self._num_samples / self._n_epoch_samples)} "
+                f"epochs, replayed with a per-epoch reshuffle)",
+            )
 
         # ShardStore is created here (in the main process) but is fully
         # re-initialised in each DataLoader worker via __getstate__/__setstate__.
@@ -66,17 +83,26 @@ class StitchedSequenceDataset(torch.utils.data.Dataset):
         # reproducibility across workers and restarts.
         self._base_seed = config.seed
 
-        # Deterministic per-split sample permutation. Decouples training-time
-        # sample order from parquet row order so a single giant doc (or a
-        # cluster of similar docs) doesn't concentrate into one batch. The
-        # underlying sample_index is untouched, so the cache stays valid.
-        self._permutation = np.random.default_rng(config.seed + split.value).permutation(self._num_samples)
+        # Per-epoch permutations, built lazily. Each epoch reshuffles independently
+        # so replays are reordered; the on-disk sample_index is untouched.
+        self._permutations: dict[int, np.ndarray] = {}
 
     def __len__(self) -> int:
         return self._num_samples
 
+    def _get_permutation(self, epoch: int) -> np.ndarray:
+        perm = self._permutations.get(epoch)
+        if perm is None:
+            perm = np.random.default_rng([self._base_seed, self.split.value, epoch]).permutation(
+                self._n_epoch_samples
+            )
+            self._permutations[epoch] = perm
+        return perm
+
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        true_idx = int(self._permutation[idx])
+        # idx -> (epoch, position), then through that epoch's permutation to a row.
+        epoch, base = divmod(int(idx), self._n_epoch_samples)
+        true_idx = int(self._get_permutation(epoch)[base])
         tokens = self._fetch_tokens(true_idx)
         return {"text": torch.from_numpy(tokens.astype(np.int64))}
 
@@ -141,7 +167,8 @@ class StitchedSequenceDataset(torch.utils.data.Dataset):
             parts.extend(tmp[i] for i in order)
 
         tokens = np.concatenate(parts)
-        is_last_sample = idx == self._num_samples - 1
+        # The clamped (short) sample, if any, is the last row of the epoch.
+        is_last_sample = idx == self._n_epoch_samples - 1
         if is_last_sample:
             assert len(tokens) <= need, (
                 f"sample {idx} (last): got {len(tokens)} tokens, expected <= {need}. "
@@ -163,8 +190,8 @@ class StitchedSequenceDataset(torch.utils.data.Dataset):
 
     def __getstate__(self) -> dict:
         state = self.__dict__.copy()
-        # _shard_store will be re-created in the worker
-        state["_shard_store"] = None
+        state["_shard_store"] = None  # re-created in the worker
+        state["_permutations"] = {}  # recomputed deterministically per worker
         return state
 
     def __setstate__(self, state: dict) -> None:

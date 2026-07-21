@@ -163,8 +163,10 @@ def get_pretraining_dataloaders(
         def _build_dataset(split: Split, num_samples: int) -> StitchedSequenceDataset | None:
             if num_samples == 0 or config.split_ratio[split.value] == 0.0:
                 return None
-            stitched_seq, sample_index = build_stitched_sample_index(config, split, num_samples, caching_allowed)
-            return StitchedSequenceDataset(config, split, stitched_seq, sample_index)
+            # Build one full epoch (num_samples=None) so the cache is independent of
+            # run length; the dataset replays it to serve the requested num_samples.
+            stitched_seq, sample_index = build_stitched_sample_index(config, split, None, caching_allowed)
+            return StitchedSequenceDataset(config, split, stitched_seq, sample_index, num_samples=num_samples)
 
         train_ds = _build_dataset(Split.train, train_samples)
         val_ds = _build_dataset(Split.valid, val_samples)
