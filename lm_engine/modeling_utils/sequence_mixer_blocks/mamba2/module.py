@@ -204,7 +204,7 @@ class Mamba2(nn.Module):
             dt = self.decay_gate.get_dt(x=dt[:, 0, :], dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
             x, h = mamba2_recurrent_step(
-                hidden_states=x,
+                x=x,
                 B=B,
                 C=C,
                 dt=dt,
@@ -228,7 +228,7 @@ class Mamba2(nn.Module):
             dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
             x, h = mamba2_chunk_scan(
-                hidden_states=x,
+                x=x,
                 B=B,
                 C=C,
                 dt=dt,

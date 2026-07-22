@@ -148,7 +148,7 @@ def get_cp_initial_ssm_state(
 
 
 def mamba2_recurrent_step(
-    hidden_states: torch.Tensor,
+    x: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,
     dt: torch.Tensor,
@@ -162,12 +162,12 @@ def mamba2_recurrent_step(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Single-token recurrent SSM update: pure torch fallback for `selective_state_update`.
 
-    hidden_states, B, C, dt are for a single time step (already conv'd, and dt already
+    x, B, C, dt are for a single time step (already conv'd, and dt already
     softplus'd with bias applied). A is already `-exp(A_log)`. Returns `(y, new_ssm_state)`
     where `y` has shape (batch_size, 1, num_heads * head_dim) and `new_ssm_state` has shape
     (batch_size, num_heads, head_dim, ssm_state_size).
     """
-    batch_size = hidden_states.shape[0]
+    batch_size = x.shape[0]
     # We need to guarantee that anything regarding the cache is on the same device
     cache_device = ssm_state.device
 
@@ -195,9 +195,9 @@ def mamba2_recurrent_step(
     # dB -> (B, N, 1, ssm_state_size)
 
     # Discretize x into dB
-    hidden_states = hidden_states.reshape(batch_size, -1, head_dim)
-    # hidden_states -> (B, N, head_dim)
-    dBx = (dB * hidden_states[..., None]).to(device=cache_device)
+    x = x.reshape(batch_size, -1, head_dim)
+    # x -> (B, N, head_dim)
+    dBx = (dB * x[..., None]).to(device=cache_device)
     # dBx -> (B, N, head_dim, ssm_state_size)
 
     # State calculation
@@ -213,7 +213,7 @@ def mamba2_recurrent_step(
     # D skip connection
     # [num_heads] -> [num_heads, head_dim]
     D = D[..., None].expand(D.shape[0], head_dim)
-    y = (y + hidden_states * D).to(y.dtype)
+    y = (y + x * D).to(y.dtype)
 
     # [bsz, num_heads, head_dim] -> [bsz, 1, intermediate_size]
     y = y.reshape(batch_size, -1)[:, None, ...]
@@ -222,7 +222,7 @@ def mamba2_recurrent_step(
 
 
 def mamba2_chunk_scan(
-    hidden_states: torch.Tensor,
+    x: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,
     dt: torch.Tensor,
@@ -238,29 +238,29 @@ def mamba2_chunk_scan(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Naive chunked SSD scan: pure torch fallback for `mamba_chunk_scan_combined`.
 
-    hidden_states, B, C, dt are for the full sequence (already conv'd, and dt already
+    x, B, C, dt are for the full sequence (already conv'd, and dt already
     softplus'd with bias applied). A is already `-exp(A_log)`; `A_log` itself is only needed
     for the context-parallel initial-state correction. Returns `(y, final_ssm_state)` where
     `y` has shape (batch_size, seq_len, num_heads * head_dim) and `final_ssm_state` has shape
     (batch_size, num_heads, head_dim, ssm_state_size).
     """
-    batch_size = hidden_states.shape[0]
+    batch_size = x.shape[0]
 
-    hidden_states = hidden_states.reshape(batch_size, seq_len, -1, head_dim).float()
+    x = x.reshape(batch_size, seq_len, -1, head_dim).float()
     B = B.reshape(batch_size, seq_len, -1, ssm_state_size).float()
     C = C.reshape(batch_size, seq_len, -1, ssm_state_size).float()
     B = B.repeat(1, 1, num_heads // n_groups, 1)
     C = C.repeat(1, 1, num_heads // n_groups, 1)
     pad_size = (chunk_size - seq_len % chunk_size) % chunk_size
 
-    D_residual = D[..., None] * _pad_tensor_by_size(hidden_states, pad_size)
+    D_residual = D[..., None] * _pad_tensor_by_size(x, pad_size)
 
     # Discretize x and A
-    hidden_states = hidden_states * dt[..., None]
-    A = A.to(hidden_states.dtype) * dt
+    x = x * dt[..., None]
+    A = A.to(x.dtype) * dt
 
     # Rearrange into blocks/chunks
-    hidden_states, A, B, C = [_reshape_into_chunks(t, pad_size, chunk_size) for t in (hidden_states, A, B, C)]
+    x, A, B, C = [_reshape_into_chunks(t, pad_size, chunk_size) for t in (x, A, B, C)]
 
     # [bsz, -1, chunk_size, num_heads] -> [bsz, num_heads, -1, chunk_size]
     A = A.permute(0, 3, 1, 2)
@@ -279,13 +279,13 @@ def mamba2_chunk_scan(
     M = M_intermediate.sum(dim=-1)
 
     # Compute Y_diag (apply to values)
-    Y_diag = (M[..., None] * hidden_states[:, :, None]).sum(dim=3)
+    Y_diag = (M[..., None] * x[:, :, None]).sum(dim=3)
 
     # 2. Compute the state for each intra-chunk
     # (right term of low-rank factorization of off-diagonal blocks; B terms)
     decay_states = torch.exp((A_cumsum[:, :, :, -1:] - A_cumsum))
     B_decay = B * decay_states.permute(0, -2, -1, 1)[..., None]
-    states = (B_decay[..., None, :] * hidden_states[..., None]).sum(dim=2)
+    states = (B_decay[..., None, :] * x[..., None]).sum(dim=2)
 
     # 3. Compute the inter-chunk SSM recurrence; produces correct SSM states at chunk boundaries
     # (middle term of factorization of off-diag blocks; A terms)
