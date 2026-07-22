@@ -204,13 +204,19 @@ class Mamba2(nn.Module):
         return x
 
     def _cuda_forward(
-        self, x: torch.Tensor, A_neg: torch.Tensor, dt: torch.Tensor, cache_params: GenerationCache | None = None
+        self,
+        x: torch.Tensor,
+        A_neg: torch.Tensor,
+        B: torch.Tensor,
+        C: torch.Tensor,
+        D: torch.Tensor,
+        dt: torch.Tensor,
+        cache_params: GenerationCache | None = None,
     ) -> torch.Tensor:
         batch_size, seq_len, _ = x.size()
         use_precomputed_states = cache_params is not None and seq_len == 1 and h is not None
 
         if use_precomputed_states:
-
             x = selective_state_update(
                 h,
                 x.view(batch_size, self.num_heads, self.head_dim),
@@ -218,7 +224,7 @@ class Mamba2(nn.Module):
                 A_neg[:, None, ...][:, :, None].expand(-1, self.head_dim, self.ssm_state_size).to(dtype=torch.float32),
                 B.reshape(batch_size, self.n_groups, -1),
                 C.reshape(batch_size, self.n_groups, -1),
-                self.D[:, None, ...].expand(-1, self.head_dim),
+                D[:, None, ...].expand(-1, self.head_dim),
                 z=None,
                 dt_bias=self.decay_gate.dt_bias[:, None, ...].expand(-1, self.head_dim),
                 dt_softplus=True,
@@ -262,7 +268,7 @@ class Mamba2(nn.Module):
                         B.view(batch_size, seq_len, self.n_groups, -1),
                         C.view(batch_size, seq_len, self.n_groups, -1),
                         chunk_size=self.chunk_size,
-                        D=self.D,
+                        D=D,
                         z=None,
                         seq_idx=None,
                         return_final_states=True,
@@ -276,7 +282,7 @@ class Mamba2(nn.Module):
                     initial_states = get_cp_initial_ssm_state(
                         ssm_state_zero,
                         dt_softplused,
-                        self.decay_gate.A_log,
+                        A_neg,
                         self.num_heads,
                         self.head_dim,
                         self.ssm_state_size,
@@ -291,7 +297,7 @@ class Mamba2(nn.Module):
                     B.view(batch_size, seq_len, self.n_groups, -1),
                     C.view(batch_size, seq_len, self.n_groups, -1),
                     chunk_size=self.chunk_size,
-                    D=self.D,
+                    D=D,
                     z=None,
                     seq_idx=None,
                     return_final_states=True,
