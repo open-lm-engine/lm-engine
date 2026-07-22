@@ -216,14 +216,6 @@ class Mamba2(nn.Module):
                 head_dim=self.head_dim,
                 ssm_state_size=self.ssm_state_size,
             )
-
-            cache_params.update(
-                states=(
-                    GenerationState(state=c, method=ConstantCache, num_tokens_added=seq_len),
-                    GenerationState(state=h, method=ConstantCache, num_tokens_added=seq_len),
-                ),
-                layer_idx=self.layer_idx,
-            )
         else:
             dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
@@ -243,15 +235,14 @@ class Mamba2(nn.Module):
                 seq_len=seq_len,
             )
 
-            # Init cache
-            if cache_params is not None:
-                cache_params.update(
-                    states=(
-                        GenerationState(state=c, method=ConstantCache, num_tokens_added=seq_len),
-                        GenerationState(state=h, method=ConstantCache, num_tokens_added=seq_len),
-                    ),
-                    layer_idx=self.layer_idx,
-                )
+        if cache_params is not None:
+            cache_params.update(
+                states=(
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=seq_len),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=seq_len),
+                ),
+                layer_idx=self.layer_idx,
+            )
 
         x = x * silu(g)
         x = self.norm(x)
