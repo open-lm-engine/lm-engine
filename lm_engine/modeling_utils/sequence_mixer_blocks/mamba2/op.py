@@ -147,7 +147,7 @@ def get_cp_initial_ssm_state(
     return _serial_prefix_scan(all_exp_A, all_final, cp_rank)
 
 
-def mamba2_recurrent_step(
+def mamba2_recurrent_step_torch(
     x: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,
@@ -223,7 +223,7 @@ def mamba2_recurrent_step(
     return y, ssm_state
 
 
-def mamba2_chunk_scan(
+def mamba2_chunk_scan_torch(
     x: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,

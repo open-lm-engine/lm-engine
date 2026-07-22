@@ -24,7 +24,7 @@ from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import Mamba2Args
-from .utils import get_cp_initial_ssm_state, mamba2_chunk_scan, mamba2_recurrent_step
+from .op import get_cp_initial_ssm_state, mamba2_chunk_scan_torch, mamba2_recurrent_step_torch
 
 
 if is_mamba_2_ssm_available():
@@ -207,7 +207,7 @@ class Mamba2(nn.Module):
                     dtype=x.dtype,
                 )
 
-            x, h = mamba2_recurrent_step(
+            x, h = mamba2_recurrent_step_torch(
                 x=x,
                 B=B,
                 C=C,
@@ -223,7 +223,7 @@ class Mamba2(nn.Module):
         else:
             assert h is None
 
-            x, h = mamba2_chunk_scan(
+            x, h = mamba2_chunk_scan_torch(
                 x=x,
                 B=B,
                 C=C,
