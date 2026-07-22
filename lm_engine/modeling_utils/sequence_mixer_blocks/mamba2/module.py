@@ -144,10 +144,7 @@ class Mamba2(nn.Module):
         self.reset_parameters()
 
     def forward(
-        self,
-        x: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         x = _apply_mask_to_padding_states(x, attention_mask)
 
@@ -159,10 +156,7 @@ class Mamba2(nn.Module):
         return x
 
     def _torch_forward(
-        self,
-        x: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         batch_size, seq_len, _ = x.size()
         dtype = x.dtype
