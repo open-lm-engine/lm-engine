@@ -2,8 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-import math
-
 from transformers import GraniteConfig, GraniteForCausalLM
 
 from lm_engine.models import GPTBaseConfig
@@ -25,10 +23,8 @@ def _import_granite_config(original_config: GraniteConfig, **kwargs) -> GPTBaseC
         use_cache=original_config.use_cache,
         tie_word_embeddings=original_config.tie_word_embeddings,
         initializer_range=original_config.initializer_range,
-        rope_theta=original_config.rope_parameters["rope_theta"],
-        rope_scaling=(
-            None if original_config.rope_parameters.get("rope_type") == "default" else original_config.rope_parameters
-        ),
+        rope_theta=original_config.rope_theta,
+        rope_scaling=original_config.rope_scaling,
         init_method="normal",
         embedding_init_method="normal",
         use_depth_scaled_init=True,
@@ -49,21 +45,9 @@ def _import_granite_config(original_config: GraniteConfig, **kwargs) -> GPTBaseC
                 "head_dim": None,
                 "softmax_dropout": original_config.attention_dropout,
                 "dropout": 0,
-                "attention_multiplier": (
-                    None
-                    if math.isclose(
-                        original_config.attention_multiplier,
-                        1.0 / math.sqrt(original_config.hidden_size // original_config.num_attention_heads),
-                    )
-                    else original_config.attention_multiplier
-                ),
+                "attention_multiplier": original_config.attention_multiplier,
                 "attention_multiplier_method": (
-                    "1 / sqrt(head_dim)"
-                    if math.isclose(
-                        original_config.attention_multiplier,
-                        1.0 / math.sqrt(original_config.hidden_size // original_config.num_attention_heads),
-                    )
-                    else None
+                    "1 / sqrt(head_dim)" if original_config.attention_multiplier is None else None
                 ),
                 "attention_gate": False,
                 "exclusive_self_attention": False,
@@ -95,17 +79,12 @@ def _export_granite_config(config: GPTBaseConfig) -> GraniteConfig:
     config.check_equal_for_all_and_get_value("mlp_blocks", "activation_function", "swiglu")
     config.check_equal_for_all_and_get_value("mlp_blocks", "mlp_type", "MLP")
 
-    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
-    attention_multiplier = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "attention_multiplier")
-    if attention_multiplier is None:
-        attention_multiplier = 1.0 / math.sqrt(config.hidden_size // num_attention_heads)
-
     original_config = GraniteConfig(
         vocab_size=config.vocab_size,
         max_position_embeddings=config.max_position_embeddings,
         hidden_size=config.hidden_size,
         num_hidden_layers=config.num_layers,
-        num_attention_heads=num_attention_heads,
+        num_attention_heads=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
         num_key_value_heads=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
         intermediate_size=config.check_equal_for_all_and_get_value("mlp_blocks", "intermediate_size"),
         hidden_act="silu",
@@ -124,7 +103,7 @@ def _export_granite_config(config: GPTBaseConfig) -> GraniteConfig:
         embedding_multiplier=1 if config.m_emb is None else config.m_emb,
         residual_multiplier=1 if config.m_residual is None else config.m_residual,
         logits_scaling=1 if config.m_width is None else config.m_width,
-        attention_multiplier=attention_multiplier,
+        attention_multiplier=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "attention_multiplier"),
         architectures=[GraniteForCausalLM.__name__],
     )
 

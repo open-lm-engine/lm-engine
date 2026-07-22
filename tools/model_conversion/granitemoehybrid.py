@@ -23,7 +23,7 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
     for layer_idx in range(original_config.num_hidden_layers):
         layer_type = original_config.layer_types[layer_idx]
 
-        if layer_type == "full_attention":
+        if layer_type == "attention":
             sequence_mixer_block = {
                 "sequence_mixer_type": "softmax_attention",
                 "num_attention_heads": original_config.num_attention_heads,
@@ -40,7 +40,7 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
                 "exclusive_self_attention": False,
                 "sliding_window": None,
             }
-        elif layer_type == "linear_attention":
+        elif layer_type == "mamba":
             sequence_mixer_block = {
                 "sequence_mixer_type": "mamba2",
                 "state_size": original_config.mamba_d_state,
@@ -106,10 +106,8 @@ def _import_granitemoehybrid_config(original_config: GraniteMoeHybridConfig, **k
         use_cache=original_config.use_cache,
         tie_word_embeddings=original_config.tie_word_embeddings,
         initializer_range=original_config.initializer_range,
-        rope_theta=original_config.rope_parameters["rope_theta"],
-        rope_scaling=(
-            None if original_config.rope_parameters.get("rope_type") == "default" else original_config.rope_parameters
-        ),
+        rope_theta=original_config.rope_theta,
+        rope_scaling=original_config.rope_scaling,
         init_method="normal",
         embedding_init_method="normal",
         use_depth_scaled_init=True,
