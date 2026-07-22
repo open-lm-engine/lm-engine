@@ -16,7 +16,7 @@ from ....parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ....utils import divide_if_divisible, is_mamba_2_ssm_available
+from ....utils import divide_if_divisible
 from ...activations import silu
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
 from ...init_utils import _get_std_for_linear
@@ -24,12 +24,7 @@ from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import Mamba2Args
-from .op import get_cp_initial_ssm_state, mamba2_torch
-
-
-if is_mamba_2_ssm_available():
-    from mamba_ssm.ops.triton.selective_state_update import selective_state_update
-    from mamba_ssm.ops.triton.ssd_combined import mamba_chunk_scan_combined, mamba_split_conv1d_scan_combined
+from .op import mamba2_cuda, mamba2_torch
 
 
 class Mamba2(nn.Module):

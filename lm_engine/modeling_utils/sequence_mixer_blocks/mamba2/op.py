@@ -9,7 +9,13 @@ import torch.nn.functional as F
 from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
 
 from ....parallel import ProcessGroupManager
-from ....utils import divide_if_divisible
+from ....utils import divide_if_divisible, is_mamba_2_ssm_available
+from .op import get_cp_initial_ssm_state
+
+
+if is_mamba_2_ssm_available():
+    from mamba_ssm.ops.triton.selective_state_update import selective_state_update
+    from mamba_ssm.ops.triton.ssd_combined import mamba_chunk_scan_combined, mamba_split_conv1d_scan_combined
 
 
 def _pad_tensor_by_size(input_tensor: torch.Tensor, pad_size: int) -> torch.Tensor:
@@ -407,7 +413,6 @@ def mamba2_cuda(
     out_proj_bias: torch.Tensor,
     eps: float,
     output_state: bool,
-    intermediate_size: int,
     num_groups: int,
     num_heads: int,
     head_dim: int,
