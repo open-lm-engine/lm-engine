@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
 
 from ....parallel import ProcessGroupManager
+from ....utils import divide_if_divisible
 
 
 def _pad_tensor_by_size(input_tensor: torch.Tensor, pad_size: int) -> torch.Tensor:
@@ -147,7 +148,7 @@ def get_cp_initial_ssm_state(
     return _serial_prefix_scan(all_exp_A, all_final, cp_rank)
 
 
-def mamba2_recurrent_step_torch(
+def _mamba2_recurrent_step_torch(
     x: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,
@@ -223,7 +224,7 @@ def mamba2_recurrent_step_torch(
     return y, ssm_state
 
 
-def mamba2_chunk_scan_torch(
+def _mamba2_chunk_scan_torch(
     x: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,
@@ -327,3 +328,73 @@ def mamba2_chunk_scan_torch(
     y = y.reshape(batch_size, seq_len, -1)
 
     return y, ssm_state
+
+
+def mamba2_torch(
+    x: torch.Tensor,
+    dt: torch.Tensor,
+    A_log: torch.Tensor,
+    D: torch.Tensor,
+    h: torch.Tensor | None,
+    use_recurrent: bool,
+    intermediate_size: int,
+    num_groups: int,
+    num_heads: int,
+    head_dim: int,
+    ssm_state_size: int,
+    chunk_size: int,
+) -> torch.Tensor:
+    batch_size, S, _ = x.size()
+
+    x, B, C = torch.split(
+        x,
+        [intermediate_size, num_groups * ssm_state_size, num_groups * ssm_state_size],
+        dim=-1,
+    )
+
+    A = -torch.exp(A_log.float())
+
+    if use_recurrent:
+        if h is None:
+            h = torch.zeros(
+                batch_size,
+                num_heads,
+                divide_if_divisible(intermediate_size, num_heads),
+                ssm_state_size,
+                device=x.device,
+                dtype=x.dtype,
+            )
+
+        x, h = _mamba2_recurrent_step_torch(
+            x=x,
+            B=B,
+            C=C,
+            dt=dt,
+            A=A,
+            D=D,
+            ssm_state=h,
+            num_heads=num_heads,
+            n_groups=num_groups,
+            head_dim=head_dim,
+            ssm_state_size=ssm_state_size,
+        )
+    else:
+        assert h is None
+
+        x, h = _mamba2_chunk_scan_torch(
+            x=x,
+            B=B,
+            C=C,
+            dt=dt,
+            A=A,
+            D=D,
+            A_log=A_log,
+            chunk_size=chunk_size,
+            num_heads=num_heads,
+            n_groups=num_groups,
+            head_dim=head_dim,
+            ssm_state_size=ssm_state_size,
+            seq_len=S,
+        )
+
+    return x, h

@@ -24,7 +24,7 @@ from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import Mamba2Args
-from .op import get_cp_initial_ssm_state, mamba2_chunk_scan_torch, mamba2_recurrent_step_torch
+from .op import get_cp_initial_ssm_state, mamba2_torch
 
 
 if is_mamba_2_ssm_available():
@@ -148,8 +148,8 @@ class Mamba2(nn.Module):
     ) -> torch.Tensor:
         S = x.size(1)
         dtype = x.dtype
-        x = _apply_mask_to_padding_states(x, attention_mask)
 
+        x = _apply_mask_to_padding_states(x, attention_mask)
         x = self.in_proj(x)
 
         c, h = (
@@ -165,7 +165,21 @@ class Mamba2(nn.Module):
             x, c, h = self._cuda_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
         else:
             assert not ProcessGroupManager.is_context_parallel_enabled()
-            x, h = self._torch_forward(x=x, dt=dt, h=h, use_recurrent=cache_params is not None and S == 1)
+
+            x, h = mamba2_torch(
+                x=x,
+                dt=self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]),
+                A_log=self.decay_gate.A_log,
+                D=self.D,
+                h=h,
+                use_recurrent=cache_params is not None and S == 1,
+                intermediate_size=self.intermediate_size,
+                num_groups=self.n_groups,
+                num_heads=self.num_heads,
+                head_dim=self.head_dim,
+                ssm_state_size=self.ssm_state_size,
+                chunk_size=self.chunk_size,
+            )
 
         if cache_params is not None:
             cache_params.update(
@@ -181,65 +195,6 @@ class Mamba2(nn.Module):
         x = self.out_proj(x.to(dtype))
 
         return x
-
-    def _torch_forward(
-        self, x: torch.Tensor, dt: torch.Tensor, h: torch.Tensor | None, use_recurrent: bool
-    ) -> torch.Tensor:
-        batch_size, S, _ = x.size()
-
-        x, B, C = torch.split(
-            x,
-            [self.intermediate_size, self.n_groups * self.ssm_state_size, self.n_groups * self.ssm_state_size],
-            dim=-1,
-        )
-
-        A = -torch.exp(self.decay_gate.A_log.float())
-        dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
-
-        if use_recurrent:
-            if h is None:
-                h = torch.zeros(
-                    batch_size,
-                    self.num_heads,
-                    divide_if_divisible(self.intermediate_size, self.num_heads),
-                    self.ssm_state_size,
-                    device=x.device,
-                    dtype=x.dtype,
-                )
-
-            x, h = mamba2_recurrent_step_torch(
-                x=x,
-                B=B,
-                C=C,
-                dt=dt,
-                A=A,
-                D=self.D,
-                ssm_state=h,
-                num_heads=self.num_heads,
-                n_groups=self.n_groups,
-                head_dim=self.head_dim,
-                ssm_state_size=self.ssm_state_size,
-            )
-        else:
-            assert h is None
-
-            x, h = mamba2_chunk_scan_torch(
-                x=x,
-                B=B,
-                C=C,
-                dt=dt,
-                A=A,
-                D=self.D,
-                A_log=self.decay_gate.A_log,
-                chunk_size=self.chunk_size,
-                num_heads=self.num_heads,
-                n_groups=self.n_groups,
-                head_dim=self.head_dim,
-                ssm_state_size=self.ssm_state_size,
-                seq_len=S,
-            )
-
-        return x, h
 
     def _cuda_forward(
         self,
@@ -298,10 +253,7 @@ class Mamba2(nn.Module):
                 layer_idx=self.layer_idx,
             )
 
-            x = x.view(batch_size, self.num_heads * self.head_dim)
-            x = x * silu(g)
-            x = self.norm(x)
-            x = self.out_proj(x)[:, None, ...]
+            x = x.view(batch_size, self.num_heads * self.head_dim)[:, None, ...]
         else:
             A = -torch.exp(self.decay_gate.A_log.float())  # (num_heads) or (intermediate_size, state_size)
             dt_limit_kwargs = {} if self.time_step_limit == (0.0, float("inf")) else {"dt_limit": self.time_step_limit}
@@ -401,9 +353,6 @@ class Mamba2(nn.Module):
                     )
 
                 x = x.view(batch_size, seq_len, -1)
-                x = x * silu(g)
-                x = self.norm(x)
-                x = self.out_proj(x)
 
         return x
 
