@@ -147,15 +147,25 @@ class Mamba2(nn.Module):
         self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         S = x.size(1)
+        dtype = x.dtype
         x = _apply_mask_to_padding_states(x, attention_mask)
 
         x = self.in_proj(x)
-        g, x, dt = x.split([self.intermediate_size, self.conv_dim, self.num_heads], dim=-1)
+
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
+
+        g, x, dt = x.split((self.intermediate_size, self.conv_dim, self.num_heads), dim=-1)
+        x, c = self.conv1d(x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None)
 
         if is_kernel_allowed(Kernel.mamba2_ssm):
             x, c, h = self._cuda_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
         else:
-            x, c, h = self._torch_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
+            assert not ProcessGroupManager.is_context_parallel_enabled()
+            x, h = self._torch_forward(x=x, dt=dt, h=h, use_recurrent=cache_params is not None and S == 1)
 
         if cache_params is not None:
             cache_params.update(
@@ -168,46 +178,15 @@ class Mamba2(nn.Module):
 
         x = x * silu(g)
         x = self.norm(x)
-        x = self.out_proj(x)
+        x = self.out_proj(x.to(dtype))
 
         return x
 
     def _torch_forward(
-        self,
-        x: torch.Tensor,
-        dt: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        self, x: torch.Tensor, dt: torch.Tensor, h: torch.Tensor | None, use_recurrent: bool
     ) -> torch.Tensor:
-        batch_size, seq_len, _ = x.size()
-        dtype = x.dtype
+        batch_size, S, _ = x.size()
 
-        c, h = (
-            (None, None)
-            if cache_params is None
-            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
-        )
-
-        use_precomputed_states = cache_params is not None and seq_len == 1 and c is not None and h is not None
-
-        if use_precomputed_states:
-            x, c = self.conv1d(x=x, input_state=c, attention_mask=attention_mask, output_state=True)
-        else:
-            if cache_params is not None and h is None:
-                h = torch.zeros(
-                    batch_size,
-                    self.num_heads,
-                    divide_if_divisible(self.intermediate_size, self.num_heads),
-                    self.ssm_state_size,
-                    device=x.device,
-                    dtype=dtype,
-                )
-
-            x, c = self.conv1d(
-                x=x, input_state=None, attention_mask=attention_mask, output_state=cache_params is not None
-            )
-
-        x = _apply_mask_to_padding_states(x, attention_mask)
         x, B, C = torch.split(
             x,
             [self.intermediate_size, self.n_groups * self.ssm_state_size, self.n_groups * self.ssm_state_size],
@@ -217,7 +196,17 @@ class Mamba2(nn.Module):
         A = -torch.exp(self.decay_gate.A_log.float())
         dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
-        if use_precomputed_states:
+        if use_recurrent:
+            if h is None:
+                h = torch.zeros(
+                    batch_size,
+                    self.num_heads,
+                    divide_if_divisible(self.intermediate_size, self.num_heads),
+                    self.ssm_state_size,
+                    device=x.device,
+                    dtype=x.dtype,
+                )
+
             x, h = mamba2_recurrent_step(
                 x=x,
                 B=B,
@@ -232,6 +221,8 @@ class Mamba2(nn.Module):
                 ssm_state_size=self.ssm_state_size,
             )
         else:
+            assert h is None
+
             x, h = mamba2_chunk_scan(
                 x=x,
                 B=B,
@@ -245,14 +236,15 @@ class Mamba2(nn.Module):
                 n_groups=self.n_groups,
                 head_dim=self.head_dim,
                 ssm_state_size=self.ssm_state_size,
-                seq_len=seq_len,
+                seq_len=S,
             )
 
-        return x, c, h
+        return x, h
 
     def _cuda_forward(
         self,
         x: torch.Tensor,
+        dt: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
