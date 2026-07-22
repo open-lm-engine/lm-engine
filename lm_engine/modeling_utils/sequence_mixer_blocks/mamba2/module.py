@@ -145,102 +145,78 @@ class Mamba2(nn.Module):
 
     def forward(
         self,
-        hidden_states: torch.Tensor,
+        x: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
+        x = _apply_mask_to_padding_states(x, attention_mask)
 
         if is_kernel_allowed(Kernel.mamba2_ssm):
-            hidden_states = self._cuda_forward(hidden_states, cache_params, attention_mask)
+            x = self._cuda_forward(x, cache_params, attention_mask)
         else:
-            hidden_states = self._torch_forward(hidden_states, cache_params, attention_mask)
+            x = self._torch_forward(x, cache_params, attention_mask)
 
-        return hidden_states
+        return x
 
     def _torch_forward(
         self,
-        hidden_states: torch.Tensor,
+        x: torch.Tensor,
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        batch_size, seq_len, _ = hidden_states.shape
-        dtype = hidden_states.dtype
+        batch_size, seq_len, _ = x.size()
+        dtype = x.dtype
 
-        # 1. Gated MLP's linear projection
-        hidden_states = _apply_mask_to_padding_states(hidden_states, attention_mask)
-        projected_states = self.in_proj(hidden_states)
-        gate, hidden_states_B_C, dt = projected_states.split(
-            [self.intermediate_size, self.conv_dim, self.num_heads], dim=-1
-        )
+        x = _apply_mask_to_padding_states(x, attention_mask)
+        x = self.in_proj(x)
+        g, x, dt = x.split([self.intermediate_size, self.conv_dim, self.num_heads], dim=-1)
 
-        conv_state, ssm_state = (
+        c, h = (
             (None, None)
             if cache_params is None
             else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
         )
 
-        use_precomputed_states = (
-            cache_params is not None and seq_len == 1 and conv_state is not None and ssm_state is not None
-        )
+        use_precomputed_states = cache_params is not None and seq_len == 1 and c is not None and h is not None
 
-        # 2. Convolution sequence transformation
         if use_precomputed_states:
-            hidden_states_B_C, conv_state = self.conv1d(
-                x=hidden_states_B_C,
-                input_state=conv_state,
-                attention_mask=attention_mask,
-                output_state=True,
-            )
+            x, c = self.conv1d(x=x, input_state=c, attention_mask=attention_mask, output_state=True)
         else:
-            # Init cache
             if cache_params is not None:
-                if ssm_state is None:
-                    ssm_state = torch.zeros(
+                if h is None:
+                    h = torch.zeros(
                         batch_size,
                         self.num_heads,
                         divide_if_divisible(self.intermediate_size, self.num_heads),
                         self.ssm_state_size,
-                        device=projected_states.device,
+                        device=x.device,
                         dtype=dtype,
                     )
 
-            hidden_states_B_C, conv_state = self.conv1d(
-                x=hidden_states_B_C,
-                input_state=None,
-                attention_mask=attention_mask,
-                output_state=cache_params is not None,
+            x, c = self.conv1d(
+                x=x, input_state=None, attention_mask=attention_mask, output_state=cache_params is not None
             )
 
-        hidden_states_B_C = _apply_mask_to_padding_states(hidden_states_B_C, attention_mask)
-        hidden_states, B, C = torch.split(
-            hidden_states_B_C,
+        x = _apply_mask_to_padding_states(x, attention_mask)
+        x, B, C = torch.split(
+            x,
             [self.intermediate_size, self.n_groups * self.ssm_state_size, self.n_groups * self.ssm_state_size],
             dim=-1,
         )
 
-        # 3. SSM transformation
         A = -torch.exp(self.decay_gate.A_log.float())
 
-        # hidden_states -> B, S, N, head_dim
-        # A -> num_heads
-        # B -> B, S, ssm_state_size
-        # C -> B, S, ssm_state_size
-        # dt -> (B, S, N)
-        # ssm_state -> (B, N, head_dim, ssm_state_size)
-
         if use_precomputed_states:
-            # A, dt_bias don't depend on head_dim, so dt is computed at (B, N) and broadcast below
             dt = self.decay_gate.get_dt(x=dt[:, 0, :], dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
-            y, ssm_state = mamba2_recurrent_step(
-                hidden_states=hidden_states,
+            x, h = mamba2_recurrent_step(
+                hidden_states=x,
                 B=B,
                 C=C,
                 dt=dt,
                 A=A,
                 D=self.D,
-                ssm_state=ssm_state,
+                ssm_state=h,
                 num_heads=self.num_heads,
                 n_groups=self.n_groups,
                 head_dim=self.head_dim,
@@ -249,16 +225,16 @@ class Mamba2(nn.Module):
 
             cache_params.update(
                 states=(
-                    GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
-                    GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=seq_len),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=seq_len),
                 ),
                 layer_idx=self.layer_idx,
             )
         else:
             dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
-            y, ssm_state = mamba2_chunk_scan(
-                hidden_states=hidden_states,
+            x, h = mamba2_chunk_scan(
+                hidden_states=x,
                 B=B,
                 C=C,
                 dt=dt,
@@ -277,19 +253,17 @@ class Mamba2(nn.Module):
             if cache_params is not None:
                 cache_params.update(
                     states=(
-                        GenerationState(state=conv_state, method=ConstantCache, num_tokens_added=seq_len),
-                        GenerationState(state=ssm_state, method=ConstantCache, num_tokens_added=seq_len),
+                        GenerationState(state=c, method=ConstantCache, num_tokens_added=seq_len),
+                        GenerationState(state=h, method=ConstantCache, num_tokens_added=seq_len),
                     ),
                     layer_idx=self.layer_idx,
                 )
 
-        scan_output = y * silu(gate)
-        scan_output = self.norm(scan_output)
+        x = x * silu(g)
+        x = self.norm(x)
+        x = self.out_proj(x.to(dtype))
 
-        # 4. Final linear projection
-        contextualized_states = self.out_proj(scan_output.to(dtype))  # [batch, seq_len, hidden_size]
-
-        return contextualized_states
+        return x
 
     def _cuda_forward(
         self,
