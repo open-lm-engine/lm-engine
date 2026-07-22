@@ -157,18 +157,33 @@ class Mamba2(nn.Module):
         x, c = self.conv1d(x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None)
 
         A_neg = -torch.exp(self.decay_gate.A_log.float())
+        dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
         groups_time_state_size = self.n_groups * self.ssm_state_size
         x, B, C = x.split((self.intermediate_size, groups_time_state_size, groups_time_state_size), dim=-1)
 
         if is_kernel_allowed(Kernel.mamba2_ssm):
-            x, h = self._cuda_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
+            x, h = mamba2_cuda(
+                x=x,
+                A_neg=A_neg,
+                B=B,
+                C=C,
+                D=self.D,
+                dt=dt,
+                h=h,
+                output_state=S == 1 and h is not None,
+                num_groups=self.n_groups,
+                num_heads=self.num_heads,
+                head_dim=self.head_dim,
+                ssm_state_size=self.ssm_state_size,
+                chunk_size=self.chunk_size,
+            )
         else:
             assert not ProcessGroupManager.is_context_parallel_enabled()
 
             x, h = mamba2_torch(
                 x=x,
-                dt=self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]),
+                dt=dt,
                 A_neg=A_neg,
                 B=B,
                 C=C,

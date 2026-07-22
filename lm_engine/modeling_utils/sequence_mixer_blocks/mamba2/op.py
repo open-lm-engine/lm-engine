@@ -15,7 +15,7 @@ from .op import get_cp_initial_ssm_state
 
 if is_mamba_2_ssm_available():
     from mamba_ssm.ops.triton.selective_state_update import selective_state_update
-    from mamba_ssm.ops.triton.ssd_combined import mamba_chunk_scan_combined, mamba_split_conv1d_scan_combined
+    from mamba_ssm.ops.triton.ssd_combined import mamba_chunk_scan_combined
 
 
 def _pad_tensor_by_size(input_tensor: torch.Tensor, pad_size: int) -> torch.Tensor:
@@ -349,7 +349,7 @@ def mamba2_torch(
     head_dim: int,
     ssm_state_size: int,
     chunk_size: int,
-) -> torch.Tensor:
+) -> tuple[torch.Tensor, torch.Tensor]:
     batch_size, S, _ = x.size()
 
     if use_recurrent:
@@ -404,24 +404,14 @@ def mamba2_cuda(
     C: torch.Tensor,
     D: torch.Tensor,
     dt: torch.Tensor,
-    dt_bias: torch.Tensor,
     h: torch.Tensor | None,
-    conv1d_weight: torch.Tensor,
-    conv1d_bias: torch.Tensor,
-    norm_weight: torch.Tensor,
-    out_proj_weight: torch.Tensor,
-    out_proj_bias: torch.Tensor,
-    eps: float,
     output_state: bool,
     num_groups: int,
     num_heads: int,
     head_dim: int,
     ssm_state_size: int,
     chunk_size: int,
-    time_step_limit: tuple[float, float],
-    is_training: bool,
-    activation_string: str,
-) -> torch.Tensor:
+) -> tuple[torch.Tensor, torch.Tensor]:
     batch_size, S, _ = x.size()
 
     if output_state:
@@ -434,67 +424,15 @@ def mamba2_cuda(
             C.reshape(batch_size, num_groups, -1),
             D[:, None, ...].expand(-1, head_dim),
             z=None,
-            dt_bias=dt_bias[:, None, ...].expand(-1, head_dim),
-            dt_softplus=True,
+            dt_softplus=False,
         )
 
         x = x.view(batch_size, num_heads * head_dim)[:, None, ...]
     else:
-        dt_limit_kwargs = {} if time_step_limit == (0.0, float("inf")) else {"dt_limit": time_step_limit}
+        assert h is None
 
-        if is_training and h is None and not ProcessGroupManager.is_context_parallel_enabled():
-            x = mamba_split_conv1d_scan_combined(
-                x,
-                conv1d_weight.squeeze(1),
-                conv1d_bias,
-                dt_bias,
-                A_neg,
-                D=D,
-                chunk_size=chunk_size,
-                seq_idx=None,
-                activation=activation_string,
-                rmsnorm_weight=norm_weight,
-                rmsnorm_eps=eps,
-                outproj_weight=out_proj_weight,
-                outproj_bias=out_proj_bias,
-                headdim=head_dim,
-                ngroups=num_groups,
-                norm_before_gate=False,
-                return_final_states=False,
-                **dt_limit_kwargs,
-            )
-        else:
-            assert h is None
-
-            if ProcessGroupManager.is_context_parallel_enabled():
-                scan_output_zero, ssm_state_zero = mamba_chunk_scan_combined(
-                    x.view(batch_size, S, -1, head_dim),
-                    dt,
-                    A_neg,
-                    B.view(batch_size, S, num_groups, -1),
-                    C.view(batch_size, S, num_groups, -1),
-                    chunk_size=chunk_size,
-                    D=D,
-                    z=None,
-                    seq_idx=None,
-                    return_final_states=True,
-                    dt_bias=dt_bias,
-                    dt_softplus=True,
-                    **dt_limit_kwargs,
-                )
-
-                ssm_state_zero = ssm_state_zero + scan_output_zero.sum().to(ssm_state_zero.dtype) * 0
-
-                h = get_cp_initial_ssm_state(
-                    ssm_state_zero,
-                    self.decay_gate.get_dt(x=dt, dt_min=time_step_limit[0], dt_max=time_step_limit[1]),
-                    A_neg,
-                    num_heads,
-                    head_dim,
-                    ssm_state_size,
-                )
-
-            x, h = mamba_chunk_scan_combined(
+        if ProcessGroupManager.is_context_parallel_enabled():
+            scan_output_zero, ssm_state_zero = mamba_chunk_scan_combined(
                 x.view(batch_size, S, -1, head_dim),
                 dt,
                 A_neg,
@@ -505,12 +443,27 @@ def mamba2_cuda(
                 z=None,
                 seq_idx=None,
                 return_final_states=True,
-                dt_bias=dt_bias,
-                dt_softplus=True,
-                initial_states=h,
-                **dt_limit_kwargs,
+                dt_softplus=False,
             )
 
-            x = x.view(batch_size, S, -1)
+            ssm_state_zero = ssm_state_zero + scan_output_zero.sum().to(ssm_state_zero.dtype) * 0
+            h = get_cp_initial_ssm_state(ssm_state_zero, dt, A_neg, num_heads, head_dim, ssm_state_size)
+
+        x, h = mamba_chunk_scan_combined(
+            x.view(batch_size, S, -1, head_dim),
+            dt,
+            A_neg,
+            B.view(batch_size, S, num_groups, -1),
+            C.view(batch_size, S, num_groups, -1),
+            chunk_size=chunk_size,
+            D=D,
+            z=None,
+            seq_idx=None,
+            return_final_states=True,
+            dt_softplus=False,
+            initial_states=h,
+        )
+
+        x = x.view(batch_size, S, -1)
 
     return x, h
