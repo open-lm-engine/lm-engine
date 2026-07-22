@@ -161,6 +161,8 @@ class Mamba2(nn.Module):
         g, x, dt = x.split((self.intermediate_size, self.conv_dim, self.num_heads), dim=-1)
         x, c = self.conv1d(x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None)
 
+        A_neg = -torch.exp(self.decay_gate.A_log.float())
+
         groups_time_state_size = self.n_groups * self.ssm_state_size
         x, B, C = x.split((self.intermediate_size, groups_time_state_size, groups_time_state_size), dim=-1)
 
@@ -172,7 +174,7 @@ class Mamba2(nn.Module):
             x, h = mamba2_torch(
                 x=x,
                 dt=self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]),
-                A_log=self.decay_gate.A_log,
+                A_neg=A_neg,
                 B=B,
                 C=C,
                 D=self.D,
@@ -202,45 +204,28 @@ class Mamba2(nn.Module):
         return x
 
     def _cuda_forward(
-        self, x: torch.Tensor, dt: torch.Tensor, cache_params: GenerationCache | None = None
+        self, x: torch.Tensor, A_neg: torch.Tensor, dt: torch.Tensor, cache_params: GenerationCache | None = None
     ) -> torch.Tensor:
         batch_size, seq_len, _ = x.size()
         use_precomputed_states = cache_params is not None and seq_len == 1 and h is not None
 
         if use_precomputed_states:
-            # 3. SSM transformation
-            A = -torch.exp(self.decay_gate.A_log.float())  # (nheads,)
-            A = A[:, None, ...][:, :, None].expand(-1, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
-            dt = dt[:, :, None].expand(-1, -1, self.head_dim)
-            dt_bias = self.decay_gate.dt_bias[:, None, ...].expand(-1, self.head_dim)
-            D = self.D[:, None, ...].expand(-1, self.head_dim)
-            B = B.reshape(batch_size, self.n_groups, -1)
-            C = C.reshape(batch_size, self.n_groups, -1)
-            x = x.view(batch_size, self.num_heads, self.head_dim)
+
             x = selective_state_update(
                 h,
-                x,
-                dt,
-                A,
-                B,
-                C,
-                D,
+                x.view(batch_size, self.num_heads, self.head_dim),
+                dt[:, :, None].expand(-1, -1, self.head_dim),
+                A_neg[:, None, ...][:, :, None].expand(-1, self.head_dim, self.ssm_state_size).to(dtype=torch.float32),
+                B.reshape(batch_size, self.n_groups, -1),
+                C.reshape(batch_size, self.n_groups, -1),
+                self.D[:, None, ...].expand(-1, self.head_dim),
                 z=None,
-                dt_bias=dt_bias,
+                dt_bias=self.decay_gate.dt_bias[:, None, ...].expand(-1, self.head_dim),
                 dt_softplus=True,
-            )
-
-            cache_params.update(
-                states=(
-                    GenerationState(state=c, method=ConstantCache, num_tokens_added=seq_len),
-                    GenerationState(state=h, method=ConstantCache, num_tokens_added=seq_len),
-                ),
-                layer_idx=self.layer_idx,
             )
 
             x = x.view(batch_size, self.num_heads * self.head_dim)[:, None, ...]
         else:
-            A = -torch.exp(self.decay_gate.A_log.float())  # (num_heads) or (intermediate_size, state_size)
             dt_limit_kwargs = {} if self.time_step_limit == (0.0, float("inf")) else {"dt_limit": self.time_step_limit}
 
             if self.training and cache_params is None and not ProcessGroupManager.is_context_parallel_enabled():
@@ -249,7 +234,7 @@ class Mamba2(nn.Module):
                     self.conv1d.weight.squeeze(1),
                     self.conv1d.bias,
                     self.decay_gate.dt_bias,
-                    A,
+                    A_neg,
                     D=self.D,
                     chunk_size=self.chunk_size,
                     seq_idx=None,  # was seq_idx
@@ -273,7 +258,7 @@ class Mamba2(nn.Module):
                     scan_output_zero, ssm_state_zero = mamba_chunk_scan_combined(
                         x.view(batch_size, seq_len, -1, self.head_dim),
                         dt,
-                        A,
+                        A_neg,
                         B.view(batch_size, seq_len, self.n_groups, -1),
                         C.view(batch_size, seq_len, self.n_groups, -1),
                         chunk_size=self.chunk_size,
@@ -302,7 +287,7 @@ class Mamba2(nn.Module):
                 x, h = mamba_chunk_scan_combined(
                     x.view(batch_size, seq_len, -1, self.head_dim),
                     dt,
-                    A,
+                    A_neg,
                     B.view(batch_size, seq_len, self.n_groups, -1),
                     C.view(batch_size, seq_len, self.n_groups, -1),
                     chunk_size=self.chunk_size,

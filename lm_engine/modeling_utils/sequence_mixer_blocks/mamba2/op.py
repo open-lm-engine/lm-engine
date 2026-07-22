@@ -118,7 +118,7 @@ def _serial_prefix_scan(all_exp_A: torch.Tensor, all_final: torch.Tensor, cp_ran
 def get_cp_initial_ssm_state(
     ssm_final_zero: torch.Tensor,
     dt: torch.Tensor,
-    A_log: torch.Tensor,
+    A_neg: torch.Tensor,
     num_heads: int,
     head_dim: int,
     ssm_state_size: int,
@@ -135,7 +135,6 @@ def get_cp_initial_ssm_state(
     batch_size = ssm_final_zero.shape[0]
 
     # Diagonal transition factor: exp(A[h] * Σ_t dt_eff[b,t,h])
-    A_neg = -torch.exp(A_log.float())  # (num_heads,)
     exp_A_chunk = torch.exp(A_neg[None, :] * dt.float().sum(dim=1))  # (batch, num_heads)
 
     # All-gather both tensors from every rank (gathered along batch dim 0).
@@ -150,11 +149,11 @@ def get_cp_initial_ssm_state(
 
 def _mamba2_recurrent_step_torch(
     x: torch.Tensor,
+    A_neg: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,
-    dt: torch.Tensor,
-    A: torch.Tensor,
     D: torch.Tensor,
+    dt: torch.Tensor,
     ssm_state: torch.Tensor,
     num_heads: int,
     n_groups: int,
@@ -176,9 +175,9 @@ def _mamba2_recurrent_step_torch(
 
     # Note: there is no need to pad parameter matrices here, as there is just one new token
     # for batched generation
-    A = A[..., None, None].expand(num_heads, head_dim, ssm_state_size).to(dtype=torch.float32)
+    A_neg = A_neg[..., None, None].expand(num_heads, head_dim, ssm_state_size).to(dtype=torch.float32)
     # A -> (N, head_dim, ssm_state_size)
-    dA = (torch.exp(dt[:, :, None, None] * A)).to(device=cache_device)
+    dA = (torch.exp(dt[:, :, None, None] * A_neg)).to(device=cache_device)
     # dA -> (B, N, head_dim, ssm_state_size)
 
     # Discretize B
@@ -226,12 +225,11 @@ def _mamba2_recurrent_step_torch(
 
 def _mamba2_chunk_scan_torch(
     x: torch.Tensor,
+    A_neg: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,
-    dt: torch.Tensor,
-    A: torch.Tensor,
     D: torch.Tensor,
-    A_log: torch.Tensor,
+    dt: torch.Tensor,
     chunk_size: int,
     num_heads: int,
     n_groups: int,
@@ -260,7 +258,7 @@ def _mamba2_chunk_scan_torch(
 
     # Discretize x and A
     x = x * dt[..., None]
-    A = A.to(x.dtype) * dt
+    A = A_neg.to(x.dtype) * dt
 
     # Rearrange into blocks/chunks
     x, A, B, C = [_reshape_into_chunks(t, pad_size, chunk_size) for t in (x, A, B, C)]
@@ -300,7 +298,7 @@ def _mamba2_chunk_scan_torch(
         states_zero = torch.cat([torch.zeros_like(states[:, :1]), states], dim=1)
         new_states_zero = (decay_chunk[..., None, None] * states_zero[:, :, None, ...]).sum(dim=1)
         ssm_state_zero = new_states_zero[:, -1]
-        previous_states = get_cp_initial_ssm_state(ssm_state_zero, dt, A_log, num_heads, head_dim, ssm_state_size)
+        previous_states = get_cp_initial_ssm_state(ssm_state_zero, dt, A_neg, num_heads, head_dim, ssm_state_size)
         previous_states = previous_states[:, None, ...].to(states.dtype)
     else:
         previous_states = torch.zeros_like(states[:, :1])
@@ -333,7 +331,7 @@ def _mamba2_chunk_scan_torch(
 def mamba2_torch(
     x: torch.Tensor,
     dt: torch.Tensor,
-    A_log: torch.Tensor,
+    A_neg: torch.Tensor,
     B: torch.Tensor,
     C: torch.Tensor,
     D: torch.Tensor,
@@ -347,7 +345,6 @@ def mamba2_torch(
     chunk_size: int,
 ) -> torch.Tensor:
     batch_size, S, _ = x.size()
-    A = -torch.exp(A_log.float())
 
     if use_recurrent:
         if h is None:
@@ -362,11 +359,11 @@ def mamba2_torch(
 
         x, h = _mamba2_recurrent_step_torch(
             x=x,
+            A_neg=A_neg,
             B=B,
             C=C,
-            dt=dt,
-            A=A,
             D=D,
+            dt=dt,
             ssm_state=h,
             num_heads=num_heads,
             n_groups=num_groups,
@@ -378,12 +375,11 @@ def mamba2_torch(
 
         x, h = _mamba2_chunk_scan_torch(
             x=x,
+            A_neg=A_neg,
             B=B,
             C=C,
-            dt=dt,
-            A=A,
             D=D,
-            A_log=A_log,
+            dt=dt,
             chunk_size=chunk_size,
             num_heads=num_heads,
             n_groups=num_groups,
