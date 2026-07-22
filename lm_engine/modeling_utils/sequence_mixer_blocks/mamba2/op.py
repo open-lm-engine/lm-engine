@@ -10,7 +10,6 @@ from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
 
 from ....parallel import ProcessGroupManager
 from ....utils import divide_if_divisible, is_mamba_2_ssm_available
-from .op import get_cp_initial_ssm_state
 
 
 if is_mamba_2_ssm_available():
