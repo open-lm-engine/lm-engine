@@ -167,7 +167,7 @@ class Mamba2(nn.Module):
         x, B, C = x.split((self.intermediate_size, groups_time_state_size, groups_time_state_size), dim=-1)
 
         if is_kernel_allowed(Kernel.mamba2_ssm):
-            x, c, h = self._cuda_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
+            x, h = self._cuda_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
         else:
             assert not ProcessGroupManager.is_context_parallel_enabled()
 
@@ -211,10 +211,9 @@ class Mamba2(nn.Module):
         C: torch.Tensor,
         D: torch.Tensor,
         dt: torch.Tensor,
-        cache_params: GenerationCache | None = None,
     ) -> torch.Tensor:
-        batch_size, seq_len, _ = x.size()
-        use_precomputed_states = cache_params is not None and seq_len == 1 and h is not None
+        batch_size, S, _ = x.size()
+        use_precomputed_states = S == 1 and h is not None
 
         if use_precomputed_states:
             x = selective_state_update(
@@ -234,7 +233,7 @@ class Mamba2(nn.Module):
         else:
             dt_limit_kwargs = {} if self.time_step_limit == (0.0, float("inf")) else {"dt_limit": self.time_step_limit}
 
-            if self.training and cache_params is None and not ProcessGroupManager.is_context_parallel_enabled():
+            if self.training and h is None and not ProcessGroupManager.is_context_parallel_enabled():
                 x = mamba_split_conv1d_scan_combined(
                     x,
                     self.conv1d.weight.squeeze(1),
@@ -257,16 +256,12 @@ class Mamba2(nn.Module):
                 )
             else:
                 if ProcessGroupManager.is_context_parallel_enabled():
-                    dt_softplused = self.decay_gate.get_dt(
-                        x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]
-                    )
-
                     scan_output_zero, ssm_state_zero = mamba_chunk_scan_combined(
-                        x.view(batch_size, seq_len, -1, self.head_dim),
+                        x.view(batch_size, S, -1, self.head_dim),
                         dt,
                         A_neg,
-                        B.view(batch_size, seq_len, self.n_groups, -1),
-                        C.view(batch_size, seq_len, self.n_groups, -1),
+                        B.view(batch_size, S, self.n_groups, -1),
+                        C.view(batch_size, S, self.n_groups, -1),
                         chunk_size=self.chunk_size,
                         D=D,
                         z=None,
@@ -279,23 +274,23 @@ class Mamba2(nn.Module):
 
                     ssm_state_zero = ssm_state_zero + scan_output_zero.sum().to(ssm_state_zero.dtype) * 0
 
-                    initial_states = get_cp_initial_ssm_state(
+                    h = get_cp_initial_ssm_state(
                         ssm_state_zero,
-                        dt_softplused,
+                        self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]),
                         A_neg,
                         self.num_heads,
                         self.head_dim,
                         self.ssm_state_size,
                     )
                 else:
-                    initial_states = None
+                    h = None
 
                 x, h = mamba_chunk_scan_combined(
-                    x.view(batch_size, seq_len, -1, self.head_dim),
+                    x.view(batch_size, S, -1, self.head_dim),
                     dt,
                     A_neg,
-                    B.view(batch_size, seq_len, self.n_groups, -1),
-                    C.view(batch_size, seq_len, self.n_groups, -1),
+                    B.view(batch_size, S, self.n_groups, -1),
+                    C.view(batch_size, S, self.n_groups, -1),
                     chunk_size=self.chunk_size,
                     D=D,
                     z=None,
@@ -303,13 +298,13 @@ class Mamba2(nn.Module):
                     return_final_states=True,
                     dt_bias=self.decay_gate.dt_bias,
                     dt_softplus=True,
-                    initial_states=initial_states,
+                    initial_states=h,
                     **dt_limit_kwargs,
                 )
 
-                x = x.view(batch_size, seq_len, -1)
+                x = x.view(batch_size, S, -1)
 
-        return x
+        return x, h
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
