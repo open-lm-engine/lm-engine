@@ -171,6 +171,8 @@ def mamba2_recurrent_step(
     # We need to guarantee that anything regarding the cache is on the same device
     cache_device = ssm_state.device
 
+    dt = dt.squeeze(1)
+
     # Note: there is no need to pad parameter matrices here, as there is just one new token
     # for batched generation
     A = A[..., None, None].expand(num_heads, head_dim, ssm_state_size).to(dtype=torch.float32)

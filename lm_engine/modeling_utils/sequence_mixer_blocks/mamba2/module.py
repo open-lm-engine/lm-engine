@@ -146,24 +146,41 @@ class Mamba2(nn.Module):
     def forward(
         self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
+        S = x.size(1)
         x = _apply_mask_to_padding_states(x, attention_mask)
 
+        x = self.in_proj(x)
+        g, x, dt = x.split([self.intermediate_size, self.conv_dim, self.num_heads], dim=-1)
+
         if is_kernel_allowed(Kernel.mamba2_ssm):
-            x = self._cuda_forward(x, cache_params, attention_mask)
+            x, c, h = self._cuda_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
         else:
-            x = self._torch_forward(x, cache_params, attention_mask)
+            x, c, h = self._torch_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
+
+        if cache_params is not None:
+            cache_params.update(
+                states=(
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=S),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=S),
+                ),
+                layer_idx=self.layer_idx,
+            )
+
+        x = x * silu(g)
+        x = self.norm(x)
+        x = self.out_proj(x)
 
         return x
 
     def _torch_forward(
-        self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
+        self,
+        x: torch.Tensor,
+        dt: torch.Tensor,
+        cache_params: GenerationCache | None = None,
+        attention_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         batch_size, seq_len, _ = x.size()
         dtype = x.dtype
-
-        x = _apply_mask_to_padding_states(x, attention_mask)
-        x = self.in_proj(x)
-        g, x, dt = x.split([self.intermediate_size, self.conv_dim, self.num_heads], dim=-1)
 
         c, h = (
             (None, None)
@@ -198,10 +215,9 @@ class Mamba2(nn.Module):
         )
 
         A = -torch.exp(self.decay_gate.A_log.float())
+        dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
         if use_precomputed_states:
-            dt = self.decay_gate.get_dt(x=dt[:, 0, :], dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
-
             x, h = mamba2_recurrent_step(
                 x=x,
                 B=B,
@@ -216,8 +232,6 @@ class Mamba2(nn.Module):
                 ssm_state_size=self.ssm_state_size,
             )
         else:
-            dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
-
             x, h = mamba2_chunk_scan(
                 x=x,
                 B=B,
@@ -234,20 +248,7 @@ class Mamba2(nn.Module):
                 seq_len=seq_len,
             )
 
-        if cache_params is not None:
-            cache_params.update(
-                states=(
-                    GenerationState(state=c, method=ConstantCache, num_tokens_added=seq_len),
-                    GenerationState(state=h, method=ConstantCache, num_tokens_added=seq_len),
-                ),
-                layer_idx=self.layer_idx,
-            )
-
-        x = x * silu(g)
-        x = self.norm(x)
-        x = self.out_proj(x.to(dtype))
-
-        return x
+        return x, c, h
 
     def _cuda_forward(
         self,
@@ -255,7 +256,6 @@ class Mamba2(nn.Module):
         cache_params: GenerationCache | None = None,
         attention_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        x = self.in_proj(x)
         batch_size, seq_len, _ = x.size()
         groups_time_state_size = self.n_groups * self.ssm_state_size
 
@@ -338,7 +338,6 @@ class Mamba2(nn.Module):
             else:
                 g, x, dt = x.split([self.intermediate_size, self.conv_dim, self.num_heads], dim=-1)
 
-                # 2. Convolution sequence transformation
                 x, c = self.conv1d(
                     x=x,
                     input_state=None,
@@ -351,10 +350,7 @@ class Mamba2(nn.Module):
                     x, [self.intermediate_size, groups_time_state_size, groups_time_state_size], dim=-1
                 )
 
-                # 3. SSM transformation
                 if ProcessGroupManager.is_context_parallel_enabled():
-                    # Compute the correct initial SSM state for this CP rank.
-                    # Pass 1: run scan with zero initial to get the local final state.
                     dt_softplused = self.decay_gate.get_dt(
                         x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]
                     )
