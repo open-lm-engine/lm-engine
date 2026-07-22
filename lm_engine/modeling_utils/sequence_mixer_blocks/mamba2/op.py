@@ -334,6 +334,8 @@ def mamba2_torch(
     x: torch.Tensor,
     dt: torch.Tensor,
     A_log: torch.Tensor,
+    B: torch.Tensor,
+    C: torch.Tensor,
     D: torch.Tensor,
     h: torch.Tensor | None,
     use_recurrent: bool,
@@ -345,13 +347,6 @@ def mamba2_torch(
     chunk_size: int,
 ) -> torch.Tensor:
     batch_size, S, _ = x.size()
-
-    x, B, C = torch.split(
-        x,
-        [intermediate_size, num_groups * ssm_state_size, num_groups * ssm_state_size],
-        dim=-1,
-    )
-
     A = -torch.exp(A_log.float())
 
     if use_recurrent:

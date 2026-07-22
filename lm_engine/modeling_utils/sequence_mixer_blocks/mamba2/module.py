@@ -161,6 +161,9 @@ class Mamba2(nn.Module):
         g, x, dt = x.split((self.intermediate_size, self.conv_dim, self.num_heads), dim=-1)
         x, c = self.conv1d(x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None)
 
+        groups_time_state_size = self.n_groups * self.ssm_state_size
+        x, B, C = x.split((self.intermediate_size, groups_time_state_size, groups_time_state_size), dim=-1)
+
         if is_kernel_allowed(Kernel.mamba2_ssm):
             x, c, h = self._cuda_forward(x=x, dt=dt, cache_params=cache_params, attention_mask=attention_mask)
         else:
@@ -170,6 +173,8 @@ class Mamba2(nn.Module):
                 x=x,
                 dt=self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]),
                 A_log=self.decay_gate.A_log,
+                B=B,
+                C=C,
                 D=self.D,
                 h=h,
                 use_recurrent=cache_params is not None and S == 1,
@@ -197,32 +202,12 @@ class Mamba2(nn.Module):
         return x
 
     def _cuda_forward(
-        self,
-        x: torch.Tensor,
-        dt: torch.Tensor,
-        cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
+        self, x: torch.Tensor, dt: torch.Tensor, cache_params: GenerationCache | None = None
     ) -> torch.Tensor:
         batch_size, seq_len, _ = x.size()
-        groups_time_state_size = self.n_groups * self.ssm_state_size
-
-        c, h = (
-            (None, None)
-            if cache_params is None
-            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
-        )
-
-        use_precomputed_states = cache_params is not None and seq_len == 1 and c is not None and h is not None
+        use_precomputed_states = cache_params is not None and seq_len == 1 and h is not None
 
         if use_precomputed_states:
-            g, x, dt = x.squeeze(1).split([self.intermediate_size, self.conv_dim, self.num_heads], dim=-1)
-
-            x, c = self.conv1d(
-                x=x[:, None, :], input_state=c, attention_mask=None, output_state=cache_params is not None
-            )
-
-            x, B, C = torch.split(x, [self.intermediate_size, groups_time_state_size, groups_time_state_size], dim=-1)
-
             # 3. SSM transformation
             A = -torch.exp(self.decay_gate.A_log.float())  # (nheads,)
             A = A[:, None, ...][:, :, None].expand(-1, self.head_dim, self.ssm_state_size).to(dtype=torch.float32)
@@ -280,20 +265,6 @@ class Mamba2(nn.Module):
                     **dt_limit_kwargs,
                 )
             else:
-                g, x, dt = x.split([self.intermediate_size, self.conv_dim, self.num_heads], dim=-1)
-
-                x, c = self.conv1d(
-                    x=x,
-                    input_state=None,
-                    attention_mask=attention_mask,
-                    output_state=cache_params is not None,
-                )
-
-                x = _apply_mask_to_padding_states(x, attention_mask)
-                x, B, C = torch.split(
-                    x, [self.intermediate_size, groups_time_state_size, groups_time_state_size], dim=-1
-                )
-
                 if ProcessGroupManager.is_context_parallel_enabled():
                     dt_softplused = self.decay_gate.get_dt(
                         x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1]
@@ -314,7 +285,9 @@ class Mamba2(nn.Module):
                         dt_softplus=True,
                         **dt_limit_kwargs,
                     )
+
                     ssm_state_zero = ssm_state_zero + scan_output_zero.sum().to(ssm_state_zero.dtype) * 0
+
                     initial_states = get_cp_initial_ssm_state(
                         ssm_state_zero,
                         dt_softplused,
@@ -342,15 +315,6 @@ class Mamba2(nn.Module):
                     initial_states=initial_states,
                     **dt_limit_kwargs,
                 )
-
-                if cache_params is not None:
-                    cache_params.update(
-                        states=(
-                            GenerationState(state=c, method=ConstantCache, num_tokens_added=seq_len),
-                            GenerationState(state=h, method=ConstantCache, num_tokens_added=seq_len),
-                        ),
-                        layer_idx=self.layer_idx,
-                    )
 
                 x = x.view(batch_size, seq_len, -1)
 
