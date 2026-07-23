@@ -1,6 +1,6 @@
-/* Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved. */
-
-/* Helper methods for fast index mapping builds */
+// **************************************************
+// Copyright (c) 2026, Mayank Mishra
+// **************************************************
 
 #include <algorithm>
 #include <iostream>

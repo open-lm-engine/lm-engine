@@ -1,0 +1,505 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+from __future__ import annotations
+
+import os
+
+import torch
+import torch.nn.functional as F
+from torch.distributed.tensor import DTensor, Replicate, Shard, distribute_tensor
+from transformers import StoppingCriteriaList
+
+from ...arguments import LoadArgs, MixedPrecisionArgs, UnshardingArgs
+from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
+from ...enums import Kernel
+from ...generation_cache import GenerationCache
+from ...kernels import is_kernel_allowed
+from ...loss import (
+    add_aux_loss,
+    clear_aux_loss,
+    get_autoregressive_language_modeling_loss,
+    get_aux_loss,
+    is_aux_loss_zero,
+)
+from ...model_config import CommonConfig
+from ...modeling_utils import DTensorModule, LMHead, ParameterizedEmbedding, ParameterizedLinear
+from ...modeling_utils.io import (
+    BaseModelOutputWithPast,
+    CausalLMOutputWithPast,
+    PipelineParallelInput,
+    PipelineParallelOutput,
+)
+from ...parallel import ProcessGroupManager
+from ...parameter import (
+    _INIT_MARKER,
+    get_named_parameters_and_buffers,
+    get_parameter_marker_maps,
+    is_parameter_initialized,
+    set_parameter_marker_maps,
+)
+from ...utils import SafeTensorsWeightsManager, divide_if_divisible, torch_dtype_to_string
+from .base import PreTrainedModelMixin
+
+
+_HF_USELESS_STUFF = [
+    "revision",
+    "subfolder",
+    "gguf_file",
+    "quantization_config",
+    "max_memory",
+    "name_or_path",
+    "trust_remote_code",
+    "adapter_kwargs",
+]
+
+
+class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
+    base_model_class = None
+
+    def __init__(self, config: CommonConfig, **kwargs) -> CausalLMModelMixin:
+        super().__init__(config, **kwargs)
+
+        self.router_aux_loss_coef = getattr(config, "router_aux_loss_coef", 0)
+        self._init_model(config, **kwargs)
+
+    def _init_model(self, config: CommonConfig, **kwargs) -> None:
+        self.vocab_size = config.vocab_size
+        self.transformer = self.base_model_class(config, **kwargs)
+
+        if self.is_last_stage:
+            if not self._tied_word_embeddings:
+                self.lm_head = LMHead(
+                    self.vocab_size,
+                    config.hidden_size,
+                    std=config.initializer_range,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    sequence_parallel=self.sequence_parallel,
+                )
+
+            self.m_width = config.m_width
+
+    def get_input_embeddings(self) -> ParameterizedEmbedding:
+        return self.transformer.wte
+
+    def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
+        self.transformer.wte = value
+
+    def get_output_embeddings(self) -> ParameterizedLinear:
+        return self.transformer.wte if self._tied_word_embeddings else self.lm_head
+
+    def set_output_embeddings(self, new_embeddings: ParameterizedLinear) -> None:
+        if not self._tied_word_embeddings:
+            self.lm_head = new_embeddings
+
+    def forward(
+        self,
+        input_ids: torch.Tensor | list[list[int]] | None = None,
+        cache_params: GenerationCache | None = None,
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.Tensor | list[list[int]] | None = None,
+        inputs_embeds: torch.Tensor | list[list[float]] | None = None,
+        labels: torch.Tensor | list[list[int]] | None = None,
+        use_cache: bool | None = None,
+        return_dict: bool = True,
+        output_parallel_lm_logits: bool = False,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
+        reduction: str = "mean",
+        pipeline_parallel_input: PipelineParallelInput | None = None,
+    ) -> CausalLMOutputWithPast | PipelineParallelOutput:
+        assert return_dict
+        assert inputs_embeds is None
+
+        if self.is_pipeline_parallel_enabled:
+            assert cache_params is None
+
+        clear_aux_loss()
+
+        if self.is_first_stage:
+            assert pipeline_parallel_input is None, "first stage should not get pipeline_parallel_input"
+
+            if self.use_padding_free_transformer:
+                assert (
+                    cu_seqlens is not None
+                ), "cu_seqlens needs to be specified when using tensor inputs with padding_free transformer"
+                assert position_ids is not None, "position_ids needs to be specified when specifying cu_seqlens"
+                assert max_seqlen is not None, "max_seqlen needs to be specified when specifying cu_seqlens"
+                assert attention_mask is None, "attention_mask should not be passed when specifying cu_seqlens"
+
+                if use_cache or cache_params is not None:
+                    raise NotImplementedError("KV caching is not supported with padding_free transformer")
+        else:
+            assert input_ids is None
+            add_aux_loss(pipeline_parallel_input.aux_loss)
+
+        transformer_outputs: BaseModelOutputWithPast = self.transformer(
+            input_ids=input_ids if pipeline_parallel_input is None else pipeline_parallel_input.hidden_states,
+            cache_params=cache_params,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            use_cache=use_cache,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+        )
+
+        hidden_states = transformer_outputs.last_hidden_state
+        cache_params = transformer_outputs.cache_params
+
+        del pipeline_parallel_input
+        del transformer_outputs
+
+        lm_logits = None
+        loss = None
+        aux_loss = get_aux_loss()
+
+        if self.is_last_stage:
+            if labels is None:
+                if is_kernel_allowed(Kernel.coda_linear_cross_entropy) or is_kernel_allowed(
+                    Kernel.fused_linear_cross_entropy
+                ):
+                    if self.m_width is not None:
+                        hidden_states = hidden_states * (1 / self.m_width)
+                else:
+                    lm_logits = self.get_lm_logits(hidden_states)
+
+                    if self.m_width is not None:
+                        lm_logits = lm_logits * (1 / self.m_width)
+            else:
+                assert not self.is_pipeline_parallel_enabled
+                assert not ProcessGroupManager.is_context_parallel_enabled()
+                assert not is_kernel_allowed(Kernel.coda_linear_cross_entropy)
+                assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
+
+                lm_logits = self.get_lm_logits(hidden_states)
+
+                if self.m_width is not None:
+                    lm_logits = lm_logits * (1 / self.m_width)
+
+                loss = get_autoregressive_language_modeling_loss(
+                    lm_logits=lm_logits,
+                    labels=labels,
+                    hidden_states=None,
+                    vocab_weight=None,
+                    cu_seqlens=cu_seqlens,
+                    use_padding_free_transformer=self.use_padding_free_transformer,
+                    reduction=reduction,
+                    shift_logits_and_labels=True,
+                    tensor_parallel_enabled=self.is_tp_enabled,
+                )
+
+            if self.is_tp_enabled and not output_parallel_lm_logits:
+                # all gather
+                lm_logits = tensor_to_dtensor(lm_logits, device_mesh=self.tp_mesh, current_placement=Shard(-1))
+                lm_logits = dtensor_to_tensor(lm_logits, device_mesh=self.tp_mesh, desired_placement=Replicate())
+
+            if loss is not None and not is_aux_loss_zero(aux_loss):
+                loss = loss + self.router_aux_loss_coef * aux_loss
+
+            output = CausalLMOutputWithPast(
+                loss=loss,
+                aux_loss=aux_loss,
+                logits=lm_logits,
+                cache_params=cache_params,
+                last_hidden_state=hidden_states,
+            )
+        else:
+            output = PipelineParallelOutput(hidden_states=hidden_states, aux_loss=aux_loss)
+
+        return output
+
+    def get_lm_logits(self, x: torch.Tensor) -> torch.Tensor:
+        return (
+            LMHead.compute_with_weight(
+                x=x,
+                weight=self.transformer.wte.weight,
+                use_padding_free_transformer=self.use_padding_free_transformer,
+                sequence_parallel=self.sequence_parallel,
+                tp_mesh=self.tp_mesh if self.is_tp_enabled else None,
+            )
+            if self._tied_word_embeddings
+            else self.lm_head(x)
+        )
+
+    @torch.inference_mode()
+    def generate(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        max_new_tokens: int = 20,
+        temperature: float = 0,
+        top_k: int | None = None,
+        top_p: float | None = None,
+        **kwargs,
+    ) -> torch.Tensor:
+        assert not self.use_padding_free_transformer
+
+        has_attention_mask = attention_mask is not None
+        min_tokens_to_keep = 1
+
+        # for HF compatibility
+        if "max_length" in kwargs:
+            max_new_tokens = kwargs.pop("max_length") - (
+                input_ids.size(-1) if attention_mask is None else attention_mask.sum(dim=-1).min().item()
+            )
+
+        kwargs.pop("use_cache", None)
+
+        if "do_sample" in kwargs:
+            if kwargs.pop("do_sample"):
+                if temperature == 0:
+                    temperature = 1
+            else:
+                temperature = 0
+
+        stopping_criteria_list = kwargs.pop("stopping_criteria", None)
+        if stopping_criteria_list is not None:
+            stopping_criteria_list = StoppingCriteriaList(stopping_criteria_list)
+
+        assert len(kwargs) == 0
+
+        # prefill
+        output = self(input_ids=input_ids, attention_mask=attention_mask)
+        finished = torch.zeros(input_ids.size(0), device=input_ids.device, dtype=torch.bool)
+
+        # decode
+        generated_tokens = input_ids
+        for num_generated_tokens in range(max_new_tokens):
+            if has_attention_mask:
+                attention_mask = torch.cat(
+                    (attention_mask, torch.ones(input_ids.size(0), 1, device=input_ids.device, dtype=torch.int32)),
+                    dim=-1,
+                )
+            else:
+                attention_mask = torch.ones(
+                    input_ids.size(0),
+                    input_ids.size(1) + num_generated_tokens + 1,
+                    device=input_ids.device,
+                    dtype=torch.int32,
+                )
+
+            lm_logits = output.logits[:, -1, :]
+            cache_params = output.cache_params
+
+            if temperature == 0:
+                next_token = lm_logits.argmax(dim=-1).unsqueeze(1)
+            else:
+                if temperature != 1:
+                    lm_logits = lm_logits / temperature
+
+                if top_k is not None and top_k < lm_logits.size(-1):
+                    # mask all tokens with logits less than the min(topk(lm_logits))
+                    lm_logits_top_k_min = lm_logits.topk(k=top_k)[0][:, -1].unsqueeze(-1)
+                    mask = lm_logits < lm_logits_top_k_min
+                    lm_logits = lm_logits.masked_fill(mask, -float("inf"))
+
+                if top_p is not None:
+                    sorted_logits, sorted_indices = lm_logits.sort(descending=False)
+                    cumulative_probs = F.softmax(sorted_logits, dim=-1).cumsum(dim=-1)
+
+                    # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
+                    sorted_indices_to_remove = cumulative_probs <= (1 - top_p)
+                    # Keep at least min_tokens_to_keep
+                    sorted_indices_to_remove[..., -min_tokens_to_keep:] = 0
+
+                    # scatter sorted tensors to original indexing
+                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                    lm_logits = lm_logits.masked_fill(indices_to_remove, -float("inf"))
+
+                probabilities = F.softmax(lm_logits, dim=-1)
+                next_token = torch.multinomial(probabilities, num_samples=1)
+
+            next_token = next_token.masked_fill(finished.unsqueeze(1), self.pad_token_id)
+            generated_tokens = torch.cat([generated_tokens, next_token], dim=-1)
+
+            finished = finished | (next_token.squeeze(1) == self.eos_token_id)
+            if stopping_criteria_list is not None:
+                finished = finished | stopping_criteria_list(generated_tokens, None)
+
+            # early exit when all sequences finish
+            if finished.min() == 1:
+                break
+
+            output: CausalLMOutputWithPast = self(
+                input_ids=next_token, attention_mask=attention_mask, cache_params=cache_params
+            )
+
+        return generated_tokens
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        pretrained_model_name_or_path: str,
+        dtype: torch.dtype = torch.float32,
+        iteration: int | None = None,
+        **kwargs,
+    ) -> CausalLMModelMixin:
+        config = kwargs.pop("config")
+        # drop useless stuff
+
+        for k in _HF_USELESS_STUFF:
+            kwargs.pop(k, None)
+
+        num_pipeline_stages = kwargs.pop("num_pipeline_stages", 1)
+        pipeline_stage_id = kwargs.pop("pipeline_stage_id", 0)
+
+        if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
+            # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_models)
+            from ...checkpointing import load_checkpoint_and_unshard
+
+            assert not ProcessGroupManager.is_tensor_parallel_enabled()
+
+            unshard_args = UnshardingArgs(
+                load_args=LoadArgs(load_path=pretrained_model_name_or_path, iteration=iteration),
+                mixed_precision_args=MixedPrecisionArgs(dtype=torch_dtype_to_string(dtype)),
+                unsharded_path="",
+            )
+
+            model_wrapper, _, _ = load_checkpoint_and_unshard(unshard_args)
+            model = model_wrapper.model
+        else:
+            assert iteration is None, "iteration should be None when loading from an unsharded checkpoint"
+
+            if ProcessGroupManager.is_tensor_parallel_enabled() or num_pipeline_stages > 1:
+                with torch.device("meta"):
+                    model = cls(
+                        config, num_pipeline_stages=num_pipeline_stages, pipeline_stage_id=pipeline_stage_id, **kwargs
+                    )
+
+                for module in model.modules():
+                    if hasattr(module, "reset_parameters"):
+                        module.reset_parameters()
+
+                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+
+                model = model.to(dtype=dtype)
+                model = model.to_empty(device=torch.cuda.current_device())
+                model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
+            else:
+                model = cls(config, **kwargs)
+                marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
+
+                model = model.to(dtype=dtype)
+                model.load_state_dict(SafeTensorsWeightsManager(pretrained_model_name_or_path).state_dict())
+
+        device_map = kwargs.pop("device_map", {"": None})
+        assert len(device_map) == 1
+        assert len(kwargs) == 0
+
+        model = model.to(device_map[""])
+        set_parameter_marker_maps([model], marker_maps)
+
+        for param_name, param in get_named_parameters_and_buffers(model):
+            assert is_parameter_initialized(param), f"{param_name} is not initialized"
+
+        return model
+
+    def save_pretrained(self, save_directory: str, **kwargs) -> None:
+        self.config.save_pretrained(save_directory)
+        SafeTensorsWeightsManager.save_state_dict(self.state_dict(), save_directory)
+
+    def load_from_safetensors_weights_manager(self, safetensors_weights_manager: SafeTensorsWeightsManager) -> None:
+        with torch.device(torch.cuda.current_device()):
+            position_embedding_type = self.config.position_embedding_type
+
+            if position_embedding_type == "rope":
+                self.transformer.rope.reset_parameters()
+
+        state_dict = {}
+        for name, parameter in list(self.named_parameters()) + list(self.named_buffers()):
+            if not safetensors_weights_manager.has_tensor(name):
+                continue
+
+            p = safetensors_weights_manager.get_tensor(tensor_name=name, dtype=parameter.dtype)
+            if isinstance(parameter, DTensor):
+                p = distribute_tensor(tensor=p, device_mesh=parameter.device_mesh, placements=parameter.placements)
+
+            state_dict[name] = p
+
+        self.load_state_dict(state_dict)
+
+    def get_dummy_input_tensor(
+        self, micro_batch_size: int, sequence_length: int, intermediate_dtype: torch.dtype
+    ) -> tuple[torch.Tensor] | torch.Tensor:
+        if self.is_first_stage:
+            # 1 is added to sequence length since megatron's dataloader gives an extra token and for good reason
+            dummy_input = torch.empty(
+                micro_batch_size, sequence_length + 1, device=torch.cuda.current_device(), dtype=torch.long
+            )
+        else:
+            dummy_input = self._get_dummy_intermediate_tensor(
+                micro_batch_size, sequence_length, intermediate_dtype=intermediate_dtype
+            )
+
+            dummy_input = (
+                dummy_input,
+                torch.empty(1, device=torch.cuda.current_device(), dtype=intermediate_dtype),
+            )
+
+        return dummy_input
+
+    def get_dummy_output_tensor(
+        self,
+        micro_batch_size: int,
+        sequence_length: int,
+        intermediate_dtype: torch.dtype,
+        output_parallel_lm_logits_if_possible: bool,
+    ) -> tuple[torch.Tensor] | torch.Tensor:
+        if self.is_last_stage:
+            vocab_size = self.vocab_size
+            if output_parallel_lm_logits_if_possible:
+                vocab_size = divide_if_divisible(vocab_size, ProcessGroupManager.get_tensor_parallel_world_size(), "")
+
+            if self.use_padding_free_transformer:
+                tensor = torch.empty(
+                    micro_batch_size * sequence_length,
+                    vocab_size,
+                    device=torch.cuda.current_device(),
+                    dtype=intermediate_dtype,
+                )
+            else:
+                tensor = torch.empty(
+                    micro_batch_size,
+                    sequence_length,
+                    vocab_size,
+                    device=torch.cuda.current_device(),
+                    dtype=intermediate_dtype,
+                )
+        else:
+            tensor = self._get_dummy_intermediate_tensor(
+                micro_batch_size, sequence_length, intermediate_dtype=intermediate_dtype
+            )
+
+        tensor = (tensor, torch.empty(1, device=torch.cuda.current_device(), dtype=intermediate_dtype))
+
+        return tensor
+
+    def _get_dummy_intermediate_tensor(
+        self, micro_batch_size: int, sequence_length: int, intermediate_dtype: torch.dtype
+    ) -> tuple[torch.Tensor] | torch.Tensor:
+        sharded_sequence_length = (
+            divide_if_divisible(sequence_length, ProcessGroupManager.get_tensor_parallel_world_size(), "")
+            if self.sequence_parallel
+            else sequence_length
+        )
+
+        hidden_size = self.config.hidden_size
+
+        if self.use_padding_free_transformer:
+            tensor = torch.empty(
+                micro_batch_size * sharded_sequence_length,
+                hidden_size,
+                device=torch.cuda.current_device(),
+                dtype=intermediate_dtype,
+            )
+        else:
+            tensor = torch.empty(
+                micro_batch_size,
+                sharded_sequence_length,
+                hidden_size,
+                device=torch.cuda.current_device(),
+                dtype=intermediate_dtype,
+            )
+
+        return tensor

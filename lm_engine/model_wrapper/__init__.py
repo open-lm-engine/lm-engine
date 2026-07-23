@@ -1,17 +1,16 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import ModelContainer
 from ..enums import TuningMethod
 from ..kernels import enable_kernels
-from ..utils import get_pipeline_stage_ids_on_current_rank
+from ..parallel import get_pipeline_stage_ids_on_current_rank
 from .base import ModelWrapper
 from .distillation import ModelWrapperForDistillation
 from .finetuning import ModelWrapperForFinetuning
 from .pretraining import ModelWrapperForPretraining
-from .utils import broadcast_tensor_parallel_input
 
 
 _MODEL_CLASS_MAPPING = {
@@ -36,7 +35,6 @@ def get_model_container(
     kwargs = {
         "model_name": args.model_args.model_name,
         "pretrained_config": args.model_args.pretrained_config,
-        "model_class": args.model_args.model_class,
         "dtype": args.mixed_precision_args.dtype,
         "efficient_initialization": efficient_initialization,
         "use_padding_free_transformer": args.model_args.use_padding_free_transformer,
@@ -57,7 +55,6 @@ def get_model_container(
 
     if tuning_method == TuningMethod.distillation:
         kwargs["teacher_model_name"] = args.teacher_args.model_name
-        kwargs["teacher_model_class"] = args.teacher_args.model_class
         kwargs["teacher_model_dtype"] = args.teacher_args.dtype
         kwargs["kl_divergence_method"] = args.teacher_args.kl_divergence_method
         kwargs["kl_divergence_weight"] = args.teacher_args.kl_divergence_weight

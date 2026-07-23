@@ -1,4 +1,6 @@
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
 
 from __future__ import annotations
 
@@ -12,9 +14,8 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
+from ...logging_utils import log_rank_0
 from ...tokenizers import TOKENIZER_TYPE
-from ...utils import log_rank_0
-from .blended_megatron_dataset_config import GPTDatasetConfig
 from .indexed_dataset import MMapIndexedDataset
 from .utils import Split, build_sample_idx
 
@@ -33,26 +34,33 @@ class GPTDataset(torch.utils.data.Dataset):
         num_samples: int,
         index_split: Split,
         tokenizer: TOKENIZER_TYPE,
-        config: GPTDatasetConfig,
+        sequence_length: int,
+        name: str | None,
+        split: str | None,
+        path_to_cache: str | None,
+        fim_rate: float,
+        fim_spm_rate: float,
         caching_allowed: bool,
         random_seed: int,
     ) -> GPTDataset:
         assert indexed_indices.size > 0
         assert num_samples > 0
         assert self.is_multimodal() == indexed_dataset.multimodal
-        assert isinstance(config, GPTDatasetConfig)
 
         self.indexed_dataset = indexed_dataset
         self.indexed_indices = indexed_indices
         self.num_samples = num_samples
         self.index_split = index_split
-        self.config = config
+        self.sequence_length = sequence_length
+        self.name = name
+        self.split = split
+        self.path_to_cache = path_to_cache
         self.random_seed = random_seed
 
         self.caching_allowed = caching_allowed
         self.tokenizer = tokenizer
-        self.fim_rate = config.fim_rate
-        self.fim_spm_rate = config.fim_spm_rate
+        self.fim_rate = fim_rate
+        self.fim_spm_rate = fim_spm_rate
         self.np_rng = np.random.RandomState(self.random_seed)  # rng state for FIM
 
         self.unique_identifiers = OrderedDict()
@@ -60,10 +68,10 @@ class GPTDataset(torch.utils.data.Dataset):
         self.unique_identifiers["path_prefix"] = self.indexed_dataset.path_prefix
         self.unique_identifiers["num_samples"] = self.num_samples
         self.unique_identifiers["index_split"] = self.index_split.name
-        self.unique_identifiers["name"] = self.config.name
-        self.unique_identifiers["split"] = self.config.split
+        self.unique_identifiers["name"] = self.name
+        self.unique_identifiers["split"] = self.split
         self.unique_identifiers["random_seed"] = self.random_seed
-        self.unique_identifiers["sequence_length"] = self.config.sequence_length
+        self.unique_identifiers["sequence_length"] = self.sequence_length
 
         self.unique_description = json.dumps(self.unique_identifiers, indent=4)
         self.unique_description_hash = hashlib.md5(self.unique_description.encode("utf-8")).hexdigest()
@@ -227,7 +235,7 @@ class GPTDataset(torch.utils.data.Dataset):
         TODO: Explain the 80% threshold
         """
 
-        path_to_cache = self.config.path_to_cache
+        path_to_cache = self.path_to_cache
         if path_to_cache is None:
             path_to_cache = os.path.join(self.indexed_dataset.path_prefix, "cache", f"{type(self).__name__}_indices")
 
@@ -246,8 +254,7 @@ class GPTDataset(torch.utils.data.Dataset):
         )
 
         num_tokens_per_epoch = np.sum(self.indexed_dataset.sequence_lengths[self.indexed_indices])
-        sequence_length = self.config.sequence_length
-        num_epochs = _get_num_epochs(num_tokens_per_epoch, sequence_length, self.num_samples)
+        num_epochs = _get_num_epochs(num_tokens_per_epoch, self.sequence_length, self.num_samples)
 
         log_rank_0(logging.INFO, f"> Tokens per epoch: {num_tokens_per_epoch}")
         log_rank_0(logging.INFO, f"> Number of epochs: {num_epochs}")
@@ -259,9 +266,9 @@ class GPTDataset(torch.utils.data.Dataset):
                 separate_final_epoch = False
             else:
                 # Get the number of samples for the last epoch
-                num_samples_sans_final_epoch = ((num_epochs - 1) * num_tokens_per_epoch - 1) // sequence_length
+                num_samples_sans_final_epoch = ((num_epochs - 1) * num_tokens_per_epoch - 1) // self.sequence_length
                 num_samples_from_final_epoch = self.num_samples - num_samples_sans_final_epoch
-                num_samples_per_epoch = (num_tokens_per_epoch - 1) // sequence_length
+                num_samples_per_epoch = (num_tokens_per_epoch - 1) // self.sequence_length
 
                 # num_samples_from_final_epoch should be non-negative
                 assert num_samples_from_final_epoch >= 0
@@ -307,7 +314,7 @@ class GPTDataset(torch.utils.data.Dataset):
             sample_index = build_sample_idx(
                 self.indexed_dataset.sequence_lengths,
                 document_index,
-                sequence_length,
+                self.sequence_length,
                 num_epochs,
                 num_tokens_per_epoch,
             )
@@ -363,9 +370,7 @@ def _get_num_epochs(num_tokens_per_epoch: int, seq_length: int, num_samples: int
 
     Args:
         num_tokens_per_epoch (int): The number of tokens in a single epoch
-
         seq_length (int): The sequence length in tokens
-
         num_samples (int): The total number of samples
 
     Returns:

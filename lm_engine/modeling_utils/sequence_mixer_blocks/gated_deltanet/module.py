@@ -1,0 +1,236 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+from __future__ import annotations
+
+import torch
+import torch.nn as nn
+
+from ....generation_cache import ConstantCache, GenerationCache, GenerationState
+from ....utils import divide_if_divisible, is_fla_available
+from ...activations import silu
+from ...depthwise_causal_convolution import DepthwiseCausalConvolution
+from ...init_utils import _get_std_for_linear
+from ...linear import ParameterizedLinear
+from ...normalization import get_normalization_function
+from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from ...softplus_decay_gate import SoftplusDecayGate
+from .config import GatedDeltaNetArgs
+
+
+if is_fla_available():
+    from fla.ops.gated_delta_rule import chunk_gated_delta_rule, fused_recurrent_gated_delta_rule
+
+
+class GatedDeltaNet(nn.Module):
+    def __init__(
+        self,
+        hidden_size: int,
+        config: GatedDeltaNetArgs,
+        layer_idx: int,
+        norm_eps: float,
+        init_method: str,
+        initializer_range: float,
+        m_width: float | None,
+        num_layers: int,
+        use_depth_scaled_init: bool,
+        use_padding_free_transformer: bool,
+    ) -> GatedDeltaNet:
+        super().__init__()
+
+        assert not use_padding_free_transformer
+        self.use_padding_free_transformer = use_padding_free_transformer
+
+        self.allow_neg_eigval = config.allow_neg_eigval
+        self.hidden_size = hidden_size
+
+        self.use_gate = config.use_gate
+        self.kernel_size = config.kernel_size
+
+        self.num_k_heads = config.num_k_heads
+        self.num_v_heads = config.num_v_heads
+
+        self.k_head_dim = config.k_head_dim
+        self.v_head_dim = config.v_head_dim
+
+        self.key_dim = self.num_k_heads * self.k_head_dim
+        self.value_dim = self.num_v_heads * self.v_head_dim
+        self.layer_idx = layer_idx
+
+        self.attention_multiplier = config.attention_multiplier
+
+        divide_if_divisible(self.num_v_heads, self.num_k_heads)
+
+        up_std = _get_std_for_linear(
+            initializer_range=initializer_range,
+            init_method=init_method,
+            m_width=m_width,
+            fan_in=hidden_size,
+            num_layers=num_layers,
+            use_depth_scaled_init=False,
+        )
+
+        self.qkv_proj = ParameterizedLinear(hidden_size, 2 * self.key_dim + self.value_dim, bias=False, std=up_std)
+
+        self.ab_proj = ParameterizedLinear(
+            hidden_size, 2 * self.num_v_heads + (self.value_dim if config.use_gate else 0), bias=False, std=up_std
+        )
+
+        self.decay_gate = SoftplusDecayGate(
+            hidden_size=None,
+            output_size=self.num_v_heads,
+            std=None,
+            has_projection=False,
+            A_init_min=config.A_init_min,
+            A_init_max=config.A_init_max,
+            dt_init_min=config.dt_init_min,
+            dt_init_max=config.dt_init_max,
+            dt_init_floor=config.dt_init_floor,
+        )
+
+        self.qkv_conv1d = DepthwiseCausalConvolution(
+            hidden_size=2 * self.key_dim + self.value_dim,
+            kernel_size=self.kernel_size,
+            activation_function="silu",
+            add_bias=False,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.kernel_size,
+                num_layers=num_layers,
+                use_depth_scaled_init=False,
+            ),
+            use_padding_free_transformer=use_padding_free_transformer,
+        )
+
+        self.o_norm = get_normalization_function("rmsnorm", self.v_head_dim, eps=norm_eps)
+        self.o_proj = ParameterizedLinear(
+            self.value_dim,
+            hidden_size,
+            bias=False,
+            std=_get_std_for_linear(
+                initializer_range=initializer_range,
+                init_method=init_method,
+                m_width=m_width,
+                fan_in=self.value_dim,
+                num_layers=num_layers,
+                use_depth_scaled_init=use_depth_scaled_init,
+            ),
+        )
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        cache_params: GenerationCache | None = None,
+        attention_mask: torch.Tensor | None = None,
+        cu_seqlens: torch.Tensor | None = None,
+        max_seqlen: int | None = None,
+    ) -> torch.Tensor:
+        use_cache = cache_params is not None
+
+        c, h = (
+            (None, None)
+            if cache_params is None
+            else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
+        )
+
+        qkv = self.qkv_proj(hidden_states)
+
+        if self.use_gate:
+            a, b, gate = self.ab_proj(hidden_states).split(
+                (self.num_v_heads, self.num_v_heads, self.value_dim), dim=-1
+            )
+        else:
+            a, b = self.ab_proj(hidden_states).chunk(2, dim=-1)
+
+        qkv, c = self.qkv_conv1d(
+            x=qkv, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None
+        )
+
+        q, k, v = qkv.split((self.key_dim, self.key_dim, self.value_dim), dim=-1)
+
+        q_size = q.size()
+        q = q.view(*q_size[:-1], -1, self.k_head_dim)
+        k = k.view(*q_size[:-1], -1, self.k_head_dim)
+        v = v.view(*v.size()[:-1], -1, self.v_head_dim)
+
+        if self.num_v_heads > self.num_k_heads:
+            q = q.repeat_interleave(repeats=self.num_v_heads // self.num_k_heads, dim=-2)
+            k = k.repeat_interleave(repeats=self.num_v_heads // self.num_k_heads, dim=-2)
+
+        beta = b.sigmoid()
+        if self.allow_neg_eigval:
+            beta = beta * 2
+
+        g, _ = self.decay_gate(x=a, final_exponential=False)
+
+        if self.use_padding_free_transformer:
+            assert cache_params is None
+            assert attention_mask is None
+        else:
+            assert cu_seqlens is None
+            assert max_seqlen is None
+
+            B, S = q.size()[:2]
+
+            if attention_mask is not None:
+                cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+                q, k, v, g, beta = pack_sequence(inputs=(q, k, v, g, beta), cu_seqlens=cu_seqlens)
+
+        # change to inference mode.
+        mode = "fused_recurrent" if S <= 64 else "chunk"
+        if self.training:
+            assert mode == "chunk", "Only chunk mode is supported in training."
+
+        if mode == "chunk":
+            o, h = chunk_gated_delta_rule(
+                q=q,
+                k=k,
+                v=v,
+                g=g,
+                beta=beta,
+                scale=self.attention_multiplier,
+                initial_state=h,
+                output_final_state=use_cache,
+                cu_seqlens=cu_seqlens,
+                use_qk_l2norm_in_kernel=True,
+            )
+        elif mode == "fused_recurrent":
+            o, h = fused_recurrent_gated_delta_rule(
+                q=q,
+                k=k,
+                v=v,
+                g=g,
+                beta=beta,
+                scale=self.attention_multiplier,
+                initial_state=h,
+                output_final_state=use_cache,
+                cu_seqlens=cu_seqlens,
+                use_qk_l2norm_in_kernel=True,
+            )
+        else:
+            raise NotImplementedError(f"Not supported mode `{mode}`.")
+
+        if not self.use_padding_free_transformer and attention_mask is not None:
+            o = unpack_sequence(inputs=o, cu_seqlens=cu_seqlens, output_shape=(B, S, *hidden_states.size()[1:]))
+
+        if cache_params is not None:
+            cache_params.update(
+                states=(
+                    GenerationState(state=c, method=ConstantCache, num_tokens_added=hidden_states.size(1)),
+                    GenerationState(state=h, method=ConstantCache, num_tokens_added=hidden_states.size(1)),
+                ),
+                layer_idx=self.layer_idx,
+            )
+
+        if self.use_gate:
+            g = gate.view(*gate.size()[:-1], -1, self.v_head_dim)
+            o = o * silu(g)
+
+        o = self.o_norm(o)
+        o = o.flatten(-2, -1)
+        o = self.o_proj(o)
+
+        return o

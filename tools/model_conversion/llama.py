@@ -1,0 +1,259 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+from transformers import LlamaConfig, LlamaForCausalLM
+
+from lm_engine.modeling_utils import (
+    interleave_query_key_value_tensor_for_attention,
+    interleave_up_gate_tensor_for_mlp,
+    split_query_key_value_tensor_for_attention,
+    split_up_gate_tensor_for_mlp,
+)
+from lm_engine.models import GPTBaseConfig
+from lm_engine.utils import SafeTensorsWeightsManager, divide_if_divisible
+
+
+def _import_llama_config(original_config: LlamaConfig, **kwargs) -> GPTBaseConfig:
+    assert original_config.hidden_act == "silu"
+    assert original_config.mlp_bias == original_config.attention_bias
+
+    config = GPTBaseConfig(
+        vocab_size=original_config.vocab_size,
+        max_position_embeddings=original_config.max_position_embeddings,
+        hidden_size=original_config.hidden_size,
+        num_layers=original_config.num_hidden_layers,
+        position_embedding_type="rope",
+        normalization_function="rmsnorm",
+        layer_norm_epsilon=original_config.rms_norm_eps,
+        embedding_dropout=0,
+        use_cache=original_config.use_cache,
+        tie_word_embeddings=original_config.tie_word_embeddings,
+        initializer_range=original_config.initializer_range,
+        rope_theta=original_config.rope_theta,
+        rope_scaling=original_config.rope_scaling,
+        init_method="normal",
+        embedding_init_method="normal",
+        use_depth_scaled_init=True,
+        router_aux_loss_coef=0.001,
+        rope_dim=None,
+        m_emb=None,
+        m_width=None,
+        m_residual=None,
+        bos_token_id=original_config.bos_token_id,
+        eos_token_id=original_config.eos_token_id,
+        pad_token_id=original_config.pad_token_id,
+        sequence_mixer_blocks=[
+            {
+                "sequence_mixer_type": "softmax_attention",
+                "add_bias": original_config.attention_bias,
+                "num_attention_heads": original_config.num_attention_heads,
+                "num_key_value_heads": original_config.num_key_value_heads,
+                "head_dim": None,
+                "softmax_dropout": original_config.attention_dropout,
+                "dropout": 0,
+                "attention_multiplier": None,
+                "attention_multiplier_method": "1 / sqrt(head_dim)",
+                "attention_gate": False,
+                "exclusive_self_attention": False,
+                "sliding_window": None,
+            }
+            for _ in range(original_config.num_hidden_layers)
+        ],
+        mlp_blocks=[
+            {
+                "mlp_type": "MLP",
+                "add_bias": original_config.mlp_bias,
+                "activation_function": "swiglu",
+                "intermediate_size": original_config.intermediate_size,
+                "dropout": 0,
+            }
+            for _ in range(original_config.num_hidden_layers)
+        ],
+    )
+
+    assert len(kwargs) == 0
+
+    return config
+
+
+def _import_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager) -> dict:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+    head_dim = divide_if_divisible(config.hidden_size, num_attention_heads, "")
+
+    state_dict = {
+        "transformer.wte.weight": safetensors_weights_manager.get_tensor("model.embed_tokens.weight"),
+        "transformer.ln_f.weight": safetensors_weights_manager.get_tensor("model.norm.weight"),
+    }
+
+    if safetensors_weights_manager.has_tensor("lm_head.weight"):
+        state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
+
+    for layer_idx in range(config.num_layers):
+        import_prefix = f"transformer.h.{layer_idx}."
+        export_prefix = f"model.layers.{layer_idx}."
+
+        state_dict[f"{import_prefix}ln_1.weight"] = safetensors_weights_manager.get_tensor(
+            f"{export_prefix}input_layernorm.weight"
+        )
+        state_dict[f"{import_prefix}ln_2.weight"] = safetensors_weights_manager.get_tensor(
+            f"{export_prefix}post_attention_layernorm.weight"
+        )
+
+        state_dict[f"{import_prefix}mlp_block.c_fc.weight"] = interleave_up_gate_tensor_for_mlp(
+            safetensors_weights_manager.get_tensor(f"{export_prefix}mlp.up_proj.weight"),
+            safetensors_weights_manager.get_tensor(f"{export_prefix}mlp.gate_proj.weight"),
+        )
+        if f"{export_prefix}mlp.up_proj.bias" in safetensors_weights_manager:
+            state_dict[f"{import_prefix}mlp_block.c_fc.bias"] = interleave_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"{export_prefix}mlp.up_proj.bias"),
+                safetensors_weights_manager.get_tensor(f"{export_prefix}mlp.gate_proj.bias"),
+            )
+
+        state_dict[f"{import_prefix}mlp_block.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+            f"{export_prefix}mlp.down_proj.weight"
+        )
+        if f"{export_prefix}mlp.down_proj.bias" in safetensors_weights_manager:
+            state_dict[f"{import_prefix}mlp_block.c_proj.bias"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}mlp.down_proj.bias"
+            )
+
+        state_dict[f"{import_prefix}sequence_mixer.c_attn.weight"] = interleave_query_key_value_tensor_for_attention(
+            safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.q_proj.weight"),
+            safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.k_proj.weight"),
+            safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.v_proj.weight"),
+            num_attention_heads,
+            num_key_value_heads,
+            head_dim,
+        )
+        if f"{export_prefix}self_attn.q_proj.bias" in safetensors_weights_manager:
+            state_dict[f"{import_prefix}sequence_mixer.c_attn.bias"] = interleave_query_key_value_tensor_for_attention(
+                safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.q_proj.bias"),
+                safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.k_proj.bias"),
+                safetensors_weights_manager.get_slice(f"{export_prefix}self_attn.v_proj.bias"),
+                num_attention_heads,
+                num_key_value_heads,
+                head_dim,
+            )
+
+        state_dict[f"{import_prefix}sequence_mixer.c_proj.weight"] = safetensors_weights_manager.get_tensor(
+            f"{export_prefix}self_attn.o_proj.weight"
+        )
+        if f"{export_prefix}self_attn.o_proj.bias" in safetensors_weights_manager:
+            state_dict[f"{import_prefix}sequence_mixer.c_proj.bias"] = safetensors_weights_manager.get_tensor(
+                f"{export_prefix}self_attn.o_proj.bias"
+            )
+
+    return state_dict
+
+
+def _export_llama_config(config: GPTBaseConfig) -> LlamaConfig:
+    assert config.normalization_function == "rmsnorm"
+    assert config.position_embedding_type == "rope"
+    assert config.m_emb is None
+    assert config.m_residual is None
+    assert config.m_width is None
+    assert config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "attention_multiplier") is None
+
+    config.check_equal_for_all_and_get_value("mlp_blocks", "activation_function", "swiglu")
+
+    original_config = LlamaConfig(
+        vocab_size=config.vocab_size,
+        max_position_embeddings=config.max_position_embeddings,
+        hidden_size=config.hidden_size,
+        num_hidden_layers=config.num_layers,
+        num_attention_heads=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads"),
+        num_key_value_heads=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads"),
+        intermediate_size=config.check_equal_for_all_and_get_value("mlp_blocks", "intermediate_size"),
+        hidden_act="silu",
+        rms_norm_eps=config.layer_norm_epsilon,
+        use_cache=config.use_cache,
+        attention_bias=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "add_bias"),
+        tie_word_embeddings=config.tie_word_embeddings,
+        initializer_range=config.initializer_range,
+        rope_theta=config.rope_theta,
+        rope_scaling=config.rope_scaling,
+        attention_dropout=config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "softmax_dropout"),
+        mlp_bias=config.check_equal_for_all_and_get_value("mlp_blocks", "add_bias"),
+        bos_token_id=config.bos_token_id,
+        eos_token_id=config.eos_token_id,
+        pad_token_id=config.pad_token_id,
+        architectures=[LlamaForCausalLM.__name__],
+    )
+
+    return original_config
+
+
+def _export_llama_state_dict(config: GPTBaseConfig, safetensors_weights_manager: SafeTensorsWeightsManager) -> dict:
+    num_attention_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_attention_heads")
+    num_key_value_heads = config.check_equal_for_all_and_get_value("sequence_mixer_blocks", "num_key_value_heads")
+
+    state_dict = {
+        "model.embed_tokens.weight": safetensors_weights_manager.get_tensor("transformer.wte.weight"),
+        "model.norm.weight": safetensors_weights_manager.get_tensor("transformer.ln_f.weight"),
+    }
+
+    if safetensors_weights_manager.has_tensor("lm_head.weight"):
+        state_dict["lm_head.weight"] = safetensors_weights_manager.get_tensor("lm_head.weight")
+
+    for layer_idx in range(config.num_layers):
+        import_prefix = f"transformer.h.{layer_idx}."
+        export_prefix = f"model.layers.{layer_idx}."
+
+        state_dict[f"{export_prefix}input_layernorm.weight"] = safetensors_weights_manager.get_tensor(
+            f"{import_prefix}ln_1.weight"
+        )
+        state_dict[f"{export_prefix}post_attention_layernorm.weight"] = safetensors_weights_manager.get_tensor(
+            f"{import_prefix}ln_2.weight"
+        )
+
+        up_weight, gate_weight = split_up_gate_tensor_for_mlp(
+            safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.weight")
+        )
+        state_dict[f"{export_prefix}mlp.up_proj.weight"] = up_weight
+        state_dict[f"{export_prefix}mlp.gate_proj.weight"] = gate_weight
+
+        if f"{import_prefix}mlp_block.c_fc.bias" in safetensors_weights_manager:
+            up_bias, gate_bias = split_up_gate_tensor_for_mlp(
+                safetensors_weights_manager.get_tensor(f"{import_prefix}mlp_block.c_fc.bias")
+            )
+            state_dict[f"{export_prefix}mlp.up_proj.bias"] = up_bias
+            state_dict[f"{export_prefix}mlp.gate_proj.bias"] = gate_bias
+
+        state_dict[f"{export_prefix}mlp.down_proj.weight"] = safetensors_weights_manager.get_tensor(
+            f"{import_prefix}mlp_block.c_proj.weight"
+        )
+        if f"{import_prefix}mlp_block.c_proj.bias" in safetensors_weights_manager:
+            state_dict[f"{export_prefix}mlp.down_proj.bias"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}mlp_block.c_proj.bias"
+            )
+
+        query_weight, key_weight, value_weight = split_query_key_value_tensor_for_attention(
+            safetensors_weights_manager.get_tensor(f"{import_prefix}sequence_mixer.c_attn.weight"),
+            num_attention_heads,
+            num_key_value_heads,
+        )
+        state_dict[f"{export_prefix}self_attn.q_proj.weight"] = query_weight
+        state_dict[f"{export_prefix}self_attn.k_proj.weight"] = key_weight
+        state_dict[f"{export_prefix}self_attn.v_proj.weight"] = value_weight
+
+        if f"{import_prefix}sequence_mixer.c_attn.bias" in safetensors_weights_manager:
+            query_bias, key_bias, value_bias = split_query_key_value_tensor_for_attention(
+                safetensors_weights_manager.get_tensor(f"{import_prefix}sequence_mixer.c_attn.bias"),
+                num_attention_heads,
+                num_key_value_heads,
+            )
+            state_dict[f"{export_prefix}self_attn.q_proj.bias"] = query_bias
+            state_dict[f"{export_prefix}self_attn.k_proj.bias"] = key_bias
+            state_dict[f"{export_prefix}self_attn.v_proj.bias"] = value_bias
+
+        state_dict[f"{export_prefix}self_attn.o_proj.weight"] = safetensors_weights_manager.get_tensor(
+            f"{import_prefix}sequence_mixer.c_proj.weight"
+        )
+        if f"{import_prefix}sequence_mixer.c_proj.bias" in safetensors_weights_manager:
+            state_dict[f"{export_prefix}self_attn.o_proj.bias"] = safetensors_weights_manager.get_tensor(
+                f"{import_prefix}sequence_mixer.c_proj.bias"
+            )
+
+    return state_dict

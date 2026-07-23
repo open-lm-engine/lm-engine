@@ -1,12 +1,13 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from transformers import AutoTokenizer
 
 from lm_engine.arguments import DatasetArgs, DistributedArgs, RandomArgs, TrainingParameters
-from lm_engine.data import get_megatron_gpt_dataloaders
-from lm_engine.utils import ProcessGroupManager, set_logger
+from lm_engine.data import get_pretraining_dataloaders
+from lm_engine.logging_utils import set_logger
+from lm_engine.parallel import ProcessGroupManager
 
 
 # this is needed to print logs during preparation of dataloader
@@ -94,7 +95,7 @@ with (
     # you can change consumed samples, 0 means dataloader is starting from beginning and adjusting to a different
     # number can be used to resume training at a different point
     # for FSDP, consumed_samples = global_step * micro_batch_size * gradient_accumulation_steps * num_accelerators
-    train_dataloader, val_dataloaders, test_dataloaders = get_megatron_gpt_dataloaders(
+    train_dataloader, val_dataloaders, test_dataloaders = get_pretraining_dataloaders(
         DummyArgs(), tokenizer, consumed_samples=0
     )
 

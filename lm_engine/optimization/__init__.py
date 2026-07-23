@@ -1,10 +1,10 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
+from .lr_scheduler import get_scheduler_container
 from .optimizer import get_optimizer_container
-from .scheduler import get_scheduler_container
 
 
 def get_learning_rate(model_container: ModelContainer, lr_scheduler_container: OptimizerContainer) -> float:

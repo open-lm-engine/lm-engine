@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 cloud: gcp
@@ -33,5 +33,5 @@ installation:
   - cd lm-engine
   - git submodule update --init --recursive
   - source $HOME/.local/bin/env
-  - uv sync --extra tpu
+  - uv sync --extra tpu --locked
   - uv run --extra tpu sh scripts/gcp-tpu/pretrain.sh configs/pretraining-examples/dense/pretrain-tpu.yml |& tee err.log

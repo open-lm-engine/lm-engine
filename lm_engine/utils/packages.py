@@ -1,32 +1,8 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import torch
-
-
-try:
-    import flash_attn
-
-    _IS_FLASH_ATTENTION_2_AVAILABLE = True
-except ImportError:
-    _IS_FLASH_ATTENTION_2_AVAILABLE = False
-
-
-def is_flash_attention_2_available() -> bool:
-    return _IS_FLASH_ATTENTION_2_AVAILABLE
-
-
-try:
-    import flash_attn_3_cuda
-
-    _IS_FLASH_ATTENTION_3_AVAILABLE = True
-except ImportError:
-    _IS_FLASH_ATTENTION_3_AVAILABLE = False
-
-
-def is_flash_attention_3_available() -> bool:
-    return _IS_FLASH_ATTENTION_3_AVAILABLE
 
 
 try:
@@ -42,15 +18,27 @@ def is_aim_available() -> bool:
 
 
 try:
-    import wandb
+    import causal_conv1d
 
-    _IS_WANDB_AVAILABLE = True
+    _IS_CAUSAL_CONV1D_AVAILABLE = True
 except ImportError:
-    _IS_WANDB_AVAILABLE = False
+    _IS_CAUSAL_CONV1D_AVAILABLE = False
 
 
-def is_wandb_available() -> bool:
-    return _IS_WANDB_AVAILABLE
+def is_causal_conv1d_available() -> bool:
+    return _IS_CAUSAL_CONV1D_AVAILABLE
+
+
+try:
+    import coda
+
+    _IS_CODA_AVAILABLE = True
+except ImportError:
+    _IS_CODA_AVAILABLE = False
+
+
+def is_coda_available() -> bool:
+    return _IS_CODA_AVAILABLE
 
 
 try:
@@ -66,39 +54,51 @@ def is_colorlog_available() -> bool:
 
 
 try:
-    import triton
+    import fla
 
-    _IS_TRITON_AVAILABLE = True
+    _IS_FLA_AVAILABLE = True
 except ImportError:
-    _IS_TRITON_AVAILABLE = False
+    _IS_FLA_AVAILABLE = False
 
 
-def is_triton_available() -> bool:
-    return _IS_TRITON_AVAILABLE
+def is_fla_available() -> bool:
+    return _IS_FLA_AVAILABLE
 
 
 try:
-    import xma
+    from flash_attn import flash_attn_func
 
-    _IS_XMA_AVAILABLE = True
-except:
-    _IS_XMA_AVAILABLE = False
+    _IS_FLASH_ATTENTION_2_AVAILABLE = True
+except ImportError:
+    _IS_FLASH_ATTENTION_2_AVAILABLE = False
 
 
-def is_xma_available() -> bool:
-    return _IS_XMA_AVAILABLE
+def is_flash_attention_2_available() -> bool:
+    return _IS_FLASH_ATTENTION_2_AVAILABLE
 
 
 try:
-    import causal_conv1d
+    from flash_attn_interface import flash_attn_func
 
-    _IS_CAUSAL_CONV1D_AVAILABLE = True
+    _IS_FLASH_ATTENTION_3_AVAILABLE = True
 except ImportError:
-    _IS_CAUSAL_CONV1D_AVAILABLE = False
+    _IS_FLASH_ATTENTION_3_AVAILABLE = False
 
 
-def is_causal_conv1d_available() -> bool:
-    return _IS_CAUSAL_CONV1D_AVAILABLE
+def is_flash_attention_3_available() -> bool:
+    return _IS_FLASH_ATTENTION_3_AVAILABLE
+
+
+try:
+    from flash_attn.cute import flash_attn_func
+
+    _IS_FLASH_ATTENTION_4_AVAILABLE = True
+except ImportError:
+    _IS_FLASH_ATTENTION_4_AVAILABLE = False
+
+
+def is_flash_attention_4_available() -> bool:
+    return _IS_FLASH_ATTENTION_4_AVAILABLE
 
 
 try:
@@ -114,27 +114,51 @@ def is_mamba_2_ssm_available() -> bool:
 
 
 try:
-    import torchao
+    import multistorageclient
 
-    _IS_TORCHAO_AVAILABLE = True
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = True
 except ImportError:
-    _IS_TORCHAO_AVAILABLE = False
+    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = False
 
 
-def is_torchao_available() -> bool:
-    return _IS_TORCHAO_AVAILABLE
+def is_multi_storage_client_available() -> bool:
+    return _IS_MULTI_STORAGE_CLIENT_AVAILABLE
 
 
 try:
-    import zstandard
+    import ray
 
-    _IS_ZSTANDARD_AVAILABLE = True
+    _IS_RAY_AVAILABLE = True
 except ImportError:
-    _IS_ZSTANDARD_AVAILABLE = False
+    _IS_RAY_AVAILABLE = False
 
 
-def is_zstandard_available() -> bool:
-    return _IS_ZSTANDARD_AVAILABLE
+def is_ray_available() -> bool:
+    return _IS_RAY_AVAILABLE
+
+
+try:
+    from quack.rmsnorm import rmsnorm
+
+    _IS_QUACK_AVAILABLE = True
+except ImportError:
+    _IS_QUACK_AVAILABLE = False
+
+
+def is_quack_available() -> bool:
+    return _IS_QUACK_AVAILABLE
+
+
+try:
+    import sonicmoe
+
+    _IS_SONIC_MOE_AVAILABLE = True
+except ImportError:
+    _IS_SONIC_MOE_AVAILABLE = False
+
+
+def is_sonicmoe_available() -> bool:
+    return _IS_SONIC_MOE_AVAILABLE
 
 
 try:
@@ -150,6 +174,18 @@ def is_torch_xla_available() -> bool:
 
 
 try:
+    import torchao
+
+    _IS_TORCHAO_AVAILABLE = True
+except ImportError:
+    _IS_TORCHAO_AVAILABLE = False
+
+
+def is_torchao_available() -> bool:
+    return _IS_TORCHAO_AVAILABLE
+
+
+try:
     import torch_neuronx
 
     _IS_TORCH_NEURONX_AVAILABLE = True
@@ -162,12 +198,48 @@ def is_torch_neuronx_available() -> bool:
 
 
 try:
-    import multistorageclient
+    import triton
 
-    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = True
+    _IS_TRITON_AVAILABLE = True
 except ImportError:
-    _IS_MULTI_STORAGE_CLIENT_AVAILABLE = False
+    _IS_TRITON_AVAILABLE = False
 
 
-def is_multi_storage_client_available() -> bool:
-    return _IS_MULTI_STORAGE_CLIENT_AVAILABLE
+def is_triton_available() -> bool:
+    return _IS_TRITON_AVAILABLE
+
+
+try:
+    import wandb
+
+    _IS_WANDB_AVAILABLE = True
+except ImportError:
+    _IS_WANDB_AVAILABLE = False
+
+
+def is_wandb_available() -> bool:
+    return _IS_WANDB_AVAILABLE
+
+
+try:
+    import xma
+
+    _IS_XMA_AVAILABLE = True
+except:
+    _IS_XMA_AVAILABLE = False
+
+
+def is_xma_available() -> bool:
+    return _IS_XMA_AVAILABLE
+
+
+try:
+    import zstandard
+
+    _IS_ZSTANDARD_AVAILABLE = True
+except ImportError:
+    _IS_ZSTANDARD_AVAILABLE = False
+
+
+def is_zstandard_available() -> bool:
+    return _IS_ZSTANDARD_AVAILABLE

@@ -1,0 +1,286 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+datasets:
+  - class_name: MegatronDataset
+    data_name: Megatron
+    data_sampling_ratio: 1
+    class_args:
+      eval_steps: 2
+      data_cache_path: cache
+      data_path:
+        - 0.2
+        - data/lang=Matlab
+        - 0.5
+        - data/lang=Verilog
+        - 0.3
+        - data/lang=Zig
+      split: 98,1,1
+      sequence_length: 2048
+
+tokenizer_args:
+  tokenizer_name: bigcode/starcoder
+
+model_args:
+  pretrained_config:
+    model_type: gpt_base
+    vocab_size: 50257
+    max_position_embeddings: 2048
+    hidden_size: 768
+    num_layers: 12
+    normalization_function: layernorm
+    layer_norm_epsilon: 1e-5
+    initializer_range: 0.02
+    bos_token_id: 0
+    eos_token_id: 0
+    pad_token_id: 0
+    embedding_dropout: 0
+    use_cache: true
+    rope_scaling: null
+    embedding_init_method: normal
+    use_depth_scaled_init: true
+    router_aux_loss_coef: 0.001
+    tie_word_embeddings: false
+    m_emb: null
+    m_width: null
+    m_residual: null
+    init_method: normal
+    position_embedding_type: learned_absolute
+    rope_theta: 10000
+    rope_dim: null
+    sequence_mixer_blocks:
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 12
+        num_key_value_heads: 1
+        head_dim: null
+        softmax_dropout: 0
+        dropout: 0
+        attention_gate: false
+        exclusive_self_attention: false
+        sliding_window: null
+        attention_multiplier: null
+        attention_multiplier_method: 1 / sqrt(head_dim)
+        add_bias: false
+    mlp_blocks:
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+      - mlp_type: MLP
+        activation_function: gelu_pytorch_tanh
+        intermediate_size: 3072
+        add_bias: true
+        dropout: 0
+
+tuning_args:
+  tuning_method: pretraining
+
+save_args:
+  save_path: checkpoints
+  save_interval: 50
+
+training_parameters:
+  num_training_steps: 100
+  eval_interval: 50
+  micro_batch_size: 6
+  gradient_accumulation_steps: 1
+
+optimizer_args:
+  class_name: TorchAdamW
+  class_args:
+    lr: 1e-5
+    weight_decay: 0.1
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1e-10
+
+lr_scheduler_args:
+  lr_decay_style: cosine
+
+mixed_precision_args:
+  dtype: bf16

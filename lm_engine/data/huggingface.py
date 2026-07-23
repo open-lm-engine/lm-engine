@@ -1,14 +1,13 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 from __future__ import annotations
 
 from datasets import load_dataset
 
-from lm_engine.tokenizers import TOKENIZER_TYPE
-
 from ..enums import DatasetSplit
+from ..tokenizers import TOKENIZER_TYPE
 from .base import BaseDataset
 
 

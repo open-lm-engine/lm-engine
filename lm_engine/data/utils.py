@@ -1,5 +1,5 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 import math
@@ -7,9 +7,54 @@ from typing import Iterable
 
 import torch
 
+from ..accelerator import Accelerator
 from ..enums import LossMask
-from ..hf_models import convert_padding_free_lists_to_tensors
-from ..utils import Accelerator
+
+
+def _check_list_type(list_of_list: list[list[int | float]] | None, error_message: str) -> None:
+    if list_of_list is None:
+        return
+
+    assert isinstance(list_of_list, list), error_message
+    assert isinstance(list_of_list[0], list), error_message
+
+
+def _flatten_and_convert_to_tensors(x: list[int], device: torch.device | None) -> torch.Tensor:
+    y = []
+    for sequence in x:
+        y.extend(sequence)
+
+    return torch.tensor(y, device=device)
+
+
+def convert_padding_free_lists_to_tensors(
+    input_ids: list[list[int]] | None = None,
+    position_ids: list[list[int]] | None = None,
+    labels: list[list[int]] | None = None,
+    device: torch.device | None = None,
+) -> tuple[torch.Tensor | int]:
+
+    # check input types are correct
+    error_message = "{variable} should be of type List[List[{dtype}]]"
+    _check_list_type(input_ids, error_message.format(variable="input_ids", dtype="int"))
+    _check_list_type(position_ids, error_message.format(variable="position_ids", dtype="int"))
+    _check_list_type(labels, error_message.format(variable="labels", dtype="int"))
+
+    # prepare inputs for the model
+    seqlens = torch.tensor([0] + [len(x) for x in input_ids], device=device)
+    cu_seqlens = seqlens.cumsum(dim=-1).to(torch.int32)
+    max_seqlen = seqlens.max().item()
+
+    if position_ids is None:
+        position_ids = [list(range(len(x))) for x in input_ids]
+    position_ids = _flatten_and_convert_to_tensors(position_ids, device)
+
+    input_ids = _flatten_and_convert_to_tensors(input_ids, device)
+
+    if labels is not None:
+        labels = _flatten_and_convert_to_tensors(labels, device)
+
+    return input_ids, position_ids, labels, cu_seqlens, max_seqlen
 
 
 def collate_fn(
@@ -20,7 +65,7 @@ def collate_fn(
     use_padding_free_transformer: bool,
     labels_mask_value: int = -100,
     pad_to_multiple_of: int = 1,
-    device: torch.device = None,
+    device: torch.device | None = None,
 ) -> dict:
     """prepares the batch with padding to pass into the forward function of the HuggingFace model
 
@@ -141,4 +186,9 @@ def get_next_batch(x: Iterable | None) -> dict:
     if x is None:
         return None
 
-    return next(x)
+    batch = next(x)
+
+    if Accelerator.get_accelerator() == Accelerator.trainium:
+        batch = {k: v.to(torch.int32) if v.dtype in [torch.int32, torch.int64] else v for k, v in batch.items()}
+
+    return batch

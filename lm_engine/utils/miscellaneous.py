@@ -1,9 +1,9 @@
 # **************************************************
-# Copyright (c) 2025, Mayank Mishra
+# Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
 
-def divide_if_divisible(dividend: int, divisor: int, msg: str) -> int:
+def divide_if_divisible(dividend: int, divisor: int, msg: str = "") -> int:
     """divide if divisible else raise an error
 
     Args:

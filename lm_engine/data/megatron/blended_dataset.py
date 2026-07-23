@@ -1,4 +1,6 @@
-# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
 
 from __future__ import annotations
 
@@ -12,8 +14,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from ...utils import log_rank_0
-from .blended_megatron_dataset_config import BlendedMegatronDatasetConfig
+from ...logging_utils import log_rank_0
 from .gpt_dataset import GPTDataset
 from .utils import build_blending_indices, normalize
 
@@ -23,12 +24,9 @@ class BlendedDataset(torch.utils.data.Dataset):
 
     Args:
         datasets (list[MegatronDataset]): The MegatronDataset instances to blend
-
         weights (list[float]): The weights which determines the dataset blend ratios
-
         size (int): The number of samples to draw from the blend
-
-        config (BlendedMegatronDatasetConfig): The config object which informs dataset creation
+        path_to_cache (str | None): Where all re-useable dataset indices are to be cached
 
     Raises:
         RuntimeError: When the dataset has fewer or more samples than 'size' post-initialization
@@ -39,7 +37,7 @@ class BlendedDataset(torch.utils.data.Dataset):
         datasets: list[GPTDataset],
         weights: list[float],
         size: int,
-        config: BlendedMegatronDatasetConfig,
+        path_to_cache: str | None,
         caching_allowed: bool,
     ) -> BlendedDataset:
         assert len(datasets) < np.iinfo(np.int16).max
@@ -57,7 +55,7 @@ class BlendedDataset(torch.utils.data.Dataset):
         self.datasets = datasets
         self.weights = weights
         self.size = size
-        self.config = config
+        self.path_to_cache = path_to_cache
         self.caching_allowed = caching_allowed
 
         unique_identifiers = OrderedDict()
@@ -98,12 +96,12 @@ class BlendedDataset(torch.utils.data.Dataset):
             tuple[np.ndarray, np.ndarray]: The dataset index and the dataset sample index
         """
 
-        path_to_cache = self.config.path_to_cache
-
-        if path_to_cache:
+        if self.path_to_cache:
 
             def _get_path_to(suffix: str) -> str:
-                return os.path.join(path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}")
+                return os.path.join(
+                    self.path_to_cache, f"{self.unique_description_hash}-{type(self).__name__}-{suffix}"
+                )
 
             path_to_description = _get_path_to("description.txt")
             path_to_dataset_index = _get_path_to("dataset_index.npy")
@@ -118,7 +116,7 @@ class BlendedDataset(torch.utils.data.Dataset):
         else:
             cache_hit = False
 
-        if not path_to_cache or (not cache_hit and self.caching_allowed):
+        if not self.path_to_cache or (not cache_hit and self.caching_allowed):
             log_rank_0(logging.INFO, f"Build and save the {type(self).__name__} indices")
 
             # Build the dataset and dataset sample indexes
@@ -129,8 +127,8 @@ class BlendedDataset(torch.utils.data.Dataset):
             dataset_sample_index = np.zeros(self.size, dtype=np.int64)
             build_blending_indices(dataset_index, dataset_sample_index, self.weights, len(self.datasets), self.size)
 
-            if path_to_cache:
-                os.makedirs(path_to_cache, exist_ok=True)
+            if self.path_to_cache:
+                os.makedirs(self.path_to_cache, exist_ok=True)
                 # Write the description
                 with open(path_to_description, "wt") as writer:
                     writer.write(self.unique_description)
