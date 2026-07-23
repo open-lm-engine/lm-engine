@@ -162,41 +162,26 @@ class Mamba2(nn.Module):
         groups_time_state_size = self.n_groups * self.ssm_state_size
         x, B, C = x.split((self.intermediate_size, groups_time_state_size, groups_time_state_size), dim=-1)
 
-        if is_kernel_allowed(Kernel.mamba2_ssm):
-            x, h = mamba2_cuda(
-                x=x,
-                A_neg=A_neg,
-                B=B,
-                C=C,
-                D=self.D,
-                dt=dt,
-                h=h,
-                output_state=S == 1 and h is not None,
-                num_groups=self.n_groups,
-                num_heads=self.num_heads,
-                head_dim=self.head_dim,
-                ssm_state_size=self.ssm_state_size,
-                chunk_size=self.chunk_size,
-            )
-        else:
-            assert not ProcessGroupManager.is_context_parallel_enabled()
+        kwargs = dict(
+            x=x,
+            A_neg=A_neg,
+            B=B,
+            C=C,
+            D=self.D,
+            dt=dt,
+            h=h,
+            use_recurrent=S == 1 and h is not None,
+            num_groups=self.n_groups,
+            num_heads=self.num_heads,
+            head_dim=self.head_dim,
+            ssm_state_size=self.ssm_state_size,
+            chunk_size=self.chunk_size,
+        )
 
-            x, h = mamba2_torch(
-                x=x,
-                dt=dt,
-                A_neg=A_neg,
-                B=B,
-                C=C,
-                D=self.D,
-                h=h,
-                use_recurrent=cache_params is not None and S == 1,
-                intermediate_size=self.intermediate_size,
-                num_groups=self.n_groups,
-                num_heads=self.num_heads,
-                head_dim=self.head_dim,
-                ssm_state_size=self.ssm_state_size,
-                chunk_size=self.chunk_size,
-            )
+        if is_kernel_allowed(Kernel.mamba2_ssm):
+            x, h = mamba2_cuda(**kwargs)
+        else:
+            x, h = mamba2_torch(intermediate_size=self.intermediate_size, **kwargs)
 
         if cache_params is not None:
             cache_params.update(

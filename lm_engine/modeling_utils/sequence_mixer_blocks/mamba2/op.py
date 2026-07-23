@@ -349,6 +349,8 @@ def mamba2_torch(
     ssm_state_size: int,
     chunk_size: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    assert not ProcessGroupManager.is_context_parallel_enabled()
+
     batch_size, S, _ = x.size()
 
     if use_recurrent:
@@ -404,7 +406,7 @@ def mamba2_cuda(
     D: torch.Tensor,
     dt: torch.Tensor,
     h: torch.Tensor | None,
-    output_state: bool,
+    use_recurrent: bool,
     num_groups: int,
     num_heads: int,
     head_dim: int,
@@ -413,11 +415,11 @@ def mamba2_cuda(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     batch_size, S, _ = x.size()
 
-    if output_state:
+    if use_recurrent:
         x = selective_state_update(
             h,
             x.view(batch_size, num_heads, head_dim),
-            dt[:, :, None].expand(-1, -1, head_dim),
+            dt.squeeze(1)[:, :, None].expand(-1, -1, head_dim),
             A_neg[:, None, ...][:, :, None].expand(-1, head_dim, ssm_state_size).to(dtype=torch.float32),
             B.reshape(batch_size, num_groups, -1),
             C.reshape(batch_size, num_groups, -1),
