@@ -250,8 +250,8 @@ def _mamba2_chunk_scan_torch(
     x = x.reshape(batch_size, seq_len, -1, head_dim).float()
     B = B.reshape(batch_size, seq_len, -1, ssm_state_size).float()
     C = C.reshape(batch_size, seq_len, -1, ssm_state_size).float()
-    B = B.repeat(1, 1, num_heads // n_groups, 1)
-    C = C.repeat(1, 1, num_heads // n_groups, 1)
+    B = B.repeat_interleave(num_heads // n_groups, dim=2)
+    C = C.repeat_interleave(num_heads // n_groups, dim=2)
     pad_size = (chunk_size - seq_len % chunk_size) % chunk_size
 
     D_residual = D[..., None] * _pad_tensor_by_size(x, pad_size)
@@ -339,8 +339,6 @@ def mamba2_torch(
     use_recurrent: bool,
     chunk_size: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    assert not ProcessGroupManager.is_context_parallel_enabled()
-
     BS, S, I = x.size()
     N = A_neg.size(0)
     H = divide_if_divisible(I, N)

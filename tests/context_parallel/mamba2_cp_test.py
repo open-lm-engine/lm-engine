@@ -12,7 +12,7 @@ from lm_engine.utils import is_mamba_2_ssm_available
 from ..utils import skip_test_if_device_unavailable, slow_test
 
 
-@pytest.mark.parametrize("use_mamba2_ssm", [True])
+@pytest.mark.parametrize("use_mamba2_ssm", [True, False])
 @slow_test
 def test_mamba2_cp(use_mamba2_ssm: bool) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
