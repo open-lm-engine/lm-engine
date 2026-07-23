@@ -408,6 +408,10 @@ def mamba2_cuda(
             C.reshape(BS, G, -1),
             D[:, None, ...].expand(-1, H),
             z=None,
+            # dt already has bias + softplus applied upstream, so dt_softplus=False and dt_bias is a
+            # mathematical no-op here. It must still be a real tensor though, not None: mamba_ssm==2.2.6.post3's
+            # selective_state_update unconditionally calls `dt_bias.stride(-1)` regardless of dt_softplus.
+            dt_bias=torch.zeros(N, H, device=x.device, dtype=D.dtype),
             dt_softplus=False,
         )
 
