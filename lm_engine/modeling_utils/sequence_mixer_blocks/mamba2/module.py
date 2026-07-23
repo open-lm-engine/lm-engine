@@ -163,18 +163,6 @@ class Mamba2(nn.Module):
         B = B.reshape(*B.size()[:-1], self.num_groups, self.ssm_state_size)
         C = C.reshape(*C.size()[:-1], self.num_groups, self.ssm_state_size)
 
-        kwargs = dict(
-            x=x,
-            A_neg=A_neg,
-            B=B,
-            C=C,
-            D=self.D,
-            dt=dt,
-            h=h,
-            use_recurrent=S == 1 and h is not None,
-            chunk_size=self.chunk_size,
-        )
-
         x, h = (mamba2_cuda if is_kernel_allowed(Kernel.mamba2_ssm) else mamba2_torch)(
             x=x,
             A_neg=A_neg,
