@@ -165,7 +165,8 @@ def _mamba2_recurrent_step_torch(
     where `y` has shape (batch_size, 1, num_heads * head_dim) and `new_ssm_state` has shape
     (batch_size, num_heads, head_dim, ssm_state_size).
     """
-    batch_size = x.shape[0]
+    batch_size = x.size(0)
+    dtype = x.dtype
     # We need to guarantee that anything regarding the cache is on the same device
     cache_device = ssm_state.device
 
@@ -218,7 +219,7 @@ def _mamba2_recurrent_step_torch(
     # [bsz, num_heads, head_dim] -> [bsz, 1, intermediate_size]
     y = y.reshape(batch_size, -1)[:, None, ...]
 
-    return y, ssm_state
+    return y.to(dtype), ssm_state
 
 
 def _mamba2_chunk_scan_torch(
@@ -243,7 +244,8 @@ def _mamba2_chunk_scan_torch(
     `y` has shape (batch_size, seq_len, num_heads * head_dim) and `final_ssm_state` has shape
     (batch_size, num_heads, head_dim, ssm_state_size).
     """
-    batch_size = x.shape[0]
+    batch_size = x.size(0)
+    dtype = x.dtype
 
     x = x.reshape(batch_size, seq_len, -1, head_dim).float()
     B = B.reshape(batch_size, seq_len, -1, ssm_state_size).float()
@@ -323,7 +325,7 @@ def _mamba2_chunk_scan_torch(
         y = y[:, :seq_len, :, :]
     y = y.reshape(batch_size, seq_len, -1)
 
-    return y, ssm_state
+    return y.to(dtype), ssm_state
 
 
 def mamba2_torch(
