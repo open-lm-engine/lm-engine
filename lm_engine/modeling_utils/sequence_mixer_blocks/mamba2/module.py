@@ -58,14 +58,14 @@ class Mamba2(nn.Module):
         self.use_conv_bias = config.use_conv_bias
         self.activation_string = config.activation_function
 
-        self.n_groups = config.num_groups
+        self.num_groups = config.num_groups
         self.head_dim = divide_if_divisible(config.intermediate_size, config.num_heads, "")
         self.chunk_size = config.chunk_size
 
         self.time_step_limit = config.time_step_limit
 
         # 1D convolutional layer
-        self.conv_dim = self.intermediate_size + 2 * self.n_groups * self.ssm_state_size
+        self.conv_dim = self.intermediate_size + 2 * self.num_groups * self.ssm_state_size
         self.conv1d = DepthwiseCausalConvolution(
             hidden_size=self.conv_dim,
             kernel_size=self.conv_kernel_size,
@@ -142,7 +142,6 @@ class Mamba2(nn.Module):
         self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         S = x.size(1)
-        dtype = x.dtype
 
         x = _apply_mask_to_padding_states(x, attention_mask)
         x = self.in_proj(x)
@@ -159,8 +158,10 @@ class Mamba2(nn.Module):
         A_neg = -torch.exp(self.decay_gate.A_log.float())
         dt = self.decay_gate.get_dt(x=dt, dt_min=self.time_step_limit[0], dt_max=self.time_step_limit[1])
 
-        groups_time_state_size = self.n_groups * self.ssm_state_size
+        groups_time_state_size = self.num_groups * self.ssm_state_size
         x, B, C = x.split((self.intermediate_size, groups_time_state_size, groups_time_state_size), dim=-1)
+        B = B.reshape(*B.size()[:-1], self.num_groups, self.ssm_state_size)
+        C = C.reshape(*C.size()[:-1], self.num_groups, self.ssm_state_size)
 
         kwargs = dict(
             x=x,
@@ -171,17 +172,20 @@ class Mamba2(nn.Module):
             dt=dt,
             h=h,
             use_recurrent=S == 1 and h is not None,
-            num_groups=self.n_groups,
-            num_heads=self.num_heads,
-            head_dim=self.head_dim,
-            ssm_state_size=self.ssm_state_size,
             chunk_size=self.chunk_size,
         )
 
-        if is_kernel_allowed(Kernel.mamba2_ssm):
-            x, h = mamba2_cuda(**kwargs)
-        else:
-            x, h = mamba2_torch(intermediate_size=self.intermediate_size, **kwargs)
+        x, h = (mamba2_cuda if is_kernel_allowed(Kernel.mamba2_ssm) else mamba2_torch)(
+            x=x,
+            A_neg=A_neg,
+            B=B,
+            C=C,
+            D=self.D,
+            dt=dt,
+            h=h,
+            use_recurrent=S == 1 and h is not None,
+            chunk_size=self.chunk_size,
+        )
 
         if cache_params is not None:
             cache_params.update(
@@ -194,7 +198,7 @@ class Mamba2(nn.Module):
 
         x = x * silu(g)
         x = self.norm(x)
-        x = self.out_proj(x.to(dtype))
+        x = self.out_proj(x)
 
         return x
 

@@ -120,14 +120,7 @@ def _serial_prefix_scan(all_exp_A: torch.Tensor, all_final: torch.Tensor, cp_ran
     return _SerialPrefixScan.apply(all_exp_A, all_final, cp_rank)
 
 
-def get_cp_initial_ssm_state(
-    ssm_final_zero: torch.Tensor,
-    dt: torch.Tensor,
-    A_neg: torch.Tensor,
-    num_heads: int,
-    head_dim: int,
-    ssm_state_size: int,
-) -> torch.Tensor:
+def get_cp_initial_ssm_state(ssm_final_zero: torch.Tensor, dt: torch.Tensor, A_neg: torch.Tensor) -> torch.Tensor:
     """Compute the correct initial SSM state for this CP rank.
 
     Uses all-gather + local prefix scan so every CP world size works exactly:
@@ -137,7 +130,7 @@ def get_cp_initial_ssm_state(
     """
     cp_rank = ProcessGroupManager.get_context_parallel_rank()
     cp_world_size = ProcessGroupManager.get_context_parallel_world_size()
-    batch_size = ssm_final_zero.shape[0]
+    B, N, H, SS = ssm_final_zero.size()
 
     # Diagonal transition factor: exp(A[h] * Σ_t dt_eff[b,t,h])
     exp_A_chunk = torch.exp(A_neg[None, :] * dt.float().sum(dim=1))  # (batch, num_heads)
@@ -146,8 +139,8 @@ def get_cp_initial_ssm_state(
     all_exp_A = _all_gather_context_parallel_with_grad(exp_A_chunk)
     all_final = _all_gather_context_parallel_with_grad(ssm_final_zero)
 
-    all_exp_A = all_exp_A.reshape(cp_world_size, batch_size, num_heads)
-    all_final = all_final.reshape(cp_world_size, batch_size, num_heads, head_dim, ssm_state_size)
+    all_exp_A = all_exp_A.reshape(cp_world_size, B, N)
+    all_final = all_final.reshape(cp_world_size, B, N, H, SS)
 
     return _serial_prefix_scan(all_exp_A, all_final, cp_rank)
 
@@ -303,7 +296,7 @@ def _mamba2_chunk_scan_torch(
         states_zero = torch.cat([torch.zeros_like(states[:, :1]), states], dim=1)
         new_states_zero = (decay_chunk[..., None, None] * states_zero[:, :, None, ...]).sum(dim=1)
         ssm_state_zero = new_states_zero[:, -1]
-        previous_states = get_cp_initial_ssm_state(ssm_state_zero, dt, A_neg, num_heads, head_dim, ssm_state_size)
+        previous_states = get_cp_initial_ssm_state(ssm_final_zero=ssm_state_zero, dt=dt, A_neg=A_neg)
         previous_states = previous_states[:, None, ...].to(states.dtype)
     else:
         previous_states = torch.zeros_like(states[:, :1])
@@ -342,27 +335,18 @@ def mamba2_torch(
     D: torch.Tensor,
     h: torch.Tensor | None,
     use_recurrent: bool,
-    intermediate_size: int,
-    num_groups: int,
-    num_heads: int,
-    head_dim: int,
-    ssm_state_size: int,
     chunk_size: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     assert not ProcessGroupManager.is_context_parallel_enabled()
 
-    batch_size, S, _ = x.size()
+    BS, S, I = x.size()
+    N = A_neg.size(0)
+    H = divide_if_divisible(I, N)
+    G, SS = B.size()[-2:]
 
     if use_recurrent:
         if h is None:
-            h = torch.zeros(
-                batch_size,
-                num_heads,
-                divide_if_divisible(intermediate_size, num_heads),
-                ssm_state_size,
-                device=x.device,
-                dtype=x.dtype,
-            )
+            h = torch.zeros(BS, N, H, SS, device=x.device, dtype=x.dtype)
 
         x, h = _mamba2_recurrent_step_torch(
             x=x,
@@ -372,10 +356,10 @@ def mamba2_torch(
             D=D,
             dt=dt,
             ssm_state=h,
-            num_heads=num_heads,
-            n_groups=num_groups,
-            head_dim=head_dim,
-            ssm_state_size=ssm_state_size,
+            num_heads=N,
+            n_groups=G,
+            head_dim=H,
+            ssm_state_size=SS,
         )
     else:
         assert h is None
@@ -388,10 +372,10 @@ def mamba2_torch(
             D=D,
             dt=dt,
             chunk_size=chunk_size,
-            num_heads=num_heads,
-            n_groups=num_groups,
-            head_dim=head_dim,
-            ssm_state_size=ssm_state_size,
+            num_heads=N,
+            n_groups=G,
+            head_dim=H,
+            ssm_state_size=SS,
             seq_len=S,
         )
 
@@ -407,38 +391,37 @@ def mamba2_cuda(
     dt: torch.Tensor,
     h: torch.Tensor | None,
     use_recurrent: bool,
-    num_groups: int,
-    num_heads: int,
-    head_dim: int,
-    ssm_state_size: int,
     chunk_size: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    batch_size, S, _ = x.size()
+    BS, S, I = x.size()
+    N = A_neg.size(0)
+    H = divide_if_divisible(I, N)
+    G, SS = B.size()[-2:]
 
     if use_recurrent:
         x = selective_state_update(
             h,
-            x.view(batch_size, num_heads, head_dim),
-            dt.squeeze(1)[:, :, None].expand(-1, -1, head_dim),
-            A_neg[:, None, ...][:, :, None].expand(-1, head_dim, ssm_state_size).to(dtype=torch.float32),
-            B.reshape(batch_size, num_groups, -1),
-            C.reshape(batch_size, num_groups, -1),
-            D[:, None, ...].expand(-1, head_dim),
+            x.view(BS, N, H),
+            dt.squeeze(1)[:, :, None].expand(-1, -1, H),
+            A_neg[:, None, ...][:, :, None].expand(-1, H, SS).to(dtype=torch.float32),
+            B.reshape(BS, G, -1),
+            C.reshape(BS, G, -1),
+            D[:, None, ...].expand(-1, H),
             z=None,
             dt_softplus=False,
         )
 
-        x = x.view(batch_size, num_heads * head_dim)[:, None, ...]
+        x = x.view(BS, N * H)[:, None, ...]
     else:
         assert h is None
 
         if ProcessGroupManager.is_context_parallel_enabled():
             scan_output_zero, ssm_state_zero = mamba_chunk_scan_combined(
-                x.view(batch_size, S, -1, head_dim),
+                x.view(BS, S, -1, H),
                 dt,
                 A_neg,
-                B.view(batch_size, S, num_groups, -1),
-                C.view(batch_size, S, num_groups, -1),
+                B.view(BS, S, G, -1),
+                C.view(BS, S, G, -1),
                 chunk_size=chunk_size,
                 D=D,
                 z=None,
@@ -448,14 +431,14 @@ def mamba2_cuda(
             )
 
             ssm_state_zero = ssm_state_zero + scan_output_zero.sum().to(ssm_state_zero.dtype) * 0
-            h = get_cp_initial_ssm_state(ssm_state_zero, dt, A_neg, num_heads, head_dim, ssm_state_size)
+            h = get_cp_initial_ssm_state(ssm_final_zero=ssm_state_zero, dt=dt, A_neg=A_neg)
 
         x, h = mamba_chunk_scan_combined(
-            x.view(batch_size, S, -1, head_dim),
+            x.view(BS, S, -1, H),
             dt,
             A_neg,
-            B.view(batch_size, S, num_groups, -1),
-            C.view(batch_size, S, num_groups, -1),
+            B.view(BS, S, G, -1),
+            C.view(BS, S, G, -1),
             chunk_size=chunk_size,
             D=D,
             z=None,
@@ -465,6 +448,6 @@ def mamba2_cuda(
             initial_states=h,
         )
 
-        x = x.view(batch_size, S, -1)
+        x = x.view(BS, S, -1)
 
     return x, h
