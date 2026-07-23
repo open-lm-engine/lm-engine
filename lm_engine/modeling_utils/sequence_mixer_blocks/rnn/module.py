@@ -16,13 +16,14 @@ from ....parameter import (
     mark_parameter_as_no_weight_decay,
 )
 from ....utils import divide_if_divisible, is_xma_available
-from ...activations import clip_gradients, get_activation_function, is_glu, silu, tanh
+from ...activations import get_activation_function, is_glu, silu
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from .config import RNNArgs
+from .op import rnn_torch
 
 
 if is_xma_available():
@@ -184,9 +185,10 @@ class RNN(nn.Module):
                 max_seqlen=max_seqlen,
             )
         else:
-            x, h = self._torch_forward(
-                x=x, h0=h, gradient_clipping=self.gradient_clipping, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
-            )
+            assert cu_seqlens is None
+            assert max_seqlen is None
+
+            x, h = rnn_torch(x=x, state_weight=self.state_weight, h0=h, gradient_clipping=self.gradient_clipping)
 
         if not self.use_padding_free_transformer and attention_mask is not None:
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
@@ -206,68 +208,6 @@ class RNN(nn.Module):
         x = self.output_projection(x)
 
         return x
-
-    def _torch_forward(
-        self,
-        x: torch.Tensor,
-        h0: torch.Tensor | None,
-        gradient_clipping: float | None,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: int | None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        W = self.state_weight
-
-        Nx = x.size(-2)
-        Nw = W.size(0)
-        N = max(Nx, Nw)
-
-        y_shape = list(x.size())
-        y_shape[-2] = N
-        y = torch.empty(y_shape, device=x.device, dtype=x.dtype)
-
-        if cu_seqlens is None:
-            B, S, _, H = x.size()
-        else:
-            B = cu_seqlens.size(0) - 1
-            S = max_seqlen
-            H = x.size(-1)
-
-        Gx = N // Nx
-        Gw = N // Nw
-
-        x = x.repeat_interleave(Gx, dim=-2)
-        W = W.repeat_interleave(Gw, dim=0)[None, ...]
-
-        if h0 is None:
-            h0 = torch.zeros(B, N, H, device=x.device, dtype=x.dtype)
-
-        if cu_seqlens is not None:
-            h0 = h0.clone()
-            start = cu_seqlens[:-1]
-            end = cu_seqlens[1:]
-
-        for s in range(S):
-            if cu_seqlens is None:
-                h = h0[..., None, :] @ W + x[:, s, :, None, :]
-            else:
-                offset = start + s
-                unfinished = offset < end
-                offset_unfinished = offset[unfinished]
-
-                h = h0[unfinished, :, None, :] @ W + x[offset_unfinished, :, None, :]
-
-            h = tanh(h)
-            h = h.squeeze(-2)
-            h = clip_gradients(h, gradient_clipping)
-
-            if cu_seqlens is None:
-                y[:, s] = h
-                h0 = h
-            else:
-                y[offset_unfinished] = h
-                h0[unfinished] = h
-
-        return y, h0
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
