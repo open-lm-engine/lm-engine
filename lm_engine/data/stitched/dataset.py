@@ -93,9 +93,7 @@ class StitchedSequenceDataset(torch.utils.data.Dataset):
     def _get_permutation(self, epoch: int) -> np.ndarray:
         perm = self._permutations.get(epoch)
         if perm is None:
-            perm = np.random.default_rng([self._base_seed, self.split.value, epoch]).permutation(
-                self._n_epoch_samples
-            )
+            perm = np.random.default_rng([self._base_seed, self.split.value, epoch]).permutation(self._n_epoch_samples)
             self._permutations[epoch] = perm
         return perm
 

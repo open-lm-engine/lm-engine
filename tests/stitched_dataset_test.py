@@ -284,8 +284,7 @@ def test_no_token_gaps_or_overlaps(simple_env):
         curr = ds._fetch_tokens(i)
         if prev is not None:
             assert prev[-1] == curr[0], (
-                f"gap/overlap at boundary between sample {i-1} and {i}: "
-                f"prev[-1]={prev[-1]}, curr[0]={curr[0]}"
+                f"gap/overlap at boundary between sample {i-1} and {i}: " f"prev[-1]={prev[-1]}, curr[0]={curr[0]}"
             )
         prev = curr
 

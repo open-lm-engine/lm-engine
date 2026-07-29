@@ -3,7 +3,6 @@
 # **************************************************
 
 import logging
-import math
 
 from ..accelerator import Accelerator
 from ..arguments import TrainingArgs
@@ -11,10 +10,9 @@ from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..logging_utils import log_rank_0
 from ..parallel import ProcessGroupManager
 from ..tokenizers import TOKENIZER_TYPE
-from ..utils import divide_if_divisible
-from .context_reshape import ContextReshapeDataset
 from .dataloader import ResumableDataLoader
 from .megatron import GPTDataset, MegatronBatchSampler, Split, build, compile_helpers
+from .mixed import MixedSequenceDataset, build_mixed_datasets
 from .stitched import OrderingStrategy, StitchedDatasetConfig, StitchedSequenceDataset
 from .stitched import build_sample_index as build_stitched_sample_index
 
@@ -30,7 +28,7 @@ def _get_train_val_test_samples(
 
 
 def _get_dataloader(
-    dataset: GPTDataset | StitchedSequenceDataset | None,
+    dataset: GPTDataset | StitchedSequenceDataset | MixedSequenceDataset | None,
     consumed_samples: int,
     micro_batch_size: int,
     gradient_accumulation_steps: int,
@@ -80,7 +78,7 @@ def get_pretraining_dataloaders(
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
     num_workers = class_args.get("num_workers", 2)
 
-    is_megatron = args.datasets[0].class_name == "MegatronDataset"
+    class_name = args.datasets[0].class_name
 
     train_samples, val_samples, test_samples = _get_train_val_test_samples(
         args.training_parameters.num_training_steps,
@@ -89,7 +87,7 @@ def get_pretraining_dataloaders(
         class_args.get("eval_steps"),
     )
 
-    if is_megatron:
+    if class_name == "MegatronDataset":
         compile_helpers()
 
         log_rank_0(logging.INFO, "> building train, validation, and test datasets for GPT ...")
@@ -98,20 +96,10 @@ def get_pretraining_dataloaders(
         # Option 2: data loading using --data-path with multiple weighted files
         # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
         sequence_length = class_args.get("sequence_length")
-        source_sequence_length = class_args.get("source_sequence_length")
-        factor = 1
-        base_sequence_length = sequence_length
-        if source_sequence_length is not None and source_sequence_length != sequence_length:
-            factor = divide_if_divisible(
-                source_sequence_length, sequence_length, "source_sequence_length must be a multiple of sequence_length"
-            )
-            base_sequence_length = source_sequence_length
-
-        base_sizes = tuple(math.ceil(s / factor) for s in (train_samples, val_samples, test_samples))
 
         train_ds, val_ds, test_ds = build(
-            sizes=base_sizes,
-            sequence_length=base_sequence_length,
+            sizes=(train_samples, val_samples, test_samples),
+            sequence_length=sequence_length,
             blend=class_args.get("data_path"),
             blend_per_split=[
                 class_args.get("train_data_path"),
@@ -126,29 +114,7 @@ def get_pretraining_dataloaders(
             node_uses_local_storage=class_args.get("node_uses_local_storage", False),
             random_seed=class_args.get("seed", args.random_args.seed),
         )
-
-        if factor > 1:
-            log_rank_0(
-                logging.INFO,
-                f"> context reshape: source_sequence_length={source_sequence_length}, model "
-                f"sequence_length={sequence_length}, factor={factor}; base build "
-                f"num_samples (train)={base_sizes[0]} -- must be identical across a context-scaling "
-                f"sweep for the runs to train on the same data",
-            )
-
-            train_ds = (
-                None if train_ds is None else ContextReshapeDataset(train_ds, sequence_length, source_sequence_length)
-            )
-            val_ds = None if val_ds is None else ContextReshapeDataset(val_ds, sequence_length, source_sequence_length)
-            test_ds = (
-                None if test_ds is None else ContextReshapeDataset(test_ds, sequence_length, source_sequence_length)
-            )
-            assert (
-                train_ds is None or len(train_ds) >= train_samples
-            ), f"reshaped train dataset has {len(train_ds)} samples < required {train_samples}"
-    else:
-        assert args.datasets[0].class_name == "StitchedDataset"
-
+    elif class_name == "StitchedDataset":
         config = StitchedDatasetConfig(
             stitched_seq_path=class_args["stitched_seq_path"],
             tokenized_data_root=class_args["tokenized_data_root"],
@@ -173,6 +139,17 @@ def get_pretraining_dataloaders(
         test_ds = _build_dataset(Split.test, test_samples)
 
         log_rank_0(logging.INFO, "> finished creating StitchedSequenceDataset splits ...")
+    else:
+        assert class_name == "MixedDataset", f"Unsupported dataset class_name: {class_name}."
+        train_ds, val_ds, test_ds = build_mixed_datasets(
+            class_args,
+            train_samples=train_samples,
+            val_samples=val_samples,
+            test_samples=test_samples,
+            default_seed=args.random_args.seed,
+        )
+
+        log_rank_0(logging.INFO, "> finished creating MixedSequenceDataset splits ...")
 
     log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
 
