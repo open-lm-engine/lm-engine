@@ -36,6 +36,7 @@ class MuonHSplit(MuonHyperball):
         targets: list[str] | None = None,
         patterns: dict[str, dict] | None = None,
         mode: str = "ns_only",
+        normalize_grad_before_momentum: bool = False,
     ) -> None:
         super().__init__(
             params,
@@ -51,6 +52,7 @@ class MuonHSplit(MuonHyperball):
         self.targets = set(targets or [])
         self.patterns = dict(patterns or {})
         self.mode = mode
+        self.normalize_grad_before_momentum = normalize_grad_before_momentum
         self._logged_ns_batches = False  # NS-batch composition logged once on first step
         for group in self.param_groups:
             for p, name in zip(group["params"], group.pop("param_names", [])):
@@ -79,6 +81,39 @@ class MuonHSplit(MuonHyperball):
         else:
             steps_and_coefficients = [(5, (3.4445, -4.7750, 2.0315))]
 
+        # Validate parameter/gradient distributed layouts before touching gradients.
+        for p in group["params"]:
+            if p.grad is None:
+                continue
+
+            is_param_dtensor = isinstance(p, DTensor)
+            is_grad_dtensor = isinstance(p.grad, DTensor)
+
+            if is_param_dtensor != is_grad_dtensor:
+                raise RuntimeError(
+                    f"Parameter/gradient DTensor mismatch for "
+                    f"{getattr(p, '_debug_name', '<unnamed>')}: "
+                    f"parameter is DTensor={is_param_dtensor}, "
+                    f"gradient is DTensor={is_grad_dtensor}"
+                )
+
+        # optionally normalize each grad to unit Frobenius norm before momentum (fp32 norm, per-param)
+        if self.normalize_grad_before_momentum:
+            local_grads: list[torch.Tensor] = []
+            norms: list[torch.Tensor] = []
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+                g = p.grad
+                gn = g.norm(dtype=torch.float32)
+                if isinstance(gn, DTensor):
+                    gn = gn.full_tensor()  # reduce to the true global norm (to_local gives per-shard)
+                local_grads.append(g.to_local() if isinstance(g, DTensor) else g)
+                norms.append(gn)
+            if local_grads:
+                scales = 1.0 / (torch.stack(norms) + eps)
+                torch._foreach_mul_(local_grads, list(scales.unbind()))
+
         # Phase 1 — gather per-param state into parallel column-major lists so we can drive
         # the rest of the step with batched foreach ops. Lazy-init momentum_buffer and R on
         # first encounter; R lives as scalar (ns_only path), per-batch tensor (full path on
@@ -98,7 +133,18 @@ class MuonHSplit(MuonHyperball):
                 continue
 
             g = p.grad
+
             is_dtensor = isinstance(p, DTensor)
+            is_grad_dtensor = isinstance(g, DTensor)
+
+            if is_dtensor != is_grad_dtensor:
+                raise RuntimeError(
+                    f"Parameter/gradient DTensor mismatch for "
+                    f"{getattr(p, '_debug_name', '<unnamed>')}: "
+                    f"parameter is DTensor={is_dtensor}, "
+                    f"gradient is DTensor={is_grad_dtensor}"
+                )            
+
             orig_shape = p.size()
             # Per-row path: each row L2-normed + hyperball-projected independently, instead of
             # NS + scalar hyperball. Set for conv kernels (one row per output channel) and for
