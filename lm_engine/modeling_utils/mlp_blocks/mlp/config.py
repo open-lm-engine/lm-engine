@@ -2,13 +2,13 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from typing import Any
+from typing import Any, Literal
 
 from ....arguments import BaseArgs
 
 
 class MLPArgs(BaseArgs):
-    mlp_type: str = "MLP"
+    mlp_type: Literal["MLP"] = "MLP"
     intermediate_size: int
     activation_function: str
     dropout: float = 0

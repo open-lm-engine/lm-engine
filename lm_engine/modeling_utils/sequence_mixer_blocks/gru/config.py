@@ -2,13 +2,13 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from typing import Any
+from typing import Any, Literal
 
 from ....arguments import BaseArgs
 
 
 class GRUArgs(BaseArgs):
-    sequence_mixer_type: str = "gru"
+    sequence_mixer_type: Literal["gru"] = "gru"
     state_head_dim: int
     num_input_heads: int
     num_forget_input_heads: int

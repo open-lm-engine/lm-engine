@@ -6,15 +6,13 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from torch.distributed.tensor import DTensor, Replicate
 
-from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
-from ....parameter import mark_parameter_as_initialized, mark_parameter_as_mup_learning_rate
+from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import divide_if_divisible, is_xma_available
-from ...activations import clip_gradients, is_glu, silu, tanh
+from ...activations import is_glu, silu
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
@@ -49,7 +47,6 @@ class LinearAttention(nn.Module):
         self.output_size = output_size
         self.kernel_size = config.kernel_size
         self.activation_string = config.activation_function
-        self.gradient_clipping = config.gradient_clipping
         self.layer_idx = layer_idx
         self.use_padding_free_transformer = use_padding_free_transformer
 
@@ -176,10 +173,8 @@ class LinearAttention(nn.Module):
                 query=q,
                 key=k,
                 value=v,
-                weight=self.state_weight,
-                forget_input=f,
                 input_state=h,
-                gradient_clipping=self.gradient_clipping,
+                attention_multiplier=None,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
@@ -190,7 +185,6 @@ class LinearAttention(nn.Module):
                 v=v,
                 xf=f,
                 h0=h,
-                gradient_clipping=self.gradient_clipping,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
@@ -218,99 +212,3 @@ class LinearAttention(nn.Module):
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         return x
-
-    def _torch_forward(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        xf: torch.Tensor,
-        h0: torch.Tensor | None,
-        gradient_clipping: float | None,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: int | None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        W = self.state_weight
-
-        Nq = q.size(-2)
-        Nk = k.size(-2)
-        Nv = v.size(-2)
-
-        Nw = W.size(0)
-        Nxf = xf.size(-1)
-
-        N = max(Nq, Nk, Nv, Nw, Nxf)
-        V = v.size(-1)
-
-        if cu_seqlens is None:
-            B, S, _, K = q.size()
-            y = torch.empty(B, S, N, K, V, device=q.device, dtype=q.dtype)
-        else:
-            B = cu_seqlens.size(0) - 1
-            S = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
-            T, _, K = q.size()
-
-            y = torch.empty(T, N, K, V, device=q.device, dtype=q.dtype)
-
-        if h0 is None:
-            h0 = torch.zeros(B, N, K, V, device=k.device, dtype=k.dtype)
-
-        Gq = N // Nq
-        Gk = N // Nk
-        Gv = N // Nv
-
-        Gw = N // Nw
-        Gxf = N // Nxf
-
-        q = q.repeat_interleave(Gq, dim=-2)
-        k = k.repeat_interleave(Gk, dim=-2)
-        v = v.repeat_interleave(Gv, dim=-2)
-        W = W.repeat_interleave(Gw, dim=0)
-        xf = xf.repeat_interleave(Gxf, dim=-1)
-
-        # (B, S, N, K, V) = (B, S, N, K, 1) * (B, S, N, 1, V)
-        x = k[..., None] * v[..., None, :]
-        W = W[None, ...]
-
-        if cu_seqlens is not None:
-            h0 = h0.clone()
-            start = cu_seqlens[:-1]
-            end = cu_seqlens[1:]
-
-        for s in range(S):
-            if cu_seqlens is None:
-                f = xf[:, s, :, None, None]
-                # (B, N, K, V) = (B, N, K, V) @ (1, N, V, V) + (B, N, K, V)
-                h = h0 @ W + x[:, s]
-            else:
-                offset = start + s
-                unfinished = offset < end
-                offset_unfinished = offset[unfinished]
-
-                f = xf[offset_unfinished, :, None, None]
-                # (B, N, K, V) = (B, N, K, V) @ (1, N, V, V) + (B, N, K, V)
-                h = h0[unfinished] @ W + x[offset_unfinished]
-
-            h = tanh(h)
-
-            if cu_seqlens is None:
-                h = f * h0 + (1 - f) * h
-            else:
-                h = f * h0[unfinished] + (1 - f) * h
-
-            h = clip_gradients(h, gradient_clipping)
-
-            if cu_seqlens is None:
-                y[:, s] = h
-                h0 = h
-            else:
-                y[offset_unfinished] = h
-                h0[unfinished] = h
-
-        y = q[..., None, :] @ y
-        y = y.squeeze(-2)
-
-        return y, h0
-
-    def extra_repr(self) -> str:
-        return f"gradient_clipping = {self.gradient_clipping}\nweight_shape: {str(self.state_weight.shape)}"

@@ -4,13 +4,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from ...softplus_decay_gate import SoftPlusDecayGateArgs
 
 
 class GatedDeltaNetArgs(SoftPlusDecayGateArgs):
-    sequence_mixer_type: str = "gated_deltanet"
+    sequence_mixer_type: Literal["gated_deltanet"] = "gated_deltanet"
     k_head_dim: int
     v_head_dim: int
     num_k_heads: int

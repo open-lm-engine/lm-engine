@@ -4,13 +4,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from ..mlp import MLPArgs
 
 
 class MoEArgs(MLPArgs):
-    mlp_type: str = "MoE"
+    mlp_type: Literal["MoE"] = "MoE"
     shared_intermediate_size: int | None
     num_experts: int
     num_experts_per_tok: int
