@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from ...parallel import ProcessGroupManager
 from .gated_deltanet import GatedDeltaNet, GatedDeltaNetArgs
 from .gru import GRU, GRUArgs
+from .linear_attention import LinearAttention, LinearAttentionArgs
 from .m2rnn import M2RNN, M2RNNArgs
 from .mamba2 import Mamba2, Mamba2Args
 from .rnn import RNN, RNNArgs
@@ -24,7 +25,7 @@ from .softmax_attention import (
 if TYPE_CHECKING:
     from ...model_config import CommonConfig
 
-SEQUENCE_MIXER_TYPE = SoftmaxAttention | GRU | Mamba2 | RNN | GatedDeltaNet
+SEQUENCE_MIXER_TYPE = SoftmaxAttention | GRU | Mamba2 | RNN | GatedDeltaNet | LinearAttention
 
 
 def get_sequence_mixer(
@@ -100,6 +101,20 @@ def get_sequence_mixer(
             initializer_range=config.initializer_range,
             m_width=config.m_width,
             num_layers=config.num_layers,
+            use_depth_scaled_init=config.use_depth_scaled_init,
+            use_padding_free_transformer=use_padding_free_transformer,
+        )
+    elif sequence_mixer_type == "linear_attention":
+        assert not is_tp_enabled
+        return LinearAttention(
+            input_size=config.hidden_size,
+            output_size=config.hidden_size,
+            config=block,
+            initializer_range=config.initializer_range,
+            m_width=config.m_width,
+            init_method=config.init_method,
+            num_layers=config.num_layers,
+            layer_idx=layer_idx,
             use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
         )
