@@ -18,7 +18,6 @@ class LinearAttentionArgs(SoftPlusDecayGateArgs):
     kernel_size: int | None
     activation_function: str | None
     add_bias: bool
-    gradient_clipping: float | None
     normalization_function: str | None
 
     def model_post_init(self, __context: Any) -> None:
