@@ -14,7 +14,7 @@ from .utils import is_coda_available, is_xma_available
 
 
 if is_xma_available():
-    from xma import cross_entropy, fused_linear_cross_entropy
+    from xma.functional import cross_entropy, fused_linear_cross_entropy
 
 
 if is_coda_available():

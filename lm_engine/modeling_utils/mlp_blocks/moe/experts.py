@@ -20,7 +20,7 @@ from ...linear import ColumnParallelLinear, RowParallelLinear
 
 
 if is_xma_available() and is_triton_available():
-    from xma import continuous_count
+    from xma.functional import continuous_count
 
     if is_triton_available():
         from xma.layers.moe import down_projection_experts, up_projection_experts

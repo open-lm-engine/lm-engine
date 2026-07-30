@@ -11,8 +11,8 @@ from ..utils import is_xma_available
 
 
 if is_xma_available():
-    from xma import pack_sequence as _pack_sequence
-    from xma import unpack_sequence as _unpack_sequence
+    from xma.functional import pack_sequence as _pack_sequence
+    from xma.functional import unpack_sequence as _unpack_sequence
 
 
 def compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask: torch.Tensor) -> tuple[torch.Tensor, int]:

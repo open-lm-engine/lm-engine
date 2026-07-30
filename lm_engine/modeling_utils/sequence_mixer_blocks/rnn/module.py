@@ -27,7 +27,7 @@ from .op import rnn_torch
 
 
 if is_xma_available():
-    from xma import rnn
+    from xma.layers import rnn
 
 
 class RNN(nn.Module):

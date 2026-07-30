@@ -29,7 +29,7 @@ from .config import M2RNNArgs
 
 
 if is_xma_available():
-    from xma import m2rnn
+    from xma.layers import m2rnn
 
 
 class M2RNN(nn.Module):
