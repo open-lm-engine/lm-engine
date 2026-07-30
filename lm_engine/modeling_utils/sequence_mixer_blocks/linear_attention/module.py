@@ -187,9 +187,6 @@ class LinearAttention(nn.Module):
                 max_seqlen=max_seqlen,
             )
 
-        if self.use_residual:
-            x = x + v * self.D
-
         if cache_params is not None:
             cache_params.update(
                 states=(
