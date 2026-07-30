@@ -24,6 +24,7 @@ class DeltaMLPArgs(MLPArgs, SoftPlusDecayGateArgs):
     # row = one head). If False, b_proj is treated as a single 2D matrix (monolithic NS).
     use_b_proj_per_row_hyperball: bool = False
     use_o_norm: bool = True
+    use_k_act: bool = True
 
     def model_post_init(self, __context: object) -> None:
         assert self.mlp_type == "DeltaMLP"

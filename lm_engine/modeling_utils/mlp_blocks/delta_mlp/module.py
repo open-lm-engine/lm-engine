@@ -75,6 +75,7 @@ class DeltaMLP(nn.Module):
         self.use_tied_beta = config.use_tied_beta
         self.use_decay_beta = config.use_decay_beta
         self.use_o_norm = config.use_o_norm
+        self.use_k_act = config.use_k_act
         self.kernel_size = config.kernel_size
         self.num_heads = config.num_heads
         self.num_k_heads = self.num_heads
@@ -458,8 +459,7 @@ class DeltaMLP(nn.Module):
 
             k, v = kv.split((self.key_dim, self.value_dim), dim=-1)
 
-            k = self.kv_act(k)
-        else:
+        if self.use_k_act:
             k = self.kv_act(k)
 
         q = rearrange(q, "... (h d) -> ... h d", d=self.k_head_dim)
