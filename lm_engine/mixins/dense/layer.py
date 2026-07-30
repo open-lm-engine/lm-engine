@@ -114,7 +114,7 @@ class Block(nn.Module):
             )
         elif self.sequence_mixer_type == "mamba2":
             x = self.sequence_mixer(x, cache_params=cache_params, attention_mask=attention_mask)
-        elif self.sequence_mixer_type in ["gru", "rnn", "m2rnn", "gated_deltanet"]:
+        elif self.sequence_mixer_type in ["gru", "rnn", "m2rnn", "gated_deltanet", "linear_attention"]:
             x = self.sequence_mixer(
                 x,
                 cache_params=cache_params,
