@@ -153,9 +153,7 @@ class LinearAttention(nn.Module):
         )
 
         x = self.input_projection(x)
-        x, f, g = x.split((self.conv_dim, self.num_f_heads, self.g_shape), dim=-1)
-
-        f, _ = self.decay_gate(f, final_exponential=True, output_dtype=f.dtype)
+        x, g = x.split((self.conv_dim, self.g_shape), dim=-1)
 
         if self.kernel_size is not None:
             x, c = self.conv1d(
