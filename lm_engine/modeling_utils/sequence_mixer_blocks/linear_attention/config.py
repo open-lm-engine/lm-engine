@@ -2,13 +2,13 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from typing import Any
+from typing import Any, Literal
 
 from ...softplus_decay_gate import SoftPlusDecayGateArgs
 
 
 class LinearAttentionArgs(SoftPlusDecayGateArgs):
-    sequence_mixer_type: str = "linear_attention"
+    sequence_mixer_type: Literal["linear_attention"] = "linear_attention"
     k_head_dim: int
     v_head_dim: int
     num_q_heads: int
