@@ -14,6 +14,7 @@ from .arguments import BaseArgs
 from .modeling_utils import (
     GatedDeltaNetArgs,
     GRUArgs,
+    LinearAttentionArgs,
     M2RNNArgs,
     Mamba2Args,
     MLPArgs,
@@ -51,7 +52,9 @@ class CommonConfig(BaseArgs):
     init_method: Literal["normal", "mup", "fan_in"]
     embedding_init_method: Literal["normal", "mup", "fan_in"]
     use_depth_scaled_init: bool
-    sequence_mixer_blocks: list[SoftmaxAttentionArgs | Mamba2Args | GRUArgs | RNNArgs | M2RNNArgs | GatedDeltaNetArgs]
+    sequence_mixer_blocks: list[
+        SoftmaxAttentionArgs | Mamba2Args | GRUArgs | RNNArgs | M2RNNArgs | GatedDeltaNetArgs | LinearAttentionArgs
+    ]
     mlp_blocks: list[MLPArgs | MoEArgs]
     tie_word_embeddings: bool
     router_aux_loss_coef: float | None = None
