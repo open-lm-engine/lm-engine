@@ -3,6 +3,7 @@
 # **************************************************
 
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -150,9 +151,13 @@ loss = model(input_ids=input_ids, labels=input_ids).loss
 assert torch.isfinite(loss), f"non-finite loss {loss}"
 """
 
+    with socket.socket() as sock:
+        sock.bind(("localhost", 0))
+        master_port = str(sock.getsockname()[1])
+
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = os.environ.copy()
-    env.update({"MASTER_ADDR": "localhost", "MASTER_PORT": "29513", "WORLD_SIZE": "1", "RANK": "0"})
+    env.update({"MASTER_ADDR": "localhost", "MASTER_PORT": master_port, "WORLD_SIZE": "1", "RANK": "0"})
     env["PYTHONPATH"] = repo_root + os.pathsep + env.get("PYTHONPATH", "")
     result = subprocess.run(
         [sys.executable, "-c", script], env=env, capture_output=True, text=True, timeout=300, check=False
