@@ -108,6 +108,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         max_seqlen: int | None = None,
         reduction: str = "mean",
         pipeline_parallel_input: PipelineParallelInput | None = None,
+        logits_to_keep: int | torch.Tensor = 0,
     ) -> CausalLMOutputWithPast | PipelineParallelOutput:
         assert return_dict
         assert inputs_embeds is None
@@ -156,6 +157,14 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
 
         if self.is_last_stage:
             if labels is None:
+                if isinstance(logits_to_keep, int):
+                    if logits_to_keep > 0:
+                        assert not self.use_padding_free_transformer
+                        hidden_states = hidden_states[:, -logits_to_keep:]
+                else:
+                    assert not self.use_padding_free_transformer
+                    hidden_states = hidden_states[:, logits_to_keep]
+
                 if is_kernel_allowed(Kernel.coda_linear_cross_entropy) or is_kernel_allowed(
                     Kernel.fused_linear_cross_entropy
                 ):
@@ -167,6 +176,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                     if self.m_width is not None:
                         lm_logits = lm_logits * (1 / self.m_width)
             else:
+                assert isinstance(logits_to_keep, int) and logits_to_keep == 0, "labels need all logits"
                 assert not self.is_pipeline_parallel_enabled
                 assert not ProcessGroupManager.is_context_parallel_enabled()
                 assert not is_kernel_allowed(Kernel.coda_linear_cross_entropy)

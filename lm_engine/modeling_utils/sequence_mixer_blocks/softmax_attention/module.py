@@ -257,7 +257,7 @@ class SoftmaxAttention(DTensorModule):
                     value=v.transpose(1, 2),
                     attn_mask=attention_mask,
                     dropout_p=self.softmax_dropout_p if self.training else 0,
-                    is_causal=self.causal if attention_mask is None else False,
+                    is_causal=(self.causal and q.size(1) == k.size(1)) if attention_mask is None else False,
                     scale=self.attention_multiplier,
                     enable_gqa=True,
                 )

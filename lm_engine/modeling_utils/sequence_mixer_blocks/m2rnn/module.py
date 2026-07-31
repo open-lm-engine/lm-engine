@@ -179,7 +179,6 @@ class M2RNN(nn.Module):
 
             if attention_mask is not None:
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
-                x = pack_sequence(inputs=x, cu_seqlens=cu_seqlens)
 
         c, h = (
             (None, None)
@@ -196,6 +195,9 @@ class M2RNN(nn.Module):
             x, c = self.conv1d(
                 x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None
             )
+
+        if not self.use_padding_free_transformer and attention_mask is not None:
+            x, f, g = pack_sequence(inputs=(x, f, g), cu_seqlens=cu_seqlens)
 
         q, k, v = x.split((self.q_shape, self.k_shape, self.v_shape), dim=-1)
 

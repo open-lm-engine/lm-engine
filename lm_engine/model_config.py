@@ -59,7 +59,7 @@ class CommonConfig(BaseArgs):
     # HuggingFace compatibility fields
     # dtype: str | None = None
     # name_or_path: str = ""
-    # is_encoder_decoder: bool = False
+    is_encoder_decoder: bool = False
 
     def model_post_init(self, __context: Any) -> None:
         assert (

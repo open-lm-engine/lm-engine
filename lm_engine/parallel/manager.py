@@ -251,7 +251,7 @@ class ProcessGroupManager:
 
     @staticmethod
     def is_initialized() -> bool:
-        return torch.distributed.is_initialized()
+        return torch.distributed.is_initialized() and _DENSE_MESH.mesh is not None
 
     @staticmethod
     def get_dense_mesh() -> DeviceMesh:

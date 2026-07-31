@@ -189,6 +189,61 @@ def get_moe_test_config(
     )
 
 
+def get_hybrid_m2rnn_test_config(num_layers: int = 4) -> GPTBaseConfig:
+    config_dict = get_dense_test_config("nope", num_layers=num_layers).to_dict()
+
+    m2rnn_block = {
+        "sequence_mixer_type": "m2rnn",
+        "k_head_dim": 8,
+        "v_head_dim": 8,
+        "num_q_heads": 1,
+        "num_k_heads": 1,
+        "num_v_heads": 4,
+        "num_f_heads": 4,
+        "num_g_heads": 4,
+        "num_weight_heads": 4,
+        "use_residual": True,
+        "kernel_size": 4,
+        "activation_function": "silu",
+        "add_bias": False,
+        "gradient_clipping": 1.0,
+        "normalization_function": "rmsnorm",
+        "A_init_min": 0,
+        "A_init_max": 16,
+        "dt_init_min": 0.001,
+        "dt_init_max": 0.1,
+        "dt_init_floor": 0.0001,
+    }
+
+    config_dict["sequence_mixer_blocks"] = [
+        config_dict["sequence_mixer_blocks"][i] if i == 1 else m2rnn_block for i in range(num_layers)
+    ]
+
+    return GPTBaseConfig(**config_dict)
+
+
+def get_m2rnn_moe_test_config(num_layers: int = 4) -> GPTBaseConfig:
+    config_dict = get_hybrid_m2rnn_test_config(num_layers).to_dict()
+    config_dict["tie_word_embeddings"] = True
+    config_dict["router_aux_loss_coef"] = 0.001
+    config_dict["mlp_blocks"] = [
+        {
+            "mlp_type": "MoE",
+            "activation_function": "swiglu",
+            "add_bias": False,
+            "intermediate_size": 16,
+            "shared_intermediate_size": 32,
+            "num_experts": 4,
+            "num_experts_per_tok": 2,
+            "normalized_topk": True,
+            "shared_expert_gating": False,
+            "dropout": 0,
+        }
+        for _ in range(num_layers)
+    ]
+    return GPTBaseConfig(**config_dict)
+
+
 def get_dummy_inputs(device: torch.device) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     input_ids = torch.tensor([list(range(5, 15)), [0] * 5 + list(range(10, 15))], device=device)
     attention_mask = torch.tensor([[1] * 10, [0] * 5 + [1] * 5], device=device)
