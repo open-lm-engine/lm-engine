@@ -59,7 +59,7 @@ class ExperimentsTrackerName(Enum):
 
 
 class Kernel(Enum):
-    # XMA
+    # XMA (https://github.com/open-lm-engine/accelerated-model-architectures)
     causal_conv1d = "causal_conv1d"
     continuous_count = "continuous_count"
     cross_entropy = "cross_entropy"
@@ -73,11 +73,14 @@ class Kernel(Enum):
     scattermoe = "scattermoe"
     swiglu_packed = "swiglu_packed"
     unpack_sequence = "unpack_sequence"
-    # quack
+    # quack (https://github.com/Dao-AILab/quack)
     quack_gemm = "quack_gemm"
     quack_gemm_act = "quack_gemm_act"
     quack_gemm_gated = "quack_gemm_gated"
     quack_rmsnorm = "quack_rmsnorm"
+    # CODA (https://github.com/open-lm-engine/coda-kernels)
+    coda_linear_cross_entropy = "coda_linear_cross_entropy"
+    coda_linear_swiglu = "coda_linear_swiglu"
     # external kernels
     flash_attention_2 = "flash_attention_2"
     flash_attention_3 = "flash_attention_3"

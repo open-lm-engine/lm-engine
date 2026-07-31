@@ -10,11 +10,15 @@ from .dtensors import tensor_to_dtensor
 from .enums import Kernel
 from .kernels import is_kernel_allowed
 from .parallel import ProcessGroupManager
-from .utils import is_xma_available
+from .utils import is_coda_available, is_xma_available
 
 
 if is_xma_available():
     from xma import cross_entropy, fused_linear_cross_entropy
+
+
+if is_coda_available():
+    from coda.kernels.functional.cross_entropy import linear_cross_entropy as coda_fused_linear_cross_entropy
 
 
 def get_autoregressive_language_modeling_loss(
@@ -51,7 +55,17 @@ def get_autoregressive_language_modeling_loss(
     else:
         assert cu_seqlens is None
 
-    if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
+    if is_kernel_allowed(Kernel.coda_linear_cross_entropy):
+        assert lm_logits is None
+        assert not tensor_parallel_enabled
+
+        loss = coda_fused_linear_cross_entropy(
+            x=hidden_states.reshape(-1, hidden_states.size(-1)),
+            weight=vocab_weight,
+            target=labels.reshape(-1).to(dtype=torch.int32),
+            reduction=reduction,
+        )
+    elif is_kernel_allowed(Kernel.fused_linear_cross_entropy):
         assert lm_logits is None
         assert not tensor_parallel_enabled
 

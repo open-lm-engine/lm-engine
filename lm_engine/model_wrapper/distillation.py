@@ -124,6 +124,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         else:
             output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch)
 
+        assert not is_kernel_allowed(Kernel.coda_linear_cross_entropy)
         assert not is_kernel_allowed(Kernel.fused_linear_cross_entropy)
 
         student_logits = output.logits

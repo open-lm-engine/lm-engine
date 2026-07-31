@@ -104,7 +104,9 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         aux_loss = get_aux_loss()
 
         if self.is_last_stage:
-            if is_kernel_allowed(Kernel.fused_linear_cross_entropy):
+            if is_kernel_allowed(Kernel.coda_linear_cross_entropy) or is_kernel_allowed(
+                Kernel.fused_linear_cross_entropy
+            ):
                 if self.m_width is not None:
                     hidden_states = hidden_states * (1 / self.m_width)
             else:

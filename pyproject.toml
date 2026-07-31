@@ -21,7 +21,7 @@ dependencies = [
     "ninja==1.13.0",
     "numpy==2.5.1",
     "pydantic==2.13.4",
-    "transformers==5.14.1",
+    "transformers==4.57.3",
     "wandb==0.28.0",
 ]
 
@@ -30,6 +30,9 @@ Homepage = "https://github.com/open-lm-engine/lm-engine"
 Repository = "https://github.com/open-lm-engine/lm-engine"
 
 [project.optional-dependencies]
+coda = [
+    "coda-kernels==0.2",
+]
 cuda = [
     "torch==2.10.0",
 ]
@@ -41,7 +44,7 @@ mamba2 = [
     "mamba-ssm==2.2.6.post3",
 ]
 quack = [
-    "quack-kernels==0.4.1",
+    "quack-kernels==0.6.1",
 ]
 xma = [
     "accelerated-model-architectures",

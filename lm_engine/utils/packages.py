@@ -30,6 +30,18 @@ def is_causal_conv1d_available() -> bool:
 
 
 try:
+    import coda
+
+    _IS_CODA_AVAILABLE = True
+except ImportError:
+    _IS_CODA_AVAILABLE = False
+
+
+def is_coda_available() -> bool:
+    return _IS_CODA_AVAILABLE
+
+
+try:
     import colorlog
 
     _IS_COLORLOG_AVAILABLE = True

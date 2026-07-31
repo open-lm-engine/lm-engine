@@ -11,13 +11,13 @@ docker-tpu:
 	docker build -f docker/Dockerfile --platform linux/amd64 --build-arg EXTRA=tpu -t ghcr.io/open-lm-engine/tpu:latest .
 
 test:
-	RUN_SLOW=True uv run --extra dev --extra torch pytest tests
+	RUN_SLOW=True uv run --extra dev --extra torch --locked pytest tests
 
 test-fast:
-	RUN_SLOW=False uv run --extra $(accelerator) --extra dev pytest tests
+	RUN_SLOW=False uv run --extra $(accelerator) --extra dev --locked pytest tests
 
 update-precommit:
-	uv run --extra dev --no-default-groups pre-commit autoupdate
+	uv run --extra dev --no-default-groups --locked pre-commit autoupdate
 
 style:
-	uv run --extra dev --no-default-groups pre-commit run --all-files
+	uv run --extra dev --no-default-groups --locked pre-commit run --all-files
