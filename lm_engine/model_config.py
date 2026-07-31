@@ -26,6 +26,8 @@ from .utils import divide_if_divisible
 
 # Keys added by HuggingFace internals that are not part of our config schema
 _HF_META_KEYS = {"name_or_path", "architectures", "_from_auto", "_commit_hash", "transformers_version", "auto_map"}
+# Fields that used to be part of CommonConfig and may still be present in configs saved by older code
+_REMOVED_CONFIG_KEYS = {"use_cache"}
 
 
 class CommonConfig(BaseArgs):
@@ -130,7 +132,9 @@ class CommonConfig(BaseArgs):
     @classmethod
     def from_dict(cls, config_dict: dict, **kwargs) -> CommonConfig:
         return_unused_kwargs = kwargs.pop("return_unused_kwargs", False)
-        config_dict = {k: v for k, v in config_dict.items() if k not in _HF_META_KEYS}
+        config_dict = {
+            k: v for k, v in config_dict.items() if k not in _HF_META_KEYS and k not in _REMOVED_CONFIG_KEYS
+        }
         config = cls(**config_dict)
         if return_unused_kwargs:
             return config, kwargs

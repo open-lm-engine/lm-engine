@@ -6,7 +6,7 @@ import torch
 
 from ...generation_cache import GenerationCache
 from ...mixins import Block
-from ...modeling_utils import AttentionMaskInfo, PositionInfo
+from ...modeling_utils import AttentionMaskInfo, PositionInfo, resolve_attention_and_position_info
 
 
 class LadderResidualBlock(Block):
@@ -16,9 +16,11 @@ class LadderResidualBlock(Block):
         current_mlp_out: torch.Tensor | None,
         residual: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> tuple[torch.Tensor]:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         if current_attention_out is not None:
             residual = residual + current_attention_out
 

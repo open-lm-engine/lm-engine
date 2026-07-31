@@ -16,7 +16,7 @@ from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import divide_if_divisible, is_torch_xla_available
 from ...activations import sigmoid
-from ...attention_mask_info import AttentionMaskInfo
+from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...chunk import contiguous_split
 from ...dropout import Dropout
 from ...dtensor_module import DTensorModule
@@ -157,9 +157,11 @@ class SoftmaxAttention(DTensorModule):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         use_flash_attention = (
             is_kernel_allowed(Kernel.flash_attention_2)
             or is_kernel_allowed(Kernel.flash_attention_3)

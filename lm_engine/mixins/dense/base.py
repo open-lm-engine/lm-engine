@@ -17,6 +17,7 @@ from ...modeling_utils import (
     RoPE,
     YaRNScaledRoPE,
     get_normalization_function,
+    resolve_attention_and_position_info,
 )
 from ...modeling_utils.init_utils import _get_std_for_embedding
 from ...modeling_utils.io import BaseModelOutputWithPast
@@ -124,9 +125,11 @@ class BaseModelMixin(PreTrainedModelMixin):
         self,
         input_ids: torch.Tensor | None = None,
         cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> BaseModelOutputWithPast:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         if self.is_first_stage:
             hidden_states, attention_mask_info, position_info, cache_params = self._prepare_a_bunch_of_stuff(
                 input_ids=input_ids,
@@ -189,9 +192,11 @@ class BaseModelMixin(PreTrainedModelMixin):
         self,
         input_ids: torch.Tensor | None = None,
         cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> tuple[torch.Tensor, AttentionMaskInfo, PositionInfo, GenerationCache | None]:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         input_shape = input_ids.size()
 
         # special handling for padding free transformer with list inputs

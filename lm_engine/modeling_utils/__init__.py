@@ -3,7 +3,7 @@
 # **************************************************
 
 from .activations import get_activation_function, is_glu
-from .attention_mask_info import AttentionMaskInfo
+from .attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from .depthwise_causal_convolution import DepthwiseCausalConvolution
 from .dropout import Dropout
 from .dtensor_module import DTensorModule

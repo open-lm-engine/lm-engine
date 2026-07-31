@@ -13,7 +13,13 @@ from ...generation_cache import GenerationCache
 from ...kernels import is_kernel_allowed
 from ...loss import add_aux_loss, clear_aux_loss, get_aux_loss
 from ...model_config import CommonConfig
-from ...modeling_utils import AttentionMaskInfo, DTensorModule, LMHead, PositionInfo
+from ...modeling_utils import (
+    AttentionMaskInfo,
+    DTensorModule,
+    LMHead,
+    PositionInfo,
+    resolve_attention_and_position_info,
+)
 from ...modeling_utils.io import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
@@ -54,11 +60,13 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         self,
         input_ids: torch.Tensor | list[list[int]] | None = None,
         cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
         output_parallel_lm_logits: bool = False,
         pipeline_parallel_input: PipelineParallelInput | None = None,
     ) -> CausalLMOutputWithPast | PipelineParallelOutput:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         if self.is_pipeline_parallel_enabled:
             assert cache_params is None
 

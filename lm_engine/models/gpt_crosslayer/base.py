@@ -8,7 +8,12 @@ import torch
 
 from ...generation_cache import GenerationCache
 from ...mixins import BaseModelMixin, PreTrainedModelMixin
-from ...modeling_utils import AttentionMaskInfo, BaseModelOutputWithPast, PositionInfo
+from ...modeling_utils import (
+    AttentionMaskInfo,
+    BaseModelOutputWithPast,
+    PositionInfo,
+    resolve_attention_and_position_info,
+)
 from ...utils import is_generation_cache_enabled
 from .config import GPTCrossLayerConfig
 from .layer import GPTCrossLayerBlock
@@ -29,9 +34,11 @@ class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
         self,
         input_ids: torch.Tensor | None = None,
         cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> BaseModelOutputWithPast:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         hidden_states, attention_mask_info, position_info, cache_params = self._prepare_a_bunch_of_stuff(
             input_ids=input_ids,
             cache_params=cache_params,

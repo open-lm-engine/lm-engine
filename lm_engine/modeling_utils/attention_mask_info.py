@@ -9,6 +9,7 @@ import torch
 from ..enums import Kernel
 from ..generation_cache import GenerationCache
 from ..kernels import is_kernel_allowed
+from .position_embedding import PositionInfo
 
 
 @dataclass
@@ -61,6 +62,20 @@ class AttentionMaskInfo:
             self._mamba_mask_computed = True
 
         return self.mamba_mask
+
+
+def resolve_attention_and_position_info(
+    attention_mask_info: AttentionMaskInfo | None, position_info: PositionInfo | None
+) -> tuple[AttentionMaskInfo, PositionInfo]:
+    # forward() signatures default these to `None` (not `AttentionMaskInfo()`/`PositionInfo()`) since
+    # both classes are mutated in place; a mutable default argument would be constructed once and
+    # shared/corrupted across every call that omits it
+    if attention_mask_info is None:
+        attention_mask_info = AttentionMaskInfo()
+    if position_info is None:
+        position_info = PositionInfo()
+
+    return attention_mask_info, position_info
 
 
 def _prepare_causal_attention_mask(

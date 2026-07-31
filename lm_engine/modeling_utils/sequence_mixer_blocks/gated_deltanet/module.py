@@ -10,7 +10,7 @@ import torch.nn as nn
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....utils import divide_if_divisible, is_fla_available
 from ...activations import silu
-from ...attention_mask_info import AttentionMaskInfo
+from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
@@ -126,9 +126,11 @@ class GatedDeltaNet(nn.Module):
         self,
         hidden_states: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         if self.use_padding_free_transformer:
             assert cache_params is None
             assert attention_mask_info.attention_mask is None

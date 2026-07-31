@@ -14,6 +14,7 @@ from ...modeling_utils import (
     get_mlp_block,
     get_normalization_function,
     get_sequence_mixer,
+    resolve_attention_and_position_info,
 )
 from .config import PaLMConfig
 
@@ -47,9 +48,11 @@ class PaLMBlock(nn.Module):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask_info: AttentionMaskInfo = AttentionMaskInfo(),
-        position_info: PositionInfo = PositionInfo(),
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         r = x
         x = self.ln(x)
 

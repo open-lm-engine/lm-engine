@@ -15,9 +15,10 @@ def disable_generation_cache():
 
     _IS_GENERATION_CACHE_ENABLED = False
 
-    yield
-
-    _IS_GENERATION_CACHE_ENABLED = original
+    try:
+        yield
+    finally:
+        _IS_GENERATION_CACHE_ENABLED = original
 
 
 def is_generation_cache_enabled() -> bool:
