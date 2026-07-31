@@ -19,6 +19,7 @@ from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from .config import LinearAttentionArgs
+from .op import linear_attention_torch
 
 
 if is_xma_available():
@@ -56,6 +57,7 @@ class LinearAttention(nn.Module):
         self.num_g_heads = config.num_g_heads
 
         self.num_heads = max(config.num_q_heads, config.num_k_heads, config.num_v_heads)
+        self.attention_multiplier = config.attention_multiplier
 
         divide_if_divisible(self.num_heads, self.num_q_heads)
         divide_if_divisible(self.num_heads, self.num_k_heads)
@@ -172,20 +174,15 @@ class LinearAttention(nn.Module):
                 key=k,
                 value=v,
                 input_state=h,
-                attention_multiplier=None,
+                attention_multiplier=self.attention_multiplier,
                 cu_seqlens=cu_seqlens,
                 max_seqlen=max_seqlen,
             )
         else:
-            x, h = self._torch_forward(
-                q=q,
-                k=k,
-                v=v,
-                xf=f,
-                h0=h,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
+            assert cu_seqlens is None
+            assert max_seqlen is None
+
+            x, h = linear_attention_torch(q=q, k=k, v=v, h0=h, attention_multiplier=self.attention_multiplier)
 
         if cache_params is not None:
             cache_params.update(

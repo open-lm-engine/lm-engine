@@ -19,3 +19,4 @@ class LinearAttentionArgs(SoftPlusDecayGateArgs):
     activation_function: str | None
     add_bias: bool
     normalization_function: str | None
+    attention_multiplier: float | None
