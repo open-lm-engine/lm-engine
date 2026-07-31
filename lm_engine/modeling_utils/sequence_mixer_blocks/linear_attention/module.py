@@ -133,8 +133,6 @@ class LinearAttention(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
-        import torch_xla.debug.profiler as xp
-
         if self.use_padding_free_transformer:
             assert cache_params is None
             assert attention_mask is None
@@ -154,46 +152,40 @@ class LinearAttention(nn.Module):
             else cache_params.get_cache(layer_idx=self.layer_idx, empty_value=(None, None))
         )
 
-        with xp.Trace("input_projection"):
-            x = self.input_projection(x)
-        with xp.Trace("input_split"):
-            x, g = x.split((self.conv_dim, self.g_shape), dim=-1)
+        x = self.input_projection(x)
+        x, g = x.split((self.conv_dim, self.g_shape), dim=-1)
 
-        with xp.Trace("conv1d"):
-            if self.kernel_size is not None:
-                x, c = self.conv1d(
-                    x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None
-                )
+        if self.kernel_size is not None:
+            x, c = self.conv1d(
+                x=x, input_state=c, attention_mask=attention_mask, output_state=cache_params is not None
+            )
 
-        with xp.Trace("conv_split"):
-            q, k, v = x.split((self.q_shape, self.k_shape, self.v_shape), dim=-1)
+        q, k, v = x.split((self.q_shape, self.k_shape, self.v_shape), dim=-1)
 
-        with xp.Trace("qkv_view"):
-            q = q.view(*q.size()[:-1], self.num_q_heads, self.k_head_dim)
-            k = k.view(*k.size()[:-1], self.num_k_heads, self.k_head_dim)
-            v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
+        q = q.view(*q.size()[:-1], self.num_q_heads, self.k_head_dim)
+        k = k.view(*k.size()[:-1], self.num_k_heads, self.k_head_dim)
+        v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
 
-        with xp.Trace("linear_attention"):
-            if is_kernel_allowed(Kernel.linear_attention):
-                x, h = linear_attention(
-                    query=q,
-                    key=k,
-                    value=v,
-                    input_state=h,
-                    attention_multiplier=None,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
-                )
-            else:
-                x, h = self._torch_forward(
-                    q=q,
-                    k=k,
-                    v=v,
-                    xf=f,
-                    h0=h,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
-                )
+        if is_kernel_allowed(Kernel.linear_attention):
+            x, h = linear_attention(
+                query=q,
+                key=k,
+                value=v,
+                input_state=h,
+                attention_multiplier=None,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
+        else:
+            x, h = self._torch_forward(
+                q=q,
+                k=k,
+                v=v,
+                xf=f,
+                h0=h,
+                cu_seqlens=cu_seqlens,
+                max_seqlen=max_seqlen,
+            )
 
         if cache_params is not None:
             cache_params.update(
@@ -204,17 +196,12 @@ class LinearAttention(nn.Module):
                 layer_idx=self.layer_idx,
             )
 
-        with xp.Trace("flatten"):
-            x = x.flatten(-2, -1)
-        with xp.Trace("repeat"):
-            g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)
-        with xp.Trace("gate"):
-            x = x * silu(g)
-        with xp.Trace("norm"):
-            x = self.g_norm(x)
+        g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)
 
-        with xp.Trace("output_projection"):
-            x = self.output_projection(x)
+        x = x.flatten(-2, -1)
+        x = x * silu(g)
+        x = self.g_norm(x)
+        x = self.output_projection(x)
 
         if not self.use_padding_free_transformer and attention_mask is not None:
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
