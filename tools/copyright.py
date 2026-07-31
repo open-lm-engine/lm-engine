@@ -33,9 +33,7 @@ _HTML_LIKE_EXTENSIONS = [".html", ".md"]
 
 _BANNED = [".git"]
 if args.exclude:
-    exclude = open(args.exclude, "r").readlines()
-    exclude = [i.strip() for i in exclude]
-    _BANNED.extend(exclude)
+    _BANNED.extend([i.strip() for i in args.exclude.split(",")])
 
 _BANNED = [os.path.realpath(i) for i in _BANNED]
 
