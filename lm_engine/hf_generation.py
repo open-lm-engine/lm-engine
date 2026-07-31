@@ -11,6 +11,12 @@ import torch
 from transformers import GenerationConfig
 from transformers.generation import GenerationMixin
 
+from .legacy_checkpoints import (
+    backfill_config,
+    interleave_legacy_glu_weights,
+    is_legacy_checkpoint,
+    pop_legacy_interleave_flags,
+)
 from .modeling_utils.softplus_decay_gate import SoftplusDecayGate
 from .models import GPTBaseForCausalLM
 
@@ -60,11 +66,17 @@ class HFGPTBaseForCausalLM(GenerationMixin, GPTBaseForCausalLM):
 
         with open(os.path.join(pretrained_model_name_or_path, "config.json")) as f:
             config_dict = json.load(f)
+        legacy_checkpoint = is_legacy_checkpoint(config_dict)
+        interleave_flags = pop_legacy_interleave_flags(config_dict)
 
         if "config" not in kwargs:
+            backfill_config(config_dict)
             kwargs["config"] = cls.config_class.from_dict(config_dict)
 
         model = super().from_pretrained(pretrained_model_name_or_path, **kwargs)
+
+        if legacy_checkpoint:
+            interleave_legacy_glu_weights(model, interleave_flags)
 
         _restore_declared_dtypes(model)
 
