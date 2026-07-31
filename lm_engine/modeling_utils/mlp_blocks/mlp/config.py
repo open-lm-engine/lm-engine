@@ -2,7 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from typing import Any, Literal
+from typing import Literal
 
 from ....arguments import BaseArgs
 
@@ -13,6 +13,3 @@ class MLPArgs(BaseArgs):
     activation_function: str
     dropout: float = 0
     add_bias: bool = False
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.mlp_type == "MLP"

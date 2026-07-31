@@ -2,7 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from typing import Any, Literal
+from typing import Literal
 
 from ...softplus_decay_gate import SoftPlusDecayGateArgs
 
@@ -19,7 +19,3 @@ class LinearAttentionArgs(SoftPlusDecayGateArgs):
     activation_function: str | None
     add_bias: bool
     normalization_function: str | None
-
-    def model_post_init(self, __context: Any) -> None:
-        super().model_post_init(__context)
-        assert self.sequence_mixer_type == "linear_attention"

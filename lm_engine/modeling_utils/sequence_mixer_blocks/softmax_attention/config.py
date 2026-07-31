@@ -2,9 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from __future__ import annotations
-
-from typing import Any
+from typing import Any, Literal
 
 from ....arguments import BaseArgs
 
@@ -14,7 +12,7 @@ ATTENTION_MULTIPLIER_INVERSE_METHOD = "1 / head_dim"
 
 
 class SoftmaxAttentionArgs(BaseArgs):
-    sequence_mixer_type: str = "softmax_attention"
+    sequence_mixer_type: Literal["softmax_attention"] = "softmax_attention"
     num_attention_heads: int
     num_key_value_heads: int
     head_dim: int | None = None
@@ -41,5 +39,3 @@ class SoftmaxAttentionArgs(BaseArgs):
             assert self.attention_multiplier is None
         else:
             assert self.attention_multiplier is not None
-
-        assert self.sequence_mixer_type == "softmax_attention"

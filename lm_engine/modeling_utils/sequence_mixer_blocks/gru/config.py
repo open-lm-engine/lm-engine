@@ -2,7 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from typing import Any, Literal
+from typing import Literal
 
 from ....arguments import BaseArgs
 
@@ -21,6 +21,3 @@ class GRUArgs(BaseArgs):
     gradient_clipping: float | None
     kernel_size: int | None
     activation_function: str | None
-
-    def model_post_init(self, __context: Any) -> None:
-        assert self.sequence_mixer_type == "gru"
