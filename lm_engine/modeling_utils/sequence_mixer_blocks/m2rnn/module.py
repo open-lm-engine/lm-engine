@@ -24,7 +24,7 @@ from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
-from ...rotaters import send_recv
+from ...rotaters import recv, send
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import M2RNNArgs
@@ -163,6 +163,9 @@ class M2RNN(nn.Module):
 
         self.reset_parameters()
 
+        # stashed by forward() when CP is enabled, consumed by propagate_cp_ring_gradients()
+        self._cp_h_final = None
+
     def forward(
         self,
         x: torch.Tensor,
@@ -171,14 +174,25 @@ class M2RNN(nn.Module):
         cu_seqlens: torch.Tensor | None = None,
         max_seqlen: int | None = None,
     ) -> torch.Tensor:
+        is_cp_enabled = ProcessGroupManager.is_context_parallel_enabled()
+
         if self.use_padding_free_transformer:
             assert cache_params is None
             assert attention_mask is None
+            assert not is_cp_enabled
         else:
             assert cu_seqlens is None
             assert max_seqlen is None
 
             B, S = x.size()[:2]
+
+            if is_cp_enabled:
+                # CP shards the sequence dim across ranks, so the recurrence's hidden state carries a
+                # true cross-rank dependency; packing/generation-cache/load-balanced reordering would
+                # break the chunk-per-rank assumption the ring hand-off relies on
+                assert cache_params is None
+                assert attention_mask is None
+                assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
 
             if attention_mask is not None:
                 cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
@@ -206,36 +220,42 @@ class M2RNN(nn.Module):
         k = k.view(*k.size()[:-1], self.num_k_heads, self.k_head_dim)
         v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
 
-        if ProcessGroupManager.is_context_parallel_enabled():
-            cp_world_size = ProcessGroupManager.get_context_parallel_world_size()
+        if is_cp_enabled:
             cp_rank = ProcessGroupManager.get_context_parallel_rank()
+            cp_world_size = ProcessGroupManager.get_context_parallel_world_size()
         else:
-            cp_world_size = 1
             cp_rank = 0
+            cp_world_size = 1
 
         for i in range(cp_world_size):
-            if i == cp_rank:
-                if is_kernel_allowed(Kernel.m2rnn):
-                    x, h = m2rnn(
-                        query=q,
-                        key=k,
-                        value=v,
-                        weight=self.state_weight,
-                        forget_input=f,
-                        input_state=h,
-                        gradient_clipping=self.gradient_clipping,
-                        cu_seqlens=cu_seqlens,
-                        max_seqlen=max_seqlen,
-                    )
-                else:
-                    assert cu_seqlens is None
-                    assert max_seqlen is None
+            if i != cp_rank:
+                continue
 
-                    x, h = m2rnn_torch(
-                        q=q, k=k, v=v, xf=f, W=self.state_weight, h0=h, gradient_clipping=self.gradient_clipping
-                    )
+            if is_cp_enabled and cp_rank != 0:
+                h = recv(shape=(B, self.num_heads, self.k_head_dim, self.v_head_dim), dtype=k.dtype, device=k.device)
 
-                h = send_recv(h)
+            if is_kernel_allowed(Kernel.m2rnn):
+                x, h = m2rnn(
+                    query=q,
+                    key=k,
+                    value=v,
+                    weight=self.state_weight,
+                    forget_input=f,
+                    input_state=h,
+                    gradient_clipping=self.gradient_clipping,
+                    cu_seqlens=cu_seqlens,
+                    max_seqlen=max_seqlen,
+                )
+            else:
+                assert cu_seqlens is None
+                assert max_seqlen is None
+
+                x, h = m2rnn_torch(
+                    q=q, k=k, v=v, xf=f, W=self.state_weight, h0=h, gradient_clipping=self.gradient_clipping
+                )
+
+            if is_cp_enabled and cp_rank != cp_world_size - 1:
+                h = send(h)
 
         if self.use_residual:
             x = x + v * self.D
