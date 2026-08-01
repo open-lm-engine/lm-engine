@@ -270,11 +270,11 @@ class M2RNN(nn.Module):
                 layer_idx=self.layer_idx,
             )
 
-        x = x.flatten(-2, -1)
         g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)
+
+        x = x.flatten(-2, -1)
         x = x * silu(g)
         x = self.g_norm(x)
-
         x = self.output_projection(x)
 
         if not self.use_padding_free_transformer and attention_mask is not None:
