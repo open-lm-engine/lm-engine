@@ -126,6 +126,7 @@ class _SequencePipeline(torch.autograd.Function):
         return None, None, *input_grads
 
 
+@torch._dynamo.disable
 def sequence_pipeline(
     function: Callable, tensors: tuple[torch.Tensor, ...], state_shape: tuple[int, ...]
 ) -> tuple[torch.Tensor, torch.Tensor]:
