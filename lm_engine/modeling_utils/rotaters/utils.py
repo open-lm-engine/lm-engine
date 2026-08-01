@@ -28,17 +28,20 @@ class _StitchAutogradInForward(torch.autograd.Function):
 
 class _StitchAutogradInBackward(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x: torch.Tensor, h: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        return x, h
+    def forward(
+        ctx, x: torch.Tensor, shape: torch.Tensor, dtype: torch.dtype, device: torch.device
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return torch.empty(shape, dtype=dtype, device=device)
 
     @staticmethod
     def backward(ctx, dx: torch.Tensor, dh: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        return dx, dh
+        _no_op(x=dx, h=dh)
+        return dx, None, None, None
 
 
 def stitch_autograd_in_forward(x: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
     return _StitchAutogradInForward.apply(x, h)
 
 
-def stitch_autograd_in_backward(x: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
-    return _StitchAutogradInBackward.apply(x, h)
+def stitch_autograd_in_backward(x: torch.Tensor, shape: torch.Size) -> torch.Tensor:
+    return _StitchAutogradInBackward.apply(x, shape)
