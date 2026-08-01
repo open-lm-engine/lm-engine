@@ -256,7 +256,7 @@ class M2RNN(nn.Module):
 
             if is_cp_enabled and cp_rank != cp_world_size - 1:
                 h = send(h)
-                x = x + h.sum(2)[:, None] * 0
+                x = fake_autograd_function(x=x, h=h)
 
         if self.use_residual:
             x = x + v * self.D

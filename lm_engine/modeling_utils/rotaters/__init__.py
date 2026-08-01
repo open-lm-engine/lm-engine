@@ -4,4 +4,7 @@
 
 from .all_gather import AllGatherRotater
 from .all_to_all import AllToAllRotater
-from .paired_send_recv import recv, send, send_recv
+from .recv import recv
+from .send import send
+from .send_recv import send_recv
+from .utils import fake_autograd_function
