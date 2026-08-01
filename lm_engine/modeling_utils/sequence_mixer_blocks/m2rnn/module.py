@@ -24,7 +24,7 @@ from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
-from ...rotaters import recv, send, stitch_autograd_in_forward
+from ...rotaters import recv, send, stitch_autograd_in_backward, stitch_autograd_in_forward
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import M2RNNArgs
@@ -232,6 +232,7 @@ class M2RNN(nn.Module):
                 continue
 
             if is_cp_enabled and cp_rank != 0:
+                x, h = stitch_autograd_in_backward(x=x, h=h)
                 h = recv(shape=(B, self.num_heads, self.k_head_dim, self.v_head_dim), dtype=k.dtype, device=k.device)
 
             if is_kernel_allowed(Kernel.m2rnn):
