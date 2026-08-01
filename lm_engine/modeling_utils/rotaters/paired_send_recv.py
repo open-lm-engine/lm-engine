@@ -8,7 +8,8 @@ import torch.distributed
 from ...parallel import ProcessGroupManager
 
 
-@torch.library.custom_op("lm_engine::_send_op", mutates_args=())
+# NOTE: to preserve autograd functionality, we need to annotate this as mutating x
+@torch.library.custom_op("lm_engine::_send_op", mutates_args={"x"})
 def _send_op(x: torch.Tensor, shift: int) -> None:
     world_size = ProcessGroupManager.get_context_parallel_world_size()
     rank = ProcessGroupManager.get_context_parallel_rank()
