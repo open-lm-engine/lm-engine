@@ -9,13 +9,12 @@ from .send import _recv_op, _send_op
 
 class _Recv(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, dummy: torch.Tensor, shape: torch.Size, dtype: torch.dtype, shift: int) -> torch.Tensor:
+    def forward(ctx, x: torch.Tensor, shift: int) -> torch.Tensor:
         ctx.shift = shift
 
-        y = torch.empty(shape, dtype=dtype, device=dummy.device)
-        _recv_op(y=y, shift=shift)
+        _recv_op(y=x, shift=shift)
 
-        return y
+        return x
 
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor) -> tuple:
@@ -25,6 +24,5 @@ class _Recv(torch.autograd.Function):
         return None, None, None, None
 
 
-def recv(shape: torch.Size, dtype: torch.dtype, device: torch.device, shift: int = 1) -> torch.Tensor:
-    dummy = torch.empty(0, device=device, requires_grad=True)
-    return _Recv.apply(dummy, shape, dtype, shift)
+def recv(x: torch.Tensor, shift: int = 1) -> torch.Tensor:
+    return _Recv.apply(x, shift)
