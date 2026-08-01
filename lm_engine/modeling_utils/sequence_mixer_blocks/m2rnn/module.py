@@ -232,7 +232,7 @@ class M2RNN(nn.Module):
                 continue
 
             if is_cp_enabled and cp_rank != 0:
-                h = stitch_autograd_in_backward(x=x, shape=(B, self.num_heads, self.k_head_dim, self.v_head_dim))
+                x, h = stitch_autograd_in_backward(x=x, shape=(B, self.num_heads, self.k_head_dim, self.v_head_dim))
                 h = recv(h)
 
             if is_kernel_allowed(Kernel.m2rnn):

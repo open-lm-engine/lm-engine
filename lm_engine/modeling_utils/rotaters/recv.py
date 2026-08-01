@@ -17,11 +17,11 @@ class _Recv(torch.autograd.Function):
         return x
 
     @staticmethod
-    def backward(ctx, grad_output: torch.Tensor) -> tuple:
-        grad_output = grad_output.contiguous()
-        _send_op(x=grad_output, shift=-ctx.shift)
+    def backward(ctx, dx: torch.Tensor) -> tuple:
+        dx = dx.contiguous()
+        _send_op(x=dx, shift=-ctx.shift)
 
-        return None, None, None, None
+        return dx, None
 
 
 def recv(x: torch.Tensor, shift: int = 1) -> torch.Tensor:
