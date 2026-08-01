@@ -26,6 +26,7 @@ from ...normalization import get_normalization_function
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import M2RNNArgs
+from .op import m2rnn_torch
 
 
 if is_xma_available():
@@ -216,15 +217,11 @@ class M2RNN(nn.Module):
                 max_seqlen=max_seqlen,
             )
         else:
-            x, h = self._torch_forward(
-                q=q,
-                k=k,
-                v=v,
-                xf=f,
-                h0=h,
-                gradient_clipping=self.gradient_clipping,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
+            assert cu_seqlens is None
+            assert max_seqlen is None
+
+            x, h = m2rnn_torch(
+                q=q, k=k, v=v, xf=f, W=self.state_weight, h0=h, gradient_clipping=self.gradient_clipping
             )
 
         if self.use_residual:
@@ -250,99 +247,6 @@ class M2RNN(nn.Module):
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         return x
-
-    def _torch_forward(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        xf: torch.Tensor,
-        h0: torch.Tensor | None,
-        gradient_clipping: float | None,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: int | None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        W = self.state_weight
-
-        Nq = q.size(-2)
-        Nk = k.size(-2)
-        Nv = v.size(-2)
-
-        Nw = W.size(0)
-        Nxf = xf.size(-1)
-
-        N = max(Nq, Nk, Nv, Nw, Nxf)
-        V = v.size(-1)
-
-        if cu_seqlens is None:
-            B, S, _, K = q.size()
-            y = torch.empty(B, S, N, K, V, device=q.device, dtype=q.dtype)
-        else:
-            B = cu_seqlens.size(0) - 1
-            S = max_seqlen.item() if isinstance(max_seqlen, torch.Tensor) else max_seqlen
-            T, _, K = q.size()
-
-            y = torch.empty(T, N, K, V, device=q.device, dtype=q.dtype)
-
-        if h0 is None:
-            h0 = torch.zeros(B, N, K, V, device=k.device, dtype=k.dtype)
-
-        Gq = N // Nq
-        Gk = N // Nk
-        Gv = N // Nv
-
-        Gw = N // Nw
-        Gxf = N // Nxf
-
-        q = q.repeat_interleave(Gq, dim=-2)
-        k = k.repeat_interleave(Gk, dim=-2)
-        v = v.repeat_interleave(Gv, dim=-2)
-        W = W.repeat_interleave(Gw, dim=0)
-        xf = xf.repeat_interleave(Gxf, dim=-1)
-
-        # (B, S, N, K, V) = (B, S, N, K, 1) * (B, S, N, 1, V)
-        x = k[..., None] * v[..., None, :]
-        W = W[None, ...]
-
-        if cu_seqlens is not None:
-            h0 = h0.clone()
-            start = cu_seqlens[:-1]
-            end = cu_seqlens[1:]
-
-        for s in range(S):
-            if cu_seqlens is None:
-                f = xf[:, s, :, None, None]
-                # (B, N, K, V) = (B, N, K, V) @ (1, N, V, V) + (B, N, K, V)
-                h = h0 @ W + x[:, s]
-            else:
-                offset = start + s
-                unfinished = offset < end
-                offset_unfinished = offset[unfinished]
-
-                f = xf[offset_unfinished, :, None, None]
-                # (B, N, K, V) = (B, N, K, V) @ (1, N, V, V) + (B, N, K, V)
-                h = h0[unfinished] @ W + x[offset_unfinished]
-
-            h = tanh(h)
-
-            if cu_seqlens is None:
-                h = f * h0 + (1 - f) * h
-            else:
-                h = f * h0[unfinished] + (1 - f) * h
-
-            h = clip_gradients(h, gradient_clipping)
-
-            if cu_seqlens is None:
-                y[:, s] = h
-                h0 = h
-            else:
-                y[offset_unfinished] = h
-                h0[unfinished] = h
-
-        y = q[..., None, :] @ y
-        y = y.squeeze(-2)
-
-        return y, h0
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
