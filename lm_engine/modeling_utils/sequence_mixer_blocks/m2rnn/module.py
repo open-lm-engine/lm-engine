@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 import torch
 import torch.nn as nn
 from torch.distributed.tensor import DTensor, Replicate
@@ -24,8 +26,8 @@ from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
-from ...rotaters import recv, send, stitch_autograd_in_backward, stitch_autograd_in_forward
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
+from ...sequence_pipeline import sequence_pipeline
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import M2RNNArgs
 from .op import m2rnn_torch
@@ -33,6 +35,39 @@ from .op import m2rnn_torch
 
 if is_xma_available():
     from xma import m2rnn
+
+
+def _m2rnn_function(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    xf: torch.Tensor,
+    W: torch.Tensor,
+    h0: torch.Tensor | None,
+    gradient_clipping: float | None,
+    cu_seqlens: torch.Tensor | None,
+    max_seqlen: int | None,
+    use_kernel: bool,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Uniform signature over the two m2rnn backends, so `sequence_pipeline` can drive either."""
+
+    if use_kernel:
+        return m2rnn(
+            query=q,
+            key=k,
+            value=v,
+            weight=W,
+            forget_input=xf,
+            input_state=h0,
+            gradient_clipping=gradient_clipping,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+        )
+
+    assert cu_seqlens is None
+    assert max_seqlen is None
+
+    return m2rnn_torch(q=q, k=k, v=v, xf=xf, W=W, h0=h0, gradient_clipping=gradient_clipping)
 
 
 class M2RNN(nn.Module):
@@ -163,9 +198,6 @@ class M2RNN(nn.Module):
 
         self.reset_parameters()
 
-        # stashed by forward() when CP is enabled, consumed by propagate_cp_ring_gradients()
-        self._cp_h_final = None
-
     def forward(
         self,
         x: torch.Tensor,
@@ -220,45 +252,26 @@ class M2RNN(nn.Module):
         k = k.view(*k.size()[:-1], self.num_k_heads, self.k_head_dim)
         v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
 
+        m2rnn_function = partial(
+            _m2rnn_function,
+            gradient_clipping=self.gradient_clipping,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+            use_kernel=is_kernel_allowed(Kernel.m2rnn),
+        )
+
         if is_cp_enabled:
-            cp_rank = ProcessGroupManager.get_context_parallel_rank()
-            cp_world_size = ProcessGroupManager.get_context_parallel_world_size()
+            # the recurrence is non-linear, so there is no scan to parallelize: the ranks have to run
+            # as a pipeline along the sequence, each one picking up the boundary state of the last
+            assert h is None
+
+            x, h = sequence_pipeline(
+                function=m2rnn_function,
+                tensors=(q, k, v, f, self.state_weight),
+                state_shape=(B, self.num_heads, self.k_head_dim, self.v_head_dim),
+            )
         else:
-            cp_rank = 0
-            cp_world_size = 1
-
-        for i in range(cp_world_size):
-            if i != cp_rank:
-                continue
-
-            if is_cp_enabled and cp_rank != 0:
-                h = torch.empty((B, self.num_heads, self.k_head_dim, self.v_head_dim), dtype=x.dtype, device=x.device)
-                h = recv(h)
-                h = stitch_autograd_in_backward(x=x, h=h)
-
-            if is_kernel_allowed(Kernel.m2rnn):
-                x, h = m2rnn(
-                    query=q,
-                    key=k,
-                    value=v,
-                    weight=self.state_weight,
-                    forget_input=f,
-                    input_state=h,
-                    gradient_clipping=self.gradient_clipping,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
-                )
-            else:
-                assert cu_seqlens is None
-                assert max_seqlen is None
-
-                x, h = m2rnn_torch(
-                    q=q, k=k, v=v, xf=f, W=self.state_weight, h0=h, gradient_clipping=self.gradient_clipping
-                )
-
-            if is_cp_enabled and cp_rank != cp_world_size - 1:
-                h = send(h)
-                x = stitch_autograd_in_forward(x=x, h=h)
+            x, h = m2rnn_function(q, k, v, f, self.state_weight, h)
 
         if self.use_residual:
             x = x + v * self.D

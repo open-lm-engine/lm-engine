@@ -33,25 +33,11 @@ def _recv_op(y: torch.Tensor, shift: int) -> None:
     torch.distributed.recv(y, src_global_rank, group)
 
 
-class _Send(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, x: torch.Tensor, shift: int) -> torch.Tensor:
-        ctx.shape = x.size()
-        ctx.dtype = x.dtype
-        ctx.shift = shift
+def send(x: torch.Tensor, shift: int = 1) -> None:
+    """Blocking send of `x` to rank `cp_rank + shift`. Not differentiable.
 
-        x = x.contiguous()
-        _send_op(x=x, shift=shift)
-
-        return x
-
-    @staticmethod
-    def backward(ctx, grad_output: torch.Tensor) -> tuple:
-        dx = torch.empty(ctx.shape, dtype=ctx.dtype, device=grad_output.device)
-        _recv_op(y=dx, shift=-ctx.shift)
-
-        return dx, None
-
-
-def send(x: torch.Tensor, shift: int = 1) -> torch.Tensor:
-    return _Send.apply(x, shift)
+    `_send_op` is annotated as mutating its input so that torch compile keeps the collective
+    alive, so we hand it a private copy: mutating `x` itself would bump the version counter of
+    a tensor autograd may have saved for backward.
+    """
+    _send_op(x=x.detach().clone(), shift=shift)
