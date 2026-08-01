@@ -10,7 +10,7 @@ def _no_op(x: torch.Tensor, h: torch.Tensor) -> None:
     return
 
 
-class _FakeAutogradFunction(torch.autograd.Function):
+class _StitchAutogradInForward(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
         ctx.shape = h.size()
@@ -26,5 +26,5 @@ class _FakeAutogradFunction(torch.autograd.Function):
         return dy, torch.zeros(ctx.shape, dtype=ctx.dtype, device=ctx.device)
 
 
-def fake_autograd_function(x: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
-    return _FakeAutogradFunction.apply(x, h)
+def stitch_autograd_in_forward(x: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
+    return _StitchAutogradInForward.apply(x, h)
