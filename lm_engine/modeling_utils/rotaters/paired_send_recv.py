@@ -51,5 +51,5 @@ class _SendRecv(torch.autograd.Function):
         return dx, None
 
 
-def send_recv(x: torch.Tensor, shift: int) -> torch.Tensor:
+def send_recv(x: torch.Tensor, shift: int = 1) -> torch.Tensor:
     return _SendRecv.apply(x, shift)

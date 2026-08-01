@@ -12,6 +12,7 @@ from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
+from ....parallel import ProcessGroupManager
 from ....parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,
@@ -23,6 +24,7 @@ from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
+from ...rotaters import send_recv
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import M2RNNArgs
@@ -204,25 +206,36 @@ class M2RNN(nn.Module):
         k = k.view(*k.size()[:-1], self.num_k_heads, self.k_head_dim)
         v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
 
-        if is_kernel_allowed(Kernel.m2rnn):
-            x, h = m2rnn(
-                query=q,
-                key=k,
-                value=v,
-                weight=self.state_weight,
-                forget_input=f,
-                input_state=h,
-                gradient_clipping=self.gradient_clipping,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
+        if ProcessGroupManager.is_context_parallel_enabled():
+            cp_world_size = ProcessGroupManager.get_context_parallel_world_size()
+            cp_rank = ProcessGroupManager.get_context_parallel_rank()
         else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
+            cp_world_size = 1
+            cp_rank = 0
 
-            x, h = m2rnn_torch(
-                q=q, k=k, v=v, xf=f, W=self.state_weight, h0=h, gradient_clipping=self.gradient_clipping
-            )
+        for i in range(cp_world_size):
+            if i == cp_rank:
+                if is_kernel_allowed(Kernel.m2rnn):
+                    x, h = m2rnn(
+                        query=q,
+                        key=k,
+                        value=v,
+                        weight=self.state_weight,
+                        forget_input=f,
+                        input_state=h,
+                        gradient_clipping=self.gradient_clipping,
+                        cu_seqlens=cu_seqlens,
+                        max_seqlen=max_seqlen,
+                    )
+                else:
+                    assert cu_seqlens is None
+                    assert max_seqlen is None
+
+                    x, h = m2rnn_torch(
+                        q=q, k=k, v=v, xf=f, W=self.state_weight, h0=h, gradient_clipping=self.gradient_clipping
+                    )
+
+                h = send_recv(h)
 
         if self.use_residual:
             x = x + v * self.D
