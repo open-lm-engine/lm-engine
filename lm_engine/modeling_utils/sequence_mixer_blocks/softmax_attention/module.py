@@ -251,13 +251,17 @@ class SoftmaxAttention(DTensorModule):
                     sm_scale=self.attention_multiplier,
                 )
             else:
+                # q != k means a cached prefix: a single query attends to everything, so non-causal
+                # SDPA is exact; multiple queries would need a bottom-right aligned causal mask
+                assert attention_mask is not None or not self.causal or q.size(1) in (1, k.size(1))
+
                 x = F.scaled_dot_product_attention(
                     query=q.transpose(1, 2),
                     key=k.transpose(1, 2),
                     value=v.transpose(1, 2),
                     attn_mask=attention_mask,
                     dropout_p=self.softmax_dropout_p if self.training else 0,
-                    is_causal=self.causal if attention_mask is None else False,
+                    is_causal=(self.causal and q.size(1) == k.size(1)) if attention_mask is None else False,
                     scale=self.attention_multiplier,
                     enable_gqa=True,
                 )
