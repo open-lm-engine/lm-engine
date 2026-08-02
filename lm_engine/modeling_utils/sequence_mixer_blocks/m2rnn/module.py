@@ -213,11 +213,11 @@ class M2RNN(nn.Module):
         if self.use_padding_free_transformer:
             assert cache_params is None
             assert attention_mask_info.attention_mask is None
+            assert not is_cp_enabled
 
             attention_mask = None
             cu_seqlens = attention_mask_info.cu_seqlens
             max_seqlen = attention_mask_info.max_seqlen
-            assert not is_cp_enabled
         else:
             assert attention_mask_info.cu_seqlens is None
             assert attention_mask_info.max_seqlen is None
