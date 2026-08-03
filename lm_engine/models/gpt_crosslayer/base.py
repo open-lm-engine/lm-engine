@@ -46,7 +46,7 @@ class GPTCrossLayerModel(GPTCrossLayerPreTrainedModel, BaseModelMixin):
             position_info=position_info,
         )
 
-        if is_generation_cache_enabled() and cache_params is None:
+        if not self.use_padding_free_transformer and is_generation_cache_enabled() and cache_params is None:
             cache_params = GenerationCache()
 
         key = None

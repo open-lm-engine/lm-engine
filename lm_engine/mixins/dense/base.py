@@ -166,7 +166,7 @@ class BaseModelMixin(PreTrainedModelMixin):
             if self.use_rope:
                 position_info.rope_cos_sin = self._get_rope_cos_sin(key_length, position_info.position_ids)
 
-        if is_generation_cache_enabled() and cache_params is None:
+        if not self.use_padding_free_transformer and is_generation_cache_enabled() and cache_params is None:
             cache_params = GenerationCache()
 
         for layer_idx in range(self.layer_start_id, self.layer_end_id):

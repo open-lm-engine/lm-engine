@@ -43,7 +43,7 @@ class LadderResidualModel(LadderResidualPreTrainedModel, BaseModelMixin):
         current_attention_out = None
         current_mlp_out = None
 
-        if is_generation_cache_enabled() and cache_params is None:
+        if not self.use_padding_free_transformer and is_generation_cache_enabled() and cache_params is None:
             cache_params = GenerationCache()
 
         for block in self.h:
