@@ -10,13 +10,12 @@ import torch.distributed
 
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
-from lm_engine.hf_adapter import LLMAdapter_HF
+from lm_engine.hf_adapter import LLMAdapter_HF, get_causal_lm_class
 from lm_engine.kernels import enable_kernels
 from lm_engine.loss import get_autoregressive_language_modeling_loss
 from lm_engine.modeling_utils import AttentionMaskInfo, PositionInfo
 from lm_engine.models import GPTBaseConfig
 from lm_engine.parallel import ProcessGroupManager
-from lm_engine.register_hf import get_causal_lm_class
 from lm_engine.utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
 from ..utils import from_config

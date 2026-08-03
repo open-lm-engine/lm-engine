@@ -11,13 +11,12 @@ import torch.nn.functional as F
 from transformers import AutoConfig, AutoModelForCausalLM
 
 from ..enums import Kernel, KLDivergenceMethod
-from ..hf_adapter import LLMAdapter_HF
+from ..hf_adapter import LLMAdapter_HF, is_custom_model
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss
 from ..modeling_utils import AttentionMaskInfo, CausalLMOutputWithPast, PipelineParallelOutput, PositionInfo
 from ..parallel import ProcessGroupManager
-from ..register_hf import is_custom_model
 from ..utils import string_to_torch_dtype
 from .pretraining import ModelWrapperForPretraining
 

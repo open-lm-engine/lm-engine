@@ -8,7 +8,14 @@ import os
 from contextlib import nullcontext
 
 import torch
-from transformers import GenerationMixin, PretrainedConfig, PreTrainedModel
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoModelForCausalLM,
+    GenerationMixin,
+    PretrainedConfig,
+    PreTrainedModel,
+)
 from transformers.modeling_outputs import CausalLMOutputWithPast as _HFCausalLMOutputWithPast
 
 from .arguments import LoadArgs, MixedPrecisionArgs, UnshardingArgs
@@ -17,6 +24,20 @@ from .loss import get_autoregressive_language_modeling_loss
 from .mixins.dense.main import CausalLMModelMixin
 from .model_config import CommonConfig
 from .modeling_utils import AttentionMaskInfo, ParameterizedEmbedding, ParameterizedLinear, PositionInfo
+from .models import (
+    GPTBaseConfig,
+    GPTBaseForCausalLM,
+    GPTBaseModel,
+    GPTCrossLayerConfig,
+    GPTCrossLayerForCausalLM,
+    GPTCrossLayerModel,
+    LadderResidualConfig,
+    LadderResidualForCausalLM,
+    LadderResidualModel,
+    PaLMConfig,
+    PaLMForCausalLM,
+    PaLMModel,
+)
 from .parallel import ProcessGroupManager
 from .parameter import (
     _INIT_MARKER,
@@ -32,6 +53,14 @@ from .utils import (
     torch_dtype_to_string,
 )
 
+
+# (AutoConfig, AutoModel, AutoModelForCausalLM)
+_CUSTOM_MODEL_REGISTRY = [
+    (GPTBaseConfig, GPTBaseModel, GPTBaseForCausalLM),
+    (GPTCrossLayerConfig, GPTCrossLayerModel, GPTCrossLayerForCausalLM),
+    (LadderResidualConfig, LadderResidualModel, LadderResidualForCausalLM),
+    (PaLMConfig, PaLMModel, PaLMForCausalLM),
+]
 
 _MODEL_TYPE_TO_CAUSAL_LM_CLASS: dict[str, type[CausalLMModelMixin]] = {}
 _HF_USELESS_STUFF = [
@@ -66,7 +95,7 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
     `transformers.PreTrainedModel` + `GenerationMixin` interface, so it can be dropped into `model.generate(...)`,
     `transformers.pipeline(...)`, or any HuggingFace-based evaluation harness without modification. It also owns
     checkpoint I/O (`from_pretrained`/`save_pretrained`) for all custom lm_engine architectures; the lm_engine
-    training loop bypasses this class and constructs the raw model directly (see `register_hf.get_causal_lm_class`).
+    training loop bypasses this class and constructs the raw model directly (see `get_causal_lm_class`).
 
     This is an inference-only adapter: `forward()`/`generate()` assume a single-stage, non-padding-free model; use
     the lm_engine training loop directly for anything else (loss-scaled aux loss, `PipelineParallelOutput`, packed
@@ -93,10 +122,9 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
     @classmethod
     def _get_causal_lm_class(cls, config: CommonConfig) -> type[CausalLMModelMixin]:
         model_type = config.model_type
-        assert model_type in _MODEL_TYPE_TO_CAUSAL_LM_CLASS, (
-            f"unknown model_type ({model_type}) for LLMAdapter_HF, has `register_hf.register_model_classes` been "
-            "called?"
-        )
+        assert (
+            model_type in _MODEL_TYPE_TO_CAUSAL_LM_CLASS
+        ), f"unknown model_type ({model_type}) for LLMAdapter_HF, has `register_model_classes` been called?"
         return _MODEL_TYPE_TO_CAUSAL_LM_CLASS[model_type]
 
     @classmethod
@@ -263,3 +291,27 @@ def build_hf_adapter_classes(config_class: type[CommonConfig]) -> type[LLMAdapte
     adapter_model_class.config_class = adapter_config_class
 
     return adapter_model_class
+
+
+def register_model_classes() -> None:
+    for config_class, auto_model_class, auto_model_for_causal_lm_class in _CUSTOM_MODEL_REGISTRY:
+        model_type = config_class.model_fields["model_type"].default
+
+        AutoConfig.register(model_type, config_class)
+        AutoModel.register(config_class, auto_model_class)
+        AutoModelForCausalLM.register(config_class, build_hf_adapter_classes(config_class))
+
+        _MODEL_TYPE_TO_CAUSAL_LM_CLASS[model_type] = auto_model_for_causal_lm_class
+
+
+def is_custom_model(model_type: str) -> bool:
+    return model_type in _MODEL_TYPE_TO_CAUSAL_LM_CLASS
+
+
+def get_causal_lm_class(model_type: str) -> type[CausalLMModelMixin]:
+    """returns the raw (non-HF-adapter-wrapped) lm_engine CausalLM class for a custom `model_type`, for callers
+    (e.g. the training-only `ModelWrapper`) that must bypass `AutoModelForCausalLM`, which is registered to
+    `LLMAdapter_HF` for HF compatibility"""
+
+    assert is_custom_model(model_type), f"{model_type} is not a registered custom lm_engine model_type"
+    return _MODEL_TYPE_TO_CAUSAL_LM_CLASS[model_type]
