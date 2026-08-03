@@ -18,10 +18,10 @@ class AttentionMaskInfo:
     cu_seqlens: torch.Tensor | None = None
     max_seqlen: int | None = None
     causal_mask: torch.Tensor | None = None
-    mamba_mask: torch.Tensor | None = None
+    linear_attention_mask: torch.Tensor | None = None
 
     _causal_mask_computed: bool = field(default=False, repr=False)
-    _mamba_mask_computed: bool = field(default=False, repr=False)
+    _linear_attention_mask_computed: bool = field(default=False, repr=False)
 
     def reset_parameters(
         self, batch_size: int, query_length: int, key_length: int, dtype: torch.dtype, device: torch.device
@@ -49,19 +49,19 @@ class AttentionMaskInfo:
         self._causal_mask_computed = True
 
     def get_linear_attention_mask(self, cache_params: GenerationCache | None) -> torch.Tensor | None:
-        if not self._mamba_mask_computed:
-            mamba_mask = self.attention_mask
+        if not self._linear_attention_mask_computed:
+            linear_attention_mask = self.attention_mask
             if (
                 cache_params is None
                 or cache_params.get_seq_length() > 0
                 or (self.attention_mask is not None and torch.all(self.attention_mask == 1))
             ):
-                mamba_mask = None
+                linear_attention_mask = None
 
-            self.mamba_mask = mamba_mask
-            self._mamba_mask_computed = True
+            self.linear_attention_mask = linear_attention_mask
+            self._linear_attention_mask_computed = True
 
-        return self.mamba_mask
+        return self.linear_attention_mask
 
 
 def resolve_attention_and_position_info(
