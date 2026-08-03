@@ -72,6 +72,16 @@ _HF_USELESS_STUFF = [
     "name_or_path",
     "trust_remote_code",
     "adapter_kwargs",
+    "low_cpu_mem_usage",
+]
+# kwargs that belong to the wrapped model's constructor rather than to `from_pretrained` itself. They are
+# popped into their own dict so `from_pretrained` can still reject anything left over: the constructor
+# takes `**kwargs` and reads these with `kwargs.get`, so it would silently ignore a misspelled key.
+_MODEL_CONSTRUCTOR_KWARGS = [
+    "use_padding_free_transformer",
+    "sequence_parallel",
+    "num_pipeline_stages",
+    "pipeline_stage_id",
 ]
 
 
@@ -157,8 +167,18 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
         for k in _HF_USELESS_STUFF:
             kwargs.pop(k, None)
 
-        num_pipeline_stages = kwargs.pop("num_pipeline_stages", 1)
-        pipeline_stage_id = kwargs.pop("pipeline_stage_id", 0)
+        # `torch_dtype` is HF's older spelling of `dtype`; accept it so HF-style callers keep working
+        dtype = kwargs.pop("torch_dtype", None) or dtype
+
+        model_kwargs = {k: kwargs.pop(k) for k in _MODEL_CONSTRUCTOR_KWARGS if k in kwargs}
+        num_pipeline_stages = model_kwargs.get("num_pipeline_stages", 1)
+
+        # only a single placement is supported; HF's sharded forms ("auto", per-module maps) would need
+        # accelerate-style dispatch, which this adapter deliberately does not do
+        device_map = kwargs.pop("device_map", {"": None})
+        assert isinstance(device_map, dict) and set(device_map) == {
+            ""
+        }, f"LLMAdapter_HF only supports device_map={{'': <device>}}, got {device_map!r}"
 
         if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
             # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_adapter)
@@ -174,14 +194,16 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
 
             model_wrapper, _, _ = load_checkpoint_and_unshard(unshard_args)
             model = model_wrapper.model
+
+            # `load_checkpoint_and_unshard` builds the model through the training path, which has already
+            # applied the markers -- there is nothing to capture and restore around the `.to()` below
+            marker_maps = None
         else:
             assert iteration is None, "iteration should be None when loading from an unsharded checkpoint"
 
             if ProcessGroupManager.is_tensor_parallel_enabled() or num_pipeline_stages > 1:
                 with torch.device("meta"):
-                    model = model_class(
-                        config, num_pipeline_stages=num_pipeline_stages, pipeline_stage_id=pipeline_stage_id, **kwargs
-                    )
+                    model = model_class(config, **model_kwargs)
 
                 for module in model.modules():
                     if hasattr(module, "reset_parameters"):
@@ -193,18 +215,18 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
                 model = model.to_empty(device=torch.cuda.current_device())
                 model.load_from_safetensors_weights_manager(SafeTensorsWeightsManager(pretrained_model_name_or_path))
             else:
-                model = model_class(config, **kwargs)
+                model = model_class(config, **model_kwargs)
                 marker_maps = get_parameter_marker_maps([model], extra_markers=[_INIT_MARKER])
 
                 model = model.to(dtype=dtype)
                 model.load_state_dict(SafeTensorsWeightsManager(pretrained_model_name_or_path).state_dict())
 
-        device_map = kwargs.pop("device_map", {"": None})
-        assert len(device_map) == 1
         assert len(kwargs) == 0
 
         model = model.to(device_map[""])
-        set_parameter_marker_maps([model], marker_maps)
+
+        if marker_maps is not None:
+            set_parameter_marker_maps([model], marker_maps)
 
         for param_name, param in get_named_parameters_and_buffers(model):
             assert is_parameter_initialized(param), f"{param_name} is not initialized"
@@ -225,14 +247,14 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
     def can_generate(self) -> bool:
         return True
 
-    def get_input_embeddings(self) -> ParameterizedEmbedding:
-        return self.model.transformer.wte
+    def get_input_embeddings(self) -> ParameterizedEmbedding | None:
+        return self.model.transformer.wte if self.model.is_first_stage else None
 
     def set_input_embeddings(self, value: ParameterizedEmbedding) -> None:
         self.model.transformer.wte = value
 
-    def get_output_embeddings(self) -> ParameterizedLinear:
-        return get_output_embeddings(self.model)
+    def get_output_embeddings(self) -> ParameterizedLinear | None:
+        return get_output_embeddings(self.model) if self.model.is_last_stage else None
 
     def set_output_embeddings(self, new_embeddings: ParameterizedLinear) -> None:
         if not self.model._tied_word_embeddings:
