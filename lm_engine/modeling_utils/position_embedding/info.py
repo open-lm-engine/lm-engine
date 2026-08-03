@@ -13,7 +13,7 @@ from ...parallel import ProcessGroupManager, prepare_context_parallel_input
 @dataclass
 class PositionInfo:
     position_ids: torch.Tensor | None = None
-    rope_cos_sin: torch.Tensor | None = None
+    rope_cos_sin: tuple[torch.Tensor, torch.Tensor] | None = None
 
     def reset_parameters(
         self,
