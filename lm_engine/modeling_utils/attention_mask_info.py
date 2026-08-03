@@ -52,9 +52,10 @@ class AttentionMaskInfo:
     attention_mask: torch.Tensor | None = None
     cu_seqlens: torch.Tensor | None = None
     max_seqlen: int | None = None
-    causal_mask: torch.Tensor | None = None
     linear_attention_mask: torch.Tensor | None = None
 
+    # cache behind `get_causal_mask`, never read from outside
+    _causal_mask: torch.Tensor | None = field(default=None, repr=False)
     _linear_attention_mask_computed: bool = field(default=False, repr=False)
 
     def get_causal_mask(self, query_length: int, key_length: int, dtype: torch.dtype) -> torch.Tensor | None:
@@ -74,11 +75,11 @@ class AttentionMaskInfo:
         device = self.attention_mask.device
 
         if (
-            self.causal_mask is not None
-            and self.causal_mask.size() == (B, 1, query_length, key_length)
-            and self.causal_mask.dtype == dtype
+            self._causal_mask is not None
+            and self._causal_mask.size() == (B, 1, query_length, key_length)
+            and self._causal_mask.dtype == dtype
         ):
-            return self.causal_mask
+            return self._causal_mask
 
         mask_value = torch.full([], torch.finfo(dtype).min, dtype=dtype, device=device)
 
@@ -89,9 +90,9 @@ class AttentionMaskInfo:
         # see issue: https://github.com/pytorch/pytorch/issues/110213
         causal_mask = causal_mask * ~torch.all(causal_mask == mask_value, dim=-1, keepdim=True)
 
-        self.causal_mask = causal_mask
+        self._causal_mask = causal_mask
 
-        return self.causal_mask
+        return self._causal_mask
 
     def get_linear_attention_mask(self, cache_params: GenerationCache | None) -> torch.Tensor | None:
         if not self._linear_attention_mask_computed:
