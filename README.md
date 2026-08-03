@@ -44,8 +44,8 @@ git clone https://github.com/open-lm-engine/lm-engine.git
 cd lm-engine
 
 # Install with uv
-uv sync --extra cuda # For NVIDIA GPUs
-uv sync --extra tpu # For Google TPUs
+uv sync --extra cuda  # For NVIDIA GPUs
+uv sync --extra tpu   # For Google TPUs
 ```
 
 ### Using pip

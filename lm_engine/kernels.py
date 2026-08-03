@@ -57,9 +57,10 @@ def enable_kernels(kernels: list[Kernel], reset: bool = False):
         if not original_kernels[kernel]:
             _KERNELS[kernel] = kernel in kernels
 
-    yield
-
-    _KERNELS = original_kernels
+    try:
+        yield
+    finally:
+        _KERNELS = original_kernels
 
 
 @contextmanager

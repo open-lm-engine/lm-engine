@@ -7,10 +7,10 @@ import os
 
 import torch
 import torch.distributed
-from transformers import AutoModelForCausalLM
 
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import ContextParallelLoadBalancerMethod, Kernel
+from lm_engine.hf_adapter import LLMAdapter_HF, get_causal_lm_class
 from lm_engine.kernels import enable_kernels
 from lm_engine.loss import get_autoregressive_language_modeling_loss
 from lm_engine.models import GPTBaseConfig
@@ -49,7 +49,6 @@ config = GPTBaseConfig(
     hidden_size=128,
     normalization_function="layernorm",
     initializer_range=0.02,
-    use_cache=True,
     bos_token_id=0,
     eos_token_id=1,
     pad_token_id=2,
@@ -118,14 +117,17 @@ with enable_kernels(kernels):
             param.data.normal_(0, 0.0125)
 
         model.eval()
-        model.save_pretrained(args.tmp_path, safe_serialization=True)
+        # `save_pretrained` now lives on `LLMAdapter_HF`, not the raw model class
+        LLMAdapter_HF(model).save_pretrained(args.tmp_path, safe_serialization=True)
         model = model.to(dtype)
 
     ProcessGroupManager.barrier()
 
     # use dummy tensors to avoid initializing model here
+    # bypass `AutoModelForCausalLM`, which is registered to the HF-compatibility adapter (`LLMAdapter_HF`) for
+    # our custom architectures, and construct the raw lm_engine class directly instead
     with torch.device("meta"):
-        model_cp = AutoModelForCausalLM.from_config(config)
+        model_cp = get_causal_lm_class(config.model_type)(config)
 
     # copy to device without copying storage
     model_cp = model_cp.to_empty(device=torch.cuda.current_device())

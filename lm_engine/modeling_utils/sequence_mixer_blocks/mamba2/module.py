@@ -17,10 +17,12 @@ from ....parameter import (
 )
 from ....utils import divide_if_divisible
 from ...activations import silu
+from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
+from ...position_embedding import PositionInfo
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import Mamba2Args
 from .op import mamba2_cuda, mamba2_torch
@@ -138,11 +140,21 @@ class Mamba2(nn.Module):
         self.reset_parameters()
 
     def forward(
-        self, x: torch.Tensor, cache_params: GenerationCache | None = None, attention_mask: torch.Tensor | None = None
+        self,
+        x: torch.Tensor,
+        cache_params: GenerationCache | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
-        S = x.size(1)
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
 
+        assert attention_mask_info.cu_seqlens is None
+        assert attention_mask_info.max_seqlen is None
+
+        attention_mask = attention_mask_info.get_linear_attention_mask(cache_params)
         x = _apply_mask_to_padding_states(x, attention_mask)
+
+        S = x.size(1)
         x = self.in_proj(x)
 
         c, h = (
