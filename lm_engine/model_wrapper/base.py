@@ -14,7 +14,7 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
-from ..hf_adapter import LLMAdapter_HF, get_causal_lm_class, is_custom_model
+from ..hf_adapter import LLMAdapter_HF, get_causal_lm_class, get_output_embeddings, is_custom_model
 from ..kernels import is_kernel_allowed
 from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
@@ -121,11 +121,7 @@ class ModelWrapper(nn.Module):
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
             labels=labels,
             hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
-            vocab_weight=(
-                LLMAdapter_HF(self.model).get_output_embeddings().weight
-                if use_fused_linear_cross_entropy_kernel
-                else None
-            ),
+            vocab_weight=(get_output_embeddings(self.model).weight if use_fused_linear_cross_entropy_kernel else None),
             cu_seqlens=cu_seqlens,
             use_padding_free_transformer=self.use_padding_free_transformer,
             reduction="sum",

@@ -90,6 +90,10 @@ class LLMAdapter_HFConfig(PretrainedConfig):
         return cls(**kwargs)
 
 
+def get_output_embeddings(model: CausalLMModelMixin) -> ParameterizedLinear:
+    return model.transformer.wte if model._tied_word_embeddings else model.lm_head
+
+
 class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
     """Adapts an already-built lm_engine `CausalLMModelMixin` model (e.g. `GPTBaseForCausalLM`) to the
     `transformers.PreTrainedModel` + `GenerationMixin` interface, so it can be dropped into `model.generate(...)`,
@@ -228,7 +232,7 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
         self.model.transformer.wte = value
 
     def get_output_embeddings(self) -> ParameterizedLinear:
-        return self.model.transformer.wte if self.model._tied_word_embeddings else self.model.lm_head
+        return get_output_embeddings(self.model)
 
     def set_output_embeddings(self, new_embeddings: ParameterizedLinear) -> None:
         if not self.model._tied_word_embeddings:
