@@ -110,16 +110,15 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
 
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
-        cu_seqlens = batch.pop("cu_seqlens", None)
-        max_seqlen = batch.pop("max_seqlen", None)
 
         if self.is_custom_model:
-            position_ids = batch.pop("position_ids", None)
+            position_info = PositionInfo(position_ids=batch.pop("position_ids", None))
+            attention_mask_info = AttentionMaskInfo(
+                cu_seqlens=batch.pop("cu_seqlens", None), max_seqlen=batch.pop("max_seqlen", None)
+            )
 
             output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(
-                attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
-                position_info=PositionInfo(position_ids=position_ids),
-                **batch,
+                attention_mask_info=attention_mask_info, position_info=position_info, **batch
             )
         else:
             output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch)
@@ -148,9 +147,7 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
         with torch.no_grad():
             if is_custom_model(self.teacher_config.model_type):
                 output: CausalLMOutputWithPast | PipelineParallelOutput = self.teacher_model(
-                    attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
-                    position_info=PositionInfo(position_ids=position_ids),
-                    **batch,
+                    attention_mask_info=attention_mask_info, position_info=position_info, **batch
                 )
             else:
                 output: CausalLMOutputWithPast | PipelineParallelOutput = self.teacher_model(**batch)
