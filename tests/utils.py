@@ -208,9 +208,8 @@ def from_config(config: AutoConfig, **kwargs) -> AutoModelForCausalLM:
         )
         model = model.to(dtype)
     else:
-        model = AutoModelForCausalLM.from_config(
-            config, use_padding_free_transformer=use_padding_free_transformer, dtype=dtype
-        )
+        assert not use_padding_free_transformer
+        model = AutoModelForCausalLM.from_config(config, dtype=dtype)
 
     if use_padding_free_transformer:
         assert model.use_padding_free_transformer
