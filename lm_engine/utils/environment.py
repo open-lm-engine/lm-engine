@@ -13,7 +13,8 @@ def environment(env: dict):
         original_env[key] = os.environ.get(key, "")
         os.environ[key] = value
 
-    yield
-
-    for key, value in original_env.items():
-        os.environ[key] = value
+    try:
+        yield
+    finally:
+        for key, value in original_env.items():
+            os.environ[key] = value

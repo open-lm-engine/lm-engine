@@ -5,6 +5,8 @@
 import pytest
 import torch
 
+from lm_engine.hf_adapter import LLMAdapter_HF
+
 from .utils import (
     from_config,
     get_dense_test_config,
@@ -31,5 +33,6 @@ def test_generation_works(device: torch.device, position_embedding_type: str, dt
         model.eval()
 
         input_ids, attention_mask, _ = get_dummy_inputs(device)
-
-        model.generate(input_ids=input_ids, attention_mask=attention_mask)
+        LLMAdapter_HF(model).generate(
+            input_ids=input_ids, attention_mask=attention_mask, max_new_tokens=20, do_sample=False
+        )

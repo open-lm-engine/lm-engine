@@ -63,27 +63,30 @@ class _Mesh:
         original_rank = self.rank
         self.rank = rank
 
-        yield
-
-        self.rank = original_rank
+        try:
+            yield
+        finally:
+            self.rank = original_rank
 
     @contextmanager
     def set_dummy_local_rank(self, local_rank: int):
         original_local_rank = self.local_rank
         self.local_rank = local_rank
 
-        yield
-
-        self.local_rank = original_local_rank
+        try:
+            yield
+        finally:
+            self.local_rank = original_local_rank
 
     @contextmanager
     def set_dummy_world_size(self, world_size: int):
         original_world_size = self.world_size
         self.world_size = world_size
 
-        yield
-
-        self.world_size = original_world_size
+        try:
+            yield
+        finally:
+            self.world_size = original_world_size
 
 
 _DENSE_MESH = _Mesh()
@@ -310,9 +313,10 @@ class ProcessGroupManager:
         original_rank = _TENSOR_PARALLEL_FIRST_RANK
         _TENSOR_PARALLEL_FIRST_RANK = rank
 
-        yield
-
-        _TENSOR_PARALLEL_FIRST_RANK = original_rank
+        try:
+            yield
+        finally:
+            _TENSOR_PARALLEL_FIRST_RANK = original_rank
 
     @staticmethod
     def is_tensor_parallel_enabled() -> bool:
