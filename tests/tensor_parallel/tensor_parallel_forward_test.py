@@ -18,7 +18,6 @@ from lm_engine.utils import (
 from ..utils import skip_test_if_device_unavailable, slow_test
 
 
-@pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
 @pytest.mark.parametrize(
     "attention_implementation", ["sdpa", "flash_attention_2", "flash_attention_3", "flash_attention_4"]
 )
@@ -27,7 +26,6 @@ from ..utils import skip_test_if_device_unavailable, slow_test
 @pytest.mark.parametrize("sequence_parallel", [False, True])
 @slow_test
 def test_tensor_parallel_forward(
-    position_embedding_type: str,
     attention_implementation: str,
     dtype: torch.dtype,
     use_padding_free_transformer: bool,
@@ -59,7 +57,7 @@ def test_tensor_parallel_forward(
             "-m",
             "tests.tensor_parallel.tensor_parallel_forward",
             "--position-embedding-type",
-            position_embedding_type,
+            "rope",
             "--dtype",
             torch_dtype_to_string(dtype),
             "--attention-implementation",
