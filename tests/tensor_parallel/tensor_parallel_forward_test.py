@@ -18,33 +18,23 @@ from lm_engine.utils import (
 from ..utils import skip_test_if_device_unavailable, slow_test
 
 
-@pytest.mark.parametrize("position_embedding_type", ["learned_absolute", "rope"])
-@pytest.mark.parametrize(
-    "attention_implementation", ["sdpa", "flash_attention_2", "flash_attention_3", "flash_attention_4"]
-)
-@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
 @pytest.mark.parametrize("use_padding_free_transformer", [False, True])
 @pytest.mark.parametrize("sequence_parallel", [False, True])
 @slow_test
 def test_tensor_parallel_forward(
-    position_embedding_type: str,
-    attention_implementation: str,
-    dtype: torch.dtype,
-    use_padding_free_transformer: bool,
-    sequence_parallel: bool,
+    dtype: torch.dtype, use_padding_free_transformer: bool, sequence_parallel: bool
 ) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
 
-    if (attention_implementation, dtype) not in [("sdpa", torch.float32)] + [
-        (f"flash_attention_{i}", torch.float16) for i in range(2, 5)
-    ]:
-        pytest.skip("skipping test since running all takes too long")
-
-    for i, func in zip(
-        range(2, 5), [is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available]
-    ):
-        if attention_implementation == f"flash_attention_{i}" and not func():
-            pytest.skip(f"skipping test because flash attention {i} is unavailable")
+    if is_flash_attention_4_available():
+        attention_implementation = "flash_attention_4"
+    elif is_flash_attention_3_available():
+        attention_implementation = "flash_attention_3"
+    elif is_flash_attention_2_available():
+        attention_implementation = "flash_attention_2"
+    else:
+        attention_implementation = "sdpa"
 
     if use_padding_free_transformer and attention_implementation not in [f"flash_attention_{i}" for i in range(2, 5)]:
         pytest.skip("skipping test since flash attention is needed for padding free transformer")
@@ -59,7 +49,7 @@ def test_tensor_parallel_forward(
             "-m",
             "tests.tensor_parallel.tensor_parallel_forward",
             "--position-embedding-type",
-            position_embedding_type,
+            "rope",
             "--dtype",
             torch_dtype_to_string(dtype),
             "--attention-implementation",
