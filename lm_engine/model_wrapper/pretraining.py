@@ -126,11 +126,10 @@ class ModelWrapperForPretraining(ModelWrapper):
         labels = batch.pop("labels")
 
         if self.is_custom_model:
+            position_info = PositionInfo(position_ids=batch.pop("position_ids", None))
             attention_mask_info = AttentionMaskInfo(
                 cu_seqlens=batch.pop("cu_seqlens", None), max_seqlen=batch.pop("max_seqlen", None)
             )
-
-            position_info = PositionInfo(position_ids=batch.pop("position_ids", None))
 
             output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(
                 attention_mask_info=attention_mask_info, position_info=position_info, **batch
