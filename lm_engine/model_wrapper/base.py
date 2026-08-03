@@ -121,7 +121,7 @@ class ModelWrapper(nn.Module):
             lm_logits=None if use_fused_linear_cross_entropy_kernel else model_outputs.logits,
             labels=labels,
             hidden_states=model_outputs.last_hidden_state if use_fused_linear_cross_entropy_kernel else None,
-            vocab_weight=(get_output_embeddings(self.model).weight if use_fused_linear_cross_entropy_kernel else None),
+            vocab_weight=get_output_embeddings(self.model).weight if use_fused_linear_cross_entropy_kernel else None,
             cu_seqlens=cu_seqlens,
             use_padding_free_transformer=self.use_padding_free_transformer,
             reduction="sum",
