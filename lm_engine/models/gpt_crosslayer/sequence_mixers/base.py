@@ -109,7 +109,7 @@ class CrossLayerAttention(nn.Module):
                     q=query,
                     k=key,
                     v=value,
-                    attention_mask=attention_mask_info.causal_mask,
+                    attention_mask=attention_mask_info.attention_mask,
                     cu_seqlens=attention_mask_info.cu_seqlens,
                     max_seqlen=attention_mask_info.max_seqlen,
                     use_padding_free_transformer=self.use_padding_free_transformer,
@@ -137,7 +137,7 @@ class CrossLayerAttention(nn.Module):
                     q=query,
                     k=key,
                     v=value,
-                    attention_mask=attention_mask_info.causal_mask,
+                    attention_mask=attention_mask_info.attention_mask,
                     cu_seqlens=attention_mask_info.cu_seqlens,
                     max_seqlen=attention_mask_info.max_seqlen,
                     use_padding_free_transformer=self.use_padding_free_transformer,
@@ -163,9 +163,11 @@ class CrossLayerAttention(nn.Module):
                 query,
                 key,
                 value,
-                attn_mask=attention_mask_info.causal_mask,
+                attn_mask=attention_mask_info.get_causal_mask(
+                    query_length=query_length, key_length=key.size(2), dtype=query.dtype
+                ),
                 dropout_p=self.softmax_dropout_p if self.training else 0,
-                is_causal=self.causal if attention_mask_info.causal_mask is None else False,
+                is_causal=self.causal if attention_mask_info.attention_mask is None else False,
                 scale=self.attention_multiplier,
                 enable_gqa=True,
             )

@@ -228,7 +228,7 @@ class SoftmaxAttention(DTensorModule):
                 v=v,
                 cu_seqlens=attention_mask_info.cu_seqlens,
                 max_seqlen=attention_mask_info.max_seqlen,
-                attention_mask=attention_mask_info.causal_mask,
+                attention_mask=attention_mask_info.attention_mask,
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
@@ -241,7 +241,7 @@ class SoftmaxAttention(DTensorModule):
             assert self.sliding_window is None
 
             if accelerator == Accelerator.tpu:
-                assert attention_mask_info.causal_mask is None
+                assert attention_mask_info.attention_mask is None
                 assert self.softmax_dropout_p == 0
 
                 x = flash_attention_tpu(
@@ -256,9 +256,11 @@ class SoftmaxAttention(DTensorModule):
                     query=q.transpose(1, 2),
                     key=k.transpose(1, 2),
                     value=v.transpose(1, 2),
-                    attn_mask=attention_mask_info.causal_mask,
+                    attn_mask=attention_mask_info.get_causal_mask(
+                        query_length=q.size(1), key_length=k.size(1), dtype=q.dtype
+                    ),
                     dropout_p=self.softmax_dropout_p if self.training else 0,
-                    is_causal=self.causal if attention_mask_info.causal_mask is None else False,
+                    is_causal=self.causal if attention_mask_info.attention_mask is None else False,
                     scale=self.attention_multiplier,
                     enable_gqa=True,
                 )

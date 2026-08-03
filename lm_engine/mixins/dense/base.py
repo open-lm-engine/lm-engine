@@ -199,14 +199,6 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         input_shape = input_ids.size()
 
-        # special handling for padding free transformer with list inputs
-        if self.use_padding_free_transformer:
-            # for flash attention, there is no padding and we do packing
-            # so, input_ids is of shape (s1 + s2 + ... + sb)
-            batch_size = attention_mask_info.cu_seqlens.shape[0] - 1
-        else:
-            batch_size = input_shape[0]
-
         if self.use_padding_free_transformer:
             assert position_info.position_ids is not None, (
                 "GPTBaseModel needs position_ids from outside when using flash attention with List[List[int]] "
@@ -249,14 +241,6 @@ class BaseModelMixin(PreTrainedModelMixin):
 
         if self.use_rope:
             position_info.rope_cos_sin = self._get_rope_cos_sin(key_length, position_info.position_ids)
-
-        attention_mask_info.reset_parameters(
-            batch_size=batch_size,
-            query_length=query_length,
-            key_length=key_length,
-            dtype=hidden_states.dtype,
-            device=input_ids.device,
-        )
 
         return hidden_states, attention_mask_info, position_info, cache_params
 

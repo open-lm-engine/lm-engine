@@ -6,9 +6,7 @@ from dataclasses import dataclass, field
 
 import torch
 
-from ..enums import Kernel
 from ..generation_cache import GenerationCache
-from ..kernels import is_kernel_allowed
 from .position_embedding import PositionInfo
 
 
@@ -57,33 +55,43 @@ class AttentionMaskInfo:
     causal_mask: torch.Tensor | None = None
     linear_attention_mask: torch.Tensor | None = None
 
-    _causal_mask_computed: bool = field(default=False, repr=False)
     _linear_attention_mask_computed: bool = field(default=False, repr=False)
 
-    def reset_parameters(
-        self, batch_size: int, query_length: int, key_length: int, dtype: torch.dtype, device: torch.device
-    ) -> None:
-        if self._causal_mask_computed:
-            return
+    def get_causal_mask(self, query_length: int, key_length: int, dtype: torch.dtype) -> torch.Tensor | None:
+        """Additive causal mask for `F.scaled_dot_product_attention`, or None when there is no padding to
+        mask (in which case the caller should pass `is_causal=True` and let SDPA build the causal mask).
 
-        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
-            # we use the causal/non-causal argument of SDPA for attention in this case
-            self.causal_mask = self.attention_mask
-        elif self.attention_mask is not None:
-            causal_mask = _prepare_causal_attention_mask(
-                self.attention_mask, batch_size, query_length, key_length, device
-            )
+        Flash-attention paths must not use this: they take the raw padding mask via `attention_mask`.
 
-            mask_value = torch.full([], torch.finfo(dtype).min, dtype=dtype, device=device)
-            causal_mask = torch.where(causal_mask, ~causal_mask, mask_value)
+        The result is cached, and reused only when it already matches the requested shape and dtype, so
+        layers that attend over different lengths each get a correct mask instead of the first one's.
+        """
 
-            # this is needed to prevent NaN since SDPA
-            # see issue: https://github.com/pytorch/pytorch/issues/110213
-            causal_mask = causal_mask * ~torch.all(causal_mask == mask_value, dim=-1, keepdim=True)
+        if self.attention_mask is None:
+            return None
 
-            self.causal_mask = causal_mask
+        B = self.attention_mask.size(0)
+        device = self.attention_mask.device
 
-        self._causal_mask_computed = True
+        if (
+            self.causal_mask is not None
+            and self.causal_mask.size() == (B, 1, query_length, key_length)
+            and self.causal_mask.dtype == dtype
+        ):
+            return self.causal_mask
+
+        mask_value = torch.full([], torch.finfo(dtype).min, dtype=dtype, device=device)
+
+        causal_mask = _prepare_causal_attention_mask(self.attention_mask, B, query_length, key_length, device)
+        causal_mask = torch.where(causal_mask, ~causal_mask, mask_value)
+
+        # this is needed to prevent NaN since SDPA
+        # see issue: https://github.com/pytorch/pytorch/issues/110213
+        causal_mask = causal_mask * ~torch.all(causal_mask == mask_value, dim=-1, keepdim=True)
+
+        self.causal_mask = causal_mask
+
+        return self.causal_mask
 
     def get_linear_attention_mask(self, cache_params: GenerationCache | None) -> torch.Tensor | None:
         if not self._linear_attention_mask_computed:
