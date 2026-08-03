@@ -320,7 +320,7 @@ def model_conversion_test(
     if _DEBUG:
         print(hf_model)
 
-    hf_output = hf_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels, return_dict=True)
+    hf_output = hf_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
     hf_logits = hf_output.logits
     hf_loss = hf_output.loss
 
