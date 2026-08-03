@@ -12,6 +12,43 @@ from ..kernels import is_kernel_allowed
 from .position_embedding import PositionInfo
 
 
+def _prepare_causal_attention_mask(
+    attention_mask: torch.Tensor | None, batch_size: int, query_length: int, key_length: int, device: torch.device
+) -> torch.Tensor:
+    past_length = key_length - query_length
+
+    if query_length > 1:
+        # (query_length, key_length)
+        causal_mask = torch.empty((query_length, key_length), dtype=torch.bool, device=device)
+        causal_mask[:, past_length:] = torch.tril(
+            torch.ones(query_length, query_length, dtype=torch.bool, device=device)
+        )
+
+        if past_length > 0:
+            causal_mask[:, :past_length] = True
+
+        # (query_length, key_length) -> (1, query_length, key_length)
+        causal_mask = causal_mask.unsqueeze(0)
+
+        if attention_mask is None:
+            # (1, query_length, key_length) -> (batch_size, query_length, key_length)
+            causal_mask = causal_mask.expand(batch_size, -1, -1)
+        else:
+            # (1, query_length, key_length) & (batch_size, 1, key_length) -> (batch_size, query_length, key_length)
+            causal_mask = causal_mask & attention_mask.unsqueeze(1).to(torch.bool)
+    else:
+        if attention_mask is None:
+            # (batch_size, query_length, key_length)
+            causal_mask = torch.ones(batch_size, query_length, key_length, dtype=torch.bool, device=device)
+        else:
+            # (batch_size, query_length, key_length)
+            causal_mask = attention_mask.unsqueeze(1).to(dtype=torch.bool, device=device)
+
+    causal_mask = causal_mask.unsqueeze(1)
+
+    return causal_mask
+
+
 @dataclass
 class AttentionMaskInfo:
     attention_mask: torch.Tensor | None = None
@@ -76,40 +113,3 @@ def resolve_attention_and_position_info(
         position_info = PositionInfo()
 
     return attention_mask_info, position_info
-
-
-def _prepare_causal_attention_mask(
-    attention_mask: torch.Tensor | None, batch_size: int, query_length: int, key_length: int, device: torch.device
-) -> torch.Tensor:
-    past_length = key_length - query_length
-
-    if query_length > 1:
-        # (query_length, key_length)
-        causal_mask = torch.empty((query_length, key_length), dtype=torch.bool, device=device)
-        causal_mask[:, past_length:] = torch.tril(
-            torch.ones(query_length, query_length, dtype=torch.bool, device=device)
-        )
-
-        if past_length > 0:
-            causal_mask[:, :past_length] = True
-
-        # (query_length, key_length) -> (1, query_length, key_length)
-        causal_mask = causal_mask.unsqueeze(0)
-
-        if attention_mask is None:
-            # (1, query_length, key_length) -> (batch_size, query_length, key_length)
-            causal_mask = causal_mask.expand(batch_size, -1, -1)
-        else:
-            # (1, query_length, key_length) & (batch_size, 1, key_length) -> (batch_size, query_length, key_length)
-            causal_mask = causal_mask & attention_mask.unsqueeze(1).to(torch.bool)
-    else:
-        if attention_mask is None:
-            # (batch_size, query_length, key_length)
-            causal_mask = torch.ones(batch_size, query_length, key_length, dtype=torch.bool, device=device)
-        else:
-            # (batch_size, query_length, key_length)
-            causal_mask = attention_mask.unsqueeze(1).to(dtype=torch.bool, device=device)
-
-    causal_mask = causal_mask.unsqueeze(1)
-
-    return causal_mask
