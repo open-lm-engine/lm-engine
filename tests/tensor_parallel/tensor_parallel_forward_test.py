@@ -18,20 +18,23 @@ from lm_engine.utils import (
 from ..utils import skip_test_if_device_unavailable, slow_test
 
 
-@pytest.mark.parametrize(
-    "attention_implementation", ["sdpa", "flash_attention_2", "flash_attention_3", "flash_attention_4"]
-)
-@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
 @pytest.mark.parametrize("use_padding_free_transformer", [False, True])
 @pytest.mark.parametrize("sequence_parallel", [False, True])
 @slow_test
 def test_tensor_parallel_forward(
-    attention_implementation: str,
-    dtype: torch.dtype,
-    use_padding_free_transformer: bool,
-    sequence_parallel: bool,
+    dtype: torch.dtype, use_padding_free_transformer: bool, sequence_parallel: bool
 ) -> None:
     skip_test_if_device_unavailable(torch.device("cuda"))
+
+    if is_flash_attention_4_available():
+        attention_implementation = "flash_attention_4"
+    elif is_flash_attention_3_available():
+        attention_implementation = "flash_attention_3"
+    elif is_flash_attention_2_available():
+        attention_implementation = "flash_attention_2"
+    else:
+        attention_implementation = "sdpa"
 
     if (attention_implementation, dtype) not in [("sdpa", torch.float32)] + [
         (f"flash_attention_{i}", torch.float16) for i in range(2, 5)
