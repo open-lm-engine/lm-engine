@@ -135,7 +135,7 @@ class ModelWrapperForPretraining(ModelWrapper):
                 attention_mask_info=attention_mask_info, position_info=position_info, **batch
             )
         else:
-            output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch)
+            output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch, return_dict=True)
 
         if self.is_pipeline_parallel_enabled:
             # aux_loss is returned as a 0 dimensional tensor
