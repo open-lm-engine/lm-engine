@@ -52,7 +52,6 @@ model_args:
     vocab_size: 100352
     position_embedding_type: learned_absolute
     embedding_dropout: 0
-    use_cache: true
     rope_scaling: null
     embedding_init_method: normal
     use_depth_scaled_init: true

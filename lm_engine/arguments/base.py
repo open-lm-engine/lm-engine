@@ -49,9 +49,10 @@ class BaseArgs(BaseModel):
         original_value = getattr(self, name)
         setattr(self, name, value)
 
-        yield
-
-        setattr(self, name, original_value)
+        try:
+            yield
+        finally:
+            setattr(self, name, original_value)
 
     def log_args(self) -> None:
         def _iterate_args_recursively(args: BaseArgs, prefix: str = "") -> None:

@@ -4,3 +4,4 @@
 
 from .config import M2RNNArgs
 from .module import M2RNN
+from .op import m2rnn_torch

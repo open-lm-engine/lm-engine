@@ -16,10 +16,12 @@ from ....parallel import ProcessGroupManager
 from ....parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_per_row_hyperball
 from ....utils import divide_if_divisible, is_coda_available, is_fla_available
 from ...activations import get_activation_function
+from ...attention_mask_info import AttentionMaskInfo
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import LowRankLinear, ParameterizedLinear
 from ...normalization import get_normalization_function
+from ...position_embedding import PositionInfo
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import DeltaMLPArgs
@@ -325,9 +327,8 @@ class DeltaMLP(nn.Module):
         self,
         hidden_states: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
         """
         Supports three input layouts:
@@ -344,12 +345,15 @@ class DeltaMLP(nn.Module):
         asymmetry — a fresh *conv* state is zero, but a fresh *recurrent* state
         is the learned self.initial_state, not zero (see initial_recurrent_state).
         """
+        cu_seqlens = attention_mask_info.cu_seqlens
+        max_seqlen = attention_mask_info.max_seqlen
+
         is_cp_enabled = ProcessGroupManager.is_context_parallel_enabled()
 
         if self.use_padding_free_transformer:
             assert not self.training
             assert not is_cp_enabled
-            assert attention_mask is None
+            assert attention_mask_info.attention_mask is None
             assert cu_seqlens is not None
             assert max_seqlen is not None
             assert hidden_states.dim() == 2
@@ -363,8 +367,8 @@ class DeltaMLP(nn.Module):
             assert cu_seqlens is None
             assert max_seqlen is None
 
-            if attention_mask is not None:
-                assert len(attention_mask.shape) == 2, (
+            if attention_mask_info.attention_mask is not None:
+                assert len(attention_mask_info.attention_mask.shape) == 2, (
                     "Expected attention_mask as a 0-1 matrix with shape [batch_size, seq_len] "
                     "for padding purposes (0 indicating padding). "
                     "Arbitrary attention masks of shape [batch_size, seq_len, seq_len] are not allowed."
@@ -387,7 +391,7 @@ class DeltaMLP(nn.Module):
             assert mode == "chunk"
             assert batch_size == 1
             assert cache_params is None
-            assert attention_mask is None
+            assert attention_mask_info.attention_mask is None
             assert ProcessGroupManager.get_context_parallel_load_balancing_method() is None
 
         if cache_params is None:
@@ -453,7 +457,7 @@ class DeltaMLP(nn.Module):
                 kv, conv_state = self.kv_conv1d(
                     x=kv,
                     input_state=conv_state,
-                    attention_mask=attention_mask,
+                    attention_mask=attention_mask_info.attention_mask,
                     output_state=cache_params is not None,
                 )
 
@@ -477,8 +481,10 @@ class DeltaMLP(nn.Module):
         if getattr(self, "_capture_beta", False):
             self._last_beta = beta.detach()
 
-        if attention_mask is not None:
-            cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(attention_mask)
+        if attention_mask_info.attention_mask is not None:
+            cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(
+                attention_mask_info.attention_mask
+            )
             q, k, v, beta = pack_sequence(inputs=(q, k, v, beta), cu_seqlens=cu_seqlens)
             # pack_sequence returns [total_tokens, ...]; varlen kernels expect
             # physical batch size 1: [1, total_tokens, ...].
@@ -530,7 +536,7 @@ class DeltaMLP(nn.Module):
         else:
             raise NotImplementedError(f"Not supported mode `{mode}`.")
 
-        if attention_mask is not None:
+        if attention_mask_info.attention_mask is not None:
             o = o.squeeze(dim=0)
             # `o` is now head-reduced to (batch, seq, hidden_size)
             o = unpack_sequence(

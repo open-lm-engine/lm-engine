@@ -10,7 +10,7 @@ import lm_engine.modeling_utils.mlp_blocks.delta_mlp.module as delta_mlp_module
 from lm_engine.enums import Kernel
 from lm_engine.generation_cache import ConstantCache, GenerationCache, GenerationState, LinearCache
 from lm_engine.kernels import enable_kernels
-from lm_engine.modeling_utils import DeltaMLP, DeltaMLPArgs
+from lm_engine.modeling_utils import AttentionMaskInfo, DeltaMLP, DeltaMLPArgs
 from lm_engine.utils import is_causal_conv1d_available, is_fla_available
 
 
@@ -104,8 +104,9 @@ def _packed_one_shot_suffix_output(
     for x, prefix_length in zip(inputs, prefix_lengths):
         output = model(
             x,
-            cu_seqlens=_cu_seqlens([x.size(0)], device=x.device),
-            max_seqlen=x.size(0),
+            attention_mask_info=AttentionMaskInfo(
+                cu_seqlens=_cu_seqlens([x.size(0)], device=x.device), max_seqlen=x.size(0)
+            ),
         )
         outputs.append(output[prefix_length:])
 
@@ -305,14 +306,13 @@ def test_packed_input_equivalence(
     with torch.no_grad():
         expected_output = reference_model(
             padded_input,
-            attention_mask=attention_mask,
+            attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask),
         )
         expected_output = expected_output[attention_mask.bool()]
 
         packed_output = packed_model(
             packed_input,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
+            attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
         )
 
     torch.testing.assert_close(packed_output, expected_output)
@@ -362,8 +362,10 @@ def test_packed_cache_continuation(
         model(
             prefix_input,
             cache_params=cache,
-            cu_seqlens=_cu_seqlens([prefix_lengths[i] for i in prefixed_idx], device=device),
-            max_seqlen=max(prefix_lengths[i] for i in prefixed_idx),
+            attention_mask_info=AttentionMaskInfo(
+                cu_seqlens=_cu_seqlens([prefix_lengths[i] for i in prefixed_idx], device=device),
+                max_seqlen=max(prefix_lengths[i] for i in prefixed_idx),
+            ),
         )
         conv_state, recurrent_state = cache.get_cache(layer_idx=0, empty_value=(None, None), cache_name="delta_mlp")
 
@@ -405,8 +407,9 @@ def test_packed_cache_continuation(
         actual_output = model(
             suffix_input,
             cache_params=cache,
-            cu_seqlens=_cu_seqlens(suffix_lengths, device=device),
-            max_seqlen=max(suffix_lengths),
+            attention_mask_info=AttentionMaskInfo(
+                cu_seqlens=_cu_seqlens(suffix_lengths, device=device), max_seqlen=max(suffix_lengths)
+            ),
         )
 
     if atol is None:
@@ -442,8 +445,9 @@ def test_packed_cache_decode_loop(
         expected_suffixes = [
             model(
                 x,
-                cu_seqlens=_cu_seqlens([x.size(0)], device=device),
-                max_seqlen=x.size(0),
+                attention_mask_info=AttentionMaskInfo(
+                    cu_seqlens=_cu_seqlens([x.size(0)], device=device), max_seqlen=x.size(0)
+                ),
             )[prefix_length:]
             for x, prefix_length in zip(inputs, prefix_lengths)
         ]
@@ -469,8 +473,9 @@ def test_packed_cache_decode_loop(
         model(
             prefix_input,
             cache_params=cache,
-            cu_seqlens=_cu_seqlens(prefix_lengths, device=device),
-            max_seqlen=max(prefix_lengths),
+            attention_mask_info=AttentionMaskInfo(
+                cu_seqlens=_cu_seqlens(prefix_lengths, device=device), max_seqlen=max(prefix_lengths)
+            ),
         )
         for step in range(decode_steps):
             actual_output = model(
@@ -482,8 +487,9 @@ def test_packed_cache_decode_loop(
                     dim=0,
                 ),
                 cache_params=cache,
-                cu_seqlens=_cu_seqlens([1] * len(lengths), device=device),
-                max_seqlen=1,
+                attention_mask_info=AttentionMaskInfo(
+                    cu_seqlens=_cu_seqlens([1] * len(lengths), device=device), max_seqlen=1
+                ),
             )
             expected_output = torch.cat([suffix[step : step + 1] for suffix in expected_suffixes], dim=0)
 
@@ -575,8 +581,9 @@ def test_packed_cache_zero_state(
         actual_output = model(
             torch.cat(inputs, dim=0),
             cache_params=cache,
-            cu_seqlens=_cu_seqlens(lengths, device=device),
-            max_seqlen=max(lengths),
+            attention_mask_info=AttentionMaskInfo(
+                cu_seqlens=_cu_seqlens(lengths, device=device), max_seqlen=max(lengths)
+            ),
         )
 
     # Same math as one-shot, but the bf16 conv kernel and chunk partition differ

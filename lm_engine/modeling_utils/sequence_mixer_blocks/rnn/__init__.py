@@ -4,3 +4,4 @@
 
 from .config import RNNArgs
 from .module import RNN
+from .op import rnn_torch

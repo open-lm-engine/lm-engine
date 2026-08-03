@@ -8,6 +8,7 @@ import torch
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels
+from lm_engine.modeling_utils import AttentionMaskInfo
 
 from .utils import (
     assert_equal_tensors,
@@ -35,10 +36,12 @@ def test_scattermoe(dtype: torch.dtype) -> None:
     model = from_config(config, dtype=dtype).to(device)
     model.eval()
 
-    naive_output = model(input_ids=input_ids, attention_mask=attention_mask)
+    naive_output = model(input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask))
 
     with enable_kernels([Kernel.scattermoe]):
-        scatter_output = model(input_ids=input_ids, attention_mask=attention_mask)
+        scatter_output = model(
+            input_ids=input_ids, attention_mask_info=AttentionMaskInfo(attention_mask=attention_mask)
+        )
 
     assert_equal_tensors(
         naive_output.logits,

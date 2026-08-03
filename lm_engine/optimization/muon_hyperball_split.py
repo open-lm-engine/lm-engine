@@ -143,7 +143,7 @@ class MuonHSplit(MuonHyperball):
                     f"{getattr(p, '_debug_name', '<unnamed>')}: "
                     f"parameter is DTensor={is_dtensor}, "
                     f"gradient is DTensor={is_grad_dtensor}"
-                )            
+                )
 
             orig_shape = p.size()
             # Per-row path: each row L2-normed + hyperball-projected independently, instead of
