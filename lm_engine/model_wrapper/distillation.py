@@ -110,11 +110,12 @@ class ModelWrapperForDistillation(ModelWrapperForPretraining):
 
         batch = self._prepare_model_inputs(batch)
         labels = batch.pop("labels")
-        position_ids = batch.pop("position_ids", None)
         cu_seqlens = batch.pop("cu_seqlens", None)
         max_seqlen = batch.pop("max_seqlen", None)
 
         if self.is_custom_model:
+            position_ids = batch.pop("position_ids", None)
+
             output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(
                 attention_mask_info=AttentionMaskInfo(cu_seqlens=cu_seqlens, max_seqlen=max_seqlen),
                 position_info=PositionInfo(position_ids=position_ids),
