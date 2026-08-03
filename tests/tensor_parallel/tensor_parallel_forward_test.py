@@ -36,17 +36,6 @@ def test_tensor_parallel_forward(
     else:
         attention_implementation = "sdpa"
 
-    if (attention_implementation, dtype) not in [("sdpa", torch.float32)] + [
-        (f"flash_attention_{i}", torch.float16) for i in range(2, 5)
-    ]:
-        pytest.skip("skipping test since running all takes too long")
-
-    for i, func in zip(
-        range(2, 5), [is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available]
-    ):
-        if attention_implementation == f"flash_attention_{i}" and not func():
-            pytest.skip(f"skipping test because flash attention {i} is unavailable")
-
     if use_padding_free_transformer and attention_implementation not in [f"flash_attention_{i}" for i in range(2, 5)]:
         pytest.skip("skipping test since flash attention is needed for padding free transformer")
 
