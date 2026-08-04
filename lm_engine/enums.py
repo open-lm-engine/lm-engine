@@ -85,6 +85,9 @@ class Kernel(Enum):
     flash_attention_2 = "flash_attention_2"
     flash_attention_3 = "flash_attention_3"
     flash_attention_4 = "flash_attention_4"
+    flash_attention_2_deterministic = "flash_attention_2_deterministic"
+    flash_attention_3_deterministic = "flash_attention_3_deterministic"
+    flash_attention_4_deterministic = "flash_attention_4_deterministic"
     mamba2_ssm = "mamba2_ssm"
     sonicmoe = "sonicmoe"
 

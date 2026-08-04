@@ -210,6 +210,7 @@ def _ring_attention_backward(
     softmax_scale: float | None,
     window_size: tuple[int, int],
     softcap: float,
+    deterministic: bool,
     backward_function: Callable,
 ) -> tuple[torch.Tensor, ...]:
     BLOCK_SIZE_S = q.size(1)
@@ -338,6 +339,7 @@ def _ring_attention_backward(
                     else -1
                 ),
                 softcap=softcap,
+                deterministic=deterministic,
             )
 
             if is_reversed_computation:
@@ -445,6 +447,7 @@ class _RingAttention(torch.autograd.Function):
         softcap: float,
         forward_function: Callable,
         backward_function: Callable,
+        deterministic: bool,
     ) -> torch.Tensor:
         H = q.size(-1)
         if H % 8 != 0:
@@ -471,6 +474,7 @@ class _RingAttention(torch.autograd.Function):
         ctx.softcap = softcap
         ctx.backward_function = backward_function
         ctx.head_dim = H
+        ctx.deterministic = deterministic
 
         x = x[..., :H]
 
@@ -497,6 +501,7 @@ class _RingAttention(torch.autograd.Function):
             window_size=ctx.window_size,
             softcap=ctx.softcap,
             backward_function=ctx.backward_function,
+            deterministic=ctx.deterministic,
         )
 
         if H_padded != H:
@@ -504,7 +509,7 @@ class _RingAttention(torch.autograd.Function):
             dk = dk[..., :H]
             dv = dv[..., :H]
 
-        return dq, dk, dv, *[None] * 7
+        return dq, dk, dv, *[None] * 8
 
 
 def ring_attention_function(
@@ -517,7 +522,17 @@ def ring_attention_function(
     softcap: float,
     forward_function: Callable,
     backward_function: Callable,
+    deterministic: bool,
 ) -> tuple[torch.Tensor, ...]:
     return _RingAttention.apply(
-        q, k, v, causal, softmax_scale, window_size, softcap, forward_function, backward_function
+        q,
+        k,
+        v,
+        causal,
+        softmax_scale,
+        window_size,
+        softcap,
+        forward_function,
+        backward_function,
+        deterministic,
     )

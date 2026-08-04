@@ -92,5 +92,32 @@ def wait_for_ACT(x: torch.Tensor, wait_in_forward: bool, wait_in_backward: bool)
     return x
 
 
+def is_flash_attention_enabled() -> bool:
+    for kernel in [
+        Kernel.flash_attention_4,
+        Kernel.flash_attention_3,
+        Kernel.flash_attention_2,
+        Kernel.flash_attention_4_deterministic,
+        Kernel.flash_attention_3_deterministic,
+        Kernel.flash_attention_2_deterministic,
+    ]:
+        if is_kernel_allowed(kernel):
+            return True
+
+    return False
+
+
+def is_flash_attention_deterministic() -> bool:
+    for kernel in [
+        Kernel.flash_attention_4_deterministic,
+        Kernel.flash_attention_3_deterministic,
+        Kernel.flash_attention_2_deterministic,
+    ]:
+        if is_kernel_allowed(kernel):
+            return True
+
+    return False
+
+
 if _ENABLE_ALL_KERNELS:
     enable_all_kernels().__enter__()

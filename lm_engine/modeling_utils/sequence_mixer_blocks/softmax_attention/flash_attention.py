@@ -8,7 +8,7 @@ from typing import Callable
 import torch
 
 from ....enums import Kernel
-from ....kernels import is_kernel_allowed
+from ....kernels import is_flash_attention_deterministic, is_kernel_allowed
 from ....parallel import ProcessGroupManager
 from ....utils import is_flash_attention_2_available, is_flash_attention_3_available, is_flash_attention_4_available
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
@@ -35,9 +35,17 @@ if is_flash_attention_4_available():
 
 
 def _get_flash_attention_function(dropout: float) -> tuple[Callable, ...]:
-    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
-    use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
+    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4) or is_kernel_allowed(
+        Kernel.flash_attention_4_deterministic
+    )
+
+    use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3) or is_kernel_allowed(
+        Kernel.flash_attention_3_deterministic
+    )
+
+    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(
+        Kernel.flash_attention_2_deterministic
+    )
 
     assert (
         use_flash_attention_4 or use_flash_attention_3 or use_flash_attention_2
@@ -121,13 +129,18 @@ def flash_attention(
     if sliding_window is not None:
         window_size = (sliding_window, sliding_window)
 
-    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
+    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4) or is_kernel_allowed(
+        Kernel.flash_attention_4_deterministic
+    )
+
     (
         _flash_attention_function,
         _flash_attention_varlen_function,
         _flash_attention_forward,
         _flash_attention_backward,
     ) = _get_flash_attention_function(dropout=dropout)
+
+    deterministic = is_flash_attention_deterministic()
 
     if ProcessGroupManager.is_context_parallel_enabled():
         assert dropout == 0
@@ -142,6 +155,7 @@ def flash_attention(
             softcap=softcap,
             forward_function=_flash_attention_forward,
             backward_function=_flash_attention_backward,
+            deterministic=deterministic,
         )
     else:
         if use_padding_free_transformer:
@@ -160,6 +174,7 @@ def flash_attention(
                 max_seqlen_k=max_seqlen,
                 window_size=window_size,
                 softcap=softcap,
+                deterministic=deterministic,
             )
 
             if use_flash_attention_4:
@@ -174,6 +189,7 @@ def flash_attention(
                 causal=causal,
                 window_size=window_size,
                 softcap=softcap,
+                deterministic=deterministic,
             )
 
             if use_flash_attention_4:
@@ -197,6 +213,7 @@ def flash_attention(
                 max_seqlen_k=max_seqlen_k,
                 window_size=window_size,
                 softcap=softcap,
+                deterministic=deterministic,
             )
 
             if use_flash_attention_4:
