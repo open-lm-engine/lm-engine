@@ -140,6 +140,8 @@ def flash_attention(
         _flash_attention_backward,
     ) = _get_flash_attention_function(dropout=dropout)
 
+    deterministic = is_flash_attention_deterministic()
+
     if ProcessGroupManager.is_context_parallel_enabled():
         assert dropout == 0
 
@@ -156,8 +158,6 @@ def flash_attention(
             deterministic=deterministic,
         )
     else:
-        deterministic = is_flash_attention_deterministic()
-
         if use_padding_free_transformer:
             assert not ProcessGroupManager.is_context_parallel_enabled()
             assert sliding_window is None
