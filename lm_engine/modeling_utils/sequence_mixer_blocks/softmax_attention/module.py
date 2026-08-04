@@ -10,9 +10,8 @@ import torch
 import torch.nn.functional as F
 
 from ....accelerator import Accelerator
-from ....enums import Kernel
 from ....generation_cache import GenerationCache, GenerationState, LinearCache
-from ....kernels import is_kernel_allowed, wait_for_ACT
+from ....kernels import is_flash_attention_enabled, wait_for_ACT
 from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import divide_if_divisible, is_torch_xla_available
 from ...activations import sigmoid
@@ -161,13 +160,7 @@ class SoftmaxAttention(DTensorModule):
         position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
         attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
-
-        use_flash_attention = (
-            is_kernel_allowed(Kernel.flash_attention_2)
-            or is_kernel_allowed(Kernel.flash_attention_3)
-            or is_kernel_allowed(Kernel.flash_attention_4)
-        )
-
+        use_flash_attention = is_flash_attention_enabled()
         accelerator = Accelerator.get_accelerator()
 
         if self.use_padding_free_transformer:

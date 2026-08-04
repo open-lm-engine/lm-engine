@@ -35,9 +35,17 @@ if is_flash_attention_4_available():
 
 
 def _get_flash_attention_function(dropout: float) -> tuple[Callable, ...]:
-    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
-    use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3)
-    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2)
+    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4) or is_kernel_allowed(
+        Kernel.flash_attention_4_deterministic
+    )
+
+    use_flash_attention_3 = is_kernel_allowed(Kernel.flash_attention_3) or is_kernel_allowed(
+        Kernel.flash_attention_3_deterministic
+    )
+
+    use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(
+        Kernel.flash_attention_2_deterministic
+    )
 
     assert (
         use_flash_attention_4 or use_flash_attention_3 or use_flash_attention_2
@@ -121,7 +129,10 @@ def flash_attention(
     if sliding_window is not None:
         window_size = (sliding_window, sliding_window)
 
-    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4)
+    use_flash_attention_4 = is_kernel_allowed(Kernel.flash_attention_4) or is_kernel_allowed(
+        Kernel.flash_attention_4_deterministic
+    )
+
     (
         _flash_attention_function,
         _flash_attention_varlen_function,
