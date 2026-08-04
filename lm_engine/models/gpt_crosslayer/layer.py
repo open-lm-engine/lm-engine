@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from ...enums import Kernel
 from ...generation_cache import GenerationCache, GenerationState, LinearCache
-from ...kernels import is_kernel_allowed
+from ...kernels import is_flash_attention_enabled, is_kernel_allowed
 from ...modeling_utils import (
     AttentionMaskInfo,
     PositionInfo,
@@ -92,7 +92,7 @@ class GPTCrossLayerBlock(nn.Module):
                     layer_idx=self.layer_idx,
                 )
 
-            if is_kernel_allowed(Kernel.flash_attention_3) or is_kernel_allowed(Kernel.flash_attention_2):
+            if is_flash_attention_enabled():
                 if not self.use_padding_free_transformer:
                     key = key.transpose(1, 2)
                     value = value.transpose(1, 2)

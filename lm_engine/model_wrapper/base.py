@@ -196,10 +196,15 @@ class ModelWrapper(nn.Module):
             model_kwargs = {"pretrained_model_name_or_path": self.model_name}
 
         if not self.is_custom_model:
-            assert not is_kernel_allowed(Kernel.flash_attention_3)
-            model_kwargs["attn_implementation"] = (
-                "flash_attention_2" if is_kernel_allowed(Kernel.flash_attention_2) else "sdpa"
+            assert not is_kernel_allowed(Kernel.flash_attention_3) and not is_kernel_allowed(
+                Kernel.flash_attention_3_deterministic
             )
+
+            use_flash_attention_2 = is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(
+                Kernel.flash_attention_2_deterministic
+            )
+
+            model_kwargs["attn_implementation"] = "flash_attention_2" if use_flash_attention_2 else "sdpa"
 
         if self.use_padding_free_transformer:
             model_kwargs["use_padding_free_transformer"] = True

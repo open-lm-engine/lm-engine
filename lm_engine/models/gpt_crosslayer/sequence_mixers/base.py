@@ -10,8 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
+from ....kernels import is_flash_attention_enabled
 from ....modeling_utils import (
     AttentionMaskInfo,
     Dropout,
@@ -95,7 +94,7 @@ class CrossLayerAttention(nn.Module):
     ) -> torch.Tensor:
         attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
 
-        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
+        if is_flash_attention_enabled():
             if self.use_padding_free_transformer:
                 total_q = hidden_states.shape[0]
 
