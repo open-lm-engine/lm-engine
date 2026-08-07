@@ -12,7 +12,7 @@ from lm_engine.utils import is_causal_conv1d_available
 from ..utils import skip_test_if_device_unavailable, slow_test
 
 
-@pytest.mark.parametrize("kernel_size", list(range(1, 5)))
+@pytest.mark.parametrize("kernel_size", list(range(2, 5)))
 @pytest.mark.parametrize("use_causal_conv1d", [False, True])
 @slow_test
 def test_depthwise_causal_convolution_cp(kernel_size: int, use_causal_conv1d: bool) -> None:
@@ -20,9 +20,6 @@ def test_depthwise_causal_convolution_cp(kernel_size: int, use_causal_conv1d: bo
 
     if use_causal_conv1d and not is_causal_conv1d_available():
         pytest.skip("causal_conv1d unavailable")
-
-    if use_causal_conv1d and kernel_size == 1:
-        pytest.skip("causal_conv1d only supports kernel_size between 2 and 4")
 
     gpus_per_node = torch.cuda.device_count()
     if gpus_per_node < 2:
