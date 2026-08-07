@@ -71,7 +71,7 @@ def test_prefill_shapes(
 
     if output_state:
         assert state is not None
-        assert state.size() == (_BATCH, _HIDDEN_SIZE, kernel_size)
+        assert state.size() == (_BATCH, _HIDDEN_SIZE, kernel_size - 1)
     else:
         assert state is None
 
