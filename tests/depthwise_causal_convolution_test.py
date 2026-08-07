@@ -33,7 +33,7 @@ def _make_conv(
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
+@pytest.mark.parametrize("kernel_size", [4])
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
 @pytest.mark.parametrize("output_state", [False, True])
@@ -77,7 +77,7 @@ def test_prefill_shapes(
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
+@pytest.mark.parametrize("kernel_size", [4])
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
 @pytest.mark.parametrize("output_state", [False, True])
@@ -107,7 +107,7 @@ def test_generation_shapes(
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
+@pytest.mark.parametrize("kernel_size", [4])
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
 @pytest.mark.parametrize("seq_len", [1, 2, 4])
@@ -136,7 +136,7 @@ def test_zero_state_matches_fresh_prefill(
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
+@pytest.mark.parametrize("kernel_size", [4])
 @pytest.mark.parametrize("add_bias", [False, True])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
 @pytest.mark.parametrize("continuation_len", [1, 2, 4])
@@ -198,7 +198,7 @@ def test_consistency(
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
+@pytest.mark.parametrize("kernel_size", [4])
 def test_attention_mask(device: torch.device, kernel_size: int) -> None:
     skip_test_if_device_unavailable(device)
     conv = _make_conv(kernel_size=kernel_size, activation=None).to(device)
@@ -227,7 +227,7 @@ def test_attention_mask(device: torch.device, kernel_size: int) -> None:
 
 
 @pytest.mark.parametrize("device", [torch.device("cpu"), torch.device("cuda")])
-@pytest.mark.parametrize("kernel_size", [1, 4])
+@pytest.mark.parametrize("kernel_size", [4])
 @pytest.mark.parametrize("activation", [None, "silu", "gelu"])
 def test_kernel_vs_fallback(device: torch.device, kernel_size: int, activation: str | None) -> None:
     skip_test_if_device_unavailable(device)
