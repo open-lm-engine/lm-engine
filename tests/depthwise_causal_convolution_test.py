@@ -126,7 +126,7 @@ def test_zero_state_matches_fresh_prefill(
     conv.eval()
 
     x = torch.randn(_BATCH, seq_len, _HIDDEN_SIZE, device=device)
-    zero_state = torch.zeros(_BATCH, _HIDDEN_SIZE, kernel_size, device=device)
+    zero_state = torch.zeros(_BATCH, _HIDDEN_SIZE, kernel_size - 1, device=device)
 
     out_fresh, state_fresh = conv(x, input_state=None, attention_mask=None, output_state=True)
     out_zero, state_zero = conv(x, input_state=zero_state, attention_mask=None, output_state=True)
