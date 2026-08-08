@@ -30,6 +30,8 @@ from .sequence_mixer_blocks import (
     GatedDeltaNet,
     GatedDeltaNetArgs,
     GRUArgs,
+    LinearAttention,
+    LinearAttentionArgs,
     M2RNNArgs,
     Mamba2,
     Mamba2Args,

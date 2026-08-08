@@ -10,7 +10,7 @@ from ....utils import is_triton_available, is_xma_available
 
 
 if is_xma_available() and is_triton_available():
-    from xma import continuous_count
+    from xma.functional import continuous_count
 
 
 # TODO add support for combileable bincount in PyTorch directly

@@ -8,12 +8,15 @@ import json
 import os
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from .arguments import BaseArgs
 from .modeling_utils import (
     GatedDeltaNetArgs,
     GRUArgs,
+    LinearAttentionArgs,
     M2RNNArgs,
     Mamba2Args,
     MLPArgs,
@@ -50,8 +53,19 @@ class CommonConfig(BaseArgs):
     init_method: Literal["normal", "mup", "fan_in"]
     embedding_init_method: Literal["normal", "mup", "fan_in"]
     use_depth_scaled_init: bool
-    sequence_mixer_blocks: list[SoftmaxAttentionArgs | Mamba2Args | GRUArgs | RNNArgs | M2RNNArgs | GatedDeltaNetArgs]
-    mlp_blocks: list[MLPArgs | MoEArgs]
+    sequence_mixer_blocks: list[
+        Annotated[
+            SoftmaxAttentionArgs
+            | Mamba2Args
+            | GRUArgs
+            | RNNArgs
+            | M2RNNArgs
+            | GatedDeltaNetArgs
+            | LinearAttentionArgs,
+            Field(discriminator="sequence_mixer_type"),
+        ]
+    ]
+    mlp_blocks: list[Annotated[MLPArgs | MoEArgs, Field(discriminator="mlp_type")]]
     tie_word_embeddings: bool
     router_aux_loss_coef: float | None = None
     rope_dim: int | None = None
@@ -114,7 +128,7 @@ class CommonConfig(BaseArgs):
     def sub_configs(self) -> dict:
         return {}
 
-    def get_text_config(self, decoder=None, encoder=None) -> "CommonConfig":
+    def get_text_config(self, decoder=None, encoder=None) -> CommonConfig:
         return self
 
     def _get_non_default_generation_parameters(self) -> dict:

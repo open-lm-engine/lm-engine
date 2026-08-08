@@ -4,13 +4,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Literal
 
 from ...model_config import CommonConfig
 
 
 class GPTCrossLayerConfig(CommonConfig):
-    model_type: str = "gpt_crosslayer"
+    model_type: Literal["gpt_crosslayer"] = "gpt_crosslayer"
     sharing_pattern: list[int] | None = None
 
     def __init__(self, sharing_pattern: list[int] | None = None, **kwargs) -> GPTCrossLayerConfig:
@@ -38,7 +38,3 @@ class GPTCrossLayerConfig(CommonConfig):
                     assert self.mlp_blocks[i] == self.mlp_blocks[j]
 
         assert self.init_method == "normal"
-
-    def model_post_init(self, __context: Any) -> None:
-        super().model_post_init(__context)
-        assert self.model_type == "gpt_crosslayer"
