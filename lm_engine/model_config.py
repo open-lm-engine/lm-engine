@@ -128,7 +128,7 @@ class CommonConfig(BaseArgs):
     def sub_configs(self) -> dict:
         return {}
 
-    def get_text_config(self, decoder=None, encoder=None) -> "CommonConfig":
+    def get_text_config(self, decoder=None, encoder=None) -> CommonConfig:
         return self
 
     def _get_non_default_generation_parameters(self) -> dict:
