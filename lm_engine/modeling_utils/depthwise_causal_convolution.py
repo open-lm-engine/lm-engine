@@ -107,7 +107,9 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         attention_mask: torch.Tensor | None,
         output_state: bool,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        if Accelerator.get_accelerator() == Accelerator.tpu:
+        use_conv1d_kernel = is_kernel_allowed(Kernel.causal_conv1d)
+
+        if use_conv1d_kernel and Accelerator.get_accelerator() == Accelerator.tpu:
             x = _apply_mask_to_padding_states(x, attention_mask)
             x, final_state = depthwise_causal_convolution(
                 input=x,
@@ -157,7 +159,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
             initial_state_T = None if input_state is None else input_state.transpose(-1, -2)
 
-            if is_kernel_allowed(Kernel.causal_conv1d):
+            if use_conv1d_kernel:
                 x = causal_conv1d_fn(
                     x=x,
                     weight=self.weight.squeeze(1),
@@ -186,7 +188,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             x = x.transpose(-1, -2)
         else:
             if S == 1:
-                if is_kernel_allowed(Kernel.causal_conv1d):
+                if use_conv1d_kernel:
                     input_state_buffer = input_state.clone()
 
                     x = causal_conv1d_update(
