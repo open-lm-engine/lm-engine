@@ -57,9 +57,10 @@ def enable_kernels(kernels: list[Kernel], reset: bool = False):
         if not original_kernels[kernel]:
             _KERNELS[kernel] = kernel in kernels
 
-    yield
-
-    _KERNELS = original_kernels
+    try:
+        yield
+    finally:
+        _KERNELS = original_kernels
 
 
 @contextmanager
@@ -89,6 +90,33 @@ def wait_for_ACT(x: torch.Tensor, wait_in_forward: bool, wait_in_backward: bool)
         x = _ACT_BackwardWait.apply(x)
 
     return x
+
+
+def is_flash_attention_enabled() -> bool:
+    for kernel in [
+        Kernel.flash_attention_4,
+        Kernel.flash_attention_3,
+        Kernel.flash_attention_2,
+        Kernel.flash_attention_4_deterministic,
+        Kernel.flash_attention_3_deterministic,
+        Kernel.flash_attention_2_deterministic,
+    ]:
+        if is_kernel_allowed(kernel):
+            return True
+
+    return False
+
+
+def is_flash_attention_deterministic() -> bool:
+    for kernel in [
+        Kernel.flash_attention_4_deterministic,
+        Kernel.flash_attention_3_deterministic,
+        Kernel.flash_attention_2_deterministic,
+    ]:
+        if is_kernel_allowed(kernel):
+            return True
+
+    return False
 
 
 if _ENABLE_ALL_KERNELS:

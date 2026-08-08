@@ -10,18 +10,18 @@ import torch
 import torch.nn.functional as F
 
 from ....accelerator import Accelerator
-from ....enums import Kernel
 from ....generation_cache import GenerationCache, GenerationState, LinearCache
-from ....kernels import is_kernel_allowed, wait_for_ACT
+from ....kernels import is_flash_attention_enabled, wait_for_ACT
 from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import divide_if_divisible, is_torch_xla_available
 from ...activations import sigmoid
+from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...chunk import contiguous_split
 from ...dropout import Dropout
 from ...dtensor_module import DTensorModule
 from ...init_utils import _get_std_for_linear
 from ...linear import ColumnParallelLinear, RowParallelLinear
-from ...position_embedding import apply_rotary_pos_emb
+from ...position_embedding import PositionInfo, apply_rotary_pos_emb
 from .config import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD, SoftmaxAttentionArgs
 from .flash_attention import flash_attention
 
@@ -156,17 +156,11 @@ class SoftmaxAttention(DTensorModule):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
-        use_flash_attention = (
-            is_kernel_allowed(Kernel.flash_attention_2)
-            or is_kernel_allowed(Kernel.flash_attention_3)
-            or is_kernel_allowed(Kernel.flash_attention_4)
-        )
-
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+        use_flash_attention = is_flash_attention_enabled()
         accelerator = Accelerator.get_accelerator()
 
         if self.use_padding_free_transformer:
@@ -205,7 +199,7 @@ class SoftmaxAttention(DTensorModule):
             v_xsa = v
 
         if self.position_embedding_type == "rope":
-            q, k = [apply_rotary_pos_emb(i, cos_sin=rope_cos_sin) for i in (q, k)]
+            q, k = [apply_rotary_pos_emb(i, cos_sin=position_info.rope_cos_sin) for i in (q, k)]
 
         if cache_params is not None:
             k, v = cache_params.update(
@@ -225,9 +219,9 @@ class SoftmaxAttention(DTensorModule):
                 q=q,
                 k=k,
                 v=v,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-                attention_mask=attention_mask,
+                cu_seqlens=attention_mask_info.cu_seqlens,
+                max_seqlen=attention_mask_info.max_seqlen,
+                attention_mask=attention_mask_info.attention_mask,
                 use_padding_free_transformer=self.use_padding_free_transformer,
                 causal=self.causal,
                 dropout=self.softmax_dropout_p if self.training else 0,
@@ -240,7 +234,7 @@ class SoftmaxAttention(DTensorModule):
             assert self.sliding_window is None
 
             if accelerator == Accelerator.tpu:
-                assert attention_mask is None
+                assert attention_mask_info.attention_mask is None
                 assert self.softmax_dropout_p == 0
 
                 x = flash_attention_tpu(
@@ -255,9 +249,11 @@ class SoftmaxAttention(DTensorModule):
                     query=q.transpose(1, 2),
                     key=k.transpose(1, 2),
                     value=v.transpose(1, 2),
-                    attn_mask=attention_mask,
+                    attn_mask=attention_mask_info.get_causal_mask(
+                        query_length=q.size(1), key_length=k.size(1), dtype=q.dtype
+                    ),
                     dropout_p=self.softmax_dropout_p if self.training else 0,
-                    is_causal=self.causal if attention_mask is None else False,
+                    is_causal=self.causal if attention_mask_info.attention_mask is None else False,
                     scale=self.attention_multiplier,
                     enable_gqa=True,
                 )

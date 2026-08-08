@@ -36,7 +36,6 @@ model_args:
     eos_token_id: 0
     pad_token_id: 0
     embedding_dropout: 0
-    use_cache: true
     rope_scaling: null
     embedding_init_method: normal
     use_depth_scaled_init: true

@@ -9,8 +9,15 @@ import torch.nn as nn
 
 from ...enums import Kernel
 from ...generation_cache import GenerationCache, GenerationState, LinearCache
-from ...kernels import is_kernel_allowed
-from ...modeling_utils import apply_rotary_pos_emb, get_mlp_block, get_normalization_function
+from ...kernels import is_flash_attention_enabled, is_kernel_allowed
+from ...modeling_utils import (
+    AttentionMaskInfo,
+    PositionInfo,
+    apply_rotary_pos_emb,
+    get_mlp_block,
+    get_normalization_function,
+    resolve_attention_and_position_info,
+)
 from ...utils import divide_if_divisible
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer
@@ -65,16 +72,16 @@ class GPTCrossLayerBlock(nn.Module):
         key: torch.Tensor,
         value: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         if self.kv_proj is not None:
             key, value = self.kv_proj(hidden_states)
 
             if self.position_embedding_type == "rope":
-                key = apply_rotary_pos_emb(key, rope_cos_sin)
+                key = apply_rotary_pos_emb(key, position_info.rope_cos_sin)
 
             if cache_params is not None:
                 key, value = cache_params.update(
@@ -85,7 +92,7 @@ class GPTCrossLayerBlock(nn.Module):
                     layer_idx=self.layer_idx,
                 )
 
-            if is_kernel_allowed(Kernel.flash_attention_3) or is_kernel_allowed(Kernel.flash_attention_2):
+            if is_flash_attention_enabled():
                 if not self.use_padding_free_transformer:
                     key = key.transpose(1, 2)
                     value = value.transpose(1, 2)
@@ -97,10 +104,8 @@ class GPTCrossLayerBlock(nn.Module):
             hidden_states,
             key=key,
             value=value,
-            attention_mask=attention_mask,
-            rope_cos_sin=rope_cos_sin,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
+            attention_mask_info=attention_mask_info,
+            position_info=position_info,
         )
 
         if self.m_residual is not None:

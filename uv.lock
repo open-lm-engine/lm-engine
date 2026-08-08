@@ -30,13 +30,15 @@ dependencies = [
     { name = "ninja" },
     { name = "numpy" },
     { name = "pyyaml" },
-    { name = "torch" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "apache-tvm-ffi", marker = "extra == 'cuda'", specifier = "==0.1.12" },
     { name = "furo", marker = "extra == 'dev'", specifier = "==2025.12.19" },
+    { name = "haliax", marker = "extra == 'torch-xla'", specifier = "==1.4.dev452" },
+    { name = "haliax", marker = "extra == 'tpu'", specifier = "==1.4.dev452" },
+    { name = "jax", extras = ["tpu"], marker = "extra == 'tpu'", specifier = "==0.6.2" },
     { name = "ninja", specifier = "==1.13.0" },
     { name = "numpy", specifier = "==2.5.1" },
     { name = "nvidia-cutlass-dsl", marker = "extra == 'cuda'", specifier = "==4.6.0" },
@@ -47,11 +49,14 @@ requires-dist = [
     { name = "sphinx", marker = "extra == 'dev'", specifier = "==9.1.0" },
     { name = "sphinx-autobuild", marker = "extra == 'dev'", specifier = "==2025.8.25" },
     { name = "tabulate", marker = "extra == 'cuda'", specifier = "==0.10.0" },
-    { name = "tabulate", marker = "extra == 'tpu'", specifier = "==0.10.0" },
-    { name = "torch", specifier = "==2.10.0" },
-    { name = "torch-xla", extras = ["pallas", "tpu"], marker = "extra == 'tpu'", specifier = "==2.8.0" },
+    { name = "tabulate", marker = "extra == 'torch-xla'", specifier = "==0.10.0" },
+    { name = "torch", marker = "extra == 'cpu'", specifier = "==2.10.0" },
+    { name = "torch", marker = "extra == 'cuda'", specifier = "==2.10.0" },
+    { name = "torch", marker = "extra == 'mps'", specifier = "==2.10.0" },
+    { name = "torch", marker = "extra == 'torch-xla'", specifier = "==2.8.0" },
+    { name = "torch-xla", extras = ["pallas", "tpu"], marker = "extra == 'torch-xla'", specifier = "==2.8.0" },
 ]
-provides-extras = ["dev", "cpu", "mps", "cuda", "tpu"]
+provides-extras = ["dev", "cpu", "mps", "cuda", "torch-xla", "tpu"]
 
 [[package]]
 name = "aiobotocore"

@@ -10,14 +10,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ....enums import Kernel
-from ....kernels import is_kernel_allowed
+from ....kernels import is_flash_attention_enabled
 from ....modeling_utils import (
+    AttentionMaskInfo,
     Dropout,
     ParameterizedLinear,
+    PositionInfo,
     apply_rotary_pos_emb,
     flash_attention,
     get_normalization_function,
+    resolve_attention_and_position_info,
 )
 from ....utils import divide_if_divisible
 
@@ -87,12 +89,12 @@ class CrossLayerAttention(nn.Module):
         hidden_states: torch.Tensor,
         key: torch.Tensor,
         value: torch.Tensor,
-        attention_mask: torch.Tensor | None = None,
-        rope_cos_sin: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
-        if is_kernel_allowed(Kernel.flash_attention_2) or is_kernel_allowed(Kernel.flash_attention_3):
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
+        if is_flash_attention_enabled():
             if self.use_padding_free_transformer:
                 total_q = hidden_states.shape[0]
 
@@ -100,15 +102,15 @@ class CrossLayerAttention(nn.Module):
                 query = query.view(total_q, self.num_heads, -1)
 
                 if self.position_embedding_type == "rope":
-                    query = apply_rotary_pos_emb(query, rope_cos_sin)
+                    query = apply_rotary_pos_emb(query, position_info.rope_cos_sin)
 
                 hidden_states = flash_attention(
                     q=query,
                     k=key,
                     v=value,
-                    attention_mask=attention_mask,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
+                    attention_mask=attention_mask_info.attention_mask,
+                    cu_seqlens=attention_mask_info.cu_seqlens,
+                    max_seqlen=attention_mask_info.max_seqlen,
                     use_padding_free_transformer=self.use_padding_free_transformer,
                     causal=self.causal,
                     dropout=self.softmax_dropout_p if self.training else 0,
@@ -127,16 +129,16 @@ class CrossLayerAttention(nn.Module):
                 if self.position_embedding_type == "rope":
                     # TODO avoid this extra transpose
                     query = query.transpose(1, 2)
-                    query = apply_rotary_pos_emb(query, rope_cos_sin)
+                    query = apply_rotary_pos_emb(query, position_info.rope_cos_sin)
                     query = query.transpose(1, 2)
 
                 hidden_states = flash_attention(
                     q=query,
                     k=key,
                     v=value,
-                    attention_mask=attention_mask,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen,
+                    attention_mask=attention_mask_info.attention_mask,
+                    cu_seqlens=attention_mask_info.cu_seqlens,
+                    max_seqlen=attention_mask_info.max_seqlen,
                     use_padding_free_transformer=self.use_padding_free_transformer,
                     causal=self.causal,
                     dropout=self.softmax_dropout_p if self.training else 0,
@@ -154,15 +156,17 @@ class CrossLayerAttention(nn.Module):
             query = query.transpose(1, 2)
 
             if self.position_embedding_type == "rope":
-                query = apply_rotary_pos_emb(query, rope_cos_sin)
+                query = apply_rotary_pos_emb(query, position_info.rope_cos_sin)
 
             hidden_states = F.scaled_dot_product_attention(
                 query,
                 key,
                 value,
-                attn_mask=attention_mask,
+                attn_mask=attention_mask_info.get_causal_mask(
+                    query_length=query_length, key_length=key.size(2), dtype=query.dtype
+                ),
                 dropout_p=self.softmax_dropout_p if self.training else 0,
-                is_causal=self.causal if attention_mask is None else False,
+                is_causal=self.causal if attention_mask_info.attention_mask is None else False,
                 scale=self.attention_multiplier,
                 enable_gqa=True,
             )
