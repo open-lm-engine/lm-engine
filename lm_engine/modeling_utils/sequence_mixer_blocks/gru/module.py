@@ -28,7 +28,7 @@ from .config import GRUArgs
 
 
 if is_xma_available():
-    from xma import gru
+    from xma.layers import gru
 
 
 class GRU(nn.Module):

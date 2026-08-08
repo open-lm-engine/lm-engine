@@ -7,19 +7,16 @@ from typing import Literal
 from ...softplus_decay_gate import SoftPlusDecayGateArgs
 
 
-class M2RNNArgs(SoftPlusDecayGateArgs):
-    sequence_mixer_type: Literal["m2rnn"] = "m2rnn"
+class LinearAttentionArgs(SoftPlusDecayGateArgs):
+    sequence_mixer_type: Literal["linear_attention"] = "linear_attention"
     k_head_dim: int
     v_head_dim: int
     num_q_heads: int
     num_k_heads: int
     num_v_heads: int
-    num_f_heads: int
     num_g_heads: int
-    num_weight_heads: int
-    use_residual: bool
     kernel_size: int | None
     activation_function: str | None
     add_bias: bool
-    gradient_clipping: float | None
     normalization_function: str | None
+    attention_multiplier: float | None

@@ -2,13 +2,13 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from typing import Any
+from typing import Literal
 
 from ...softplus_decay_gate import SoftPlusDecayGateArgs
 
 
 class Mamba2Args(SoftPlusDecayGateArgs):
-    sequence_mixer_type: str = "mamba2"
+    sequence_mixer_type: Literal["mamba2"] = "mamba2"
     state_size: int
     intermediate_size: int
     num_heads: int
@@ -20,7 +20,3 @@ class Mamba2Args(SoftPlusDecayGateArgs):
     num_groups: int
     chunk_size: int = 256
     normalization_function: str | None
-
-    def model_post_init(self, __context: Any) -> None:
-        super().model_post_init(__context)
-        assert self.sequence_mixer_type == "mamba2"

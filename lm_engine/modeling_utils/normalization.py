@@ -21,7 +21,7 @@ from .TP import get_module_placements
 
 
 if is_xma_available():
-    from xma import rmsnorm as xma_rmsnorm
+    from xma.functional import rmsnorm as xma_rmsnorm
 
 if is_quack_available():
     from quack.rmsnorm import rmsnorm as quack_rmsnorm

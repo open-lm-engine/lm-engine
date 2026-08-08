@@ -184,7 +184,6 @@ def get_model_tflops(
             return 0
 
         total_flops += sequence_mixer_flops
-
         block = config.mlp_blocks[layer_idx]
 
         # 2x for input and output linear layer

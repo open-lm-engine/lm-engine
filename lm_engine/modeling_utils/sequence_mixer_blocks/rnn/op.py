@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import torch
 
+from ....utils import divide_if_divisible
 from ...activations import clip_gradients, tanh
 
 
@@ -23,8 +24,8 @@ def rnn_torch(
     y = torch.empty(y_shape, device=x.device, dtype=x.dtype)
 
     B, S, _, H = x.size()
-    Gx = N // Nx
-    Gw = N // Nw
+    Gx = divide_if_divisible(N, Nx)
+    Gw = divide_if_divisible(N, Nw)
 
     x = x.repeat_interleave(Gx, dim=-2)
     W = W.repeat_interleave(Gw, dim=0)[None, ...]

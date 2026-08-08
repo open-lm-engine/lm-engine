@@ -13,7 +13,7 @@ from .base import get_base_activation
 
 
 if is_xma_available():
-    from xma import swiglu_packed
+    from xma.functional import swiglu_packed
 
 
 _GLU_BASE_MAPPING = {

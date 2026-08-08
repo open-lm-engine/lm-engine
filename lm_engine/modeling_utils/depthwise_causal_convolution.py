@@ -8,11 +8,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from ..accelerator import Accelerator
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..parallel import ProcessGroupManager
 from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
-from ..utils import is_causal_conv1d_available, is_fla_available
+from ..utils import is_causal_conv1d_available, is_fla_available, is_xma_available
 from .activations import get_activation_function
 from .rotaters import AllGatherRotater
 
@@ -22,6 +23,9 @@ if is_causal_conv1d_available():
 
 if is_fla_available():
     from fla.modules.conv import causal_conv1d as fla_causal_conv1d
+
+if is_xma_available():
+    from xma.layers import depthwise_causal_convolution
 
 
 def _apply_mask_to_padding_states(x: torch.Tensor, attention_mask: torch.Tensor | None) -> torch.Tensor:
@@ -107,6 +111,23 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         output_state: bool,
         cu_seqlens: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        use_conv1d_kernel = is_kernel_allowed(Kernel.causal_conv1d)
+
+        if use_conv1d_kernel and Accelerator.get_accelerator() == Accelerator.tpu:
+            x = _apply_mask_to_padding_states(x, attention_mask)
+            x, final_state = depthwise_causal_convolution(
+                input=x,
+                weight=self.weight.squeeze(1),
+                bias=self.bias,
+                input_state=input_state,
+                output_state=output_state,
+            )
+
+            x = self.activation_function(x)
+            x = _apply_mask_to_padding_states(x, attention_mask)
+
+            return x, final_state
+
         BLOCK_SIZE_S = x.size(1)
         S = BLOCK_SIZE_S
 
@@ -162,7 +183,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
 
             initial_state_T = None if input_state is None else input_state.transpose(-1, -2)
 
-            if is_kernel_allowed(Kernel.causal_conv1d):
+            if use_conv1d_kernel:
                 x = causal_conv1d_fn(
                     x=x,
                     weight=self.weight.squeeze(1),
@@ -191,7 +212,7 @@ class DepthwiseCausalConvolution(nn.Conv1d):
             x = x.transpose(-1, -2)
         else:
             if S == 1:
-                if is_kernel_allowed(Kernel.causal_conv1d):
+                if use_conv1d_kernel:
                     input_state_buffer = input_state.clone()
 
                     x = causal_conv1d_update(
