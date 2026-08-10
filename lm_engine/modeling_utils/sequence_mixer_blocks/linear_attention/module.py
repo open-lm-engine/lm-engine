@@ -13,10 +13,12 @@ from ....kernels import is_kernel_allowed
 from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import divide_if_divisible, is_xma_available
 from ...activations import is_glu, silu
+from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
 from ...linear import ParameterizedLinear
 from ...normalization import get_normalization_function
+from ...position_embedding import PositionInfo
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from .config import LinearAttentionArgs
 from .op import linear_attention_torch
@@ -122,7 +124,7 @@ class LinearAttention(nn.Module):
             ),
         )
 
-        self.g_norm = get_normalization_function(config.normalization_function, self.num_heads * self.v_head_dim)
+        self.norm = get_normalization_function(config.normalization_function, self.num_heads * self.v_head_dim)
 
         mark_parameter_as_mup_learning_rate(self.input_projection.weight)
         mark_parameter_as_mup_learning_rate(self.output_projection.weight)
@@ -131,16 +133,25 @@ class LinearAttention(nn.Module):
         self,
         x: torch.Tensor,
         cache_params: GenerationCache | None = None,
-        attention_mask: torch.Tensor | None = None,
-        cu_seqlens: torch.Tensor | None = None,
-        max_seqlen: int | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
     ) -> torch.Tensor:
+        attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
+
         if self.use_padding_free_transformer:
             assert cache_params is None
-            assert attention_mask is None
+            assert attention_mask_info.attention_mask is None
+
+            attention_mask = None
+            cu_seqlens = attention_mask_info.cu_seqlens
+            max_seqlen = attention_mask_info.max_seqlen
         else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
+            assert attention_mask_info.cu_seqlens is None
+            assert attention_mask_info.max_seqlen is None
+
+            attention_mask = attention_mask_info.get_linear_attention_mask(cache_params)
+            cu_seqlens = None
+            max_seqlen = None
 
             B, S = x.size()[:2]
 
@@ -184,6 +195,9 @@ class LinearAttention(nn.Module):
 
             x, h = linear_attention_torch(q=q, k=k, v=v, h0=h, attention_multiplier=self.attention_multiplier)
 
+        if not self.use_padding_free_transformer and attention_mask is not None:
+            x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
+
         if cache_params is not None:
             cache_params.update(
                 states=(
@@ -197,10 +211,7 @@ class LinearAttention(nn.Module):
 
         x = x.flatten(-2, -1)
         x = x * silu(g)
-        x = self.g_norm(x)
+        x = self.norm(x)
         x = self.output_projection(x)
-
-        if not self.use_padding_free_transformer and attention_mask is not None:
-            x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
 
         return x
