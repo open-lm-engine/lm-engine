@@ -78,6 +78,41 @@ class ProgressBar:
         self.progress_bar.set_postfix(**loss_kwargs)
 
 
+def get_code_provenance() -> dict:
+    """Best-effort git commit/branch/modified for the lm-engine repo and the XMA submodule, so every
+    run records exactly which kernel code it ran. Never raises — returns whatever it can resolve."""
+    import os
+    import subprocess
+
+    def _git(path: str, *cmd: str) -> str | None:
+        try:
+            return subprocess.check_output(
+                ["git", "-C", path, *cmd], stderr=subprocess.DEVNULL, text=True, timeout=5
+            ).strip()
+        except Exception:
+            return None
+
+    def _info(prefix: str, anchor_file: str, out: dict) -> None:
+        # git -C on any path inside a repo resolves that repo's HEAD (the submodule has its own .git)
+        path = os.path.dirname(os.path.abspath(anchor_file))
+        commit = _git(path, "rev-parse", "HEAD")
+        if commit is None:
+            return
+        out[f"{prefix}_commit"] = commit
+        out[f"{prefix}_branch"] = _git(path, "rev-parse", "--abbrev-ref", "HEAD")
+        out[f"{prefix}_modified"] = bool(_git(path, "status", "--porcelain"))
+
+    provenance: dict = {}
+    _info("lm_engine", __file__, provenance)
+    try:
+        import xma
+
+        _info("xma", xma.__file__, provenance)
+    except Exception:
+        pass
+    return provenance
+
+
 class ExperimentsTracker:
     """experiments tracker for training"""
 
@@ -128,6 +163,9 @@ class ExperimentsTracker:
 
         if self.tracking_enabled:
             args: dict = args.to_dict()
+
+            for k, v in get_code_provenance().items():
+                args.setdefault(k, v)
 
             for k, v in extra_metadata.items():
                 if k in args:
