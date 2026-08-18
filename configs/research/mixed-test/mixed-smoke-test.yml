@@ -53,7 +53,6 @@ model_args:
     position_embedding_type: rope
     hidden_size: 256
     num_layers: 4
-    use_cache: true
     rope_theta: 500000
     rope_scaling: null
     m_emb: null

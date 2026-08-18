@@ -4,12 +4,16 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from ...softplus_decay_gate import SoftPlusDecayGateArgs
 from ..mlp import MLPArgs
 
 
 class DeltaMLPArgs(MLPArgs, SoftPlusDecayGateArgs):
-    mlp_type: str = "DeltaMLP"
+    # Literal is required: mlp_blocks is a discriminated union on "mlp_type"
+    # and pydantic rejects plain str discriminator fields.
+    mlp_type: Literal["DeltaMLP"] = "DeltaMLP"
     num_ranks: int
     num_heads: int
     use_v_proj: bool

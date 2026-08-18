@@ -157,6 +157,93 @@ def test_sample_index_caching(simple_env):
     np.testing.assert_array_equal(idx1, idx2)
 
 
+def test_sample_index_cache_atomic_save_leaves_no_temp_files(simple_env):
+    """The atomic save (temp file + rename) must not leave .tmp files in cache_dir."""
+    config = StitchedDatasetConfig(
+        stitched_seq_path=simple_env["stitched_seq_path"],
+        tokenized_data_root=simple_env["data_root"],
+        sequence_length=10,
+        split_ratio=(1.0, 0.0, 0.0),
+    )
+    build_sample_index(config, Split.train, 5, caching_allowed=True)
+    assert list(config.cache_dir.iterdir()) == [config.cache_dir / "train_n5.npy"]
+
+
+def test_sample_index_cache_corrupt_triggers_rebuild(simple_env):
+    """A torn/garbage cache file (e.g. from a crashed non-atomic write) must be
+    rebuilt and overwritten instead of crashing with EOFError/ValueError."""
+    config = StitchedDatasetConfig(
+        stitched_seq_path=simple_env["stitched_seq_path"],
+        tokenized_data_root=simple_env["data_root"],
+        sequence_length=10,
+        split_ratio=(1.0, 0.0, 0.0),
+    )
+    _, idx_expected = build_sample_index(config, Split.train, 5, caching_allowed=False)
+
+    cache_dir = config.cache_dir
+    cache_dir.mkdir(parents=True)
+    cache_path = cache_dir / "train_n5.npy"
+    cache_path.write_bytes(b"torn partial write")
+
+    _, idx = build_sample_index(config, Split.train, 5, caching_allowed=True)
+    np.testing.assert_array_equal(idx, idx_expected)
+
+    # The corrupt cache must have been replaced with a valid one.
+    np.testing.assert_array_equal(np.load(cache_path), idx_expected)
+    assert list(cache_dir.iterdir()) == [cache_path]
+
+
+def test_sample_index_cache_non_builder_loads_existing_cache(simple_env):
+    """A non-builder rank must load the cache file as-is instead of building."""
+    config = StitchedDatasetConfig(
+        stitched_seq_path=simple_env["stitched_seq_path"],
+        tokenized_data_root=simple_env["data_root"],
+        sequence_length=10,
+        split_ratio=(1.0, 0.0, 0.0),
+    )
+    cache_dir = config.cache_dir
+    cache_dir.mkdir(parents=True)
+    cache_path = cache_dir / "train_n5.npy"
+    # Sentinel content that a real build would never produce: loading it back
+    # proves the non-builder path loads the cache instead of building.
+    sentinel = np.zeros((2, 3), dtype=np.int64)
+    np.save(cache_path, sentinel)
+
+    _, idx = build_sample_index(config, Split.train, 5, caching_allowed=True, _is_builder=False)
+    np.testing.assert_array_equal(idx, sentinel)
+
+
+def test_sample_index_cache_non_builder_missing_cache_times_out(simple_env):
+    """A non-builder rank with no cache file must raise TimeoutError after the deadline."""
+    config = StitchedDatasetConfig(
+        stitched_seq_path=simple_env["stitched_seq_path"],
+        tokenized_data_root=simple_env["data_root"],
+        sequence_length=10,
+        split_ratio=(1.0, 0.0, 0.0),
+        cache_build_timeout_seconds=0.01,
+    )
+    with pytest.raises(TimeoutError, match="waiting for rank 0"):
+        build_sample_index(config, Split.train, 5, caching_allowed=True, _is_builder=False)
+
+
+def test_sample_index_cache_non_builder_corrupt_cache_times_out(simple_env):
+    """A non-builder rank that can only see a torn cache must keep polling (rank 0 may be
+    atomically replacing it) and raise TimeoutError once the deadline passes."""
+    config = StitchedDatasetConfig(
+        stitched_seq_path=simple_env["stitched_seq_path"],
+        tokenized_data_root=simple_env["data_root"],
+        sequence_length=10,
+        split_ratio=(1.0, 0.0, 0.0),
+        cache_build_timeout_seconds=0.01,
+    )
+    cache_dir = config.cache_dir
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "train_n5.npy").write_bytes(b"torn partial write")
+
+    with pytest.raises(TimeoutError, match="waiting for rank 0"):
+        build_sample_index(config, Split.train, 5, caching_allowed=True, _is_builder=False)
+
+
 def test_split_ratio_divides_collections(simple_env):
     """Train/val split should give disjoint collections."""
     config = StitchedDatasetConfig(

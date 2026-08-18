@@ -14,14 +14,18 @@ from __future__ import annotations
 import logging
 import os
 import time
+import uuid
 
 import numpy as np
 import pandas as pd
 
 from ...logging_utils import log_rank_0
+from ...parallel import ProcessGroupManager
 from ..megatron import Split
 from ..megatron.indexed_dataset import MMapIndexedDataset
 from .config import StitchedDatasetConfig
+
+_POLL_INTERVAL_SECONDS = 5
 
 
 def build_sample_index(
@@ -29,6 +33,7 @@ def build_sample_index(
     split: Split,
     num_samples: int | None,
     caching_allowed: bool,
+    _is_builder: bool | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray]:
     """Build (or load from cache) the sample_index for a given split.
 
@@ -42,6 +47,10 @@ def build_sample_index(
         split: Which split to build (train / val / test).
         num_samples: Number of samples to pack. If None, uses the maximum that fits.
         caching_allowed: Whether to read/write the on-disk cache.
+        _is_builder: Test hook to force the builder/waiter role without a distributed
+            setup. None (default) means: single-process (torch.distributed not
+            initialized) -> builder; otherwise global rank 0 builds and every other
+            rank polls for the cache file.
 
     Returns:
         stitched_seq: Full stitched_seq DataFrame (all collections, all splits).
@@ -72,10 +81,30 @@ def build_sample_index(
         cache_path = cache_dir / f"{split.name}_n{num_samples}.npy"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
+        if _is_builder is None:
+            is_builder = not ProcessGroupManager.is_initialized() or ProcessGroupManager.get_global_rank() == 0
+        else:
+            is_builder = _is_builder
+
+        if not is_builder:
+            # Only rank 0 builds: all other ranks poll for the atomically-saved cache
+            # file instead of duplicating the (potentially minutes-long) build work.
+            sample_index = _wait_for_cached_sample_index(cache_path, config.cache_build_timeout_seconds)
+            return stitched_seq, sample_index
+
         if cache_path.is_file():
             log_rank_0(logging.INFO, f"Loading cached sample_index from {cache_path}")
-            sample_index = np.load(cache_path)
-            return stitched_seq, sample_index  # stitched_seq is full DataFrame; c values in sample_index are global
+            try:
+                sample_index = np.load(cache_path)
+                # stitched_seq is the full DataFrame; coll values in sample_index are global
+                return stitched_seq, sample_index
+            except Exception:
+                # A corrupt/partial cache (e.g. left behind by a crashed older run
+                # that saved non-atomically) must not kill the job — rebuild instead.
+                log_rank_0(
+                    logging.WARNING,
+                    f"  Cached sample_index at {cache_path} is unreadable; rebuilding and overwriting.",
+                )
 
     log_rank_0(logging.INFO, "Building StitchedSequenceDataset sample_index ...")
     t0 = time.time()
@@ -219,10 +248,63 @@ def build_sample_index(
     log_rank_0(logging.INFO, f"  Built sample_index shape={sample_index.shape} in {time.time()-t0:.1f}s")
 
     if caching_allowed:
-        np.save(str(cache_path), sample_index)
+        _atomic_save(cache_path, sample_index)
         log_rank_0(logging.INFO, f"  Saved sample_index to {cache_path}")
 
     return stitched_seq, sample_index
+
+
+def _wait_for_cached_sample_index(cache_path: os.PathLike, timeout_seconds: float) -> np.ndarray:
+    """Poll until the rank-0-built cache appears and loads successfully.
+
+    The cache is saved atomically (temp file + os.replace), so a path that shows
+    up in is_file() always contains a complete file — except for torn files left
+    behind by crashed older runs that saved non-atomically. A load failure within
+    the timeout therefore means rank 0 is about to atomically overwrite a stale
+    corrupt cache; keep polling instead of giving up. Raises TimeoutError if the
+    deadline passes without a successful load (e.g. the builder rank crashed, or
+    this code path is never reached on rank 0).
+    """
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if cache_path.is_file():
+            try:
+                return np.load(cache_path)
+            except Exception:
+                pass
+        time.sleep(_POLL_INTERVAL_SECONDS)
+
+    raise TimeoutError(
+        f"Timed out after {timeout_seconds}s waiting for rank 0 to build the sample_index cache "
+        f"at {cache_path}. Check the rank 0 logs for build errors, or increase "
+        f"StitchedDatasetConfig.cache_build_timeout_seconds."
+    )
+
+
+def _atomic_save(cache_path: os.PathLike, sample_index: np.ndarray) -> None:
+    """Save sample_index to cache_path atomically.
+
+    Non-builder ranks poll for this file on a shared filesystem, and independent
+    jobs can share a cache directory. A plain np.save() truncates the target in
+    place, so a reader that passes the is_file() check while a writer is mid-save
+    reads a torn file (EOFError / "contains pickled (object) data" ValueError).
+    Writing to a unique temp file in the same directory and os.replace()-ing it
+    into place makes the file appear atomically: readers see either the old
+    complete file or the new complete file, never a partial one. The build is
+    deterministic, so concurrent writers produce identical content and
+    last-writer-wins is safe.
+    """
+    cache_path = str(cache_path)
+    tmp_path = f"{cache_path}.{uuid.uuid4().hex}.tmp"
+    try:
+        # np.save() appends .npy to paths without the extension; pass an open
+        # file handle to keep full control of the temp filename.
+        with open(tmp_path, "wb") as tmp_file:
+            np.save(tmp_file, sample_index)
+        os.replace(tmp_path, cache_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 def _get_split_bounds(total: int, split_ratio: tuple[float, float, float]) -> list[int]:

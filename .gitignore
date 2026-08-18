@@ -12,3 +12,7 @@ wandb
 *.bin
 *.idx
 *.npy
+
+# local agent memory/config
+AGENTS.md
+.agent

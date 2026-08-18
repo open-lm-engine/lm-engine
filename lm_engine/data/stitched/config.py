@@ -29,6 +29,8 @@ class StitchedDatasetConfig:
         seed: Random seed used for shuffled ordering.
         split_ratio: (train, val, test) fractions that sum to 1.0.
             E.g. (0.98, 0.01, 0.01).  Applied over the *collections* dimension.
+        cache_build_timeout_seconds: In distributed runs, non-builder ranks poll for the
+            rank-0-built sample_index cache and raise TimeoutError after this many seconds.
         cache_dir: Auto-computed from stitched_seq_path and hyperparams (read-only property).
     """
 
@@ -38,6 +40,7 @@ class StitchedDatasetConfig:
     ordering_strategy: OrderingStrategy = OrderingStrategy.as_stored
     seed: int = 42
     split_ratio: tuple[float, float, float] = field(default_factory=lambda: (1.0, 0.0, 0.0))
+    cache_build_timeout_seconds: int = 3600
 
     @property
     def cache_dir(self) -> Path:
