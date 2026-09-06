@@ -6,11 +6,7 @@ from __future__ import annotations
 
 import torch
 
-from ....utils import is_triton_available, is_xma_available
-
-
-if is_xma_available() and is_triton_available():
-    from xma.functional import continuous_count
+from ....functional import continuous_count
 
 
 # TODO add support for combileable bincount in PyTorch directly

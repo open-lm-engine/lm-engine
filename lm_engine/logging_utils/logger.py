@@ -24,6 +24,7 @@ from ..utils import (
     is_torchao_available,
     is_triton_available,
     is_wandb_available,
+    is_xma_available,
     is_zstandard_available,
 )
 from .tracking import is_tracking_rank
@@ -115,6 +116,10 @@ def log_environment() -> None:
         (is_torch_neuronx_available, "torch-neuronx is not installed"),
         (is_triton_available, "OpenAI triton is not installed"),
         (is_wandb_available, "wandb is not installed"),
+        (
+            is_xma_available,
+            "accelerated-model-architectures is not installed, install lm-engine with the xma extra",
+        ),
         (is_zstandard_available, "zstandard is not available"),
     ]:
         if not function():
