@@ -23,43 +23,6 @@ _BATCH = 2
 _PREFILL_LEN = 16
 
 
-def test_m2rnn_torch_chunked_matches_full_sequence() -> None:
-    torch.manual_seed(0)
-
-    batch_size, sequence_length = 2, 10
-    num_heads, key_head_dim, value_head_dim = 3, 4, 5
-    split = 4
-
-    q = torch.randn(batch_size, sequence_length, num_heads, key_head_dim)
-    k = torch.randn(batch_size, sequence_length, num_heads, key_head_dim)
-    v = torch.randn(batch_size, sequence_length, num_heads, value_head_dim)
-    xf = torch.rand(batch_size, sequence_length, num_heads)
-    W = torch.randn(num_heads, value_head_dim, value_head_dim)
-
-    def _run(q, k, v, xf, h0):
-        return m2rnn(
-            query=q,
-            key=k,
-            value=v,
-            weight=W,
-            forget_input=xf,
-            input_state=h0,
-            kernel_backend=KernelBackend.torch,
-        )
-
-    full_output, full_state = _run(q, k, v, xf, None)
-
-    first_output, first_state = _run(q[:, :split], k[:, :split], v[:, :split], xf[:, :split], None)
-    second_output, second_state = _run(q[:, split:], k[:, split:], v[:, split:], xf[:, split:], first_state)
-
-    chunked_output = torch.cat([first_output, second_output], dim=1)
-
-    # feeding the sequence in two causal chunks (carrying the recurrent state across the split)
-    # should give the exact same result as feeding the whole sequence at once
-    assert_close(chunked_output, full_output, rtol=1e-5, atol=1e-5)
-    assert_close(second_state, full_state, rtol=1e-5, atol=1e-5)
-
-
 def _skip_unless_m2rnn_triton_available() -> torch.device:
     device = torch.device("cuda")
     skip_test_if_device_unavailable(device)
@@ -118,8 +81,6 @@ def test_triton_forward_vs_torch_forward_prefill() -> None:
     torch.manual_seed(0)
     x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
 
-    # a full-sequence forward (no cache) through the triton kernel and through the naive torch
-    # fallback should compute the same function
     with enable_kernels([Kernel.m2rnn]):
         out_k = m2rnn(x)
 
@@ -172,3 +133,38 @@ def test_triton_forward_vs_torch_forward_backward() -> None:
     assert x_k.grad is not None
     assert x_f.grad is not None
     assert_close(x_k.grad, x_f.grad, rtol=1e-3, atol=1e-3)
+
+
+def test_m2rnn_torch_chunked_matches_full_sequence() -> None:
+    torch.manual_seed(0)
+
+    batch_size, sequence_length = 2, 10
+    num_heads, key_head_dim, value_head_dim = 3, 4, 5
+    split = 4
+
+    q = torch.randn(batch_size, sequence_length, num_heads, key_head_dim)
+    k = torch.randn(batch_size, sequence_length, num_heads, key_head_dim)
+    v = torch.randn(batch_size, sequence_length, num_heads, value_head_dim)
+    xf = torch.rand(batch_size, sequence_length, num_heads)
+    W = torch.randn(num_heads, value_head_dim, value_head_dim)
+
+    def _run(q, k, v, xf, h0):
+        return m2rnn(
+            query=q,
+            key=k,
+            value=v,
+            weight=W,
+            forget_input=xf,
+            input_state=h0,
+            kernel_backend=KernelBackend.torch,
+        )
+
+    full_output, full_state = _run(q, k, v, xf, None)
+
+    first_output, first_state = _run(q[:, :split], k[:, :split], v[:, :split], xf[:, :split], None)
+    second_output, second_state = _run(q[:, split:], k[:, split:], v[:, split:], xf[:, split:], first_state)
+
+    chunked_output = torch.cat([first_output, second_output], dim=1)
+
+    assert_close(chunked_output, full_output, rtol=1e-5, atol=1e-5)
+    assert_close(second_state, full_state, rtol=1e-5, atol=1e-5)
