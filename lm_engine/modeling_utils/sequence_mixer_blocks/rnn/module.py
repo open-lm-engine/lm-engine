@@ -91,7 +91,7 @@ class RNN(nn.Module):
             assert not is_glu(self.activation_string)
 
             self.conv1d = DepthwiseCausalConvolution(
-                hidden_size=self.state_size,
+                hidden_size=self.x_shape,
                 kernel_size=self.kernel_size,
                 activation_function=self.activation_string,
                 add_bias=config.add_bias,
