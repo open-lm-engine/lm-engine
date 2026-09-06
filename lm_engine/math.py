@@ -7,6 +7,22 @@ def ceil_divide(x: int, y: int) -> int:
     return (x + y - 1) // y
 
 
+def divide_if_divisible(dividend: int, divisor: int, msg: str = "") -> int:
+    """divide if divisible else raise an error
+
+    Args:
+        dividend (int): dividend
+        divisor (int): divisor
+        msg (str): error message
+
+    Returns:
+        int: result
+    """
+
+    assert dividend % divisor == 0, msg
+    return dividend // divisor
+
+
 def check_power_of_2(n: int) -> bool:
     return n & (n - 1) == 0 and n != 0
 
