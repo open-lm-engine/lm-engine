@@ -4,11 +4,11 @@
 
 import torch
 
-from .....accelerator import KernelBackend
+from ....accelerator import KernelBackend
 from ....custom_op import CustomOp
 from ....utils import is_triton_available
-from ..utils import _get_num_heads
 from .torch_implementation import _m2rnn_torch
+from .utils import _get_num_heads
 
 
 class _M2RNN(CustomOp): ...

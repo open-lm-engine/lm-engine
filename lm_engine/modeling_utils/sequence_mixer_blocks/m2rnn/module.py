@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torch.distributed.tensor import DTensor, Replicate
 
+from ....accelerator import KernelBackend
 from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
@@ -240,11 +241,11 @@ class M2RNN(nn.Module):
 
             x, h = sequence_pipeline(
                 function=m2rnn_function,
-                tensors=(q, k, v, f, self.state_weight),
+                tensors=(q, k, v, self.state_weight, f),
                 state_shape=(B, self.num_heads, self.k_head_dim, self.v_head_dim),
             )
         else:
-            x, h = m2rnn_function(q, k, v, f, self.state_weight, h)
+            x, h = m2rnn_function(q, k, v, self.state_weight, f, h)
 
         if self.use_residual:
             x = x + v * self.D
