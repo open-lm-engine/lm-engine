@@ -20,7 +20,7 @@ from ....parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ....utils import divide_if_divisible, is_xma_available
+from ....utils import divide_if_divisible
 from ...activations import is_glu, silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
@@ -33,10 +33,6 @@ from ...sequence_pipeline import sequence_pipeline
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import M2RNNArgs
 from .op import m2rnn_torch
-
-
-if is_xma_available():
-    from xma.layers import m2rnn
 
 
 def _m2rnn_function(
