@@ -5,9 +5,7 @@
 from typing import Callable
 
 import pytest
-
-
-torch = pytest.importorskip("torch")
+import torch
 
 from lm_engine.accelerator import Accelerator, KernelBackend
 from lm_engine.loss import cross_entropy

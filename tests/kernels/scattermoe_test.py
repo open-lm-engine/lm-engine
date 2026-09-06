@@ -5,10 +5,7 @@
 from itertools import product
 
 import pytest
-
-
-torch = pytest.importorskip("torch")
-
+import torch
 import torch.nn.functional as F
 
 from lm_engine.accelerator import Accelerator
