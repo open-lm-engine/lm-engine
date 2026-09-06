@@ -234,7 +234,7 @@ def is_wandb_available() -> bool:
 
 
 try:
-    import xma
+    import kernels
 
     _IS_XMA_AVAILABLE = True
 except:

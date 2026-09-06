@@ -26,7 +26,7 @@ from .op import linear_attention_torch
 
 
 if is_xma_available():
-    from xma.layers import linear_attention
+    from kernels.layers import linear_attention
 
 
 class LinearAttention(nn.Module):
