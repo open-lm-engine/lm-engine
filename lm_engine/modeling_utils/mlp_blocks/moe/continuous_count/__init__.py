@@ -4,8 +4,8 @@
 
 import torch
 
-from ...accelerator import Accelerator, KernelBackend
-from ...utils import is_cute_dsl_available
+from .....accelerator import Accelerator, KernelBackend
+from .....utils import is_cute_dsl_available
 
 
 if is_cute_dsl_available():

@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from lm_engine.accelerator import Accelerator, KernelBackend
-from lm_engine.functional import continuous_count
+from lm_engine.modeling_utils.mlp_blocks.moe.continuous_count import continuous_count
 from tests.layers.utils import assert_equal_tensors, get_1d_tensor_sizes, skip_if_incompatible_kernel_backend
 
 

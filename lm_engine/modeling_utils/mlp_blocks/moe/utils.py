@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import torch
 
-from ....functional import continuous_count
+from .continuous_count import continuous_count
 
 
 # TODO add support for combileable bincount in PyTorch directly
