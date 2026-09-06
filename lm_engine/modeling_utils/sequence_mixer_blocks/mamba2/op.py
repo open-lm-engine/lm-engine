@@ -8,8 +8,9 @@ import torch
 import torch.nn.functional as F
 from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
 
+from ....math import divide_if_divisible
 from ....parallel import ProcessGroupManager
-from ....utils import divide_if_divisible, is_mamba_2_ssm_available
+from ....utils import is_mamba_2_ssm_available
 
 
 if is_mamba_2_ssm_available():

@@ -5,8 +5,8 @@
 import torch
 from torch.distributed.tensor import Placement, Replicate, Shard
 
+from ..math import divide_if_divisible
 from ..parallel import ProcessGroupManager
-from ..utils import divide_if_divisible
 
 
 def tensor_parallel_split_safetensor_slice(slice, dim: int, start_end: tuple[int, int] | None = None) -> torch.Tensor:

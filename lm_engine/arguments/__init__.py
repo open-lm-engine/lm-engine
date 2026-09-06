@@ -18,7 +18,8 @@ from ..enums import (
     TuningMethod,
 )
 from ..logging_utils import set_logger
-from ..utils import divide_if_divisible, load_yaml, normalize_dtype_string
+from ..math import divide_if_divisible
+from ..utils import load_yaml, normalize_dtype_string
 from .base import BaseArgs
 
 

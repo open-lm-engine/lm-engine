@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ....kernels import is_flash_attention_enabled
+from ....math import divide_if_divisible
 from ....modeling_utils import (
     AttentionMaskInfo,
     Dropout,
@@ -21,7 +22,6 @@ from ....modeling_utils import (
     get_normalization_function,
     resolve_attention_and_position_info,
 )
-from ....utils import divide_if_divisible
 
 
 class CrossLayerAttention(nn.Module):

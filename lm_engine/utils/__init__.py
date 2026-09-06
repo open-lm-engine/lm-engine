@@ -6,10 +6,9 @@
 import torch
 
 from .cpp_extension import compile_cpp_extension
-from .environment import environment
+from .environment import environment, get_boolean_env_variable
 from .generation_cache import disable_generation_cache, is_generation_cache_enabled
 from .hf_hub import download_repo
-from .miscellaneous import divide_if_divisible
 from .mixed_precision import normalize_dtype_string, string_to_torch_dtype, torch_dtype_to_string
 from .packages import (
     is_aim_available,

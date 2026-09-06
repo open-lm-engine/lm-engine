@@ -10,6 +10,7 @@ import torch.nn as nn
 from ...enums import Kernel
 from ...generation_cache import GenerationCache, GenerationState, LinearCache
 from ...kernels import is_flash_attention_enabled, is_kernel_allowed
+from ...math import divide_if_divisible
 from ...modeling_utils import (
     AttentionMaskInfo,
     PositionInfo,
@@ -18,7 +19,6 @@ from ...modeling_utils import (
     get_normalization_function,
     resolve_attention_and_position_info,
 )
-from ...utils import divide_if_divisible
 from .config import GPTCrossLayerConfig
 from .sequence_mixers import KeyValueProjection, get_sequence_mixer
 

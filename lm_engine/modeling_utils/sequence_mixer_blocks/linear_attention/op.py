@@ -4,7 +4,7 @@
 
 import torch
 
-from ....utils import divide_if_divisible
+from ....math import divide_if_divisible
 
 
 def linear_attention_torch(

@@ -10,7 +10,7 @@ from ...parallel import ProcessGroupManager
 from .gated_deltanet import GatedDeltaNet, GatedDeltaNetArgs
 from .gru import GRU, GRUArgs
 from .linear_attention import LinearAttention, LinearAttentionArgs
-from .m2rnn import M2RNN, M2RNNArgs
+from .m2rnn import M2RNN, M2RNNArgs, m2rnn
 from .mamba2 import Mamba2, Mamba2Args
 from .rnn import RNN, RNNArgs
 from .softmax_attention import (

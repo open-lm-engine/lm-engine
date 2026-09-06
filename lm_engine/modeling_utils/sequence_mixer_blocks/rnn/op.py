@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import torch
 
-from ....utils import divide_if_divisible
+from ....math import divide_if_divisible
 from ...activations import clip_gradients, tanh
 
 

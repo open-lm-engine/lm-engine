@@ -12,8 +12,9 @@ import torch.nn.functional as F
 from ....accelerator import Accelerator
 from ....generation_cache import GenerationCache, GenerationState, LinearCache
 from ....kernels import is_flash_attention_enabled, wait_for_ACT
+from ....math import divide_if_divisible
 from ....parameter import mark_parameter_as_mup_learning_rate
-from ....utils import divide_if_divisible, is_torch_xla_available
+from ....utils import is_torch_xla_available
 from ...activations import sigmoid
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...chunk import contiguous_split
