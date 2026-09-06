@@ -24,7 +24,7 @@ def tanh(x: Numeric | TensorSSA, output_dtype: Numeric | None = None) -> Numeric
         y = y.load()
     else:
         y = cute.math.tanh(x.to(Float32), fastmath=True)
-        y = y.to(output_dtype)
+        y = Float32(y).to(output_dtype)
 
     return y
 
