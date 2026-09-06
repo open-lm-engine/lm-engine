@@ -7,6 +7,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from ....accelerator import KernelBackend
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
@@ -16,8 +17,7 @@ from ....parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ....utils import is_xma_available
-from ...activations import clip_gradients, get_activation_function, is_glu, sigmoid, silu, tanh
+from ...activations import get_activation_function, is_glu, silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
 from ...init_utils import _get_std_for_linear
@@ -26,10 +26,7 @@ from ...normalization import get_normalization_function
 from ...position_embedding import PositionInfo
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from .config import GRUArgs
-
-
-if is_xma_available():
-    from xma.layers import gru
+from .op import gru
 
 
 class GRU(nn.Module):
@@ -216,29 +213,19 @@ class GRU(nn.Module):
             (self.num_weight_heads, self.num_forget_weight_heads, self.num_reset_weight_heads), dim=0
         )
 
-        if is_kernel_allowed(Kernel.gru):
-            x, h = gru(
-                input=x,
-                weight=W,
-                forget_input=xf,
-                forget_weight=Wf,
-                reset_input=xr,
-                reset_weight=Wr,
-                input_state=h,
-                gradient_clipping=self.gradient_clipping,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
-        else:
-            x, h = self._torch_forward(
-                x=x,
-                xf=xf,
-                xr=xr,
-                h0=h,
-                gradient_clipping=self.gradient_clipping,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
+        x, h = gru(
+            input=x,
+            weight=W,
+            forget_input=xf,
+            forget_weight=Wf,
+            reset_input=xr,
+            reset_weight=Wr,
+            input_state=h,
+            gradient_clipping=self.gradient_clipping,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+            kernel_backend=None if is_kernel_allowed(Kernel.gru) else KernelBackend.torch,
+        )
 
         if not self.use_padding_free_transformer and attention_mask is not None:
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))
@@ -258,104 +245,6 @@ class GRU(nn.Module):
         x = self.output_projection(x)
 
         return x
-
-    def _torch_forward(
-        self,
-        x: torch.Tensor,
-        xf: torch.Tensor,
-        xr: torch.Tensor,
-        h0: torch.Tensor | None,
-        gradient_clipping: float | None,
-        cu_seqlens: torch.Tensor | None,
-        max_seqlen: int | None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        W, Wf, Wr = self.state_weight.split(
-            (self.num_weight_heads, self.num_forget_weight_heads, self.num_reset_weight_heads), dim=0
-        )
-
-        Nx = x.size(-2)
-        Nxf = xf.size(-2)
-        Nxr = xr.size(-2)
-
-        Nw = W.size(0)
-        Nwf = Wf.size(0)
-        Nwr = Wr.size(0)
-
-        N = max(Nx, Nxf, Nxr, Nw, Nwf, Nwr)
-
-        y_shape = list(x.size())
-        y_shape[-2] = N
-        y = torch.empty(y_shape, device=x.device, dtype=x.dtype)
-
-        if cu_seqlens is None:
-            B, S, _, H = x.size()
-        else:
-            B = cu_seqlens.size(0) - 1
-            S = max_seqlen
-            H = x.size(-1)
-
-        Gx = N // Nx
-        Gxf = N // Nxf
-        Gxr = N // Nxr
-
-        Gw = N // Nw
-        Gwf = N // Nwf
-        Gwr = N // Nwr
-
-        x = x.repeat_interleave(Gx, dim=-2)
-        xf = xf.repeat_interleave(Gxf, dim=-2)
-        xr = xr.repeat_interleave(Gxr, dim=-2)
-
-        W = W.repeat_interleave(Gw, dim=0)[None, ...]
-        Wf = Wf.repeat_interleave(Gwf, dim=0)[None, ...]
-        Wr = Wr.repeat_interleave(Gwr, dim=0)[None, ...]
-
-        if h0 is None:
-            h0 = torch.zeros(B, N, H, device=x.device, dtype=x.dtype)
-
-        if cu_seqlens is not None:
-            h0 = h0.clone()
-            start = cu_seqlens[:-1]
-            end = cu_seqlens[1:]
-
-        for s in range(S):
-            if cu_seqlens is None:
-                f = h0[..., None, :] @ Wf + xf[:, s, :, None, :]
-                r = h0[..., None, :] @ Wr + xr[:, s, :, None, :]
-            else:
-                offset = start + s
-                unfinished = offset < end
-                offset_unfinished = offset[unfinished]
-
-                f = h0[unfinished, :, None, :] @ Wf + xf[offset_unfinished, :, None, :]
-                r = h0[unfinished, :, None, :] @ Wr + xr[offset_unfinished, :, None, :]
-
-            f = sigmoid(f)
-            r = sigmoid(r)
-
-            if cu_seqlens is None:
-                z = (h0[..., None, :] * r) @ W + x[:, s, :, None, :]
-            else:
-                z = (h0[unfinished, :, None, :] * r) @ W + x[offset_unfinished, :, None, :]
-
-            z = tanh(z)
-
-            if cu_seqlens is None:
-                h = f * h0[..., None, :] + (1 - f) * z
-            else:
-                h = f * h0[unfinished, :, None, :] + (1 - f) * z
-
-            h = h.squeeze(-2)
-            h = clip_gradients(h, gradient_clipping)
-
-            if cu_seqlens is None:
-                y[:, s] = h
-                h0 = h
-            else:
-                y[offset_unfinished] = h
-                h0[unfinished] = h
-
-        return y, h0
 
     @torch.no_grad()
     def reset_parameters(self) -> None:

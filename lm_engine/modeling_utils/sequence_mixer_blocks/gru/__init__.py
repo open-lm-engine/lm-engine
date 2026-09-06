@@ -4,3 +4,4 @@
 
 from .config import GRUArgs
 from .module import GRU
+from .op import gru
