@@ -248,7 +248,7 @@ class M2RNN(nn.Module):
             x, h = m2rnn_function(q, k, v, self.state_weight, f, h)
 
         if self.use_residual:
-            x = x + v * self.D
+            x = x + v.repeat_interleave(self.num_heads // self.num_v_heads, dim=-2) * self.D
 
         if cache_params is not None:
             cache_params.update(
