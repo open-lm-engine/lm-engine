@@ -8,7 +8,8 @@ import torch
 import torch.nn as nn
 
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
-from ....utils import divide_if_divisible, is_fla_available
+from ....math import divide_if_divisible
+from ....utils import is_fla_available
 from ...activations import silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution

@@ -5,7 +5,6 @@
 
 import torch
 
-from ..math import divide_if_divisible
 from .cpp_extension import compile_cpp_extension
 from .environment import environment, get_boolean_env_variable
 from .generation_cache import disable_generation_cache, is_generation_cache_enabled

@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from ...generation_cache import GenerationCache
+from ...math import divide_if_divisible
 from ...model_config import CommonConfig
 from ...modeling_utils import (
     AttentionMaskInfo,
@@ -22,7 +23,7 @@ from ...modeling_utils import (
 from ...modeling_utils.init_utils import _get_std_for_embedding
 from ...modeling_utils.io import BaseModelOutputWithPast
 from ...parallel import ProcessGroupManager
-from ...utils import divide_if_divisible, is_generation_cache_enabled
+from ...utils import is_generation_cache_enabled
 from .layer import Block
 
 

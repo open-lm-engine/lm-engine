@@ -13,6 +13,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from .arguments import BaseArgs
+from .math import divide_if_divisible
 from .modeling_utils import (
     GatedDeltaNetArgs,
     GRUArgs,
@@ -24,7 +25,6 @@ from .modeling_utils import (
     RNNArgs,
     SoftmaxAttentionArgs,
 )
-from .utils import divide_if_divisible
 
 
 # Keys added by HuggingFace internals that are not part of our config schema

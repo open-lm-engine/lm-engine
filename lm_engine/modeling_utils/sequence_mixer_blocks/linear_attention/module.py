@@ -10,8 +10,9 @@ import torch.nn as nn
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
+from ....math import divide_if_divisible
 from ....parameter import mark_parameter_as_mup_learning_rate
-from ....utils import divide_if_divisible, is_xma_available
+from ....utils import is_xma_available
 from ...activations import is_glu, silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution

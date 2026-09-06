@@ -12,6 +12,7 @@ from ...enums import Kernel
 from ...generation_cache import GenerationCache
 from ...kernels import is_kernel_allowed
 from ...loss import add_aux_loss, clear_aux_loss, get_aux_loss
+from ...math import divide_if_divisible
 from ...model_config import CommonConfig
 from ...modeling_utils import (
     AttentionMaskInfo,
@@ -27,7 +28,7 @@ from ...modeling_utils.io import (
     PipelineParallelOutput,
 )
 from ...parallel import ProcessGroupManager
-from ...utils import SafeTensorsWeightsManager, divide_if_divisible
+from ...utils import SafeTensorsWeightsManager
 from .base import PreTrainedModelMixin
 
 
