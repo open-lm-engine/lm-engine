@@ -32,40 +32,7 @@ from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention
 from ...sequence_pipeline import sequence_pipeline
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import M2RNNArgs
-from .op import m2rnn_torch
-
-
-def _m2rnn_function(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    xf: torch.Tensor,
-    W: torch.Tensor,
-    h0: torch.Tensor | None,
-    gradient_clipping: float | None,
-    cu_seqlens: torch.Tensor | None,
-    max_seqlen: int | None,
-    use_kernel: bool,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Uniform signature over the two m2rnn backends, so `sequence_pipeline` can drive either."""
-
-    if use_kernel:
-        return m2rnn(
-            query=q,
-            key=k,
-            value=v,
-            weight=W,
-            forget_input=xf,
-            input_state=h0,
-            gradient_clipping=gradient_clipping,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
-        )
-
-    assert cu_seqlens is None
-    assert max_seqlen is None
-
-    return m2rnn_torch(q=q, k=k, v=v, xf=xf, W=W, h0=h0, gradient_clipping=gradient_clipping)
+from .op import m2rnn
 
 
 class M2RNN(nn.Module):
@@ -259,11 +226,11 @@ class M2RNN(nn.Module):
         v = v.view(*v.size()[:-1], self.num_v_heads, self.v_head_dim)
 
         m2rnn_function = partial(
-            _m2rnn_function,
+            m2rnn,
             gradient_clipping=self.gradient_clipping,
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen,
-            use_kernel=is_kernel_allowed(Kernel.m2rnn),
+            kernel_backend=None if is_kernel_allowed(Kernel.m2rnn) else KernelBackend.torch,
         )
 
         if is_cp_enabled:
