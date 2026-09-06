@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch.distributed.tensor import DTensor, Replicate
 
-from ....accelerator import KernelBackend
+from .....kernels import KernelBackend
 from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState

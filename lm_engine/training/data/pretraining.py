@@ -4,12 +4,12 @@
 
 import logging
 
+from ...tokenizers import TOKENIZER_TYPE
 from ..accelerator import Accelerator
 from ..arguments import TrainingArgs
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..logging_utils import log_rank_0
 from ..parallel import ProcessGroupManager
-from ..tokenizers import TOKENIZER_TYPE
 from .dataloader import ResumableDataLoader
 from .megatron import GPTDataset, MegatronBatchSampler, build, compile_helpers
 

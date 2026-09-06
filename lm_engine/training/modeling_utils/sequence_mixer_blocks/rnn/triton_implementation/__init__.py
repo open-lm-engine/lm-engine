@@ -4,7 +4,7 @@
 
 import torch
 
-from .....custom_op import ctx_save_for_backward
+from ......kernels.custom_op import ctx_save_for_backward
 from ..utils import _get_num_heads
 from .backward import _rnn_backward_triton
 from .forward import _rnn_forward_triton

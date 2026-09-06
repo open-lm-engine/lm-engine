@@ -5,11 +5,11 @@
 import logging
 from functools import partial
 
+from ...tokenizers import TOKENIZER_TYPE
 from ..arguments import DatasetArgs, TrainingArgs
 from ..enums import DatasetSplit
 from ..logging_utils import log_rank_0
 from ..parallel import ProcessGroupManager, run_rank_n
-from ..tokenizers import TOKENIZER_TYPE
 from .base import BaseDataset, BlendedDatasets
 from .dataloader import ResumableDataLoader
 from .debug import DebugDataset

@@ -12,6 +12,7 @@ import torch.nn as nn
 from torch.distributed.tensor import Replicate
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
+from ...tokenizers import get_tokenizer
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..hf_adapter import LLMAdapter_HF, get_causal_lm_class, get_output_embeddings, is_custom_model
@@ -20,7 +21,6 @@ from ..logging_utils import log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss, is_aux_loss_zero
 from ..modeling_utils import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
-from ..tokenizers import get_tokenizer
 from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
 
 

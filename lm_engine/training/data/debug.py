@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
+from ...tokenizers import TOKENIZER_TYPE
 from ..enums import DatasetSplit
-from ..tokenizers import TOKENIZER_TYPE
 from .base import BaseDataset
 
 

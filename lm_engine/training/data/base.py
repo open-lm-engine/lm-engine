@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import torch
 
+from ...tokenizers import TOKENIZER_TYPE
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..enums import DatasetSplit
-from ..tokenizers import TOKENIZER_TYPE
 
 
 class BaseDataset(torch.utils.data.Dataset):

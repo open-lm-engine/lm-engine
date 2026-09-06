@@ -4,7 +4,7 @@
 
 import torch
 
-from .....custom_op import ctx_needs_gradients, ctx_save_for_backward
+from ......kernels.custom_op import ctx_needs_gradients, ctx_save_for_backward
 from ..utils import _get_backward_tensor, _get_num_heads
 from .backward import _gru_backward_triton
 from .forward import _gru_forward_triton

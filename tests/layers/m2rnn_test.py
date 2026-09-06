@@ -5,7 +5,7 @@
 import pytest
 import torch
 
-from lm_engine.training.accelerator import KernelBackend
+from lm_engine.kernels import KernelBackend
 from lm_engine.training.enums import Kernel
 from lm_engine.training.generation_cache import GenerationCache
 from lm_engine.training.kernels import enable_kernels

@@ -14,8 +14,8 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
+from ....tokenizers import TOKENIZER_TYPE
 from ...logging_utils import log_rank_0
-from ...tokenizers import TOKENIZER_TYPE
 from .indexed_dataset import MMapIndexedDataset
 from .utils import Split, build_sample_idx
 

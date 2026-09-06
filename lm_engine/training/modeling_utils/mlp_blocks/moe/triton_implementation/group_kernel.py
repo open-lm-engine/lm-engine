@@ -6,7 +6,7 @@ import torch
 import triton
 import triton.language as tl
 
-from .....custom_op import xma_op
+from ......kernels.custom_op import xma_op
 
 
 @triton.autotune(configs=[triton.Config({"BLOCK_N": 256, "BLOCK_K": 128}, num_stages=4, num_warps=4)], key=["K"])

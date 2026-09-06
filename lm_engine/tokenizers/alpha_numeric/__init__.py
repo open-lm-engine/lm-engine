@@ -8,7 +8,7 @@ import os
 
 import torch
 
-from ...utils import compile_cpp_extension
+from ...training.utils import compile_cpp_extension
 
 
 class AlphaNumericTokenizer:

@@ -10,10 +10,10 @@ import os
 
 import numpy as np
 
+from ....tokenizers import TOKENIZER_TYPE
 from ...defaults import MSC_PREFIX
 from ...logging_utils import log_rank_0
 from ...parallel import ProcessGroupManager
-from ...tokenizers import TOKENIZER_TYPE
 from ...utils import is_multi_storage_client_available
 from .blended_dataset import BlendedDataset
 from .concatenated_dataset import ConcatenatedDataset

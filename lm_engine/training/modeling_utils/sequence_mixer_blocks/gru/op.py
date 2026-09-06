@@ -4,9 +4,9 @@
 
 import torch
 
-from ....accelerator import KernelBackend
-from ....custom_op import CustomOp
-from ....utils import is_triton_available
+from .....kernels import KernelBackend
+from .....kernels.custom_op import CustomOp
+from .....kernels.utils import is_triton_available
 from .torch_implementation import _gru_torch
 from .utils import _get_num_heads
 

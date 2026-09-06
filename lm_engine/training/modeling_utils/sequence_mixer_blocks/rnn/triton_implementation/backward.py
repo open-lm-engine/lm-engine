@@ -6,9 +6,9 @@ import torch
 import triton
 import triton.language as tl
 
-from .....custom_op import xma_op
+from ......kernels.custom_op import xma_op
+from ......kernels.triton_utils import clamp, get_start_end, matmul, tanh_backward
 from .....math import ceil_divide, get_next_power_of_2
-from .....triton_utils import clamp, get_start_end, matmul, tanh_backward
 from .forward import _get_autotune_configs
 
 
