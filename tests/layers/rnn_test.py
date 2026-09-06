@@ -16,10 +16,14 @@ from tests.utils import skip_test_if_device_unavailable
 
 
 _HIDDEN_SIZE = 32
-_NUM_HEADS = 4
-_STATE_HEAD_DIM = 8
 _BATCH = 2
 _PREFILL_LEN = 16
+
+# (state_head_dim, num_input_heads, num_weight_heads); num_input_heads != num_weight_heads
+# exercises the grouped-head repeat_interleave broadcasting
+_PROBLEM_SHAPES = [(8, 4, 8), (8, 8, 4), (9, 7, 7)]
+_DTYPES = [torch.float32, torch.float16]
+_TOLERANCES = {torch.float32: dict(rtol=1e-5, atol=1e-5), torch.float16: dict(rtol=1e-2, atol=1e-2)}
 
 
 def _skip_unless_rnn_triton_available() -> torch.device:
@@ -32,11 +36,13 @@ def _skip_unless_rnn_triton_available() -> torch.device:
     return device
 
 
-def _make_rnn(device: torch.device) -> RNN:
+def _make_rnn(device: torch.device, dtype: torch.dtype, problem_shape: tuple[int, int, int]) -> RNN:
+    state_head_dim, num_input_heads, num_weight_heads = problem_shape
+
     config = RNNArgs(
-        state_head_dim=_STATE_HEAD_DIM,
-        num_input_heads=_NUM_HEADS,
-        num_weight_heads=_NUM_HEADS,
+        state_head_dim=state_head_dim,
+        num_input_heads=num_input_heads,
+        num_weight_heads=num_weight_heads,
         add_bias=False,
         normalization_function="rmsnorm",
         gradient_clipping=None,
@@ -56,34 +62,38 @@ def _make_rnn(device: torch.device) -> RNN:
         layer_idx=0,
         use_depth_scaled_init=False,
         use_padding_free_transformer=False,
-    ).to(device)
+    ).to(device=device, dtype=dtype)
     rnn_module.eval()
 
     return rnn_module
 
 
-def test_triton_prefill_vs_torch_prefill() -> None:
+@pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
+@pytest.mark.parametrize("dtype", _DTYPES)
+def test_triton_prefill_vs_torch_prefill(dtype: torch.dtype, problem_shape: tuple[int, int, int]) -> None:
     device = _skip_unless_rnn_triton_available()
-    rnn_module = _make_rnn(device)
+    rnn_module = _make_rnn(device, dtype, problem_shape)
 
     torch.manual_seed(0)
-    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
+    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device, dtype=dtype)
 
     with enable_kernels([Kernel.rnn]):
         out_k = rnn_module(x)
 
     out_f = rnn_module(x)
 
-    assert_close(out_k, out_f, rtol=1e-3, atol=1e-3)
+    assert_close(out_k, out_f, **_TOLERANCES[dtype])
 
 
-def test_triton_decode_vs_torch_decode() -> None:
+@pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
+@pytest.mark.parametrize("dtype", _DTYPES)
+def test_triton_decode_vs_torch_decode(dtype: torch.dtype, problem_shape: tuple[int, int, int]) -> None:
     device = _skip_unless_rnn_triton_available()
-    rnn_module = _make_rnn(device)
+    rnn_module = _make_rnn(device, dtype, problem_shape)
 
     torch.manual_seed(0)
-    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
-    x_gen = torch.randn(_BATCH, 1, _HIDDEN_SIZE, device=device)
+    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device, dtype=dtype)
+    x_gen = torch.randn(_BATCH, 1, _HIDDEN_SIZE, device=device, dtype=dtype)
 
     with enable_kernels([Kernel.rnn]):
         cache_k = GenerationCache()
@@ -94,18 +104,18 @@ def test_triton_decode_vs_torch_decode() -> None:
     rnn_module(x, cache_params=cache_f)
     out_gen_f = rnn_module(x_gen, cache_params=cache_f)
 
-    assert_close(out_gen_k, out_gen_f, rtol=1e-3, atol=1e-3)
+    assert_close(out_gen_k, out_gen_f, **_TOLERANCES[dtype])
 
 
-def test_triton_vs_torch_forward_backward() -> None:
+@pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
+@pytest.mark.parametrize("dtype", _DTYPES)
+def test_triton_vs_torch_forward_backward(dtype: torch.dtype, problem_shape: tuple[int, int, int]) -> None:
     device = _skip_unless_rnn_triton_available()
-    rnn_module = _make_rnn(device)
+    rnn_module = _make_rnn(device, dtype, problem_shape)
 
     torch.manual_seed(0)
-    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
+    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device, dtype=dtype)
 
-    # gradients w.r.t. the input should also match between the triton kernel and the torch
-    # fallback; each path gets its own leaf input tensor so their .grad don't interfere
     x_k = x.clone().requires_grad_(True)
     with enable_kernels([Kernel.rnn]):
         out_k = rnn_module(x_k)
@@ -115,31 +125,41 @@ def test_triton_vs_torch_forward_backward() -> None:
     out_f = rnn_module(x_f)
     out_f.sum().backward()
 
-    assert_close(out_k, out_f, rtol=1e-3, atol=1e-3)
+    tolerances = _TOLERANCES[dtype]
+    assert_close(out_k, out_f, **tolerances)
     assert x_k.grad is not None
     assert x_f.grad is not None
-    assert_close(x_k.grad, x_f.grad, rtol=1e-3, atol=1e-3)
+    assert_close(x_k.grad, x_f.grad, **tolerances)
 
 
-def test_torch_prefill_continuation() -> None:
+@pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
+@pytest.mark.parametrize("dtype", _DTYPES)
+@pytest.mark.parametrize("has_input_state", [False, True])
+def test_torch_prefill_continuation(
+    dtype: torch.dtype, problem_shape: tuple[int, int, int], has_input_state: bool
+) -> None:
     torch.manual_seed(0)
 
+    state_head_dim, num_input_heads, num_weight_heads = problem_shape
+    num_heads = max(num_input_heads, num_weight_heads)
+
     batch_size, sequence_length = 2, 10
-    num_heads, state_head_dim = 3, 4
     split = 4
 
-    x = torch.randn(batch_size, sequence_length, num_heads, state_head_dim)
-    W = torch.randn(num_heads, state_head_dim, state_head_dim)
+    x = torch.randn(batch_size, sequence_length, num_input_heads, state_head_dim, dtype=dtype)
+    W = torch.randn(num_weight_heads, state_head_dim, state_head_dim, dtype=dtype)
+    h0 = torch.randn(batch_size, num_heads, state_head_dim, dtype=dtype) if has_input_state else None
 
     def _run(x, h0):
         return rnn(input=x, weight=W, input_state=h0, kernel_backend=KernelBackend.torch)
 
-    full_output, full_state = _run(x, None)
+    full_output, full_state = _run(x, h0)
 
-    first_output, first_state = _run(x[:, :split], None)
+    first_output, first_state = _run(x[:, :split], h0)
     second_output, second_state = _run(x[:, split:], first_state)
 
     chunked_output = torch.cat([first_output, second_output], dim=1)
 
-    assert_close(chunked_output, full_output, rtol=1e-5, atol=1e-5)
-    assert_close(second_state, full_state, rtol=1e-5, atol=1e-5)
+    tolerances = _TOLERANCES[dtype]
+    assert_close(chunked_output, full_output, **tolerances)
+    assert_close(second_state, full_state, **tolerances)
