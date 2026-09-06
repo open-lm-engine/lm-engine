@@ -4,22 +4,20 @@
 
 import pytest
 import torch
-from torch.testing import assert_close
 
 from lm_engine.accelerator import KernelBackend
 from lm_engine.enums import Kernel
 from lm_engine.generation_cache import GenerationCache
 from lm_engine.kernels import enable_kernels
 from lm_engine.modeling_utils.sequence_mixer_blocks import M2RNN, M2RNNArgs, m2rnn
-from lm_engine.utils import is_triton_available
-from tests.utils import skip_test_if_device_unavailable
+from tests.layers.utils import assert_equal_tensors, get_duplicated_tensors, skip_if_incompatible_kernel_backend
 
 
 _HIDDEN_SIZE = 32
 _BATCH = 2
 _PREFILL_LEN = 16
+_SEED = 42
 _DTYPES = [torch.float32, torch.bfloat16]
-_TOLERANCES = {torch.float32: dict(rtol=1e-5, atol=1e-5), torch.bfloat16: dict(rtol=1e-2, atol=1e-2)}
 
 
 def _get_problem_shapes() -> list[tuple[int, int, int, int, int, int, int]]:
@@ -39,16 +37,6 @@ def _get_problem_shapes() -> list[tuple[int, int, int, int, int, int, int]]:
 
 
 _PROBLEM_SHAPES = _get_problem_shapes()
-
-
-def _skip_unless_m2rnn_triton_available() -> torch.device:
-    device = torch.device("cuda")
-    skip_test_if_device_unavailable(device)
-
-    if not is_triton_available():
-        pytest.skip("skipping test because triton is unavailable")
-
-    return device
 
 
 def _make_m2rnn(
@@ -101,7 +89,7 @@ def _make_m2rnn(
 def test_triton_prefill_vs_torch_prefill(
     dtype: torch.dtype, problem_shape: tuple[int, int, int, int, int, int, int]
 ) -> None:
-    device = _skip_unless_m2rnn_triton_available()
+    device = skip_if_incompatible_kernel_backend(KernelBackend.triton)
     m2rnn_module = _make_m2rnn(device, dtype, problem_shape)
 
     torch.manual_seed(0)
@@ -112,7 +100,7 @@ def test_triton_prefill_vs_torch_prefill(
 
     out_f = m2rnn_module(x)
 
-    assert_close(out_k, out_f, **_TOLERANCES[dtype])
+    assert_equal_tensors(out_k, out_f, False)
 
 
 @pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
@@ -120,7 +108,7 @@ def test_triton_prefill_vs_torch_prefill(
 def test_triton_decode_vs_torch_decode(
     dtype: torch.dtype, problem_shape: tuple[int, int, int, int, int, int, int]
 ) -> None:
-    device = _skip_unless_m2rnn_triton_available()
+    device = skip_if_incompatible_kernel_backend(KernelBackend.triton)
     m2rnn_module = _make_m2rnn(device, dtype, problem_shape)
 
     torch.manual_seed(0)
@@ -136,34 +124,7 @@ def test_triton_decode_vs_torch_decode(
     m2rnn_module(x, cache_params=cache_f)
     out_gen_f = m2rnn_module(x_gen, cache_params=cache_f)
 
-    assert_close(out_gen_k, out_gen_f, **_TOLERANCES[dtype])
-
-
-@pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
-@pytest.mark.parametrize("dtype", _DTYPES)
-def test_triton_vs_torch_forward_backward(
-    dtype: torch.dtype, problem_shape: tuple[int, int, int, int, int, int, int]
-) -> None:
-    device = _skip_unless_m2rnn_triton_available()
-    m2rnn_module = _make_m2rnn(device, dtype, problem_shape)
-
-    torch.manual_seed(0)
-    x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device, dtype=dtype)
-
-    x_k = x.clone().requires_grad_(True)
-    with enable_kernels([Kernel.m2rnn]):
-        out_k = m2rnn_module(x_k)
-        out_k.sum().backward()
-
-    x_f = x.clone().requires_grad_(True)
-    out_f = m2rnn_module(x_f)
-    out_f.sum().backward()
-
-    tolerances = _TOLERANCES[dtype]
-    assert_close(out_k, out_f, **tolerances)
-    assert x_k.grad is not None
-    assert x_f.grad is not None
-    assert_close(x_k.grad, x_f.grad, **tolerances)
+    assert_equal_tensors(out_gen_k, out_gen_f, False)
 
 
 @pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
@@ -205,6 +166,186 @@ def test_torch_prefill_continuation(
 
     chunked_output = torch.cat([first_output, second_output], dim=1)
 
-    tolerances = _TOLERANCES[dtype]
-    assert_close(chunked_output, full_output, **tolerances)
-    assert_close(second_state, full_state, **tolerances)
+    assert_equal_tensors(chunked_output, full_output, False)
+    assert_equal_tensors(second_state, full_state, False)
+
+
+def _get_op_level_tensors(
+    device: torch.device,
+    dtype: torch.dtype,
+    problem_shape: tuple[int, int, int, int, int, int, int],
+    batch_size: int,
+    sequence_length: int,
+) -> tuple[dict, dict]:
+    key_head_dim, value_head_dim, num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads = problem_shape
+
+    q_kernel, q_torch = get_duplicated_tensors(
+        (batch_size, sequence_length, num_q_heads, key_head_dim), device=device, dtype=dtype
+    )
+    k_kernel, k_torch = get_duplicated_tensors(
+        (batch_size, sequence_length, num_k_heads, key_head_dim), device=device, dtype=dtype
+    )
+    v_kernel, v_torch = get_duplicated_tensors(
+        (batch_size, sequence_length, num_v_heads, value_head_dim), device=device, dtype=dtype
+    )
+    xf_kernel, xf_torch = get_duplicated_tensors(
+        (batch_size, sequence_length, num_f_heads), device=device, dtype=dtype
+    )
+    W_kernel, W_torch = get_duplicated_tensors(
+        (num_weight_heads, value_head_dim, value_head_dim), device=device, dtype=dtype
+    )
+
+    kernel = dict(query=q_kernel, key=k_kernel, value=v_kernel, forget_input=xf_kernel, weight=W_kernel)
+    torch_ref = dict(query=q_torch, key=k_torch, value=v_torch, forget_input=xf_torch, weight=W_torch)
+
+    return kernel, torch_ref
+
+
+@pytest.mark.parametrize("is_compiling", [False, True])
+@pytest.mark.parametrize("has_input_state", [False, True])
+@pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
+@pytest.mark.parametrize("dtype", _DTYPES)
+def test_op_forward_kernel_vs_torch(
+    dtype: torch.dtype,
+    problem_shape: tuple[int, int, int, int, int, int, int],
+    has_input_state: bool,
+    is_compiling: bool,
+) -> None:
+    device = skip_if_incompatible_kernel_backend(KernelBackend.triton)
+    torch.manual_seed(_SEED)
+
+    key_head_dim, value_head_dim, num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads = problem_shape
+    num_heads = max(num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads)
+
+    kernel, torch_ref = _get_op_level_tensors(device, dtype, problem_shape, batch_size=4, sequence_length=32)
+
+    h0_kernel = h0_torch = None
+    if has_input_state:
+        h0_kernel, h0_torch = get_duplicated_tensors(
+            (4, num_heads, key_head_dim, value_head_dim), device=device, dtype=dtype
+        )
+
+    m2rnn_fn = torch.compile(m2rnn, fullgraph=True) if is_compiling else m2rnn
+
+    y_kernel, h_kernel = m2rnn_fn(**kernel, input_state=h0_kernel, kernel_backend=KernelBackend.triton)
+    y_torch, h_torch = m2rnn(**torch_ref, input_state=h0_torch, kernel_backend=KernelBackend.torch)
+
+    assert_equal_tensors(y_kernel, y_torch, False)
+    assert_equal_tensors(h_kernel, h_torch, False)
+
+
+@pytest.mark.parametrize("is_compiling", [False, True])
+@pytest.mark.parametrize("has_input_state", [False, True])
+@pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
+@pytest.mark.parametrize("dtype", _DTYPES)
+def test_op_backward_kernel_vs_torch(
+    dtype: torch.dtype,
+    problem_shape: tuple[int, int, int, int, int, int, int],
+    has_input_state: bool,
+    is_compiling: bool,
+) -> None:
+    """op-level equivalent of xma's `test_m2rnn` gradient checks: every input tensor's gradient
+    (query, key, value, forget_input, weight, and the initial state when present) must match."""
+
+    device = skip_if_incompatible_kernel_backend(KernelBackend.triton)
+    torch.manual_seed(_SEED)
+
+    key_head_dim, value_head_dim, num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads = problem_shape
+    num_heads = max(num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads)
+
+    kernel, torch_ref = _get_op_level_tensors(device, dtype, problem_shape, batch_size=4, sequence_length=32)
+
+    h0_kernel = h0_torch = None
+    if has_input_state:
+        h0_kernel, h0_torch = get_duplicated_tensors(
+            (4, num_heads, key_head_dim, value_head_dim), device=device, dtype=dtype
+        )
+
+    m2rnn_fn = torch.compile(m2rnn, fullgraph=True) if is_compiling else m2rnn
+
+    y_kernel, _ = m2rnn_fn(**kernel, input_state=h0_kernel, kernel_backend=KernelBackend.triton)
+    y_torch, _ = m2rnn(**torch_ref, input_state=h0_torch, kernel_backend=KernelBackend.torch)
+
+    y_kernel.sum().backward()
+    y_torch.sum().backward()
+
+    assert_equal_tensors(y_kernel, y_torch, False)
+    for name in kernel:
+        assert_equal_tensors(kernel[name].grad, torch_ref[name].grad, False)
+
+    if has_input_state:
+        assert_equal_tensors(h0_kernel.grad, h0_torch.grad, False)
+
+
+@pytest.mark.parametrize("is_compiling", [False, True])
+@pytest.mark.parametrize("has_input_state", [False, True])
+@pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
+@pytest.mark.parametrize("dtype", _DTYPES)
+def test_op_varlen_kernel_vs_torch(
+    dtype: torch.dtype,
+    problem_shape: tuple[int, int, int, int, int, int, int],
+    has_input_state: bool,
+    is_compiling: bool,
+) -> None:
+    """op-level equivalent of xma's `test_m2rnn` variable-length (packed, `cu_seqlens`) case: the
+    torch reference has no varlen support, so it's reconstructed by running each sequence densely."""
+
+    device = skip_if_incompatible_kernel_backend(KernelBackend.triton)
+    torch.manual_seed(_SEED)
+
+    key_head_dim, value_head_dim, num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads = problem_shape
+    num_heads = max(num_q_heads, num_k_heads, num_v_heads, num_f_heads, num_weight_heads)
+
+    cu_seqlens = torch.tensor([0, 7, 19, 27, 93], device=device)
+    max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
+    B = cu_seqlens.size(0) - 1
+    total_tokens = int(cu_seqlens[-1])
+
+    q_kernel, q_torch = get_duplicated_tensors((total_tokens, num_q_heads, key_head_dim), device=device, dtype=dtype)
+    k_kernel, k_torch = get_duplicated_tensors((total_tokens, num_k_heads, key_head_dim), device=device, dtype=dtype)
+    v_kernel, v_torch = get_duplicated_tensors((total_tokens, num_v_heads, value_head_dim), device=device, dtype=dtype)
+    xf_kernel, xf_torch = get_duplicated_tensors((total_tokens, num_f_heads), device=device, dtype=dtype)
+    W_kernel, W_torch = get_duplicated_tensors(
+        (num_weight_heads, value_head_dim, value_head_dim), device=device, dtype=dtype
+    )
+
+    h0_kernel = h0_torch = None
+    if has_input_state:
+        h0_kernel, h0_torch = get_duplicated_tensors(
+            (B, num_heads, key_head_dim, value_head_dim), device=device, dtype=dtype
+        )
+
+    m2rnn_fn = torch.compile(m2rnn, fullgraph=True) if is_compiling else m2rnn
+
+    y_kernel, h_kernel = m2rnn_fn(
+        query=q_kernel,
+        key=k_kernel,
+        value=v_kernel,
+        forget_input=xf_kernel,
+        weight=W_kernel,
+        input_state=h0_kernel,
+        cu_seqlens=cu_seqlens,
+        max_seqlen=max_seqlen,
+        kernel_backend=KernelBackend.triton,
+    )
+
+    y_torch = []
+    h_torch = []
+    for i in range(B):
+        y, h = m2rnn(
+            query=q_torch[cu_seqlens[i] : cu_seqlens[i + 1]].unsqueeze(0),
+            key=k_torch[cu_seqlens[i] : cu_seqlens[i + 1]].unsqueeze(0),
+            value=v_torch[cu_seqlens[i] : cu_seqlens[i + 1]].unsqueeze(0),
+            forget_input=xf_torch[cu_seqlens[i] : cu_seqlens[i + 1]].unsqueeze(0),
+            weight=W_torch,
+            input_state=h0_torch[i].unsqueeze(0) if has_input_state else None,
+            kernel_backend=KernelBackend.torch,
+        )
+        y_torch.append(y.squeeze(0))
+        h_torch.append(h)
+
+    y_torch = torch.cat(y_torch)
+    h_torch = torch.cat(h_torch)
+
+    assert_equal_tensors(y_kernel, y_torch, False)
+    assert_equal_tensors(h_kernel, h_torch, False)
