@@ -14,17 +14,20 @@ import torch.nn.functional as F
 from lm_engine.accelerator import Accelerator
 from lm_engine.enums import Kernel
 from lm_engine.kernels import enable_kernels, is_kernel_allowed
+from lm_engine.modeling_utils.activations import get_activation_function
 from lm_engine.modeling_utils.mlp_blocks.moe.experts import ColumnParallelExperts, RowParallelExperts
 from tests.layers.utils import assert_equal_tensors
 from tests.utils import skip_test_if_device_unavailable
 
 
 _SEED = 42
+_NUM_TOKENS = 7
 
 
 def _run_experts(
     c_fc: ColumnParallelExperts,
     c_proj: RowParallelExperts,
+    act: torch.nn.Module,
     x: torch.Tensor,
     router_weights: torch.Tensor,
     selected_experts: torch.Tensor,
@@ -51,7 +54,7 @@ def _run_experts(
             sorted_scattered_idxs=sorted_scattered_idxs,
             expert_offsets=expert_offsets,
         )
-        x = F.gelu(x)
+        x = act(x)
         x = c_proj(
             x=x,
             num_experts_per_token=1,
@@ -66,7 +69,7 @@ def _run_experts(
 
         x = x[batch_index]
         x = c_fc(x=x, expert_frequency=expert_frequency)
-        x = F.gelu(x)
+        x = act(x)
         x = c_proj(x=x, expert_frequency=expert_frequency)
 
         x = x * batch_gates.unsqueeze(-1)
@@ -77,53 +80,95 @@ def _run_experts(
 
 
 def _generate_args() -> list:
-    return list(
+    # mirrors xma's own tests/layers/moe_test.py::_generate_args (minus kernel_backend/is_compiling, which
+    # don't apply here - lm_engine dispatches scattermoe via Kernel.scattermoe, not a KernelBackend argument)
+    args = list(
         product(
             [torch.float32, torch.float16, torch.bfloat16],  # dtype
-            [4, 8],  # num_experts
+            [2, 4, 6, 8],  # num_experts
             [2, 4],  # num_experts_per_tok
-            [7, 128],  # num_tokens
+            [2048],  # hidden_size
+            [8192],  # intermediate_size
+            [True, False],  # is_glu
         )
     )
 
+    args += list(
+        product(
+            [torch.float32, torch.float16, torch.bfloat16],  # dtype
+            [128],  # num_experts
+            [8],  # num_experts_per_tok
+            [576],  # hidden_size
+            [256],  # intermediate_size
+            [True, False],  # is_glu
+        )
+    )
 
-@pytest.mark.parametrize("dtype,num_experts,num_experts_per_tok,num_tokens", _generate_args())
+    return args
+
+
+@pytest.mark.parametrize(
+    "dtype,num_experts,num_experts_per_tok,hidden_size,intermediate_size,is_glu", _generate_args()
+)
 def test_scattermoe_experts_forward_backward(
-    dtype: torch.dtype, num_experts: int, num_experts_per_tok: int, num_tokens: int
+    dtype: torch.dtype,
+    num_experts: int,
+    num_experts_per_tok: int,
+    hidden_size: int,
+    intermediate_size: int,
+    is_glu: bool,
 ) -> None:
     device = torch.device("cuda")
     skip_test_if_device_unavailable(device)
 
+    if num_experts_per_tok > num_experts:
+        pytest.skip(
+            f"skipping test since number of experts per token ({num_experts_per_tok}) is more than number of "
+            f"experts ({num_experts})"
+        )
+
     Accelerator.set_seed(_SEED)
 
-    hidden_size = 64
-    intermediate_size = 128
+    activation_function = "swiglu" if is_glu else "gelu"
+    act = get_activation_function(activation_function)
 
     with torch.device(device):
         c_fc = ColumnParallelExperts(
-            num_experts=num_experts, in_features=hidden_size, out_features=intermediate_size, add_bias=False, std=0.02
+            num_experts=num_experts,
+            in_features=hidden_size,
+            out_features=2 * intermediate_size if is_glu else intermediate_size,
+            add_bias=False,
+            std=0.02,
         ).to(dtype=dtype)
         c_proj = RowParallelExperts(
             num_experts=num_experts, in_features=intermediate_size, out_features=hidden_size, add_bias=False, std=0.02
         ).to(dtype=dtype)
 
-    x = torch.randn(num_tokens, hidden_size, device=device, dtype=dtype, requires_grad=True)
+    x = torch.randn(_NUM_TOKENS, hidden_size, device=device, dtype=dtype, requires_grad=True)
     x_kernel = x.detach().clone().requires_grad_()
     x_torch = x.detach().clone().requires_grad_()
 
     selected_experts = torch.stack(
-        [torch.randperm(num_experts, device=device)[:num_experts_per_tok] for _ in range(num_tokens)]
+        [torch.randperm(num_experts, device=device)[:num_experts_per_tok] for _ in range(_NUM_TOKENS)]
     )
-    router_logits = torch.randn(num_tokens, num_experts_per_tok, device=device, dtype=dtype)
+    router_logits = torch.randn(_NUM_TOKENS, num_experts_per_tok, device=device, dtype=dtype)
     router_weights = F.softmax(router_logits.float(), dim=-1).type_as(x)
 
     with enable_kernels([Kernel.scattermoe]):
         y_kernel = _run_experts(
-            c_fc, c_proj, x_kernel, router_weights, selected_experts, num_experts, num_experts_per_tok, hidden_size
+            c_fc,
+            c_proj,
+            act,
+            x_kernel,
+            router_weights,
+            selected_experts,
+            num_experts,
+            num_experts_per_tok,
+            hidden_size,
         )
 
     y_torch = _run_experts(
-        c_fc, c_proj, x_torch, router_weights, selected_experts, num_experts, num_experts_per_tok, hidden_size
+        c_fc, c_proj, act, x_torch, router_weights, selected_experts, num_experts, num_experts_per_tok, hidden_size
     )
 
     assert_equal_tensors(
