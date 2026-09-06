@@ -12,7 +12,6 @@ from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
 from ....math import divide_if_divisible
 from ....parameter import mark_parameter_as_mup_learning_rate
-from ....utils import is_xma_available
 from ...activations import is_glu, silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
@@ -23,10 +22,6 @@ from ...position_embedding import PositionInfo
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from .config import LinearAttentionArgs
 from .op import linear_attention_torch
-
-
-if is_xma_available():
-    from kernels.layers import linear_attention
 
 
 class LinearAttention(nn.Module):

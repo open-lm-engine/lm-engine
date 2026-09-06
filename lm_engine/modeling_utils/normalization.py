@@ -14,14 +14,12 @@ from torch.distributed.tensor import Replicate
 from ..dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed, wait_for_ACT
+from ..kernels.functional import rmsnorm as xma_rmsnorm
 from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
-from ..utils import is_quack_available, is_xma_available
+from ..utils import is_quack_available
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
 
-
-if is_xma_available():
-    from kernels.functional import rmsnorm as xma_rmsnorm
 
 if is_quack_available():
     from quack.rmsnorm import rmsnorm as quack_rmsnorm
@@ -93,7 +91,6 @@ class RMSNorm(nn.RMSNorm, DTensorModule):
             return partial(quack_rmsnorm, weight=self.weight, eps=self.eps)
 
         if is_kernel_allowed(Kernel.rmsnorm) or is_kernel_allowed(Kernel.rmsnorm_memory_efficient):
-            assert is_xma_available(), "accelerated-model-architectures is not installed"
             assert not self.is_tp_enabled, "XMA RMSNorm does not support tensor parallel yet"
 
             return partial(
