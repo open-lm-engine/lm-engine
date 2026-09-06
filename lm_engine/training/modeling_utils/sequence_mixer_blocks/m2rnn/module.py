@@ -10,8 +10,7 @@ import torch
 import torch.nn as nn
 from torch.distributed.tensor import DTensor, Replicate
 
-from .....kernels import KernelBackend
-from .....kernels.layers.m2rnn import m2rnn
+from ....accelerator import KernelBackend
 from ....dtensors import tensor_to_dtensor
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
@@ -34,6 +33,7 @@ from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention
 from ...sequence_pipeline import sequence_pipeline
 from ...softplus_decay_gate import SoftplusDecayGate
 from .config import M2RNNArgs
+from .op import m2rnn
 
 
 class M2RNN(nn.Module):

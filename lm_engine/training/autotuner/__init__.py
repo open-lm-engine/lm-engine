@@ -2,6 +2,5 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from .config import GRUArgs
-from .module import GRU
-from .op import gru
+from .config import AutotuneConfig, get_cartesian_product_autotune_configs
+from .tuner import AutotunedFunction, autotune

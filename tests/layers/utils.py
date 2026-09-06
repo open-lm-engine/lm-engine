@@ -7,7 +7,6 @@ import random
 import pytest
 import torch
 
-from lm_engine.kernels import KernelBackend
 from lm_engine.kernels.utils import is_cute_dsl_available, is_triton_available
 from tests.utils import skip_test_if_device_unavailable
 
@@ -19,18 +18,20 @@ _DEFAULT_TOLERANCES = {
 }
 
 # package (not just hardware) availability required for each backend to actually have a kernel
-# registered, on top of the accelerator-type check in KernelBackend.verify_accelerator()
+# registered, on top of the accelerator-type check in KernelBackend.verify_accelerator(). Keyed by
+# `.name` (not the enum member) since this helper is shared by tests against lm_engine.kernels'
+# KernelBackend and tests against lm_engine.training's own (structurally identical but distinct) one.
 _BACKEND_AVAILABILITY_CHECKS = {
-    KernelBackend.triton: (is_triton_available, "triton"),
-    KernelBackend.cuda: (is_cute_dsl_available, "cute_dsl (cutlass)"),
+    "triton": (is_triton_available, "triton"),
+    "cuda": (is_cute_dsl_available, "cute_dsl (cutlass)"),
 }
 
 
-def skip_if_incompatible_kernel_backend(kernel_backend: KernelBackend) -> torch.device:
+def skip_if_incompatible_kernel_backend(kernel_backend) -> torch.device:
     if not kernel_backend.verify_accelerator():
         pytest.skip(f"skipping test because kernel_backend ({kernel_backend}) is incompatible with the accelerator")
 
-    availability_check = _BACKEND_AVAILABILITY_CHECKS.get(kernel_backend)
+    availability_check = _BACKEND_AVAILABILITY_CHECKS.get(kernel_backend.name)
     if availability_check is not None:
         is_available, name = availability_check
         if not is_available():
