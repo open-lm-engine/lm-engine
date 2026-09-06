@@ -14,30 +14,8 @@ from cutlass import Float32, const_expr, range_constexpr
 
 from .....autotuner import autotune
 from .....custom_op import xma_op
-from .....cute_dsl_utils import (
-    ElementwiseCUDAKernel,
-    ElementwisePackedCUDAKernel,
-    get_compiled_elementwise_cuda_kernel,
-    sigmoid,
-)
+from .....cute_dsl_utils import ElementwisePackedCUDAKernel, get_compiled_elementwise_cuda_kernel, sigmoid
 from .forward import _get_autotune_configs
-
-
-class _SwiGLUBackwardCUDAKernel(ElementwiseCUDAKernel):
-    @cute.jit
-    def compute(self, xs: list[cute.TensorSSA]) -> list[cute.TensorSSA]:
-        g, u, dy = xs
-
-        dtype = g.dtype
-        g = g.to(Float32)
-
-        g_sigmoid = sigmoid(g)
-        g_silu = g * g_sigmoid
-
-        dg = dy * u * (g_sigmoid + g_silu * (1 - g_sigmoid))
-        du = dy * g_silu
-
-        return dg.to(dtype), du.to(dtype)
 
 
 class _SwiGLUBackwardPackedCUDAKernel(ElementwisePackedCUDAKernel):
@@ -69,28 +47,6 @@ class _SwiGLUBackwardPackedCUDAKernel(ElementwisePackedCUDAKernel):
             dx[h + 1] = _dy * g_silu
 
         return [], [dx.load().to(dtype)]
-
-
-@xma_op(mutates_args={"dg", "du"})
-@autotune(configs=_get_autotune_configs(), triggers={"g.size(1)", "g.dtype"})
-def _swiglu_backward_cuda(
-    g: torch.Tensor, u: torch.Tensor, dy: torch.Tensor, dg: torch.Tensor, du: torch.Tensor, BLOCK_SIZE: int, M: int
-) -> None:
-    N = g.size(1)
-    div = math.gcd(16 // g.dtype.itemsize, N)
-
-    stream = cuda.CUstream(torch.cuda.current_stream().cuda_stream)
-
-    kernel = get_compiled_elementwise_cuda_kernel(
-        caller_op=_swiglu_backward_cuda,
-        key=(g.dtype, div, BLOCK_SIZE, M),
-        kernel_class=partial(_SwiGLUBackwardCUDAKernel, BLOCK_SIZE=BLOCK_SIZE, M=M),
-        example_tensors_list=([g, u, dy], [dg, du]),
-        divisibility_list_list=([div, div, div], [div, div]),
-        stream=stream,
-    )
-
-    kernel([g, u, dy], [dg, du], stream)
 
 
 @xma_op(mutates_args={"dx"})
