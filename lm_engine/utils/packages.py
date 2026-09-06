@@ -54,6 +54,18 @@ def is_colorlog_available() -> bool:
 
 
 try:
+    import cutlass.cute
+
+    _IS_CUTE_DSL_AVAILABLE = True
+except:
+    _IS_CUTE_DSL_AVAILABLE = False
+
+
+def is_cute_dsl_available() -> bool:
+    return _IS_CUTE_DSL_AVAILABLE
+
+
+try:
     import fla
 
     _IS_FLA_AVAILABLE = True

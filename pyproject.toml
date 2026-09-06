@@ -35,6 +35,8 @@ coda = [
 ]
 cuda = [
     "torch==2.10.0",
+    "apache-tvm-ffi==0.1.12",
+    "nvidia-cutlass-dsl==4.6.0",
 ]
 dev = [
     "pre-commit==4.6.0",

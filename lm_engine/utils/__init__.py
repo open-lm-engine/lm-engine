@@ -15,6 +15,7 @@ from .packages import (
     is_causal_conv1d_available,
     is_coda_available,
     is_colorlog_available,
+    is_cute_dsl_available,
     is_fla_available,
     is_flash_attention_2_available,
     is_flash_attention_3_available,

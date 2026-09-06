@@ -104,7 +104,7 @@ class M2RNN(nn.Module):
 
         self.decay_gate = SoftplusDecayGate(
             hidden_size=None,
-            output_size=self.num_heads,
+            output_size=self.num_f_heads,
             std=None,
             has_projection=False,
             A_init_min=config.A_init_min,
@@ -143,14 +143,14 @@ class M2RNN(nn.Module):
 
         self.state_weight = nn.Parameter(torch.empty(self.num_weight_heads, self.v_head_dim, self.v_head_dim))
         self.output_projection = ParameterizedLinear(
-            self.g_shape,
+            self.num_heads * self.v_head_dim,
             self.output_size,
             bias=False,
             std=_get_std_for_linear(
                 initializer_range=initializer_range,
                 init_method=init_method,
                 m_width=m_width,
-                fan_in=self.g_shape,
+                fan_in=self.num_heads * self.v_head_dim,
                 num_layers=num_layers,
                 use_depth_scaled_init=use_depth_scaled_init,
             ),
@@ -259,7 +259,9 @@ class M2RNN(nn.Module):
                 layer_idx=self.layer_idx,
             )
 
-        g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-1)
+        g = g.view(*g.size()[:-1], self.num_g_heads, self.v_head_dim)
+        g = g.repeat_interleave(self.num_heads // self.num_g_heads, dim=-2)
+        g = g.flatten(-2, -1)
 
         x = x.flatten(-2, -1)
         x = x * silu(g)
@@ -274,7 +276,7 @@ class M2RNN(nn.Module):
     @torch.no_grad()
     def reset_parameters(self) -> None:
         W = torch.eye(self.v_head_dim)
-        W = W[None, ...].expand(self.num_heads, -1, -1)
+        W = W[None, ...].expand(self.num_weight_heads, -1, -1)
 
         if isinstance(self.state_weight, DTensor):
             W = tensor_to_dtensor(
