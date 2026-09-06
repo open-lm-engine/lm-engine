@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from .base import get_base_activation
 from .glu import get_glu_activation, is_glu
+from .swiglu import swiglu, swiglu_packed
 from .utils import clip_gradients, sigmoid, silu, tanh
 
 

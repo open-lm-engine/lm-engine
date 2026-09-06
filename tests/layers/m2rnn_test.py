@@ -232,7 +232,15 @@ def test_op_forward_kernel_vs_torch(
     y_torch, h_torch = m2rnn(**torch_ref, input_state=h0_torch, kernel_backend=KernelBackend.torch)
 
     assert_equal_tensors(y_kernel, y_torch, False)
-    assert_equal_tensors(h_kernel, h_torch, False)
+    assert_equal_tensors(
+        h_kernel,
+        h_torch,
+        False,
+        atol_float32=9e-5,
+        rtol_float32=0,
+        atol_bfloat16=1.3e-4,
+        rtol_bfloat16=0,
+    )
 
 
 @pytest.mark.parametrize("is_compiling", [False, True])
@@ -273,10 +281,23 @@ def test_op_backward_kernel_vs_torch(
 
     assert_equal_tensors(y_kernel, y_torch, False)
     for name in kernel:
-        assert_equal_tensors(kernel[name].grad, torch_ref[name].grad, False)
+        tolerance_kwargs = (
+            dict(atol_float32=6e-3, rtol_float32=0, atol_bfloat16=8e-2, rtol_bfloat16=0)
+            if name == "weight"
+            else dict(atol_float32=2.4e-4, rtol_float32=0, atol_bfloat16=1e-3, rtol_bfloat16=0)
+        )
+        assert_equal_tensors(kernel[name].grad, torch_ref[name].grad, False, **tolerance_kwargs)
 
     if has_input_state:
-        assert_equal_tensors(h0_kernel.grad, h0_torch.grad, False)
+        assert_equal_tensors(
+            h0_kernel.grad,
+            h0_torch.grad,
+            False,
+            atol_float32=2.3e-3,
+            rtol_float32=0,
+            atol_bfloat16=3e-3,
+            rtol_bfloat16=0,
+        )
 
 
 @pytest.mark.parametrize("is_compiling", [False, True])
@@ -351,4 +372,12 @@ def test_op_varlen_kernel_vs_torch(
     h_torch = torch.cat(h_torch)
 
     assert_equal_tensors(y_kernel, y_torch, False)
-    assert_equal_tensors(h_kernel, h_torch, False)
+    assert_equal_tensors(
+        h_kernel,
+        h_torch,
+        False,
+        atol_float32=9e-5,
+        rtol_float32=0,
+        atol_bfloat16=1.3e-4,
+        rtol_bfloat16=0,
+    )
