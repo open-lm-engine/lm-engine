@@ -74,7 +74,7 @@ def _make_m2rnn(device: torch.device) -> M2RNN:
     return m2rnn
 
 
-def test_triton_forward_vs_torch_forward_prefill() -> None:
+def test_triton_prefill_vs_torch_prefill() -> None:
     device = _skip_unless_m2rnn_triton_available()
     m2rnn = _make_m2rnn(device)
 
@@ -89,7 +89,7 @@ def test_triton_forward_vs_torch_forward_prefill() -> None:
     assert_close(out_k, out_f, rtol=1e-3, atol=1e-3)
 
 
-def test_triton_forward_vs_torch_forward_decode() -> None:
+def test_triton_decode_vs_torch_decode() -> None:
     device = _skip_unless_m2rnn_triton_available()
     m2rnn = _make_m2rnn(device)
 
@@ -97,8 +97,6 @@ def test_triton_forward_vs_torch_forward_decode() -> None:
     x = torch.randn(_BATCH, _PREFILL_LEN, _HIDDEN_SIZE, device=device)
     x_gen = torch.randn(_BATCH, 1, _HIDDEN_SIZE, device=device)
 
-    # seed the cache with a prefill, then compare a single incremental decoding step between the
-    # two paths
     with enable_kernels([Kernel.m2rnn]):
         cache_k = GenerationCache()
         m2rnn(x, cache_params=cache_k)
@@ -111,7 +109,7 @@ def test_triton_forward_vs_torch_forward_decode() -> None:
     assert_close(out_gen_k, out_gen_f, rtol=1e-3, atol=1e-3)
 
 
-def test_triton_forward_vs_torch_forward_backward() -> None:
+def test_triton_vs_torch_forward_backward() -> None:
     device = _skip_unless_m2rnn_triton_available()
     m2rnn = _make_m2rnn(device)
 
@@ -135,7 +133,7 @@ def test_triton_forward_vs_torch_forward_backward() -> None:
     assert_close(x_k.grad, x_f.grad, rtol=1e-3, atol=1e-3)
 
 
-def test_m2rnn_torch_chunked_matches_full_sequence() -> None:
+def test_torch_prefill_continuation() -> None:
     torch.manual_seed(0)
 
     batch_size, sequence_length = 2, 10
