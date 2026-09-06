@@ -18,6 +18,7 @@ from .utils import is_torch_neuronx_available, is_torch_xla_available
 
 if is_torch_xla_available():
     from torch_xla.core.xla_model import get_rng_state as xla_get_rng_state
+    from torch_xla.core.xla_model import mark_step as xla_mark_step
     from torch_xla.core.xla_model import set_rng_state as xla_set_rng_state
     from torch_xla.core.xla_model import xla_device
 
@@ -211,3 +212,16 @@ class Accelerator(Enum):
             return "neuron"
 
         return "inductor"
+
+    @staticmethod
+    def synchronize() -> None:
+        accelerator = Accelerator.get_accelerator()
+
+        if accelerator in [Accelerator.cuda, Accelerator.rocm]:
+            torch.cuda.synchronize()
+        elif accelerator == Accelerator.mps:
+            torch.mps.synchronize()
+        elif accelerator == Accelerator.tpu:
+            xla_mark_step()
+        elif accelerator == Accelerator.trainium:
+            torch.neuron.synchronize()
