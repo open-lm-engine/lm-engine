@@ -7,6 +7,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from ....accelerator import KernelBackend
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
@@ -16,7 +17,6 @@ from ....parameter import (
     mark_parameter_as_mup_learning_rate,
     mark_parameter_as_no_weight_decay,
 )
-from ....utils import is_xma_available
 from ...activations import get_activation_function, is_glu, silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
@@ -26,11 +26,7 @@ from ...normalization import get_normalization_function
 from ...position_embedding import PositionInfo
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from .config import RNNArgs
-from .op import rnn_torch
-
-
-if is_xma_available():
-    from xma.layers import rnn
+from .op import rnn
 
 
 class RNN(nn.Module):
@@ -187,20 +183,15 @@ class RNN(nn.Module):
 
         x = x.view(*x.size()[:-1], -1, self.state_head_dim)
 
-        if is_kernel_allowed(Kernel.rnn):
-            x, h = rnn(
-                input=x,
-                weight=self.state_weight,
-                input_state=h,
-                gradient_clipping=self.gradient_clipping,
-                cu_seqlens=cu_seqlens,
-                max_seqlen=max_seqlen,
-            )
-        else:
-            assert cu_seqlens is None
-            assert max_seqlen is None
-
-            x, h = rnn_torch(x=x, state_weight=self.state_weight, h0=h, gradient_clipping=self.gradient_clipping)
+        x, h = rnn(
+            input=x,
+            weight=self.state_weight,
+            input_state=h,
+            gradient_clipping=self.gradient_clipping,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+            kernel_backend=None if is_kernel_allowed(Kernel.rnn) else KernelBackend.torch,
+        )
 
         if not self.use_padding_free_transformer and attention_mask is not None:
             x = unpack_sequence(inputs=x, cu_seqlens=cu_seqlens, output_shape=(B, S, *x.size()[1:]))

@@ -12,7 +12,7 @@ from .gru import GRU, GRUArgs
 from .linear_attention import LinearAttention, LinearAttentionArgs
 from .m2rnn import M2RNN, M2RNNArgs, m2rnn
 from .mamba2 import Mamba2, Mamba2Args
-from .rnn import RNN, RNNArgs
+from .rnn import RNN, RNNArgs, rnn
 from .softmax_attention import (
     SoftmaxAttention,
     SoftmaxAttentionArgs,
