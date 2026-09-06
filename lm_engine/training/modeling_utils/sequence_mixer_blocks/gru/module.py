@@ -7,7 +7,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from ....accelerator import KernelBackend
+from .....kernels import KernelBackend
+from .....kernels.layers.gru import gru
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
@@ -26,7 +27,6 @@ from ...normalization import get_normalization_function
 from ...position_embedding import PositionInfo
 from ...sequence_packing import compute_cu_seqlens_and_max_seqlen_from_attention_mask, pack_sequence, unpack_sequence
 from .config import GRUArgs
-from .op import gru
 
 
 class GRU(nn.Module):

@@ -6,12 +6,12 @@ import pytest
 import torch
 from torch.testing import assert_close
 
-from lm_engine.accelerator import Accelerator
-from lm_engine.arguments import KernelArgs
-from lm_engine.enums import Kernel
-from lm_engine.kernels import enable_kernels
-from lm_engine.modeling_utils.normalization import RMSNorm
-from lm_engine.utils import is_quack_available
+from lm_engine.training.accelerator import Accelerator
+from lm_engine.training.arguments import KernelArgs
+from lm_engine.training.enums import Kernel
+from lm_engine.training.kernels import enable_kernels
+from lm_engine.training.modeling_utils.normalization import RMSNorm
+from lm_engine.training.utils import is_quack_available
 from tests.utils import skip_test_if_device_unavailable
 
 

@@ -7,7 +7,7 @@ import subprocess
 import pytest
 import torch
 
-from lm_engine.utils import (
+from lm_engine.training.utils import (
     is_flash_attention_2_available,
     is_flash_attention_3_available,
     is_flash_attention_4_available,

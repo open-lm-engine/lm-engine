@@ -9,8 +9,8 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from lm_engine.accelerator import KernelBackend
-from lm_engine.modeling_utils.sequence_packing.op import pack_sequence, unpack_sequence
+from lm_engine.kernels import KernelBackend
+from lm_engine.kernels.functional import pack_sequence, unpack_sequence
 from tests.layers.utils import assert_equal_tensors, get_duplicated_tensors, skip_if_incompatible_kernel_backend
 
 

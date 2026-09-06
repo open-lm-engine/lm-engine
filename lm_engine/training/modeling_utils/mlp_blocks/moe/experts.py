@@ -21,7 +21,7 @@ from ...linear import ColumnParallelLinear, RowParallelLinear
 
 
 if is_triton_available():
-    from .triton_implementation import down_projection_experts, up_projection_experts
+    from .....kernels.layers.moe.triton_implementation import down_projection_experts, up_projection_experts
 
 
 class SharedExpertsColumnParallelLinear(ColumnParallelLinear):

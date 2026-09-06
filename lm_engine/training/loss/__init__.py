@@ -2,8 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from .cross_entropy import cross_entropy
-from .fused_linear_cross_entropy import fused_linear_cross_entropy
+from ...kernels.functional import cross_entropy, fused_linear_cross_entropy
 from .loss import (
     add_aux_loss,
     clear_aux_loss,

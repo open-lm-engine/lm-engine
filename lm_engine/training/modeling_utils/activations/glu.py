@@ -7,9 +7,9 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from ....kernels.functional import swiglu_packed
 from ...kernels import Kernel, is_kernel_allowed, wait_for_ACT
 from .base import get_base_activation
-from .swiglu import swiglu_packed
 
 
 _GLU_BASE_MAPPING = {

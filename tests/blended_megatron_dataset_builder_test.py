@@ -9,19 +9,19 @@ import numpy as np
 import pytest
 import torch
 
-from lm_engine.data.megatron.bin import get_bin_path
-from lm_engine.data.megatron.blended_dataset import BlendedDataset
-from lm_engine.data.megatron.blended_megatron_dataset_builder import (
+from lm_engine.training.data.megatron.bin import get_bin_path
+from lm_engine.training.data.megatron.blended_dataset import BlendedDataset
+from lm_engine.training.data.megatron.blended_megatron_dataset_builder import (
     _get_blend_from_list,
     _get_num_samples_per_prefix,
     _get_sizes_for_blend,
     _resolve_idx_path,
     build,
 )
-from lm_engine.data.megatron.concatenated_dataset import ConcatenatedDataset
-from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
-from lm_engine.data.megatron.utils import compile_helpers, normalize
-from lm_engine.parallel import ProcessGroupManager
+from lm_engine.training.data.megatron.concatenated_dataset import ConcatenatedDataset
+from lm_engine.training.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
+from lm_engine.training.data.megatron.utils import compile_helpers, normalize
+from lm_engine.training.parallel import ProcessGroupManager
 
 from .utils import slow_test
 

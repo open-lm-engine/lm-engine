@@ -8,8 +8,8 @@ from typing import Callable
 import pytest
 import torch
 
-from lm_engine.accelerator import Accelerator, KernelBackend
-from lm_engine.loss import fused_linear_cross_entropy
+from lm_engine.kernels import Accelerator, KernelBackend
+from lm_engine.kernels.functional import fused_linear_cross_entropy
 from tests.layers.utils import (
     assert_equal_tensors,
     get_2d_tensor_sizes,

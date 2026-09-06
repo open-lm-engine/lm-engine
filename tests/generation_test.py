@@ -5,7 +5,7 @@
 import pytest
 import torch
 
-from lm_engine.hf_adapter import LLMAdapter_HF
+from lm_engine.training.hf_adapter import LLMAdapter_HF
 
 from .utils import (
     from_config,

@@ -5,11 +5,11 @@
 import pytest
 import torch
 
-from lm_engine.accelerator import KernelBackend
-from lm_engine.enums import Kernel
-from lm_engine.generation_cache import GenerationCache
-from lm_engine.kernels import enable_kernels
-from lm_engine.modeling_utils.sequence_mixer_blocks import RNN, RNNArgs, rnn
+from lm_engine.kernels import KernelBackend
+from lm_engine.training.enums import Kernel
+from lm_engine.training.generation_cache import GenerationCache
+from lm_engine.training.kernels import enable_kernels
+from lm_engine.training.modeling_utils.sequence_mixer_blocks import RNN, RNNArgs, rnn
 from tests.layers.utils import assert_equal_tensors, get_duplicated_tensors, skip_if_incompatible_kernel_backend
 
 

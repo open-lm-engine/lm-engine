@@ -8,12 +8,12 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from lm_engine.accelerator import Accelerator
-from lm_engine.enums import Kernel
-from lm_engine.kernels import enable_kernels, is_kernel_allowed
-from lm_engine.modeling_utils import AttentionMaskInfo
-from lm_engine.modeling_utils.activations import get_activation_function
-from lm_engine.modeling_utils.mlp_blocks.moe.experts import ColumnParallelExperts, RowParallelExperts
+from lm_engine.training.accelerator import Accelerator
+from lm_engine.training.enums import Kernel
+from lm_engine.training.kernels import enable_kernels, is_kernel_allowed
+from lm_engine.training.modeling_utils import AttentionMaskInfo
+from lm_engine.training.modeling_utils.activations import get_activation_function
+from lm_engine.training.modeling_utils.mlp_blocks.moe.experts import ColumnParallelExperts, RowParallelExperts
 from tests.utils import (
     assert_equal_tensors,
     from_config,

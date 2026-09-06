@@ -6,13 +6,12 @@ import torch
 import torch.nn.functional as F
 from torch.distributed.tensor import DTensor, Replicate, Shard
 
+from ...kernels.functional import cross_entropy, fused_linear_cross_entropy
 from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..parallel import ProcessGroupManager
 from ..utils import is_coda_available
-from .cross_entropy import cross_entropy
-from .fused_linear_cross_entropy import fused_linear_cross_entropy
 
 
 if is_coda_available():

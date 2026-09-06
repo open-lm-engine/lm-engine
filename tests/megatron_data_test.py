@@ -8,8 +8,12 @@ import tempfile
 import numpy as np
 import torch
 
-from lm_engine.data.megatron.bin import get_bin_path
-from lm_engine.data.megatron.indexed_dataset import MMapIndexedDataset, MMapIndexedDatasetBuilder, get_idx_path
+from lm_engine.training.data.megatron.bin import get_bin_path
+from lm_engine.training.data.megatron.indexed_dataset import (
+    MMapIndexedDataset,
+    MMapIndexedDatasetBuilder,
+    get_idx_path,
+)
 
 
 def _build_dataset(bin_path: str, idx_path: str, num_documents: int, repeated_document: np.ndarray) -> None:
