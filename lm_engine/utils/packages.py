@@ -234,18 +234,6 @@ def is_wandb_available() -> bool:
 
 
 try:
-    import xma
-
-    _IS_XMA_AVAILABLE = True
-except:
-    _IS_XMA_AVAILABLE = False
-
-
-def is_xma_available() -> bool:
-    return _IS_XMA_AVAILABLE
-
-
-try:
     import zstandard
 
     _IS_ZSTANDARD_AVAILABLE = True

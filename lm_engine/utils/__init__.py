@@ -30,7 +30,6 @@ from .packages import (
     is_torchao_available,
     is_triton_available,
     is_wandb_available,
-    is_xma_available,
     is_zstandard_available,
 )
 from .safetensors import SafeTensorsWeightsManager
