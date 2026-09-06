@@ -63,6 +63,24 @@ def get_duplicated_tensors(
     return a, b
 
 
+def get_1d_tensor_sizes(
+    log_max_power_of_2: int = 15, max_offset: int = 10, num_not_powers_of_2: int = 50
+) -> list[int]:
+    """verbatim port of xma's own tests/utils.py::get_1d_tensor_sizes."""
+
+    rng = random.Random(0)
+    sizes = set()
+    # powers of 2
+    for i in range(log_max_power_of_2):
+        start = 2**i
+        for j in range(max_offset):
+            sizes.add(start + j)
+    # not powers of 2
+    for _ in range(num_not_powers_of_2):
+        sizes.add(3000 + rng.randint(-1000, 1000))
+    return list(sizes)
+
+
 def get_2d_tensor_sizes(
     log_max_power_of_2: int = 15, max_offset: int = 10, num_not_powers_of_2: int = 50
 ) -> list[tuple[int, int]]:
