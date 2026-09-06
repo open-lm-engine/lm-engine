@@ -2,6 +2,8 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
+import random
+
 import pytest
 import torch
 
@@ -41,15 +43,42 @@ def skip_if_incompatible_kernel_backend(kernel_backend: KernelBackend) -> torch.
 
 
 def get_duplicated_tensors(
-    shape: tuple[int, ...], device: torch.device, dtype: torch.dtype, std: float = 0.01, requires_grad: bool = True
+    shape: tuple[int, ...],
+    device: torch.device,
+    dtype: torch.dtype,
+    std: float | None = 0.01,
+    requires_grad: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """2 leaf tensors with identical values but independent autograd graphs, so a kernel path and a
-    torch path can be run (and backpropagated) without their gradients interfering."""
+    torch path can be run (and backpropagated) without their gradients interfering. std=None (unlike
+    the 0.01 default) matches xma's own get_random_duplicated_tensors: integer values in [-8, 8)."""
 
-    base = torch.randn(shape, device=device, dtype=dtype) * std
+    if std is None:
+        base = torch.randint(-8, 8, shape, device=device, dtype=dtype)
+    else:
+        base = torch.randn(shape, device=device, dtype=dtype) * std
+
     a = base.clone().requires_grad_(requires_grad)
     b = base.clone().requires_grad_(requires_grad)
     return a, b
+
+
+def get_2d_tensor_sizes(
+    log_max_power_of_2: int = 15, max_offset: int = 10, num_not_powers_of_2: int = 50
+) -> list[tuple[int, int]]:
+    """verbatim port of xma's own tests/utils.py::get_2d_tensor_sizes."""
+
+    rng = random.Random(0)
+    sizes = set()
+    # powers of 2
+    for i in range(log_max_power_of_2):
+        start = 2**i
+        for j in range(max_offset):
+            sizes.add((start + j, start + j))
+    # not powers of 2
+    for _ in range(num_not_powers_of_2):
+        sizes.add((3000 + rng.randint(-1000, 1000), 3000 + rng.randint(-1000, 1000)))
+    return list(sizes)
 
 
 def assert_equal_tensors(x: torch.Tensor, y: torch.Tensor, exact_match: bool, **kwargs) -> None:
