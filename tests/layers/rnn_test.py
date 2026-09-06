@@ -151,6 +151,7 @@ def _get_op_level_tensors(
 @pytest.mark.parametrize("has_input_state", [False, True])
 @pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
 @pytest.mark.parametrize("dtype", _DTYPES)
+@torch._dynamo.config.patch(recompile_limit=1024)
 def test_op_forward_kernel_vs_torch(
     dtype: torch.dtype, problem_shape: tuple[int, int, int], has_input_state: bool, is_compiling: bool
 ) -> None:
@@ -183,6 +184,7 @@ def test_op_forward_kernel_vs_torch(
 @pytest.mark.parametrize("has_input_state", [False, True])
 @pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
 @pytest.mark.parametrize("dtype", _DTYPES)
+@torch._dynamo.config.patch(recompile_limit=1024)
 def test_op_backward_kernel_vs_torch(
     dtype: torch.dtype, problem_shape: tuple[int, int, int], has_input_state: bool, is_compiling: bool
 ) -> None:
@@ -220,6 +222,7 @@ def test_op_backward_kernel_vs_torch(
 @pytest.mark.parametrize("has_input_state", [False, True])
 @pytest.mark.parametrize("problem_shape", _PROBLEM_SHAPES)
 @pytest.mark.parametrize("dtype", _DTYPES)
+@torch._dynamo.config.patch(recompile_limit=1024)
 def test_op_varlen_kernel_vs_torch(
     dtype: torch.dtype, problem_shape: tuple[int, int, int], has_input_state: bool, is_compiling: bool
 ) -> None:
