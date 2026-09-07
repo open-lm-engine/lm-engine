@@ -2,7 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from ..math import compute_p_norm
+from ...math import compute_p_norm
 from .activations import (
     clamp,
     leaky_relu,
