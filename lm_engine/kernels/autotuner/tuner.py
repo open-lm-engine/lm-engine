@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import inspect
 from collections import defaultdict
+from pathlib import Path
 from typing import Any, Callable
 
 import torch
@@ -18,6 +19,7 @@ from .config import AutotuneConfig
 _XMA_PRINT_AUTOTUNING = get_boolean_env_variable("XMA_PRINT_AUTOTUNING", False)
 _SEPARATOR = "."
 _DEFAULT_WARMUP_ITERATIONS = 5
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _BENCHMARK_ITERATIONS = 10
 
 
@@ -83,7 +85,13 @@ class AutotunedFunction:
         self.functional_triggers = functional_triggers
         self.reset_to_zero = reset_to_zero
 
-        self.filename = inspect.stack()[2].filename.rsplit("xma", 1)[1][1:]
+        caller_path = Path(inspect.stack()[2].filename).resolve()
+
+        try:
+            self.filename = str(caller_path.relative_to(_REPO_ROOT))
+        except ValueError:
+            self.filename = str(caller_path)
+
         self.function_hash = f"{self.filename}->{function.__name__}"
 
         self.function_cache = {}
