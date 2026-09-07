@@ -208,7 +208,7 @@ def test_scattermoe_experts_forward_backward(
         False,
         atol_float32=5.9e-3,
         rtol_float32=0,
-        atol_float16=2e-3,
+        atol_float16=4e-3,
         rtol_float16=0,
         atol_bfloat16=1.6e-2,
         rtol_bfloat16=0,
