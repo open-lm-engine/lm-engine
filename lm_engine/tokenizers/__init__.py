@@ -4,11 +4,9 @@
 
 from transformers import AutoTokenizer
 
-from .alpha_numeric import AlphaNumericTokenizer
 
-
-_CUSTOM_TOKENIZER_CLASS_MAP = {AlphaNumericTokenizer.__name__: AlphaNumericTokenizer}
-TOKENIZER_TYPE = AutoTokenizer | AlphaNumericTokenizer
+_CUSTOM_TOKENIZER_CLASS_MAP = {}
+TOKENIZER_TYPE = AutoTokenizer
 
 
 def get_tokenizer(tokenizer_class_name: str, tokenizer_name: str, **tokenizer_class_args: dict) -> TOKENIZER_TYPE:

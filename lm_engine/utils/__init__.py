@@ -2,7 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from .cpp_extension import compile_cpp_extension
 from .environment import environment, get_boolean_env_variable
 from .packages import (
     is_aim_available,

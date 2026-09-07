@@ -6,7 +6,6 @@
 import torch
 
 from ...utils import (
-    compile_cpp_extension,
     environment,
     get_boolean_env_variable,
     is_aim_available,
@@ -30,6 +29,7 @@ from ...utils import (
     is_wandb_available,
     is_zstandard_available,
 )
+from .cpp_extension import compile_cpp_extension
 from .generation_cache import disable_generation_cache, is_generation_cache_enabled
 from .hf_hub import download_repo
 from .mixed_precision import normalize_dtype_string, string_to_torch_dtype, torch_dtype_to_string
