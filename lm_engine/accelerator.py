@@ -13,32 +13,7 @@ import numpy as np
 import torch
 from torch.profiler import ProfilerActivity
 
-
-# this module is shared by both `lm_engine.training` and `lm_engine.kernels`, so it must not import from
-# either of them - these package-availability checks are deliberately self-contained rather than reused
-# from `lm_engine.training.utils.packages` to avoid a circular import (training's own `__init__.py` eagerly
-# imports its whole model stack, which in turn needs `Accelerator`)
-try:
-    import torch_xla
-
-    _IS_TORCH_XLA_AVAILABLE = True
-except ImportError:
-    _IS_TORCH_XLA_AVAILABLE = False
-
-try:
-    import torch_neuronx
-
-    _IS_TORCH_NEURONX_AVAILABLE = True
-except ImportError:
-    _IS_TORCH_NEURONX_AVAILABLE = False
-
-
-def is_torch_xla_available() -> bool:
-    return _IS_TORCH_XLA_AVAILABLE
-
-
-def is_torch_neuronx_available() -> bool:
-    return _IS_TORCH_NEURONX_AVAILABLE
+from .utils import is_torch_neuronx_available, is_torch_xla_available
 
 
 if is_torch_xla_available():

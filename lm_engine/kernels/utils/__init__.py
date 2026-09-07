@@ -2,7 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from .env import get_boolean_env_variable
 from .packages import (
     is_causal_conv1d_available,
     is_cute_dsl_available,
