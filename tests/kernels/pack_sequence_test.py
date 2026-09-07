@@ -5,9 +5,7 @@
 from typing import Callable
 
 import pytest
-
-
-torch = pytest.importorskip("torch")
+import torch
 
 from lm_engine.kernels import KernelBackend
 from lm_engine.kernels.functional import pack_sequence, unpack_sequence

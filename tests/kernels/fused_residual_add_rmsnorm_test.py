@@ -5,9 +5,7 @@
 from typing import Callable
 
 import pytest
-
-
-torch = pytest.importorskip("torch")
+import torch
 
 from lm_engine.kernels import Accelerator, KernelBackend
 from lm_engine.kernels.functional import fused_residual_add_rmsnorm
