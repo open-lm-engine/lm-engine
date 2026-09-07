@@ -4,7 +4,6 @@
 
 import torch.nn as nn
 
-from ....kernels.functional import swiglu_packed
 from .base import get_base_activation
 from .glu import get_glu_activation, is_glu
 from .utils import clip_gradients, sigmoid, silu, tanh
