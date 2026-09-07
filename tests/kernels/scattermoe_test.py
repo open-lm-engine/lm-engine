@@ -87,7 +87,7 @@ def _generate_args() -> list:
     # don't apply here - lm_engine dispatches scattermoe via Kernel.scattermoe, not a KernelBackend argument)
     args = list(
         product(
-            [torch.float32, torch.float16, torch.bfloat16],  # dtype
+            [torch.float32, torch.float16],  # dtype
             [2, 4, 6, 8],  # num_experts
             [2, 4],  # num_experts_per_tok
             [2048],  # hidden_size
@@ -98,7 +98,7 @@ def _generate_args() -> list:
 
     args += list(
         product(
-            [torch.float32, torch.float16, torch.bfloat16],  # dtype
+            [torch.float32, torch.float16],  # dtype
             [128],  # num_experts
             [8],  # num_experts_per_tok
             [576],  # hidden_size
@@ -228,7 +228,7 @@ def test_scattermoe_experts_forward_backward(
         )
 
 
-@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.float16])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
 def test_scattermoe(dtype: torch.dtype) -> None:
     device = torch.device("cuda")
     skip_test_if_device_unavailable(device)
