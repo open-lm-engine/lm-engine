@@ -125,10 +125,10 @@ def test_scattermoe_experts_forward_backward(
     device = torch.device("cuda")
     skip_test_if_device_unavailable(device)
 
-    # the scattermoe triton kernel's tl.dot calls hardcode allow_tf32=True, but the naive torch reference
-    # path (used for comparison here) follows this global flag - disabling it isolates whether the observed
-    # float32 mismatches come from the reference path picking up TF32 too (diverging from the kernel's
-    # rounding) rather than from a real correctness bug
+    # scatter_kernel.py/group_backward_kernel.py's tl.dot calls read ALLOW_TF32 from
+    # torch.backends.cuda.matmul.allow_tf32 at call time, same as the naive torch reference path - disabling
+    # it here isolates whether the observed float32 mismatches come from TF32 rounding rather than a real
+    # correctness bug
     monkeypatch.setattr(torch.backends.cuda.matmul, "allow_tf32", False)
     monkeypatch.setattr(torch.backends.cudnn, "allow_tf32", False)
 

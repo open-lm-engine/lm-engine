@@ -36,6 +36,7 @@ def groupXtY_triton_kernel(
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
     BLOCK_K: tl.constexpr,
+    ALLOW_TF32: tl.constexpr,
 ):
     pid0 = tl.program_id(0)
     pid1 = tl.program_id(1)
@@ -92,7 +93,7 @@ def groupXtY_triton_kernel(
 
             xt_blk_ptrs += BLOCK_M * stride_xm
             dy_blk_ptrs += BLOCK_M * stride_dym
-            acc = tl.dot(xt, dy, acc, allow_tf32=True)
+            acc = tl.dot(xt, dy, acc, allow_tf32=ALLOW_TF32)
 
         DW_blk_ptrs = DW_ptr + E_idx * stride_dwe + K_block[:, None] * stride_dwk + N_block[None, :] * stride_dwn
         acc = acc.to(DW_blk_ptrs.dtype.element_ty)
@@ -125,4 +126,5 @@ def group_bwd_W(DY: torch.Tensor, X: torch.Tensor, expert_offsets: torch.Tensor,
         # K: tl.constexpr, N: tl.constexpr,
         N=DY.size(-1),
         K=X.size(-1),
+        ALLOW_TF32=torch.backends.cuda.matmul.allow_tf32,
     )

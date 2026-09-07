@@ -28,6 +28,7 @@ def _compute_expert_block(
     acc,
     no_k_mask,
     BLOCK_K,
+    ALLOW_TF32,
 ):
 
     K_block = tl.arange(0, BLOCK_K)
@@ -46,7 +47,7 @@ def _compute_expert_block(
 
         X_blk_ptrs += BLOCK_K * stride_xk
         W_blk_ptrs += BLOCK_K * stride_wk
-        acc = tl.dot(x, w, acc, allow_tf32=True)
+        acc = tl.dot(x, w, acc, allow_tf32=ALLOW_TF32)
 
     return acc
 
@@ -79,6 +80,7 @@ def scatter2scatter_triton_kernel(
     BLOCK_K: tl.constexpr,
     x_grouped,
     y_grouped,
+    ALLOW_TF32: tl.constexpr = True,
 ):
     pid = tl.program_id(0)
 
@@ -124,6 +126,7 @@ def scatter2scatter_triton_kernel(
             acc,
             no_k_mask,
             BLOCK_K,
+            ALLOW_TF32,
         )
     if y_grouped:
         M_out_idx = M_block
@@ -180,4 +183,5 @@ def scatter2scatter(
         BLOCK_M=BLOCK_M,
         x_grouped=x_grouped,
         y_grouped=y_grouped,
+        ALLOW_TF32=torch.backends.cuda.matmul.allow_tf32,
     )
