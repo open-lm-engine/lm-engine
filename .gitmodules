@@ -1,3 +1,0 @@
-[submodule "submodules/accelerated-model-architectures"]
-	path = submodules/accelerated-model-architectures
-	url = https://github.com/open-lm-engine/accelerated-model-architectures

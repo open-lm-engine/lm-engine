@@ -263,7 +263,7 @@ def _run_as_agent(args) -> None:
         "--rdzv_endpoint",
         f"{master_addr}:29500",
         "-m",
-        "lm_engine.train",
+        "lm_engine.training.train",
         "--config",
         temp_config,
     ]

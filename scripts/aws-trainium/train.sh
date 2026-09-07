@@ -3,5 +3,5 @@ torchrun --nnodes=1 \
     --node_rank=0 \
     --nproc_per_node=4 \
     --rdzv_id=101 \
-    -m lm_engine.train \
+    -m lm_engine.training.train \
     --config ${1}

@@ -6,8 +6,8 @@ from copy import deepcopy
 
 from transformers import AutoTokenizer
 
-from lm_engine.data.finetuning import BlendedDatasets, get_datasets_list
-from lm_engine.enums import DatasetSplit
+from lm_engine.training.data.finetuning import BlendedDatasets, get_datasets_list
+from lm_engine.training.enums import DatasetSplit
 
 from .utils import load_training_args_for_unit_tests
 

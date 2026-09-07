@@ -7,11 +7,11 @@ import torch
 from torch.testing import assert_close
 
 from lm_engine.accelerator import Accelerator
-from lm_engine.arguments import KernelArgs
-from lm_engine.enums import Kernel
-from lm_engine.kernels import enable_kernels
-from lm_engine.modeling_utils.normalization import RMSNorm
-from lm_engine.utils import is_quack_available, is_xma_available
+from lm_engine.training.arguments import KernelArgs
+from lm_engine.training.enums import Kernel
+from lm_engine.training.kernels import enable_kernels
+from lm_engine.training.modeling_utils.normalization import RMSNorm
+from lm_engine.training.utils import is_quack_available
 from tests.utils import skip_test_if_device_unavailable
 
 
@@ -48,9 +48,6 @@ def _run_rmsnorm(
 def test_xma_rmsnorm_equivalence(device: torch.device, dtype: torch.dtype) -> None:
     skip_test_if_device_unavailable(device)
 
-    if not is_xma_available():
-        pytest.skip("skipping test because accelerated-model-architectures is unavailable")
-
     Accelerator.set_seed(SEED)
 
     x = torch.randn(*SHAPE, device=device, dtype=dtype)
@@ -71,9 +68,6 @@ def test_xma_rmsnorm_equivalence(device: torch.device, dtype: torch.dtype) -> No
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
 def test_xma_memory_efficient_rmsnorm_equivalence(device: torch.device, dtype: torch.dtype) -> None:
     skip_test_if_device_unavailable(device)
-
-    if not is_xma_available():
-        pytest.skip("skipping test because accelerated-model-architectures is unavailable")
 
     Accelerator.set_seed(SEED)
 
@@ -135,9 +129,6 @@ def test_quack_rmsnorm_rejects_tensor_parallel() -> None:
 
 @pytest.mark.parametrize("kernel", [Kernel.rmsnorm, Kernel.rmsnorm_memory_efficient])
 def test_xma_rmsnorm_rejects_tensor_parallel(kernel: Kernel) -> None:
-    if not is_xma_available():
-        pytest.skip("skipping test because accelerated-model-architectures is unavailable")
-
     module = RMSNorm(SHAPE[-1], eps=1e-5)
     module.is_tp_enabled = True
 

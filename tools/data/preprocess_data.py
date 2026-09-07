@@ -22,13 +22,13 @@ from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
-from lm_engine.data.megatron.bin import get_bin_path
-from lm_engine.data.megatron.dtype import DType
-from lm_engine.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
-from lm_engine.defaults import MSC_PREFIX
-from lm_engine.logging_utils import log_rank_0, set_logger
 from lm_engine.tokenizers import TOKENIZER_TYPE, get_tokenizer
-from lm_engine.utils import is_ray_available, is_zstandard_available
+from lm_engine.training.data.megatron.bin import get_bin_path
+from lm_engine.training.data.megatron.dtype import DType
+from lm_engine.training.data.megatron.indexed_dataset import MMapIndexedDatasetBuilder, get_idx_path
+from lm_engine.training.defaults import MSC_PREFIX
+from lm_engine.training.logging_utils import log_rank_0, set_logger
+from lm_engine.training.utils import is_ray_available, is_zstandard_available
 
 
 if is_ray_available():

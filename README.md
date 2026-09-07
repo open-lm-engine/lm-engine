@@ -28,7 +28,7 @@ Copyright (c) 2026, Mayank Mishra
 - 🔧 **Flexible Model Architectures** — Transformer variants, MoE, Mamba2, RNNs, and hybrid architectures
 - 📦 **HuggingFace Integration** — Seamless import/export with the HuggingFace ecosystem
 - 🎯 **Training Modes** — Pretraining from scratch, full finetuning, and knowledge distillation
-- 🔥 **Custom Kernels** — High-performance Triton, CUDA, and Pallas kernels via [XMA](./submodules/accelerated-model-architectures/)
+- 🔥 **Custom Kernels** — High-performance Triton, CUDA, and Pallas kernels via [XMA](https://github.com/open-lm-engine/accelerated-model-architectures)
 - 📊 **Experiment Tracking** — Native Weights & Biases and Aim integration
 - 💾 **Efficient Checkpointing** — Async checkpointing with full state resumability
 

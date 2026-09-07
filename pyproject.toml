@@ -35,6 +35,8 @@ coda = [
 ]
 cuda = [
     "torch==2.10.0",
+    "apache-tvm-ffi==0.1.12",
+    "nvidia-cutlass-dsl==4.6.0",
 ]
 dev = [
     "pre-commit==4.6.0",
@@ -45,9 +47,6 @@ mamba2 = [
 ]
 quack = [
     "quack-kernels==0.6.1",
-]
-xma = [
-    "accelerated-model-architectures",
 ]
 tpu = [
     "google-api-core==2.31.0",
@@ -66,9 +65,6 @@ torch = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["lm_engine"]
-
-[tool.uv.sources]
-accelerated-model-architectures = { path = "submodules/accelerated-model-architectures", editable = true, extra = "xma" }
 
 [tool.isort]
 ensure_newline_before_comments = true

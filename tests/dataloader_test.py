@@ -6,14 +6,14 @@ from functools import partial
 
 from transformers import AutoTokenizer
 
-from lm_engine.data.finetuning import (
+from lm_engine.training.data.finetuning import (
     BlendedDatasets,
     BlendedDistributedSampler,
     ResumableDataLoader,
     collate_fn,
     get_datasets_list,
 )
-from lm_engine.enums import DatasetSplit
+from lm_engine.training.enums import DatasetSplit
 
 from .utils import load_training_args_for_unit_tests
 
