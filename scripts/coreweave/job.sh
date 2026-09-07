@@ -131,5 +131,5 @@ echo $DISTRIBUTED_ARGS
 
 export TRITON_PRINT_AUTOTUNING=1
 
-command="torchrun $DISTRIBUTED_ARGS -m lm_engine.train --config $config"
+command="torchrun $DISTRIBUTED_ARGS -m lm_engine.training.train --config $config"
 srun ${SRUN_ARGS} bash -c "$command"

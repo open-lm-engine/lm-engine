@@ -16,7 +16,7 @@ import ray
 from google.cloud import storage
 from tqdm import tqdm
 
-from lm_engine.defaults import MSC_PREFIX
+from lm_engine.training.defaults import MSC_PREFIX
 
 
 logging.basicConfig(

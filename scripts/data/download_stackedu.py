@@ -24,7 +24,7 @@ import pyarrow.parquet as pq
 import ray
 from tqdm import tqdm
 
-from lm_engine.defaults import MSC_PREFIX
+from lm_engine.training.defaults import MSC_PREFIX
 
 
 logging.basicConfig(
