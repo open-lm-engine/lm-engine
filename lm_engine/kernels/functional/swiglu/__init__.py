@@ -4,10 +4,10 @@
 
 import torch
 
+from ....utils import is_cute_dsl_available, is_triton_available
 from ...accelerator import KernelBackend
 from ...custom_op import CustomOp
 from ...math import divide_if_divisible
-from ...utils import is_cute_dsl_available, is_triton_available
 from .mps_implementation import _SwigluMPS
 from .torch_implementation import _swiglu_packed_torch, _swiglu_torch
 

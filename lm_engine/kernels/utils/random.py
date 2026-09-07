@@ -6,7 +6,7 @@ import random
 
 import numpy as np
 
-from .packages import is_torch_available
+from ...utils import is_torch_available
 
 
 def set_seed(seed: int) -> None:

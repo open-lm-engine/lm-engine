@@ -6,9 +6,9 @@ from typing import Sequence
 
 import torch
 
+from ....utils import is_cute_dsl_available, is_triton_available
 from ...accelerator import KernelBackend
 from ...custom_op import CustomOp
-from ...utils import is_cute_dsl_available, is_triton_available
 from .torch_implementation import _pack_torch, _unpack_torch
 
 

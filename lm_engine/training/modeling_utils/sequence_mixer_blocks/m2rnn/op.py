@@ -6,7 +6,7 @@ import torch
 
 from .....kernels import KernelBackend
 from .....kernels.custom_op import CustomOp
-from .....kernels.utils import is_triton_available
+from .....utils import is_triton_available
 from .torch_implementation import _m2rnn_torch
 from .utils import _get_num_heads
 

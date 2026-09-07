@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from .utils import is_torch_available
+from ..utils import is_torch_available
 
 
 if is_torch_available():

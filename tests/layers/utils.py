@@ -7,7 +7,7 @@ import random
 import pytest
 import torch
 
-from lm_engine.kernels.utils import is_cute_dsl_available, is_triton_available
+from lm_engine.utils import is_cute_dsl_available, is_triton_available
 from tests.utils import skip_test_if_device_unavailable
 
 

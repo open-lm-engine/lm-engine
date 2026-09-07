@@ -4,8 +4,8 @@
 
 import torch
 
+from ....utils import is_triton_available
 from ...accelerator import KernelBackend, get_kernel_backend
-from ...utils import is_triton_available
 
 
 if is_triton_available():
