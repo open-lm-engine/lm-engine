@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..accelerator import Accelerator
+from ...accelerator import Accelerator
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..parallel import ProcessGroupManager

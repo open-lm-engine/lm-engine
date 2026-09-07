@@ -5,7 +5,7 @@
 import pytest
 import torch
 
-from lm_engine.training.accelerator import Accelerator
+from lm_engine.accelerator import Accelerator
 from lm_engine.training.enums import Kernel
 from lm_engine.training.kernels import enable_kernels
 from lm_engine.training.loss import get_autoregressive_language_modeling_loss

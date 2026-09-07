@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import torch
 from tqdm import tqdm
 
-from ..accelerator import Accelerator
+from ...accelerator import Accelerator
 from ..enums import ExperimentsTrackerName
 from ..parallel import ProcessGroupManager
 from ..utils import is_aim_available, is_wandb_available

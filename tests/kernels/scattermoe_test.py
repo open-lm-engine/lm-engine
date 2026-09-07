@@ -8,7 +8,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from lm_engine.training.accelerator import Accelerator
+from lm_engine.accelerator import Accelerator
 from lm_engine.training.enums import Kernel
 from lm_engine.training.kernels import enable_kernels, is_kernel_allowed
 from lm_engine.training.modeling_utils import AttentionMaskInfo

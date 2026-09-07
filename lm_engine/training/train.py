@@ -13,7 +13,7 @@ from torch.distributed.pipelining.schedules import _PipelineSchedule
 from torch.distributed.tensor.parallel import loss_parallel
 from torch.utils.data import DataLoader
 
-from .accelerator import Accelerator
+from ..accelerator import Accelerator
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer

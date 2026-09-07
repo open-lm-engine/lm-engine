@@ -7,7 +7,7 @@ from typing import Iterable
 
 import torch
 
-from ..accelerator import Accelerator
+from ...accelerator import Accelerator
 from ..enums import LossMask
 
 

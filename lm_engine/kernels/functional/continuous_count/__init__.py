@@ -4,7 +4,7 @@
 
 import torch
 
-from ...accelerator import Accelerator, KernelBackend
+from ...accelerator import KernelBackend, get_kernel_backend
 from ...utils import is_cute_dsl_available
 
 
@@ -36,7 +36,7 @@ def continuous_count(x: torch.Tensor, bins: int, *, kernel_backend: KernelBacken
     assert x.dtype in [torch.int32, torch.long]
 
     if kernel_backend is None:
-        kernel_backend = Accelerator.get_kernel_backend()
+        kernel_backend = get_kernel_backend()
     else:
         assert kernel_backend.verify_accelerator()
 

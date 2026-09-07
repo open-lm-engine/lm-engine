@@ -15,7 +15,7 @@ import torch.distributed
 from torch.distributed import DeviceMesh, ProcessGroup, init_device_mesh
 from torch.distributed._symmetric_memory import enable_symm_mem_for_group
 
-from ..accelerator import Accelerator
+from ...accelerator import Accelerator
 from ..enums import ContextParallelLoadBalancerMethod
 from ..utils import is_torch_xla_available
 

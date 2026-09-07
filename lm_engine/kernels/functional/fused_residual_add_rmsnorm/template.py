@@ -6,7 +6,7 @@ from typing import Callable
 
 import torch
 
-from ...accelerator import Accelerator
+from ....accelerator import Accelerator
 
 
 def _forward_function(

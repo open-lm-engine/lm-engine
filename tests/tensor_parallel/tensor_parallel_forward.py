@@ -8,7 +8,7 @@ import os
 import torch
 import torch.distributed
 
-from lm_engine.training.accelerator import Accelerator
+from lm_engine.accelerator import Accelerator
 from lm_engine.training.enums import Kernel
 from lm_engine.training.hf_adapter import LLMAdapter_HF, get_causal_lm_class
 from lm_engine.training.kernels import enable_kernels

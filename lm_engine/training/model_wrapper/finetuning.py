@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 import torch.distributed
 
-from ..accelerator import Accelerator
+from ...accelerator import Accelerator
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict

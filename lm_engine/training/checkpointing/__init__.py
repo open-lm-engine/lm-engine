@@ -15,7 +15,7 @@ from torch.distributed.checkpoint import FileSystemReader
 from torch.distributed.checkpoint.format_utils import _EmptyStateDictLoadPlanner
 from torch.distributed.checkpoint.state_dict_loader import _load_state_dict
 
-from ..accelerator import Accelerator
+from ...accelerator import Accelerator
 from ..arguments import DistillationArgs, TrainingArgs, UnshardingArgs
 from ..containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from ..data import ResumableDataLoader

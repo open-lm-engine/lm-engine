@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import torch
 
-from ...accelerator import Accelerator
+from ....accelerator import Accelerator
 from ...parallel import ProcessGroupManager, prepare_context_parallel_input
 
 

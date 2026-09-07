@@ -8,7 +8,7 @@ from typing import Any, Callable, Iterable, Sequence
 
 import torch
 
-from .accelerator import Accelerator, KernelBackend
+from .accelerator import KernelBackend, get_kernel_backend
 from .autotuner import AutotunedFunction
 from .constants import LIBRARY_NAME
 from .counters import increment_counter
@@ -48,7 +48,7 @@ class CustomOp(torch.autograd.Function, metaclass=_CustomOpMeta):
     @classmethod
     def run(cls, kernel_backend: KernelBackend | None = None, **kwargs) -> Any:
         if kernel_backend is None:
-            kernel_backend = Accelerator.get_kernel_backend()
+            kernel_backend = get_kernel_backend()
         else:
             assert kernel_backend.verify_accelerator()
 

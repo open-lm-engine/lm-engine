@@ -13,7 +13,32 @@ import numpy as np
 import torch
 from torch.profiler import ProfilerActivity
 
-from .utils import is_torch_neuronx_available, is_torch_xla_available
+
+# this module is shared by both `lm_engine.training` and `lm_engine.kernels`, so it must not import from
+# either of them - these package-availability checks are deliberately self-contained rather than reused
+# from `lm_engine.training.utils.packages` to avoid a circular import (training's own `__init__.py` eagerly
+# imports its whole model stack, which in turn needs `Accelerator`)
+try:
+    import torch_xla
+
+    _IS_TORCH_XLA_AVAILABLE = True
+except ImportError:
+    _IS_TORCH_XLA_AVAILABLE = False
+
+try:
+    import torch_neuronx
+
+    _IS_TORCH_NEURONX_AVAILABLE = True
+except ImportError:
+    _IS_TORCH_NEURONX_AVAILABLE = False
+
+
+def is_torch_xla_available() -> bool:
+    return _IS_TORCH_XLA_AVAILABLE
+
+
+def is_torch_neuronx_available() -> bool:
+    return _IS_TORCH_NEURONX_AVAILABLE
 
 
 if is_torch_xla_available():
@@ -24,40 +49,6 @@ if is_torch_xla_available():
 
 
 _IS_ROCM_AVAILABLE = torch.version.hip is not None
-
-
-class KernelBackend(Enum):
-    cuda = "cuda"
-    jax = "jax"
-    mps = "mps"
-    nki = "nki"
-    pallas = "pallas"
-    rocm = "rocm"
-    torch = "torch"
-    triton = "triton"
-
-    def get_compatible_accelerator(self) -> Accelerator:
-        found_accelerator = Accelerator.get_accelerator()
-
-        if self == KernelBackend.torch or (
-            self == KernelBackend.triton and found_accelerator in [Accelerator.cuda, Accelerator.rocm]
-        ):
-            return found_accelerator
-
-        mapping = {
-            KernelBackend.cuda: Accelerator.cuda,
-            KernelBackend.mps: Accelerator.mps,
-            KernelBackend.nki: Accelerator.trainium,
-            KernelBackend.pallas: Accelerator.tpu,
-            KernelBackend.rocm: Accelerator.rocm,
-        }
-
-        return mapping.get(self, None)
-
-    def verify_accelerator(self) -> bool:
-        expected_accelerator = self.get_compatible_accelerator()
-        found_accelerator = Accelerator.get_accelerator()
-        return expected_accelerator == found_accelerator
 
 
 class Accelerator(Enum):
@@ -167,22 +158,15 @@ class Accelerator(Enum):
         return state
 
     @staticmethod
-    @lru_cache
-    def get_kernel_backend() -> KernelBackend:
+    def get_core_count() -> int:
         accelerator = Accelerator.get_accelerator()
 
         if accelerator == Accelerator.cuda:
-            kernel_backend = KernelBackend.rocm if _IS_ROCM_AVAILABLE else KernelBackend.cuda
-        elif accelerator == Accelerator.mps:
-            kernel_backend = KernelBackend.mps
-        elif accelerator == Accelerator.tpu:
-            kernel_backend = KernelBackend.pallas
-        elif accelerator == Accelerator.trainium:
-            kernel_backend = KernelBackend.nki
+            sm_count = torch.cuda.get_device_properties().multi_processor_count
         else:
-            kernel_backend = KernelBackend.triton
+            raise ValueError(f"unexpected accelerator ({accelerator})")
 
-        return kernel_backend
+        return sm_count
 
     @staticmethod
     def get_profiler_activity() -> ProfilerActivity:

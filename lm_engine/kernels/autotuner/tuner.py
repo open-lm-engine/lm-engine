@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 import torch
 
-from ..accelerator import Accelerator
+from ...accelerator import Accelerator
 from ..utils import get_boolean_env_variable
 from .config import AutotuneConfig
 

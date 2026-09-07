@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from ....accelerator import Accelerator
+from .....accelerator import Accelerator
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....parameter import mark_parameter_as_mup_learning_rate

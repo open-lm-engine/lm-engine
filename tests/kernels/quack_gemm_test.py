@@ -8,7 +8,7 @@ import pytest
 import torch
 from torch.testing import assert_close as torch_assert_close
 
-from lm_engine.training.accelerator import Accelerator
+from lm_engine.accelerator import Accelerator
 from lm_engine.training.arguments import KernelArgs
 from lm_engine.training.enums import Kernel
 from lm_engine.training.kernels import enable_kernels

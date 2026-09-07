@@ -9,7 +9,7 @@ import math
 import torch
 import torch.nn.functional as F
 
-from ....accelerator import Accelerator
+from .....accelerator import Accelerator
 from ....generation_cache import GenerationCache, GenerationState, LinearCache
 from ....kernels import is_flash_attention_enabled, wait_for_ACT
 from ....math import divide_if_divisible

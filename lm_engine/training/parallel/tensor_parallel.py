@@ -5,7 +5,7 @@
 import torch
 import torch.distributed
 
-from ..accelerator import Accelerator
+from ...accelerator import Accelerator
 from .manager import ProcessGroupManager
 
 

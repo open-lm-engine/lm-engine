@@ -27,7 +27,7 @@ from torch.distributed.pipelining.schedules import (
 )
 from torch.distributed.tensor import DTensor, Shard, distribute_tensor
 
-from .accelerator import Accelerator
+from ..accelerator import Accelerator
 from .containers import ModelContainer
 from .enums import Kernel
 from .gradient_checkpointing import apply_gradient_checkpointing

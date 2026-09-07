@@ -4,7 +4,7 @@
 
 import torch
 
-from ...accelerator import Accelerator, KernelBackend
+from ...accelerator import KernelBackend, get_kernel_backend
 from ...utils import is_triton_available
 
 
@@ -41,7 +41,7 @@ def p_norm(
     assert x.dim() == 2
 
     if kernel_backend is None:
-        kernel_backend = Accelerator.get_kernel_backend()
+        kernel_backend = get_kernel_backend()
     else:
         assert kernel_backend.verify_accelerator()
 
