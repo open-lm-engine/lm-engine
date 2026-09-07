@@ -4,8 +4,8 @@
 
 import torch
 
+from ....math import ceil_divide, get_next_power_of_2
 from ...custom_op import ctx_needs_gradients, ctx_save_for_backward
-from ...math import ceil_divide, get_next_power_of_2
 from ..cross_entropy.triton_implementation import _cross_entropy_forward_backward_triton
 
 

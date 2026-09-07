@@ -5,7 +5,7 @@
 import torch
 from torch.distributed.tensor import Placement, Replicate, Shard
 
-from ..math import divide_if_divisible
+from ...math import divide_if_divisible
 from ..parallel import ProcessGroupManager
 
 

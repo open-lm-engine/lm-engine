@@ -7,7 +7,7 @@ import torch
 
 from lm_engine.kernels import KernelBackend
 from lm_engine.kernels.functional import swiglu_packed
-from lm_engine.kernels.math import ceil_divide
+from lm_engine.math import ceil_divide
 from tests.layers.utils import assert_equal_tensors, get_duplicated_tensors, skip_if_incompatible_kernel_backend
 
 

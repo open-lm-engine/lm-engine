@@ -10,8 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .....math import divide_if_divisible
 from ....kernels import is_flash_attention_enabled
-from ....math import divide_if_divisible
 from ....modeling_utils import (
     AttentionMaskInfo,
     Dropout,

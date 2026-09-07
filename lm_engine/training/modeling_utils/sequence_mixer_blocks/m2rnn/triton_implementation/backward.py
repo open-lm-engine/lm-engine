@@ -8,7 +8,7 @@ import triton.language as tl
 
 from ......kernels.custom_op import xma_op
 from ......kernels.triton_utils import clamp, matmul, tanh_backward
-from .....math import ceil_divide, get_next_power_of_2
+from ......math import ceil_divide, get_next_power_of_2
 from ..utils import _get_num_heads
 from .forward import _MAX_BLOCK_SIZE_K, _forward_single_step, _get_autotune_configs
 

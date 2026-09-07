@@ -6,8 +6,8 @@ import cutlass.cute as cute
 import torch
 from cutlass.cute.runtime import from_dlpack
 
+from ...math import get_powers_of_2
 from ..cute_dsl_utils import get_cute_dtype_from_torch_dtype
-from ..math import get_powers_of_2
 
 
 def get_fake_cute_tensor(

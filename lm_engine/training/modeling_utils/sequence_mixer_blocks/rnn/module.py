@@ -8,10 +8,10 @@ import torch
 import torch.nn as nn
 
 from .....kernels import KernelBackend
+from .....math import divide_if_divisible
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
-from ....math import divide_if_divisible
 from ....parameter import (
     mark_parameter_as_initialized,
     mark_parameter_as_mup_learning_rate,

@@ -5,7 +5,7 @@
 import triton
 import triton.language as tl
 
-from ..math import get_powers_of_2
+from ...math import get_powers_of_2
 
 
 def get_elementwise_2d_configs() -> list[triton.Config]:

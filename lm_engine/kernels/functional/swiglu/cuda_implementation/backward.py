@@ -12,6 +12,7 @@ import cutlass.cute as cute
 import torch
 from cutlass import Float32, const_expr, range_constexpr
 
+from .....math import get_powers_of_2
 from ....autotuner import AutotuneConfig, autotune
 from ....custom_op import xma_op
 from ....cute_dsl_utils import (
@@ -20,7 +21,6 @@ from ....cute_dsl_utils import (
     get_compiled_elementwise_cuda_kernel,
     sigmoid,
 )
-from ....math import get_powers_of_2
 from .forward import _get_autotune_configs
 
 

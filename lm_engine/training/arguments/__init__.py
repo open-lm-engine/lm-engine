@@ -5,6 +5,7 @@
 from argparse import ArgumentParser
 from typing import Any
 
+from ...math import divide_if_divisible
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..enums import (
     ContextParallelLoadBalancerMethod,
@@ -18,7 +19,6 @@ from ..enums import (
     TuningMethod,
 )
 from ..logging_utils import set_logger
-from ..math import divide_if_divisible
 from ..utils import load_yaml, normalize_dtype_string
 from .base import BaseArgs
 

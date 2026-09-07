@@ -6,9 +6,9 @@ import torch
 import triton
 import triton.language as tl
 
+from .....math import ceil_divide, get_next_power_of_2
 from ....autotuner import AutotuneConfig, autotune
 from ....custom_op import xma_op
-from ....math import ceil_divide, get_next_power_of_2
 from .forward import _get_autotune_configs, _get_online_autotune_configs
 
 

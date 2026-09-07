@@ -7,8 +7,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from .....math import divide_if_divisible
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
-from ....math import divide_if_divisible
 from ....utils import is_fla_available
 from ...activations import silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info

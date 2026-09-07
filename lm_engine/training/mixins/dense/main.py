@@ -7,12 +7,12 @@ from __future__ import annotations
 import torch
 from torch.distributed.tensor import DTensor, Replicate, Shard, distribute_tensor
 
+from ....math import divide_if_divisible
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...generation_cache import GenerationCache
 from ...kernels import is_kernel_allowed
 from ...loss import add_aux_loss, clear_aux_loss, get_aux_loss
-from ...math import divide_if_divisible
 from ...model_config import CommonConfig
 from ...modeling_utils import (
     AttentionMaskInfo,

@@ -7,8 +7,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from ....math import divide_if_divisible
 from ...generation_cache import GenerationCache
-from ...math import divide_if_divisible
 from ...model_config import CommonConfig
 from ...modeling_utils import (
     AttentionMaskInfo,

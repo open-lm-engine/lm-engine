@@ -12,8 +12,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
+from ..math import divide_if_divisible
 from .arguments import BaseArgs
-from .math import divide_if_divisible
 from .modeling_utils import (
     GatedDeltaNetArgs,
     GRUArgs,

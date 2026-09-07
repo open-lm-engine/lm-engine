@@ -4,7 +4,7 @@
 
 import torch
 
-from ..math import get_powers_of_2
+from ...math import get_powers_of_2
 
 
 def get_alignment(x: torch.Tensor) -> int:

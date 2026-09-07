@@ -2,7 +2,7 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from .math import get_powers_of_2
+from ..math import get_powers_of_2
 
 
 LIBRARY_NAME = "lm_engine"

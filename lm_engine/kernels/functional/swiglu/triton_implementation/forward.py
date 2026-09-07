@@ -6,8 +6,8 @@ import torch
 import triton
 import triton.language as tl
 
+from .....math import ceil_divide
 from ....custom_op import xma_op
-from ....math import ceil_divide
 from ....triton_utils import elementwise_2d_kernel, sigmoid
 
 

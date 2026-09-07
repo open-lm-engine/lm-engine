@@ -6,9 +6,9 @@ import torch
 import triton
 import triton.language as tl
 
+from .....math import get_next_power_of_2, get_powers_of_2
 from ....constants import MAX_TRITON_BLOCK_SIZE
 from ....custom_op import xma_op
-from ....math import get_next_power_of_2, get_powers_of_2
 
 
 @triton.autotune(configs=[triton.Config({}, num_warps=num_warps) for num_warps in get_powers_of_2(2, 16)], key=[])

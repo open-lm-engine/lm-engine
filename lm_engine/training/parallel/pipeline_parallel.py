@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from ..math import divide_if_divisible
+from ...math import divide_if_divisible
 from .manager import ProcessGroupManager
 
 

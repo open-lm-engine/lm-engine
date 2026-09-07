@@ -5,7 +5,7 @@
 import torch
 from transformers import GraniteMoeHybridConfig, GraniteMoeHybridForCausalLM
 
-from lm_engine.training.math import divide_if_divisible
+from lm_engine.math import divide_if_divisible
 from lm_engine.training.modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
     interleave_up_gate_tensor_for_mlp,

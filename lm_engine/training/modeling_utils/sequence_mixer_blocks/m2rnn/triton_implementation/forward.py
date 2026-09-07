@@ -8,7 +8,7 @@ import triton.language as tl
 
 from ......kernels.custom_op import xma_op
 from ......kernels.triton_utils import matmul, tanh
-from .....math import ceil_divide, get_next_power_of_2, get_powers_of_2
+from ......math import ceil_divide, get_next_power_of_2, get_powers_of_2
 
 
 _MAX_BLOCK_SIZE_K = 64

@@ -7,7 +7,7 @@ import triton
 import triton.language as tl
 
 from ......kernels.custom_op import xma_op
-from .....math import ceil_divide
+from ......math import ceil_divide
 
 
 @triton.autotune(

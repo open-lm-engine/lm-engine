@@ -4,8 +4,8 @@
 
 import torch
 
+from .....math import divide_if_divisible
 from ....custom_op import ctx_save_for_backward
-from ....math import divide_if_divisible
 from .backward import _swiglu_backward_cuda, _swiglu_packed_backward_cuda
 from .forward import _swiglu_forward_cuda, _swiglu_packed_forward_cuda
 

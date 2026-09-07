@@ -6,9 +6,9 @@ import torch
 import triton
 import triton.language as tl
 
+from ....math import get_next_power_of_2, get_powers_of_2
 from ...constants import MAX_TRITON_BLOCK_SIZE
 from ...custom_op import xma_op
-from ...math import get_next_power_of_2, get_powers_of_2
 from ...triton_utils import compute_p_norm
 
 

@@ -8,8 +8,8 @@ import torch
 import torch.nn as nn
 from torch.distributed.tensor import Replicate, Shard
 
+from ....math import divide_if_divisible
 from ...dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
-from ...math import divide_if_divisible
 from ...parallel import ProcessGroupManager
 from ..dtensor_module import DTensorModule
 from ..TP import get_module_placements

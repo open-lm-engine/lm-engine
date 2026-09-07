@@ -7,10 +7,10 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from ....math import divide_if_divisible
 from ...enums import Kernel
 from ...generation_cache import GenerationCache, GenerationState, LinearCache
 from ...kernels import is_flash_attention_enabled, is_kernel_allowed
-from ...math import divide_if_divisible
 from ...modeling_utils import (
     AttentionMaskInfo,
     PositionInfo,

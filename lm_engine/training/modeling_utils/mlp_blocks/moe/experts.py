@@ -9,10 +9,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed.tensor import Shard
 
+from .....math import divide_if_divisible
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
-from ....math import divide_if_divisible
 from ....parallel import ProcessGroupManager
 from ....parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
 from ....utils import is_triton_available
