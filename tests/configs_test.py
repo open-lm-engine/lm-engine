@@ -7,8 +7,8 @@ import os
 
 import pytest
 
-from lm_engine.arguments import DistillationArgs, TrainingArgs, UnshardingArgs
-from lm_engine.utils import load_yaml
+from lm_engine.training.arguments import DistillationArgs, TrainingArgs, UnshardingArgs
+from lm_engine.training.utils import load_yaml
 
 
 _CONFIGS_DIR = os.path.join(os.path.dirname(__file__), "..", "configs")

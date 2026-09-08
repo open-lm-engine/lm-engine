@@ -26,9 +26,9 @@ from uuid import uuid4
 import pytest
 import torch
 
-from lm_engine.arguments import TrainingArgs
-from lm_engine.logging_utils import log_rank_0
-from lm_engine.utils import load_yaml
+from lm_engine.training.arguments import TrainingArgs
+from lm_engine.training.logging_utils import log_rank_0
+from lm_engine.training.utils import load_yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

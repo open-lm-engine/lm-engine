@@ -13,10 +13,14 @@ import multistorageclient as msc
 from google.cloud import storage
 from tqdm import tqdm
 
-from lm_engine.data.megatron.bin import get_bin_path
-from lm_engine.data.megatron.indexed_dataset import MMapIndexedDataset, MMapIndexedDatasetBuilder, get_idx_path
-from lm_engine.defaults import MSC_PREFIX
-from lm_engine.utils import is_ray_available
+from lm_engine.training.data.megatron.bin import get_bin_path
+from lm_engine.training.data.megatron.indexed_dataset import (
+    MMapIndexedDataset,
+    MMapIndexedDatasetBuilder,
+    get_idx_path,
+)
+from lm_engine.training.defaults import MSC_PREFIX
+from lm_engine.training.utils import is_ray_available
 
 
 if is_ray_available():

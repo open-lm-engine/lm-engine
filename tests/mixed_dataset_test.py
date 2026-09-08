@@ -17,13 +17,13 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from lm_engine.data.megatron import Split
-from lm_engine.data.megatron.sampler import MegatronBatchSampler
-from lm_engine.data.mixed import MixedSequenceDataset, build_mixed_datasets
-from lm_engine.data.mixed.builder import _validate_sources
-from lm_engine.data.stitched.builder import build_sample_index
-from lm_engine.data.stitched.config import OrderingStrategy, StitchedDatasetConfig
-from lm_engine.data.stitched.dataset import StitchedSequenceDataset
+from lm_engine.training.data.megatron import Split
+from lm_engine.training.data.megatron.sampler import MegatronBatchSampler
+from lm_engine.training.data.mixed import MixedSequenceDataset, build_mixed_datasets
+from lm_engine.training.data.mixed.builder import _validate_sources
+from lm_engine.training.data.stitched.builder import build_sample_index
+from lm_engine.training.data.stitched.config import OrderingStrategy, StitchedDatasetConfig
+from lm_engine.training.data.stitched.dataset import StitchedSequenceDataset
 
 from .stitched_dataset_test import _make_shard, _make_stitched_seq
 

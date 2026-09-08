@@ -5,7 +5,7 @@
 import torch
 from torch.testing import assert_close
 
-from lm_engine.modeling_utils.sequence_mixer_blocks.mamba2.op import mamba2_torch
+from lm_engine.training.modeling_utils.sequence_mixer_blocks.mamba2.op import mamba2_torch
 
 
 def test_mamba2_torch_chunk_matches_recurrent_for_grouped_heads() -> None:

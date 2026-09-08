@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.optim import AdamW
 
-from lm_engine.optimization.adam_hyperball import AdamHyperball
+from lm_engine.training.optimization.adam_hyperball import AdamHyperball
 
 
 LR = 0.01

@@ -2,9 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-import torch
-
-
 try:
     import aim
 
@@ -51,6 +48,18 @@ except ImportError:
 
 def is_colorlog_available() -> bool:
     return _IS_COLORLOG_AVAILABLE
+
+
+try:
+    import cutlass.cute
+
+    _IS_CUTE_DSL_AVAILABLE = True
+except:
+    _IS_CUTE_DSL_AVAILABLE = False
+
+
+def is_cute_dsl_available() -> bool:
+    return _IS_CUTE_DSL_AVAILABLE
 
 
 try:
@@ -198,6 +207,37 @@ def is_torch_neuronx_available() -> bool:
 
 
 try:
+    import torch
+
+    _IS_TORCH_AVAILABLE = True
+except ImportError:
+    _IS_TORCH_AVAILABLE = False
+
+
+def is_torch_available() -> bool:
+    return _IS_TORCH_AVAILABLE
+
+
+_IS_JAX_AVAILABLE = None
+
+
+def is_jax_available() -> bool:
+    # deferred to the first call (instead of running at import time) so that merely importing this module
+    # never pays JAX's import cost (nor touches the XLA/PJRT runtime) in torch-only processes.
+    global _IS_JAX_AVAILABLE
+
+    if _IS_JAX_AVAILABLE is None:
+        try:
+            import jax
+
+            _IS_JAX_AVAILABLE = True
+        except ImportError:
+            _IS_JAX_AVAILABLE = False
+
+    return _IS_JAX_AVAILABLE
+
+
+try:
     import triton
 
     _IS_TRITON_AVAILABLE = True
@@ -210,6 +250,18 @@ def is_triton_available() -> bool:
 
 
 try:
+    import xma
+
+    _IS_XMA_AVAILABLE = True
+except ImportError:
+    _IS_XMA_AVAILABLE = False
+
+
+def is_xma_available() -> bool:
+    return _IS_XMA_AVAILABLE
+
+
+try:
     import wandb
 
     _IS_WANDB_AVAILABLE = True
@@ -219,18 +271,6 @@ except ImportError:
 
 def is_wandb_available() -> bool:
     return _IS_WANDB_AVAILABLE
-
-
-try:
-    import xma
-
-    _IS_XMA_AVAILABLE = True
-except:
-    _IS_XMA_AVAILABLE = False
-
-
-def is_xma_available() -> bool:
-    return _IS_XMA_AVAILABLE
 
 
 try:

@@ -13,13 +13,13 @@ import torch
 from torch.testing import assert_close
 from transformers import AutoConfig, AutoModelForCausalLM
 
-from lm_engine.arguments import TrainingArgs
-from lm_engine.hf_adapter import LLMAdapter_HF, get_causal_lm_class, is_custom_model
-from lm_engine.loss import get_autoregressive_language_modeling_loss
-from lm_engine.model_config import CommonConfig
-from lm_engine.modeling_utils import AttentionMaskInfo
-from lm_engine.models import GPTBaseConfig
-from lm_engine.utils import SafeTensorsWeightsManager, load_yaml
+from lm_engine.training.arguments import TrainingArgs
+from lm_engine.training.hf_adapter import LLMAdapter_HF, get_causal_lm_class, is_custom_model
+from lm_engine.training.loss import get_autoregressive_language_modeling_loss
+from lm_engine.training.model_config import CommonConfig
+from lm_engine.training.modeling_utils import AttentionMaskInfo
+from lm_engine.training.models import GPTBaseConfig
+from lm_engine.training.utils import SafeTensorsWeightsManager, load_yaml
 from tools.model_conversion import export_to_huggingface, import_from_huggingface
 
 

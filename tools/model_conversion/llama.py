@@ -4,14 +4,15 @@
 
 from transformers import LlamaConfig, LlamaForCausalLM
 
-from lm_engine.modeling_utils import (
+from lm_engine.math import divide_if_divisible
+from lm_engine.training.modeling_utils import (
     interleave_query_key_value_tensor_for_attention,
     interleave_up_gate_tensor_for_mlp,
     split_query_key_value_tensor_for_attention,
     split_up_gate_tensor_for_mlp,
 )
-from lm_engine.models import GPTBaseConfig
-from lm_engine.utils import SafeTensorsWeightsManager, divide_if_divisible
+from lm_engine.training.models import GPTBaseConfig
+from lm_engine.training.utils import SafeTensorsWeightsManager
 
 
 def _import_llama_config(original_config: LlamaConfig, **kwargs) -> GPTBaseConfig:

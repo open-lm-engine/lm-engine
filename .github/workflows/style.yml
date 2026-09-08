@@ -28,7 +28,6 @@ jobs:
 
       - name: Installation
         run: |
-          git submodule update --init --recursive
           curl -LsSf https://astral.sh/uv/install.sh | sh
           uv run pip install isort black pre-commit
 

@@ -6,6 +6,10 @@ import os
 from contextlib import contextmanager
 
 
+def get_boolean_env_variable(name: str, default: bool) -> bool:
+    return os.getenv(name, str(default)).lower() in ["1", "true"]
+
+
 @contextmanager
 def environment(env: dict):
     original_env = {}

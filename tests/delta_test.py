@@ -6,11 +6,11 @@ import pytest
 import torch
 from einops import repeat
 
-import lm_engine.modeling_utils.mlp_blocks.delta_mlp.module as delta_mlp_module
-from lm_engine.enums import Kernel
-from lm_engine.generation_cache import ConstantCache, GenerationCache, GenerationState, LinearCache
-from lm_engine.kernels import enable_kernels
-from lm_engine.modeling_utils import AttentionMaskInfo, DeltaMLP, DeltaMLPArgs
+import lm_engine.training.modeling_utils.mlp_blocks.delta_mlp.module as delta_mlp_module
+from lm_engine.training.enums import Kernel
+from lm_engine.training.generation_cache import ConstantCache, GenerationCache, GenerationState, LinearCache
+from lm_engine.training.kernels import enable_kernels
+from lm_engine.training.modeling_utils import AttentionMaskInfo, DeltaMLP, DeltaMLPArgs
 from lm_engine.utils import is_causal_conv1d_available, is_fla_available
 
 
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 if is_fla_available():
-    from lm_engine.modeling_utils.mlp_blocks.delta_mlp.utils import chunk_delta_rule
+    from lm_engine.training.modeling_utils.mlp_blocks.delta_mlp.utils import chunk_delta_rule
 
 
 def _leaf(tensor: torch.Tensor) -> torch.Tensor:

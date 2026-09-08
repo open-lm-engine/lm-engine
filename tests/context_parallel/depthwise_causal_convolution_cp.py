@@ -9,10 +9,10 @@ import torch
 import torch.distributed
 from torch.testing import assert_close
 
-from lm_engine.enums import Kernel
-from lm_engine.kernels import enable_kernels
-from lm_engine.modeling_utils import DepthwiseCausalConvolution
-from lm_engine.parallel import ProcessGroupManager, prepare_context_parallel_input
+from lm_engine.training.enums import Kernel
+from lm_engine.training.kernels import enable_kernels
+from lm_engine.training.modeling_utils import DepthwiseCausalConvolution
+from lm_engine.training.parallel import ProcessGroupManager, prepare_context_parallel_input
 
 
 parser = argparse.ArgumentParser()

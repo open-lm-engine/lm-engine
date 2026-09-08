@@ -4,10 +4,10 @@
 
 from transformers import AutoTokenizer
 
-from lm_engine.arguments import DatasetArgs, DistributedArgs, RandomArgs, TrainingParameters
-from lm_engine.data import get_pretraining_dataloaders
-from lm_engine.logging_utils import set_logger
-from lm_engine.parallel import ProcessGroupManager
+from lm_engine.training.arguments import DatasetArgs, DistributedArgs, RandomArgs, TrainingParameters
+from lm_engine.training.data import get_pretraining_dataloaders
+from lm_engine.training.logging_utils import set_logger
+from lm_engine.training.parallel import ProcessGroupManager
 
 
 # this is needed to print logs during preparation of dataloader
