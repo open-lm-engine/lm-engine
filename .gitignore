@@ -16,3 +16,5 @@ wandb
 # local agent memory/config
 AGENTS.md
 .agent
+*.json
+*.npz

@@ -8,12 +8,14 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from einops import rearrange
 
 from .....math import divide_if_divisible
 from .....utils import is_coda_available, is_fla_available
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import Kernel, is_kernel_allowed
+from ....loss import add_aux_loss
 from ....parallel import ProcessGroupManager
 from ....parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_per_row_hyperball
 from ...activations import get_activation_function
@@ -420,7 +422,12 @@ class DeltaMLP(nn.Module):
 
         k = self.k_proj(hidden_states)
         v = self.v_proj(hidden_states) if self.use_v_proj else hidden_states
-        b = self.b_proj(hidden_states)
+
+        b = F.linear(
+            input=hidden_states.float(),
+            weight=self.b_proj.weight.float(),
+            bias=None if self.b_proj.bias is None else self.b_proj.bias.float(),
+        )
 
         if is_cp_enabled:
             cp_world_size = ProcessGroupManager.get_context_parallel_world_size()
@@ -481,6 +488,10 @@ class DeltaMLP(nn.Module):
         # NOTE this is for an external tracer and not used during training
         if getattr(self, "_capture_beta", False):
             self._last_beta = beta.detach()
+
+        # L1 regularize betas
+        aux_loss = beta.float().mean() if self.training else None
+        add_aux_loss(aux_loss)
 
         if attention_mask_info.attention_mask is not None:
             cu_seqlens, max_seqlen = compute_cu_seqlens_and_max_seqlen_from_attention_mask(

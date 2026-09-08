@@ -20,7 +20,7 @@ import random
 import numpy as np
 import pandas as pd
 
-from lm_engine.data.megatron.indexed_dataset import MMapIndexedDataset
+from lm_engine.training.data.megatron.indexed_dataset import MMapIndexedDataset
 
 
 def find_shards(data_root: str) -> list[str]:

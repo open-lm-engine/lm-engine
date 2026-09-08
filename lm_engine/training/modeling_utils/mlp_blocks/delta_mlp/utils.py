@@ -119,6 +119,8 @@ if is_fla_available():
                 cp_context=cp_context,
                 chunk_indices=chunk_indices,
                 transpose_state_layout=transpose_state_layout,
+                cp_pipeline=False,
+                compute_in_fp32=False,
             )
             o = reduce(o, "b t h d -> b t d", "sum")
             ctx.save_for_backward(
@@ -199,6 +201,8 @@ if is_fla_available():
                 cp_context=ctx.cp_context,
                 chunk_indices=chunk_indices,
                 transpose_state_layout=ctx.transpose_state_layout,
+                cp_pipeline=False,
+                compute_in_fp32=False,
             )
 
             if ctx.initial_state_was_none:
