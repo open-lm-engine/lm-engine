@@ -1,0 +1,114 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+# Example --overrides file for `python -m lm_engine.virtual_cluster submit`.
+# Keyed by cluster id (see lm_engine/virtual_cluster/clusters.yaml) — one
+# block of overrides per cluster, all in a single file, since paths differ
+# per machine. Only the block matching --cluster is merged onto --base, and
+# any top-level config key can be overridden this way, not just
+# datasets/load_args/save_args.
+#
+#   python -m lm_engine.virtual_cluster submit --cluster rubin \
+#       --base configs/pretraining-examples/nvidia-1.yml \
+#       --overrides configs/virtual-cluster/overrides.yml \
+#       --name my-run
+
+gcp:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: scratch/cache
+        data_path:
+          - msc://mayank-nemo-cc/Diverse-QA/0
+        split: 100,0,0
+        sequence_length: 2048
+  save_args:
+    save_path: scratch/checkpoints/my-run
+    save_interval: 50
+
+rubin:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: cache
+        data_path:
+          - data/lang=Python
+        split: 98,1,1
+        sequence_length: 2048
+  save_args:
+    save_path: checkpoints/my-run
+    save_interval: 50
+
+runpod:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: cache
+        data_path:
+          - data/lang=Python
+        split: 98,1,1
+        sequence_length: 2048
+  load_args:
+    load_path: checkpoints/my-run
+    iteration: 50
+  save_args:
+    save_path: checkpoints/my-run-continued
+    save_interval: 50
+
+sky-mi350x:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: /data/cache
+        data_path:
+          - /data/lang=Python
+        split: 98,1,1
+        sequence_length: 2048
+  save_args:
+    save_path: /data/checkpoints/my-run
+    save_interval: 50
+
+sky-b200:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: /data/cache
+        data_path:
+          - /data/lang=Python
+        split: 98,1,1
+        sequence_length: 2048
+  save_args:
+    save_path: /data/checkpoints/my-run
+    save_interval: 50
+
+sky-h200:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: /data/cache
+        data_path:
+          - /data/lang=Python
+        split: 98,1,1
+        sequence_length: 2048
+  save_args:
+    save_path: /data/checkpoints/my-run
+    save_interval: 50

@@ -18,9 +18,22 @@ way that cluster's `kind` expects:
     nvidia_gpu  -> single-node torchrun (nproc-per-node auto-detected),
     amd_gpu        also backgrounded with nohup
 
+An --overrides YAML is keyed by cluster id, one block of overrides per
+cluster, so all clusters' dataset/load/save args for an experiment live in a
+single file:
+
+    rubin:
+      datasets: [...]
+      save_args: {save_path: checkpoints/my-run, save_interval: 50}
+    sky-b200:
+      datasets: [...]
+      save_args: {save_path: /data/checkpoints/my-run, save_interval: 50}
+
+Only the block matching --cluster is merged onto --base.
+
 Usage:
 
-    # base config + a full overrides YAML (datasets / load_args / save_args / ...)
+    # base config + an overrides YAML keyed by cluster id (see above)
     python -m lm_engine.virtual_cluster submit --cluster rubin \\
         --base configs/pretraining-examples/nvidia-1.yml \\
         --overrides my_overrides.yml \\
@@ -124,7 +137,12 @@ def _scp(local_path: str, host: str, remote_path: str) -> None:
 def _build_config(args) -> dict:
     config = _load_yaml(args.base)
     for override_path in args.overrides:
-        config = _deep_merge(config, _load_yaml(override_path))
+        by_cluster = _load_yaml(override_path)
+        if args.cluster not in by_cluster:
+            raise SystemExit(
+                f"{override_path}: no entry for cluster {args.cluster!r} (found: {', '.join(sorted(by_cluster))})"
+            )
+        config = _deep_merge(config, by_cluster[args.cluster])
     for dotpath, raw_value in args.set:
         _deep_set(config, dotpath, yaml.safe_load(raw_value))
     return config
@@ -319,7 +337,10 @@ def main() -> None:
     _add_common_cluster_args(p_submit)
     p_submit.add_argument("--base", required=True, help="base training config YAML")
     p_submit.add_argument(
-        "--overrides", action="append", default=[], help="overrides YAML to merge on top of --base (repeatable)"
+        "--overrides",
+        action="append",
+        default=[],
+        help="overrides YAML keyed by cluster id (only the --cluster's entry is merged onto --base); repeatable",
     )
     p_submit.add_argument(
         "--set",
