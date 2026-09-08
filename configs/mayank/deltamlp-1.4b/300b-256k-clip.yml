@@ -675,8 +675,7 @@ optimizer_args:
     hybrid_ns: true
     targets: ["attention"]
     mode: 'full'
-    patterns:
-      attention: "(K B H) D -> (K B) H D"
+    split_attention_heads: true
 
 lr_scheduler_args:
   lr_decay_style: cosine

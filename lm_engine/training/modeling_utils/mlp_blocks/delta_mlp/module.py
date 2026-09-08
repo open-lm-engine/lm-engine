@@ -17,7 +17,7 @@ from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import Kernel, is_kernel_allowed
 from ....loss import add_aux_loss
 from ....parallel import ProcessGroupManager
-from ....parameter import mark_parameter_as_mup_learning_rate, mark_parameter_as_per_row_hyperball
+from ....parameter import mark_parameter_as_conv_hyperball, mark_parameter_as_mup_learning_rate
 from ...activations import get_activation_function
 from ...attention_mask_info import AttentionMaskInfo
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
@@ -123,6 +123,8 @@ class DeltaMLP(nn.Module):
             std=hidden_std,
         )
 
+        mark_parameter_as_mup_learning_rate(self.q_proj.weight)
+
         num_ranks_std = _get_std_for_linear(
             initializer_range=initializer_range,
             init_method=init_method,
@@ -141,6 +143,9 @@ class DeltaMLP(nn.Module):
             std_high_rank=num_ranks_std,
         )
 
+        mark_parameter_as_mup_learning_rate(self.k_proj.low_rank_proj.weight)
+        mark_parameter_as_mup_learning_rate(self.k_proj.high_rank_proj.weight)
+
         if self.use_v_proj:
             self.v_proj = LowRankLinear(
                 in_features=hidden_size,
@@ -150,6 +155,9 @@ class DeltaMLP(nn.Module):
                 std_low_rank=hidden_std,
                 std_high_rank=num_ranks_std,
             )
+
+            mark_parameter_as_mup_learning_rate(self.v_proj.low_rank_proj.weight)
+            mark_parameter_as_mup_learning_rate(self.v_proj.high_rank_proj.weight)
         else:
             assert self.num_v_heads == 1
             assert self.value_dim == self.hidden_size
@@ -160,6 +168,8 @@ class DeltaMLP(nn.Module):
             bias=False,
             std=hidden_std,
         )
+
+        mark_parameter_as_mup_learning_rate(self.b_proj.weight)
 
         if self.use_decay_beta:
             self.decay_gate = SoftplusDecayGate(
@@ -188,6 +198,8 @@ class DeltaMLP(nn.Module):
             ),
         )
 
+        mark_parameter_as_mup_learning_rate(self.initial_state.weight)
+
         if self.use_shortconv:
             # Dense uses this wrapper directly. CP dispatches its specialized
             # path below; packed inference passes cu_seqlens to the wrapper.
@@ -207,29 +219,15 @@ class DeltaMLP(nn.Module):
                 use_padding_free_transformer=False,
             )
 
+            mark_parameter_as_mup_learning_rate(self.kv_conv1d.weight)
+            mark_parameter_as_conv_hyperball(self.kv_conv1d.weight)
+
         if self.use_o_norm:
             self.o_norm = get_normalization_function(
                 "rmsnorm",
                 self.v_head_dim,
                 eps=norm_eps,
             )
-
-        mark_parameter_as_mup_learning_rate(self.q_proj.weight)
-        mark_parameter_as_mup_learning_rate(self.k_proj.low_rank_proj.weight)
-        mark_parameter_as_mup_learning_rate(self.k_proj.high_rank_proj.weight)
-        if self.use_v_proj:
-            mark_parameter_as_mup_learning_rate(self.v_proj.low_rank_proj.weight)
-            mark_parameter_as_mup_learning_rate(self.v_proj.high_rank_proj.weight)
-        mark_parameter_as_mup_learning_rate(self.b_proj.weight)
-        # Optional: route b_proj through per-row L2 + per-row hyperball (one head per row),
-        # same path as kv_conv1d. Off by default; turned on via use_b_proj_per_row_hyperball.
-        if config.use_b_proj_per_row_hyperball:
-            mark_parameter_as_per_row_hyperball(self.b_proj.weight)
-        mark_parameter_as_mup_learning_rate(self.initial_state.weight)
-        if self.use_shortconv:
-            mark_parameter_as_mup_learning_rate(self.kv_conv1d.weight)
-            # conv kernel: one row per output channel, each normed + hyperball-projected per row
-            mark_parameter_as_per_row_hyperball(self.kv_conv1d.weight)
 
     def initial_recurrent_state(self, batch_size: int = 1) -> torch.Tensor:
         """Return the learned recurrent state in kernel layout [B, H, K, V]."""

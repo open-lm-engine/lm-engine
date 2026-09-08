@@ -20,7 +20,6 @@ from ..containers import BackwardHookOptimizerContainer, ModelContainer, Optimiz
 from ..enums import ParamsGroupMethod
 from .adam_hyperball import AdamHyperball
 from .muon_hyperball import MuonHyperball
-from .muon_hyperball_split import MuonHSplit
 from .params_group import get_param_groups_list
 
 
@@ -28,7 +27,6 @@ from .params_group import get_param_groups_list
 _OPTIMIZER_CLASSES = {
     "AdamHyperball": AdamHyperball,
     "MuonHyperball": MuonHyperball,
-    "MuonHSplit": MuonHSplit,
     "TorchAdadelta": TorchAdadelta,
     "TorchAdagrad": TorchAdagrad,
     "TorchAdam": TorchAdam,

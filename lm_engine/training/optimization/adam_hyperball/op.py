@@ -182,9 +182,13 @@ def _single_tensor_adam_hyperball(
 
 # compile makes a single graph which is very useful when we are using DTensors
 @torch.compile
-def _foreach_normalize(x_list: list[torch.Tensor], eps: float) -> None:
+def _foreach_normalize(x_list: list[torch.Tensor], eps: float, in_place: bool = True) -> list[torch.Tensor] | None:
     u = torch._foreach_norm(x_list, dtype=torch.float32)
     torch._foreach_add_(u, eps)
+
+    if not in_place:
+        return torch._foreach_div(x_list, u)
+
     torch._foreach_div_(x_list, u)
 
 

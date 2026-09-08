@@ -11,8 +11,6 @@ from ..mlp import MLPArgs
 
 
 class DeltaMLPArgs(MLPArgs, SoftPlusDecayGateArgs):
-    # Literal is required: mlp_blocks is a discriminated union on "mlp_type"
-    # and pydantic rejects plain str discriminator fields.
     mlp_type: Literal["DeltaMLP"] = "DeltaMLP"
     num_ranks: int
     num_heads: int
@@ -24,9 +22,6 @@ class DeltaMLPArgs(MLPArgs, SoftPlusDecayGateArgs):
     allow_neg_eigval: bool
     kernel_size: int
     value_scale: float | None = None
-    # If True, route b_proj.weight through per-row L2-norm + per-row hyperball in MuonH (each
-    # row = one head). If False, b_proj is treated as a single 2D matrix (monolithic NS).
-    use_b_proj_per_row_hyperball: bool = False
     use_o_norm: bool = True
     use_k_act: bool = True
 

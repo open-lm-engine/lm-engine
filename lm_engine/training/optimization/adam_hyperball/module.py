@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import Callable
-
 import torch
 from torch.distributed.tensor import DTensor
 from torch.optim import AdamW, Optimizer
@@ -45,12 +43,7 @@ class AdamHyperball(Optimizer):
         super().__init__(params, defaults)
 
     @torch.no_grad()
-    def step(self, closure: Callable | None = None) -> torch.Tensor | None:
-        loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
-
+    def step(self) -> None:
         for group in self.param_groups:
             beta1, beta2 = group["betas"]
             params: list[torch.Tensor] = []
@@ -126,8 +119,6 @@ class AdamHyperball(Optimizer):
                     decoupled_weight_decay=True,
                 )
 
-        return loss
-
     def _init_adam_hyperball_group(
         self,
         group: dict,
@@ -138,25 +129,25 @@ class AdamHyperball(Optimizer):
         Rs: list[torch.Tensor],
         state_steps: list[int],
     ) -> None:
-        for p in group["params"]:
-            if p.grad is None:
+        for W in group["params"]:
+            if W.grad is None:
                 continue
 
-            state = self.state[p]
+            state = self.state[W]
 
             if len(state) == 0:
                 state["step"] = 1
-                state["exp_avg"] = torch.zeros_like(p)
-                state["exp_avg_sq"] = torch.zeros_like(p)
+                state["exp_avg"] = torch.zeros_like(W)
+                state["exp_avg_sq"] = torch.zeros_like(W)
 
                 # do the communication for R ahead of time to prevent it on every timestep
-                R = p.norm()
+                R = W.float().norm()
                 if isinstance(R, DTensor):
                     R = R.full_tensor()
                 state["R"] = R
 
-            params.append(p)
-            grads.append(p.grad)
+            params.append(W)
+            grads.append(W.grad)
             exp_avgs.append(state["exp_avg"])
             exp_avg_sqs.append(state["exp_avg_sq"])
             Rs.append(state["R"])
