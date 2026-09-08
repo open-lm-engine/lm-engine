@@ -53,7 +53,8 @@ if is_fla_available():
     from fla.ops.delta_rule.chunk import prepare_chunk_indices
     from fla.ops.delta_rule.fused_recurrent import fused_recurrent_delta_rule_fwd
     from fla.utils import autocast_custom_bwd, autocast_custom_fwd, input_guard
-    from xma.functional.delta_rule.chunk import chunk_delta_rule_bwd, chunk_delta_rule_fwd
+
+    from .triton_implementation import chunk_delta_rule_bwd, chunk_delta_rule_fwd
 
     class ChunkDeltaRuleFunction(torch.autograd.Function):
 

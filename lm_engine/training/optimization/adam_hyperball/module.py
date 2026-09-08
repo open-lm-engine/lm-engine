@@ -11,21 +11,10 @@ from torch.distributed.tensor import DTensor
 from torch.optim import AdamW, Optimizer
 from torch.optim.adam import adam
 
-from ..enums import Kernel
-from ..kernels import is_kernel_allowed
-from ..utils import is_xma_available
-
-
-if is_xma_available():
-    from xma import adam_hyperball
-
-
-# compile makes a single graph which is very useful when we are using DTensors
-@torch.compile
-def _foreach_normalize(x_list: list[torch.Tensor], eps: float) -> None:
-    u = torch._foreach_norm(x_list, dtype=torch.float32)
-    torch._foreach_add_(u, eps)
-    torch._foreach_div_(x_list, u)
+from ....kernels.accelerator import KernelBackend
+from ...enums import Kernel
+from ...kernels import is_kernel_allowed
+from .op import adam_hyperball
 
 
 class AdamHyperball(Optimizer):
@@ -83,56 +72,22 @@ class AdamHyperball(Optimizer):
                     state_steps=state_steps,
                 )
 
-                if is_kernel_allowed(Kernel.adam_hyperball):
-                    adam_hyperball(
-                        params=params,
-                        grads=grads,
-                        exp_avgs=exp_avgs,
-                        exp_avg_sqs=exp_avg_sqs,
-                        Rs=Rs,
-                        lr=group["lr"],
-                        beta1=beta1,
-                        beta2=beta2,
-                        maximize=group["maximize"],
-                        state_steps=state_steps,
-                        eps=group["eps"],
-                    )
-                else:
-                    eps = group["eps"]
-                    lr = group["lr"]
-                    if group["maximize"]:
-                        lr = -lr
+                kernel_backend = None if is_kernel_allowed(Kernel.adam_hyperball) else KernelBackend.torch
 
-                    # update momentum
-                    torch._foreach_mul_(exp_avgs, beta1)
-                    torch._foreach_add_(exp_avgs, grads, alpha=1 - beta1)
-
-                    # update variance
-                    torch._foreach_mul_(exp_avg_sqs, beta2)
-                    torch._foreach_addcmul_(exp_avg_sqs, grads, grads, value=1 - beta2)
-
-                    # get copy of variables to prevent updating inplace accidentaly
-                    exp_avgs = torch._foreach_mul(exp_avgs, [1 / (1 - beta1**t) for t in state_steps])
-                    exp_avg_sqs = torch._foreach_mul(exp_avg_sqs, [1 / (1 - beta2**t) for t in state_steps])
-
-                    # compute Adam update
-                    torch._foreach_sqrt_(exp_avg_sqs)
-                    torch._foreach_add_(exp_avg_sqs, eps)
-                    torch._foreach_div_(exp_avgs, exp_avg_sqs)
-
-                    # normalize the Adam update
-                    _foreach_normalize(x_list=exp_avgs, eps=eps)
-
-                    # update the parameter
-                    lr_Rs = torch._foreach_mul(Rs, lr)
-                    torch._foreach_mul_(exp_avgs, lr_Rs)
-                    torch._foreach_sub_(params, exp_avgs)
-
-                    # normalize the updated parameter
-                    _foreach_normalize(x_list=params, eps=eps)
-
-                    # project parameters on hyperball of radius R
-                    torch._foreach_mul_(params, Rs)
+                adam_hyperball(
+                    params=params,
+                    grads=grads,
+                    exp_avgs=exp_avgs,
+                    exp_avg_sqs=exp_avg_sqs,
+                    Rs=Rs,
+                    lr=group["lr"],
+                    beta1=beta1,
+                    beta2=beta2,
+                    maximize=group["maximize"],
+                    state_steps=state_steps,
+                    eps=group["eps"],
+                    kernel_backend=kernel_backend,
+                )
             else:
                 max_exp_avg_sqs: list[torch.Tensor] = []
 

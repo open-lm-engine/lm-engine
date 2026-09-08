@@ -250,18 +250,6 @@ def is_triton_available() -> bool:
 
 
 try:
-    import xma
-
-    _IS_XMA_AVAILABLE = True
-except ImportError:
-    _IS_XMA_AVAILABLE = False
-
-
-def is_xma_available() -> bool:
-    return _IS_XMA_AVAILABLE
-
-
-try:
     import wandb
 
     _IS_WANDB_AVAILABLE = True

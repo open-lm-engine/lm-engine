@@ -27,7 +27,6 @@ from ...utils import (
     is_torchao_available,
     is_triton_available,
     is_wandb_available,
-    is_xma_available,
     is_zstandard_available,
 )
 from .cpp_extension import compile_cpp_extension

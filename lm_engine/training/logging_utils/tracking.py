@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from typing import TYPE_CHECKING
 
 import torch
@@ -79,10 +80,6 @@ class ProgressBar:
 
 
 def get_code_provenance() -> dict:
-    """Best-effort git commit/branch/modified for the lm-engine repo and the XMA submodule, so every
-    run records exactly which kernel code it ran. Never raises — returns whatever it can resolve."""
-    import os
-    import subprocess
 
     def _git(path: str, *cmd: str) -> str | None:
         try:
@@ -104,12 +101,7 @@ def get_code_provenance() -> dict:
 
     provenance: dict = {}
     _info("lm_engine", __file__, provenance)
-    try:
-        import xma
 
-        _info("xma", xma.__file__, provenance)
-    except Exception:
-        pass
     return provenance
 
 
