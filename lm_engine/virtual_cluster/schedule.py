@@ -3,8 +3,9 @@
 # **************************************************
 
 """
-Remote job scheduler for lm-engine training runs, driven by the same
-clusters.yaml used by the cluster dashboard (mayank-apps/cluster-dashboard).
+Virtual cluster: a job scheduler + monitoring dashboard for lm-engine
+training runs spread across heterogeneous machines (TPU VMs, Slurm/GPU
+clusters, bare GPU boxes), all described in one clusters.yaml.
 
 Takes a base training config, layers dataset/load/save-arg overrides on top
 of it, ships the merged config to the target cluster over SSH (using the
@@ -20,25 +21,26 @@ way that cluster's `kind` expects:
 Usage:
 
     # base config + a full overrides YAML (datasets / load_args / save_args / ...)
-    python -m lm_engine.cluster_scheduler submit --cluster rubin \\
+    python -m lm_engine.virtual_cluster submit --cluster rubin \\
         --base configs/pretraining-examples/nvidia-1.yml \\
         --overrides my_overrides.yml \\
         --name my-run
 
     # or quick dot-path overrides (YAML-parsed values), stackable with --overrides
-    python -m lm_engine.cluster_scheduler submit --cluster sky-b200 \\
+    python -m lm_engine.virtual_cluster submit --cluster sky-b200 \\
         --base configs/pretraining-examples/nvidia-1.yml \\
         --set save_args.save_path checkpoints/my-run \\
         --set training_parameters.num_training_steps 2000 \\
         --name my-run
 
-    python -m lm_engine.cluster_scheduler list-clusters
-    python -m lm_engine.cluster_scheduler status --cluster rubin --name my-run
-    python -m lm_engine.cluster_scheduler logs   --cluster rubin --name my-run [--follow]
-    python -m lm_engine.cluster_scheduler cancel --cluster rubin --name my-run
+    python -m lm_engine.virtual_cluster list-clusters
+    python -m lm_engine.virtual_cluster status --cluster rubin --name my-run
+    python -m lm_engine.virtual_cluster logs   --cluster rubin --name my-run [--follow]
+    python -m lm_engine.virtual_cluster cancel --cluster rubin --name my-run
+    python -m lm_engine.virtual_cluster dashboard [--port 8765]
 
-By default clusters are read from
-~/Desktop/mayank-apps/cluster-dashboard/clusters.yaml (override with --clusters).
+By default clusters are read from lm_engine/virtual_cluster/clusters.yaml
+(override with --clusters).
 """
 
 import argparse
@@ -52,9 +54,10 @@ from pathlib import Path
 import yaml
 
 
-DEFAULT_CLUSTERS_YAML = Path.home() / "Desktop" / "mayank-apps" / "cluster-dashboard" / "clusters.yaml"
+DEFAULT_CLUSTERS_YAML = Path(__file__).parent / "clusters.yaml"
 DEFAULT_WORKDIR = "~/lm-engine"
 DEFAULT_JOBS_DIR = "~/lm-engine-jobs"
+DEFAULT_DASHBOARD_PORT = 8765
 
 _SLURM_KINDS = {"slurm_gpu"}
 _TORCHRUN_KINDS = {"nvidia_gpu", "amd_gpu"}
@@ -293,6 +296,12 @@ def _cmd_list_clusters(args) -> None:
         print(f"{cluster['id']:<14} {cluster['kind']:<12} ssh_host={cluster['ssh_host']:<14} {cluster['label']}")
 
 
+def _cmd_dashboard(args) -> None:
+    from .dashboard.server import run_dashboard
+
+    run_dashboard(clusters_path=args.clusters, port=args.port)
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -351,6 +360,11 @@ def main() -> None:
     p_list = subparsers.add_parser("list-clusters", help="list clusters from clusters.yaml")
     p_list.add_argument("--clusters", default=str(DEFAULT_CLUSTERS_YAML), help="path to clusters.yaml")
     p_list.set_defaults(func=_cmd_list_clusters)
+
+    p_dashboard = subparsers.add_parser("dashboard", help="serve the virtual cluster monitoring dashboard")
+    p_dashboard.add_argument("--clusters", default=str(DEFAULT_CLUSTERS_YAML), help="path to clusters.yaml")
+    p_dashboard.add_argument("--port", type=int, default=DEFAULT_DASHBOARD_PORT, help="port to serve on")
+    p_dashboard.set_defaults(func=_cmd_dashboard)
 
     args = parser.parse_args()
     args.func(args)
