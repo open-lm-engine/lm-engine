@@ -407,6 +407,8 @@ save_args:
 
 logging_args:
   log_interval: 10
+  # log_parameter_and_gradient_interval: 500
+  cost_per_accelerator_per_hour: 2.2
   experiments_tracker_name: wandb
   wandb_args:
     project: mayank-experiments

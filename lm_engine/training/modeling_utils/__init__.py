@@ -15,6 +15,8 @@ from .mlp_blocks import (
     MLP,
     DeltaMLP,
     DeltaMLPArgs,
+    DeltaMoE,
+    DeltaMoEArgs,
     MLPArgs,
     MoE,
     MoEArgs,

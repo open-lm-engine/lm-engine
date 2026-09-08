@@ -16,6 +16,7 @@ from ..math import divide_if_divisible
 from .arguments import BaseArgs
 from .modeling_utils import (
     DeltaMLPArgs,
+    DeltaMoEArgs,
     GatedDeltaNetArgs,
     GRUArgs,
     LinearAttentionArgs,
@@ -66,7 +67,7 @@ class CommonConfig(BaseArgs):
             Field(discriminator="sequence_mixer_type"),
         ]
     ]
-    mlp_blocks: list[Annotated[MLPArgs | MoEArgs | DeltaMLPArgs, Field(discriminator="mlp_type")]]
+    mlp_blocks: list[Annotated[MLPArgs | MoEArgs | DeltaMLPArgs | DeltaMoEArgs, Field(discriminator="mlp_type")]]
     tie_word_embeddings: bool
     router_aux_loss_coef: float | None = None
     rope_dim: int | None = None

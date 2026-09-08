@@ -510,12 +510,7 @@ class DeltaMLP(nn.Module):
                 # shared [1, ...] initial state across logical sequences.
                 # Materialize the shared learned state per logical sequence;
                 # do not rely on varlen kernels to broadcast [1, ...].
-                recurrent_state = recurrent_state.expand(
-                    num_sequences,
-                    -1,
-                    -1,
-                    -1,
-                ).contiguous()
+                recurrent_state = recurrent_state.expand(num_sequences, -1, -1, -1).contiguous()
 
         output_final_state = use_cache
         if mode == "chunk":
