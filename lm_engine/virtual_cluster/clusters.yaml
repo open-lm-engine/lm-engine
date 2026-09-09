@@ -1,0 +1,45 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+# Clusters shown on the dashboard.
+#
+# Each entry:
+#   id         unique short name, also used as ssh_host unless overridden
+#   label      display label in the UI
+#   kind       one of: tpu, slurm_gpu, amd_gpu, nvidia_gpu
+#   ssh_host   host alias from ~/.ssh/config (defaults to id)
+#   script     remote collection script to run over SSH (defaults per kind, see below)
+#   max_nodes  cap on --nodes/--num_nodes the scheduler (lm_engine.virtual_cluster submit,
+#              tools/wandb_sweep.py --cluster) will let a single job/sweep request on this
+#              cluster; omit for no limit. tpu/amd_gpu/nvidia_gpu are single machines, so 1
+#              is really a hard ceiling there rather than a policy choice.
+#
+# Default script per kind:
+#   tpu         -> remote_collect_tpu.sh
+#   slurm_gpu   -> remote_collect_slurm_gpu.sh
+#   amd_gpu     -> remote_collect_amd_gpu.sh
+#   nvidia_gpu  -> remote_collect_nvidia_gpu.sh
+
+clusters:
+  - id: gcp
+    label: gcp — TPU v6e-4
+    kind: tpu
+    max_nodes: 1
+  - id: rubin
+    label: rubin — Slurm/GPU
+    kind: slurm_gpu
+    max_nodes: 8
+  - id: runpod
+    label: runpod — Slurm/GPU
+    kind: slurm_gpu
+    max_nodes: 8
+  - id: sky-mi350x
+    label: sky-mi350x — 8x MI350X
+    kind: amd_gpu
+  - id: sky-b200
+    label: sky-b200 — 8x B200
+    kind: nvidia_gpu
+  - id: sky-h200
+    label: sky-h200 — 8x H200
+    kind: nvidia_gpu

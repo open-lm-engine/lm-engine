@@ -1,0 +1,51 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+sky-mi350x:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: /data/cache
+        data_path:
+          - /data/lang=Python
+        split: 98,1,1
+        sequence_length: 2048
+  save_args:
+    save_path: /data/checkpoints/my-run
+    save_interval: 50
+
+sky-b200:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: /data/cache
+        data_path:
+          - /data/lang=Python
+        split: 98,1,1
+        sequence_length: 2048
+  save_args:
+    save_path: /data/checkpoints/my-run
+    save_interval: 50
+
+sky-h200:
+  datasets:
+    - class_name: MegatronDataset
+      data_name: Megatron
+      data_sampling_ratio: 1
+      class_args:
+        eval_steps: 2
+        data_cache_path: /data/cache
+        data_path:
+          - /data/lang=Python
+        split: 98,1,1
+        sequence_length: 2048
+  save_args:
+    save_path: /data/checkpoints/my-run
+    save_interval: 50

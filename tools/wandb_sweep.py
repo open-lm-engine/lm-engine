@@ -31,6 +31,24 @@ Two modes:
    python scripts/wandb_sweep.py --agent \\
        --sweep_id <id> --config base.yaml --slurm_logs_dir /shared/...
 
+3. Remote mode (--cluster) — run this from your own machine, not the login
+   node: uploads this script + --config (+ --sweep) to a Slurm cluster from
+   lm_engine.virtual_cluster's clusters.yaml over SSH, then launches create
+   mode there in the background (nohup), since sbatch/squeue only exist on
+   the cluster itself. --cluster can be a specific id or 'auto' to pick
+   whichever Slurm cluster has idle nodes right now.
+
+   python tools/wandb_sweep.py --cluster rubin \\
+       --config configs/my_config.yaml \\
+       --sweep sweep.yaml \\
+       --count 10 [--max_concurrent 3] \\
+       [--num_nodes 4] [--gpus_per_node 8] \\
+       [--account research] [--time 12:00:00] \\
+       [--project my_project] [--entity my_entity]
+
+   Check on it from anywhere with `python -m lm_engine.virtual_cluster
+   status/logs/cancel --cluster rubin --name <job name printed above>`.
+
 Sweep YAML (standard W&B format; dot-notation keys map into nested config fields):
 
     method: bayes
@@ -50,6 +68,7 @@ import argparse
 import copy
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -58,6 +77,16 @@ from pathlib import Path
 import requests
 import wandb
 import yaml
+
+from lm_engine.virtual_cluster.remote import (
+    DEFAULT_CLUSTERS_YAML,
+    DEFAULT_JOBS_DIR,
+    DEFAULT_WORKDIR,
+    check_node_limit,
+    get_cluster,
+    scp,
+    ssh,
+)
 
 
 def _deep_set(d: dict, dotpath: str, value) -> None:
@@ -71,16 +100,6 @@ def _load_yaml(path: str) -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
 
-
-# ---------------------------------------------------------------------------
-# W&B sweep API — direct HTTP GraphQL (no wandb service socket required)
-#
-# wandb.agent() routes all API calls through a local service daemon socket.
-# On HPC clusters the socket is created on the login node; compute nodes
-# inherit the socket path via SLURM env vars but can't reach it, causing
-# WandbServiceConnectionError.  These helpers talk to the W&B API directly
-# over HTTPS, bypassing the service entirely.
-# ---------------------------------------------------------------------------
 
 _REGISTER_AGENT_MUTATION = """
 mutation CreateAgent($input: CreateAgentInput!) {
@@ -153,11 +172,6 @@ def _sweep_next_run(api_key: str, agent_id: str, max_polls: int = 30) -> tuple[s
                 return None, {}
         time.sleep(2)
     return None, {}
-
-
-# ---------------------------------------------------------------------------
-# Agent mode — runs inside each Slurm job
-# ---------------------------------------------------------------------------
 
 
 def _run_as_agent(args) -> None:
@@ -280,9 +294,94 @@ def _run_as_agent(args) -> None:
         os.unlink(temp_config)
 
 
-# ---------------------------------------------------------------------------
-# Create mode — runs on the login node
-# ---------------------------------------------------------------------------
+def _run_on_remote_cluster(args: argparse.Namespace, extra_sbatch_args: list[str]) -> None:
+    cluster = get_cluster(args.clusters, args.cluster, allowed_kinds={"slurm_gpu"})
+    host = cluster["ssh_host"]
+    check_node_limit(cluster, args.num_nodes)
+
+    if not args.sweep and not args.sweep_id:
+        raise SystemExit("--sweep (sweep config YAML) or --sweep_id is required")
+
+    job_name = args.name or f"sweep-{Path(args.config).stem}-{time.strftime('%Y%m%d-%H%M%S')}"
+    remote_job_dir = f"{args.jobs_dir}/{job_name}"
+    remote_script_path = f"{remote_job_dir}/wandb_sweep.py"
+    remote_config_path = f"{remote_job_dir}/config.yaml"
+    remote_sweep_path = f"{remote_job_dir}/sweep.yaml" if args.sweep else None
+
+    print(f"[{cluster['id']}] sweep {job_name!r} -> {host}:{remote_job_dir}")
+
+    # Re-invoke this same script on the remote, without --cluster, so it runs ordinary local
+    # create mode there — sbatch/squeue only exist on the cluster's login node itself.
+    remote_parts = [
+        "python",
+        remote_script_path,
+        "--config",
+        remote_config_path,
+        "--slurm_logs_dir",
+        remote_job_dir,
+        "--count",
+        str(args.count),
+        "--num_nodes",
+        str(args.num_nodes),
+        "--gpus_per_node",
+        str(args.gpus_per_node),
+        "--mem_per_gpu",
+        str(args.mem_per_gpu),
+        "--cpus_per_gpu",
+        str(args.cpus_per_gpu),
+    ]
+    if args.max_concurrent:
+        remote_parts += ["--max_concurrent", str(args.max_concurrent)]
+    if args.account:
+        remote_parts += ["--account", args.account]
+    if args.time_limit:
+        remote_parts += ["--time", args.time_limit]
+    if args.project:
+        remote_parts += ["--project", args.project]
+    if args.entity:
+        remote_parts += ["--entity", args.entity]
+    if args.sweep_id:
+        remote_parts += ["--sweep_id", args.sweep_id]
+    else:
+        remote_parts += ["--sweep", remote_sweep_path]
+    remote_parts += extra_sbatch_args
+
+    # plain join, not shlex.quote per token: these paths use `~` (--workdir/--jobs_dir) which
+    # must still be expanded by the remote bash -c; the whole blob is quoted exactly once,
+    # further down, for the outer ssh transport (matches this file's own `" ".join(agent_parts)`
+    # convention in _submit_agent_job).
+    inner_cmd = " ".join(remote_parts)
+    wandb_key_prefix = f"WANDB_API_KEY={shlex.quote(args.wandb_api_key)} " if args.wandb_api_key else ""
+    run_cmd = (
+        f"cd {args.workdir} && [ -f .venv/bin/activate ] && source .venv/bin/activate; {wandb_key_prefix}{inner_cmd}"
+    )
+    remote_log_path = f"{remote_job_dir}/run.log"
+    remote_cmd = f"nohup bash -c {shlex.quote(run_cmd)} > {remote_log_path} 2>&1 < /dev/null & disown"
+
+    if args.dry_run:
+        print("--- would upload ---")
+        print(f"  {Path(__file__).resolve()} -> {host}:{remote_script_path}")
+        print(f"  {args.config} -> {host}:{remote_config_path}")
+        if remote_sweep_path:
+            print(f"  {args.sweep} -> {host}:{remote_sweep_path}")
+        print(f"[dry-run] would run on {host}:\n  {remote_cmd}")
+        return
+
+    ssh(host, f"mkdir -p {remote_job_dir}", capture=True)
+    ssh(host, f"echo sweep > {remote_job_dir}/kind", capture=True)
+    scp(str(Path(__file__).resolve()), host, remote_script_path)
+    scp(args.config, host, remote_config_path)
+    if remote_sweep_path:
+        scp(args.sweep, host, remote_sweep_path)
+
+    result = ssh(host, remote_cmd, capture=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"launch failed on {host}: {result.stderr.strip()}")
+
+    print("  launched sweep driver in background (nohup) on the remote — it keeps submitting")
+    print("  agent jobs until --count is reached")
+    print(f"  log: {host}:{remote_log_path}")
+    print(f"  check progress: python -m lm_engine.virtual_cluster status --cluster {cluster['id']} --name {job_name}")
 
 
 def _count_running_jobs(job_ids: list[str]) -> int:
@@ -359,10 +458,44 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--config", required=True, help="Base training config YAML path")
-    parser.add_argument("--slurm_logs_dir", required=True, help="Shared dir for logs and temp configs")
+    parser.add_argument(
+        "--slurm_logs_dir", default=None, help="Shared dir for logs and temp configs (not needed with --cluster)"
+    )
 
     # Mode
     parser.add_argument("--agent", action="store_true", help="Run as a wandb agent inside a Slurm job")
+    parser.add_argument(
+        "--cluster",
+        default=None,
+        help="run from here instead of on the login node: cluster id from lm_engine.virtual_cluster's "
+        "clusters.yaml (or 'auto' to pick whichever Slurm cluster is idle right now)",
+    )
+    parser.add_argument(
+        "--clusters",
+        default=str(DEFAULT_CLUSTERS_YAML),
+        help="path to clusters.yaml (only used with --cluster)",
+    )
+    parser.add_argument(
+        "--jobs_dir",
+        default=DEFAULT_JOBS_DIR,
+        help="remote directory this sweep is placed under (only used with --cluster)",
+    )
+    parser.add_argument(
+        "--workdir",
+        default=DEFAULT_WORKDIR,
+        help="remote lm-engine checkout to run from (only used with --cluster)",
+    )
+    parser.add_argument("--name", default=None, help="remote job name (only used with --cluster)")
+    parser.add_argument(
+        "--wandb_api_key",
+        default=None,
+        help="forwarded as WANDB_API_KEY on the remote (only used with --cluster; skip if wandb is already logged in there)",
+    )
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="print what would be uploaded/run without doing anything (only used with --cluster)",
+    )
 
     # Sweep
     parser.add_argument("--sweep", default=None, help="Sweep config YAML (required when creating a new sweep)")
@@ -376,7 +509,12 @@ def main():
     )
 
     # Slurm
-    parser.add_argument("--num_nodes", type=int, default=1, help="Nodes per job")
+    parser.add_argument(
+        "--num_nodes",
+        type=int,
+        default=1,
+        help="Nodes per job (capped by the cluster's max_nodes when using --cluster)",
+    )
     parser.add_argument("--gpus_per_node", type=int, default=8, help="GPUs per node")
     parser.add_argument("--mem_per_gpu", type=int, default=120, help="System RAM per GPU in GB (e.g. 4 GPUs → 480 GB)")
     parser.add_argument("--cpus_per_gpu", type=int, default=12, help="CPU cores per GPU")
@@ -390,14 +528,20 @@ def main():
     # Extra args forwarded to sbatch in create mode
     args, extra_sbatch_args = parser.parse_known_args()
 
-    # ---- Agent mode --------------------------------------------------------
     if args.agent:
         if not args.sweep_id:
             parser.error("--sweep_id is required in --agent mode")
+        if not args.slurm_logs_dir:
+            parser.error("--slurm_logs_dir is required in --agent mode")
         _run_as_agent(args)
         return
 
-    # ---- Create mode -------------------------------------------------------
+    if args.cluster:
+        _run_on_remote_cluster(args, extra_sbatch_args)
+        return
+
+    if not args.slurm_logs_dir:
+        parser.error("--slurm_logs_dir is required (unless using --cluster)")
     if not args.sweep and not args.sweep_id:
         parser.error("--sweep (sweep config YAML) is required when creating a new sweep")
 
