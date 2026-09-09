@@ -66,9 +66,13 @@ Usage:
 
 `status`/`logs`/`cancel` above also work for W&B sweeps launched with
 `tools/wandb_sweep.py --cluster ...` (see that script's --help) — both tools
-lay out remote job directories (kind marker + run.log) the same way, so this
-is a single place to check on anything running on the virtual cluster,
-regardless of how it was launched.
+lay out remote job directories the same way (a `kind` marker plus, for
+`submit`, a `workdir` marker), so this is a single place to check on
+anything running on the virtual cluster, regardless of how it was launched.
+A `submit`-launched training job's actual output lives at
+<workdir>/logs/<id>-out.log and -err.log (<id> is the Slurm job id, or the
+job name on a bare box/TPU VM); a sweep's driver log is still under its own
+--jobs-dir job directory as run.log.
 
 By default clusters are read from lm_engine/virtual_cluster/clusters.yaml
 (override with --clusters).
@@ -89,9 +93,13 @@ from .remote import (
     DEFAULT_JOBS_DIR,
     DEFAULT_WORKDIR,
     check_node_limit,
+    ensure_job_dir,
     get_cluster,
     load_clusters,
+    new_job_dir,
+    resolve_workdir,
     scp,
+    slurm_bin,
     ssh,
 )
 
@@ -139,30 +147,34 @@ def _build_config(args) -> dict:
     return config
 
 
-def _slurm_launch_command(workdir: str, config_path: str) -> str:
-    return (
-        f"cd {workdir} && [ -f .venv/bin/activate ] && source .venv/bin/activate; "
-        "GPUS_PER_NODE=$(nvidia-smi -L | wc -l); "
-        'MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n1); '
-        "TOKENIZERS_PARALLELISM=false TRITON_PRINT_AUTOTUNING=1 torchrun "
-        "--nnodes=$SLURM_JOB_NUM_NODES --nproc_per_node=$GPUS_PER_NODE "
-        "--rdzv_id=$SLURM_JOB_ID --rdzv_backend=c10d --rdzv_endpoint=$MASTER_ADDR:29500 "
-        f"-m lm_engine.training.train --config {config_path}"
-    )
+TRAIN_JOB_SCRIPT = Path(__file__).parent / "train-job.sh"
 
 
 def _submit_slurm(host: str, args, job_name: str, remote_job_dir: str, remote_config_path: str) -> str:
-    wrap = _slurm_launch_command(args.workdir, remote_config_path)
+    remote_script_path = f"{remote_job_dir}/train-job.sh"
+    logs_dir = f"{args.workdir}/logs"
+    # Slurm substitutes %j with the actual job id once assigned — we don't know it before
+    # submitting, so this is the only way to name the files after it.
+    out_path = f"{logs_dir}/%j-out.log"
+    err_path = f"{logs_dir}/%j-err.log"
+
+    if not args.dry_run:
+        ssh(host, f"mkdir -p {logs_dir}", capture=True)
+        scp(str(TRAIN_JOB_SCRIPT), host, remote_script_path)
+
     sbatch_cmd = (
-        f"sbatch --job-name={shlex.quote(job_name)} --nodes={args.nodes} --gpus-per-node={args.gpus_per_node} "
-        "--ntasks-per-node=1 "
+        f"{slurm_bin('sbatch')} --job-name={shlex.quote(job_name)} --nodes={args.nodes} --gpus-per-node={args.gpus_per_node} "
+        # --chdir, the log paths, and the trailing script/config args are left unquoted (like
+        # remote_job_dir elsewhere) so a `~`-based workdir still gets expanded by the remote shell.
+        f"--ntasks-per-node=1 --chdir={args.workdir} "
         + (f"--partition={args.partition} " if args.partition else "")
         + (f"--time={args.time_limit} " if args.time_limit else "")
-        + f"--output={remote_job_dir}/run.log --error={remote_job_dir}/run.err "
-        + f"--wrap {shlex.quote(wrap)}"
+        + f"--output={out_path} --error={err_path} "
+        + f"{remote_script_path} {remote_config_path}"
     )
 
     if args.dry_run:
+        print(f"[dry-run] would upload {TRAIN_JOB_SCRIPT} -> {host}:{remote_script_path}")
         print(f"[dry-run] would run on {host}:\n  {sbatch_cmd}")
         return "<dry-run>"
 
@@ -175,6 +187,12 @@ def _submit_slurm(host: str, args, job_name: str, remote_job_dir: str, remote_co
 
 
 def _background_launch_command(kind: str, workdir: str, config_path: str) -> str:
+    # non-interactive nohup'd shell won't source any rc file on its own, so API keys/env vars
+    # kept there (e.g. WANDB_API_KEY) wouldn't otherwise be visible to the training process. Try
+    # .bash_profile/.profile too: a stock .bashrc commonly has an early
+    # `case $- in *i*) ;; *) return;; esac`-style guard for non-interactive shells that silently
+    # no-ops past anything exported below it.
+    bashrc = "[ -f ~/.bash_profile ] && source ~/.bash_profile; [ -f ~/.profile ] && source ~/.profile; [ -f ~/.bashrc ] && source ~/.bashrc; "
     activate = "[ -f .venv/bin/activate ] && source .venv/bin/activate; "
     if kind in _TORCHRUN_KINDS:
         run_cmd = (
@@ -189,13 +207,15 @@ def _background_launch_command(kind: str, workdir: str, config_path: str) -> str
             f"PJRT_DEVICE=TPU TOKENIZERS_PARALLELISM=false python -m lm_engine.training.train --config {config_path}"
         )
 
-    return f"cd {workdir} && {activate}{run_cmd}"
+    return f"cd {workdir} && {bashrc}{activate}{run_cmd}"
 
 
-def _submit_background(host: str, args, kind: str, remote_job_dir: str, remote_config_path: str) -> None:
-    remote_log_path = f"{remote_job_dir}/run.log"
+def _submit_background(host: str, args, kind: str, job_name: str, remote_config_path: str) -> None:
+    logs_dir = f"{args.workdir}/logs"
+    out_path = f"{logs_dir}/{job_name}-out.log"
+    err_path = f"{logs_dir}/{job_name}-err.log"
     inner_cmd = _background_launch_command(kind, args.workdir, remote_config_path)
-    remote_cmd = f"nohup bash -c {shlex.quote(inner_cmd)} > {remote_log_path} 2>&1 < /dev/null & disown"
+    remote_cmd = f"mkdir -p {logs_dir} && nohup bash -c {shlex.quote(inner_cmd)} > {out_path} 2> {err_path} < /dev/null & disown"
 
     if args.dry_run:
         print(f"[dry-run] would run on {host}:\n  {remote_cmd}")
@@ -211,10 +231,13 @@ def _cmd_submit(args) -> None:
     host = cluster["ssh_host"]
     kind = cluster["kind"]
     check_node_limit(cluster, args.nodes)
+    args.workdir = resolve_workdir(cluster, args.workdir)
 
     config = _build_config(args)
     job_name = args.name or f"{Path(args.base).stem}-{time.strftime('%Y%m%d-%H%M%S')}"
-    remote_job_dir = f"{args.jobs_dir}/{job_name}"
+    # hash-suffixed so a resubmit under the same --name never clobbers a still-in-flight
+    # submission's config/logs; <jobs_dir>/<job_name> is kept pointed at the latest one below.
+    remote_job_dir = new_job_dir(args.jobs_dir, job_name)
     remote_config_path = f"{remote_job_dir}/config.yaml"
 
     print(f"[{cluster['id']}] job {job_name!r} ({kind}) -> {host}:{remote_job_dir}")
@@ -223,8 +246,9 @@ def _cmd_submit(args) -> None:
         print("--- merged config ---")
         print(yaml.dump(config, default_flow_style=False, sort_keys=False))
     else:
-        ssh(host, f"mkdir -p {remote_job_dir}", capture=True)
+        ensure_job_dir(host, args.jobs_dir, job_name, remote_job_dir)
         ssh(host, f"echo train > {remote_job_dir}/kind", capture=True)
+        ssh(host, f"echo {args.workdir} > {remote_job_dir}/workdir", capture=True)
         with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
             local_config_path = f.name
@@ -236,15 +260,17 @@ def _cmd_submit(args) -> None:
     if kind in _SLURM_KINDS:
         job_id = _submit_slurm(host, args, job_name, remote_job_dir, remote_config_path)
         print(f"  submitted Slurm job {job_id}")
+        log_ident = job_id
     elif kind in _TORCHRUN_KINDS or kind in _SINGLE_PROCESS_KINDS:
-        _submit_background(host, args, kind, remote_job_dir, remote_config_path)
+        _submit_background(host, args, kind, job_name, remote_config_path)
         print("  launched in background (nohup)")
+        log_ident = job_name
     else:
         raise SystemExit(f"unsupported cluster kind: {kind!r}")
 
     if not args.dry_run:
         print(f"  config: {host}:{remote_config_path}")
-        print(f"  log:    {host}:{remote_job_dir}/run.log")
+        print(f"  logs:   {host}:{args.workdir}/logs/{log_ident}-out.log (and -err.log)")
 
 
 def _cmd_status(args) -> None:
@@ -255,7 +281,7 @@ def _cmd_status(args) -> None:
 
     if job_kind == "sweep":
         driver = ssh(host, f"pgrep -af {shlex.quote(remote_job_dir)}", capture=True).stdout.strip()
-        queue = ssh(host, "squeue -u $(whoami) -h -o '%i|%j|%T|%M|%N'", capture=True).stdout.strip()
+        queue = ssh(host, f"{slurm_bin('squeue')} -u $(whoami) -h -o '%i|%j|%T|%M|%N'", capture=True).stdout.strip()
         print(f"sweep driver: {driver or 'not running (finished, or --count reached)'}")
         print(f"your queued/running Slurm jobs:\n{queue or '(none)'}")
     elif cluster["kind"] in _SLURM_KINDS:
@@ -263,7 +289,7 @@ def _cmd_status(args) -> None:
         if not job_id:
             print("no Slurm job id recorded for this job")
             return
-        result = ssh(host, f"squeue -j {job_id} -h -o '%i|%T|%M|%N'", capture=True)
+        result = ssh(host, f"{slurm_bin('squeue')} -j {job_id} -h -o '%i|%T|%M|%N'", capture=True)
         print(result.stdout.strip() or f"job {job_id} not in queue (finished or failed)")
     else:
         remote_config_path = f"{remote_job_dir}/config.yaml"
@@ -271,10 +297,26 @@ def _cmd_status(args) -> None:
         print(result.stdout.strip() or "not running")
 
 
+def _resolve_log_path(host: str, cluster: dict, remote_job_dir: str, job_name: str, stream: str) -> str:
+    job_kind = ssh(host, f"cat {remote_job_dir}/kind 2>/dev/null", capture=True).stdout.strip() or "train"
+    if job_kind == "sweep":
+        return f"{remote_job_dir}/run.log"
+
+    workdir = ssh(host, f"cat {remote_job_dir}/workdir 2>/dev/null", capture=True).stdout.strip() or DEFAULT_WORKDIR
+    if cluster["kind"] in _SLURM_KINDS:
+        # the jobid file is only written after a successful sbatch submission
+        ident = ssh(host, f"cat {remote_job_dir}/jobid 2>/dev/null", capture=True).stdout.strip() or job_name
+    else:
+        ident = job_name
+    return f"{workdir}/logs/{ident}-{stream}.log"
+
+
 def _cmd_logs(args) -> None:
     cluster = get_cluster(args.clusters, args.cluster)
     host = cluster["ssh_host"]
-    remote_log_path = f"{args.jobs_dir}/{args.name}/run.log"
+    remote_job_dir = f"{args.jobs_dir}/{args.name}"
+    stream = "err" if args.stderr else "out"
+    remote_log_path = _resolve_log_path(host, cluster, remote_job_dir, args.name, stream)
     tail_cmd = f"tail -n {args.lines}" + (" -f" if args.follow else "")
     subprocess.run(["ssh", "-o", "ConnectTimeout=10", host, f"{tail_cmd} {remote_log_path}"])
 
@@ -294,7 +336,7 @@ def _cmd_cancel(args) -> None:
         if not job_id:
             print("no Slurm job id recorded for this job")
             return
-        ssh(host, f"scancel {job_id}", capture=True)
+        ssh(host, f"{slurm_bin('scancel')} {job_id}", capture=True)
         print(f"cancelled Slurm job {job_id}")
     else:
         remote_config_path = f"{remote_job_dir}/config.yaml"
@@ -346,7 +388,11 @@ def main() -> None:
         help="dot-path override, e.g. --set save_args.save_path checkpoints/run1",
     )
     p_submit.add_argument("--name", default=None, help="job name (default: <base config stem>-<timestamp>)")
-    p_submit.add_argument("--workdir", default=DEFAULT_WORKDIR, help="remote lm-engine checkout to run from")
+    p_submit.add_argument(
+        "--workdir",
+        default=None,
+        help=f"remote lm-engine checkout to run from (default: the cluster's own 'workdir' in clusters.yaml, else {DEFAULT_WORKDIR!r})",
+    )
     p_submit.add_argument(
         "--nodes", type=int, default=1, help="[slurm_gpu] nodes to request (capped by the cluster's max_nodes)"
     )
@@ -368,6 +414,7 @@ def main() -> None:
     p_logs.add_argument("--name", required=True, help="job name")
     p_logs.add_argument("--lines", type=int, default=200, help="number of trailing lines to show")
     p_logs.add_argument("--follow", action="store_true", help="keep streaming new log lines (like tail -f)")
+    p_logs.add_argument("--stderr", action="store_true", help="show the error log instead of the output log")
     p_logs.set_defaults(func=_cmd_logs)
 
     p_cancel = subparsers.add_parser("cancel", help="stop a running job")

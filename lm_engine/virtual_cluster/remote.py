@@ -14,6 +14,7 @@ sweep on a remote Slurm cluster from your own machine instead of an
 interactive SSH session).
 """
 
+import secrets
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -24,6 +25,12 @@ import yaml
 DEFAULT_CLUSTERS_YAML = Path(__file__).parent / "clusters.yaml"
 DEFAULT_WORKDIR = "~/lm-engine"
 DEFAULT_JOBS_DIR = "~/lm-engine-jobs"
+SLURM_BIN_FALLBACK_DIR = "/data/slurm/bin"
+
+
+def slurm_bin(name: str) -> str:
+    """Shell snippet resolving a Slurm binary at ssh-command-construction time (bash-side fallback)."""
+    return f"$(command -v {name} 2>/dev/null || echo {SLURM_BIN_FALLBACK_DIR}/{name})"
 
 
 def load_clusters(path: str) -> dict[str, dict]:
@@ -38,6 +45,7 @@ def load_clusters(path: str) -> dict[str, dict]:
             "kind": entry["kind"],
             "ssh_host": entry.get("ssh_host", cid),
             "max_nodes": entry.get("max_nodes"),
+            "workdir": entry.get("workdir"),
         }
     return clusters
 
@@ -46,6 +54,11 @@ def check_node_limit(cluster: dict, requested_nodes: int) -> None:
     max_nodes = cluster.get("max_nodes")
     if max_nodes is not None and requested_nodes > max_nodes:
         raise SystemExit(f"cluster {cluster['id']!r} allows at most {max_nodes} node(s); requested {requested_nodes}")
+
+
+def resolve_workdir(cluster: dict, requested_workdir: str | None) -> str:
+    """--workdir wins if given; otherwise the cluster's own workdir; otherwise DEFAULT_WORKDIR."""
+    return requested_workdir or cluster.get("workdir") or DEFAULT_WORKDIR
 
 
 def get_cluster(clusters_path: str, cluster_id: str, allowed_kinds: set[str] | None = None) -> dict:
@@ -106,9 +119,33 @@ def pick_available_cluster(clusters_path: str, allowed_kinds: set[str] | None = 
                 "kind": cluster["kind"],
                 "ssh_host": cluster["ssh_host"],
                 "max_nodes": cluster.get("max_nodes"),
+                "workdir": cluster.get("workdir"),
             }
 
     raise SystemExit("no cluster currently has free capacity; try again later or pick one explicitly with --cluster")
+
+
+def new_job_dir(jobs_dir: str, job_name: str) -> str:
+    """A uniquely-suffixed directory path under jobs_dir for one submission of `job_name`, so a
+    same-named resubmit never clobbers an earlier submission's config/logs still in flight."""
+    return f"{jobs_dir}/{job_name}-{secrets.token_hex(4)}"
+
+
+def ensure_job_dir(host: str, jobs_dir: str, job_name: str, remote_job_dir: str) -> None:
+    """mkdir the (unique) job dir and point `<jobs_dir>/<job_name>` at it via a symlink, so
+    --name <job_name> (status/logs/cancel) always resolves to the most recent submission under
+    that name without any other code needing to know about the hash suffix.
+
+    Non-fatal on failure (e.g. `<jobs_dir>/<job_name>` already exists as a real, non-symlink
+    directory from before this scheme existed) — the job itself still runs fine, only the
+    by-name convenience lookup for it is affected.
+    """
+    result = ssh(host, f"mkdir -p {remote_job_dir} && ln -sfn {remote_job_dir} {jobs_dir}/{job_name}", capture=True)
+    if result.returncode != 0:
+        print(
+            f"  warning: couldn't point {jobs_dir}/{job_name} at this submission ({result.stderr.strip()}); "
+            f"--name {job_name!r} may not resolve here until that path is cleared manually"
+        )
 
 
 def ssh(host: str, command: str, capture: bool = False) -> subprocess.CompletedProcess:
