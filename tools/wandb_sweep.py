@@ -82,6 +82,7 @@ from lm_engine.virtual_cluster.remote import (
     DEFAULT_CLUSTERS_YAML,
     DEFAULT_JOBS_DIR,
     DEFAULT_WORKDIR,
+    check_node_limit,
     get_cluster,
     scp,
     ssh,
@@ -296,6 +297,7 @@ def _run_as_agent(args) -> None:
 def _run_on_remote_cluster(args: argparse.Namespace, extra_sbatch_args: list[str]) -> None:
     cluster = get_cluster(args.clusters, args.cluster, allowed_kinds={"slurm_gpu"})
     host = cluster["ssh_host"]
+    check_node_limit(cluster, args.num_nodes)
 
     if not args.sweep and not args.sweep_id:
         raise SystemExit("--sweep (sweep config YAML) or --sweep_id is required")
@@ -507,7 +509,12 @@ def main():
     )
 
     # Slurm
-    parser.add_argument("--num_nodes", type=int, default=1, help="Nodes per job")
+    parser.add_argument(
+        "--num_nodes",
+        type=int,
+        default=1,
+        help="Nodes per job (capped by the cluster's max_nodes when using --cluster)",
+    )
     parser.add_argument("--gpus_per_node", type=int, default=8, help="GPUs per node")
     parser.add_argument("--mem_per_gpu", type=int, default=120, help="System RAM per GPU in GB (e.g. 4 GPUs → 480 GB)")
     parser.add_argument("--cpus_per_gpu", type=int, default=12, help="CPU cores per GPU")

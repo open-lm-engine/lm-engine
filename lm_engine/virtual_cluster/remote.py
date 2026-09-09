@@ -37,8 +37,15 @@ def load_clusters(path: str) -> dict[str, dict]:
             "label": entry.get("label", cid),
             "kind": entry["kind"],
             "ssh_host": entry.get("ssh_host", cid),
+            "max_nodes": entry.get("max_nodes"),
         }
     return clusters
+
+
+def check_node_limit(cluster: dict, requested_nodes: int) -> None:
+    max_nodes = cluster.get("max_nodes")
+    if max_nodes is not None and requested_nodes > max_nodes:
+        raise SystemExit(f"cluster {cluster['id']!r} allows at most {max_nodes} node(s); requested {requested_nodes}")
 
 
 def get_cluster(clusters_path: str, cluster_id: str, allowed_kinds: set[str] | None = None) -> dict:
@@ -98,6 +105,7 @@ def pick_available_cluster(clusters_path: str, allowed_kinds: set[str] | None = 
                 "label": cluster["label"],
                 "kind": cluster["kind"],
                 "ssh_host": cluster["ssh_host"],
+                "max_nodes": cluster.get("max_nodes"),
             }
 
     raise SystemExit("no cluster currently has free capacity; try again later or pick one explicitly with --cluster")

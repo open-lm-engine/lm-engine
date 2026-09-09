@@ -84,7 +84,16 @@ from pathlib import Path
 
 import yaml
 
-from .remote import DEFAULT_CLUSTERS_YAML, DEFAULT_JOBS_DIR, DEFAULT_WORKDIR, get_cluster, load_clusters, scp, ssh
+from .remote import (
+    DEFAULT_CLUSTERS_YAML,
+    DEFAULT_JOBS_DIR,
+    DEFAULT_WORKDIR,
+    check_node_limit,
+    get_cluster,
+    load_clusters,
+    scp,
+    ssh,
+)
 
 
 DEFAULT_DASHBOARD_PORT = 8765
@@ -201,6 +210,7 @@ def _cmd_submit(args) -> None:
     cluster = get_cluster(args.clusters, args.cluster)
     host = cluster["ssh_host"]
     kind = cluster["kind"]
+    check_node_limit(cluster, args.nodes)
 
     config = _build_config(args)
     job_name = args.name or f"{Path(args.base).stem}-{time.strftime('%Y%m%d-%H%M%S')}"
@@ -337,7 +347,9 @@ def main() -> None:
     )
     p_submit.add_argument("--name", default=None, help="job name (default: <base config stem>-<timestamp>)")
     p_submit.add_argument("--workdir", default=DEFAULT_WORKDIR, help="remote lm-engine checkout to run from")
-    p_submit.add_argument("--nodes", type=int, default=1, help="[slurm_gpu] nodes to request")
+    p_submit.add_argument(
+        "--nodes", type=int, default=1, help="[slurm_gpu] nodes to request (capped by the cluster's max_nodes)"
+    )
     p_submit.add_argument("--gpus-per-node", type=int, default=8, help="[slurm_gpu] GPUs per node to request")
     p_submit.add_argument("--partition", default=None, help="[slurm_gpu] Slurm partition")
     p_submit.add_argument("--time", dest="time_limit", default=None, help="[slurm_gpu] wall-time limit, e.g. 12:00:00")

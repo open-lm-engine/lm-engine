@@ -69,6 +69,7 @@ def load_clusters(path: Path) -> list:
                 "kind": kind,
                 "ssh_host": entry.get("ssh_host") or cid,
                 "script": HERE / script,
+                "max_nodes": entry.get("max_nodes"),
             }
         )
     return clusters
