@@ -78,6 +78,15 @@ import requests
 import wandb
 import yaml
 
+from lm_engine.virtual_cluster.remote import (
+    DEFAULT_CLUSTERS_YAML,
+    DEFAULT_JOBS_DIR,
+    DEFAULT_WORKDIR,
+    get_cluster,
+    scp,
+    ssh,
+)
+
 
 def _deep_set(d: dict, dotpath: str, value) -> None:
     keys = dotpath.split(".")
