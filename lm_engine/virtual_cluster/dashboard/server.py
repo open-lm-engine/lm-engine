@@ -18,8 +18,9 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -75,6 +76,25 @@ def load_clusters(path: Path) -> list:
 
 _CLUSTERS: list = []
 _cache = {"ts": 0, "data": None}
+
+# Progress state for the /api/progress endpoint: what the dashboard is doing
+# right now, so the UI can show a log + progress bar while the first (slow,
+# one SSH connection per cluster) status fetch is in flight.
+_progress_lock = threading.Lock()
+_progress_clusters: dict[str, dict] = {}
+_progress_log: list[dict] = []
+_MAX_PROGRESS_LOG = 200
+
+
+def _log_progress(message: str) -> None:
+    with _progress_lock:
+        _progress_log.append({"ts": time.time(), "message": message})
+        del _progress_log[:-_MAX_PROGRESS_LOG]
+
+
+def _set_cluster_progress(cluster_id: str, state: str, detail: str | None = None) -> None:
+    with _progress_lock:
+        _progress_clusters[cluster_id] = {"state": state, "detail": detail, "ts": time.time()}
 
 
 # ---------------------------------------------------------------- transport
@@ -503,8 +523,30 @@ def build_cluster_status(cluster: dict) -> dict:
 
 
 def build_status() -> dict:
+    for cluster in _CLUSTERS:
+        _set_cluster_progress(cluster["id"], "pending")
+    _log_progress(f"checking {len(_CLUSTERS)} cluster(s) over SSH...")
+
+    def _probe(cluster: dict) -> dict:
+        _set_cluster_progress(cluster["id"], "checking")
+        _log_progress(f"{cluster['id']}: connecting to {cluster['ssh_host']}...")
+        result = build_cluster_status(cluster)
+        if result["ok"]:
+            _set_cluster_progress(cluster["id"], "ok")
+            _log_progress(f"{cluster['id']}: reachable")
+        else:
+            _set_cluster_progress(cluster["id"], "error", result.get("error"))
+            _log_progress(f"{cluster['id']}: {result.get('error')}")
+        return result
+
+    results_by_id = {}
     with ThreadPoolExecutor(max_workers=max(len(_CLUSTERS), 1)) as pool:
-        results = list(pool.map(build_cluster_status, _CLUSTERS))
+        future_to_id = {pool.submit(_probe, cluster): cluster["id"] for cluster in _CLUSTERS}
+        for future in as_completed(future_to_id):
+            results_by_id[future_to_id[future]] = future.result()
+
+    _log_progress("done")
+    results = [results_by_id[cluster["id"]] for cluster in _CLUSTERS]
     return {"fetched_at": time.time(), "clusters": results}
 
 
@@ -541,6 +583,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+        elif self.path == "/api/progress":
+            with _progress_lock:
+                data = {
+                    "total": len(_CLUSTERS),
+                    "clusters": dict(_progress_clusters),
+                    "log": list(_progress_log[-50:]),
+                }
+            body = json.dumps(data).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         else:
             self.send_response(404)
             self.end_headers()
@@ -553,6 +608,11 @@ def run_dashboard(clusters_path: str | Path | None = None, port: int = DEFAULT_P
     _CLUSTERS = load_clusters(path)
     _cache["data"] = None
     _cache["ts"] = 0
+    _progress_clusters.clear()
+    _progress_log.clear()
+    for cluster in _CLUSTERS:
+        _set_cluster_progress(cluster["id"], "pending")
+    _log_progress(f"loaded {len(_CLUSTERS)} cluster(s) from {path}")
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"Cluster dashboard: http://127.0.0.1:{port}  (Ctrl+C to stop)")

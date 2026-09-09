@@ -254,10 +254,91 @@ Copyright (c) 2026, Mayank Mishra
     font-size: 11.5px;
     margin-top: 30px;
   }
+
+  .boot {
+    max-width: 560px;
+    margin: 60px auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px 20px;
+  }
+  .boot h1 { margin-bottom: 4px; }
+  .boot .sub { font-size: 12.5px; color: var(--muted); margin-bottom: 16px; }
+  .boot .bartrack {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .boot .barfill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width .25s ease;
+  }
+  .boot .count {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .boot .cluster-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .boot .chip {
+    font-size: 11.5px;
+    font-family: var(--mono);
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(120,120,130,.12);
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .boot .chip.checking { color: var(--accent); background: rgba(59,111,214,.12); }
+  .boot .chip.ok { color: var(--good); background: rgba(26,138,74,.12); }
+  .boot .chip.error { color: var(--bad); background: rgba(194,59,59,.1); }
+  .boot .chip .spin {
+    width: 7px; height: 7px; border-radius: 50%;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .boot .log {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    height: 140px;
+    overflow-y: auto;
+  }
+  .boot .log div { white-space: pre-wrap; line-height: 1.6; }
+  .boot .log .t { opacity: .6; margin-right: 6px; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 
+<div class="boot" id="bootOverlay">
+  <h1>Cluster Dashboard</h1>
+  <div class="sub" id="bootSub">starting up...</div>
+  <div class="bartrack"><div class="barfill" id="bootBarFill"></div></div>
+  <div class="count" id="bootCount"></div>
+  <div class="cluster-chips" id="bootChips"></div>
+  <div class="log" id="bootLog"></div>
+</div>
+
+<div id="mainApp" hidden>
 <header>
   <h1>Cluster Dashboard</h1>
   <div class="status-line"><span class="dot" id="statusDot"></span><span id="statusText">loading</span></div>
@@ -265,6 +346,7 @@ Copyright (c) 2026, Mayank Mishra
 
 <div class="tabs" id="tabs"></div>
 <div id="views"></div>
+</div>
 
 <footer>Polls each host over SSH every 6s. Local-only, served from your machine.</footer>
 
@@ -574,10 +656,60 @@ function renderViews(data) {
   }).join('');
 }
 
+const PROGRESS_POLL_MS = 300;
+let bootDone = false;
+
+function fmtClock(ts) {
+  return new Date(ts * 1000).toLocaleTimeString([], { hour12: false });
+}
+
+function renderBoot(data) {
+  const total = data.total || 0;
+  const clusters = data.clusters || {};
+  const ids = Object.keys(clusters);
+  const doneCount = ids.filter(id => clusters[id].state === 'ok' || clusters[id].state === 'error').length;
+  const pct = total ? Math.round(100 * doneCount / total) : 0;
+
+  document.getElementById('bootBarFill').style.width = pct + '%';
+  document.getElementById('bootCount').textContent = total ? `${doneCount} / ${total} cluster(s) checked` : 'loading clusters.yaml...';
+  document.getElementById('bootSub').textContent = doneCount < total ? 'checking each cluster over SSH...' : 'finishing up...';
+
+  document.getElementById('bootChips').innerHTML = ids.map(id => {
+    const st = clusters[id].state;
+    const spin = st === 'checking' ? '<span class="spin"></span>' : '';
+    return `<span class="chip ${st}">${spin}${escapeHtml(id)}</span>`;
+  }).join('');
+
+  const logEl = document.getElementById('bootLog');
+  logEl.innerHTML = (data.log || []).map(entry =>
+    `<div><span class="t">${fmtClock(entry.ts)}</span>${escapeHtml(entry.message)}</div>`
+  ).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function pollProgress() {
+  if (bootDone) return;
+  try {
+    const res = await fetch('/api/progress');
+    renderBoot(await res.json());
+  } catch (e) {
+    // ignore; the main status poll will surface connection loss
+  }
+  if (!bootDone) setTimeout(pollProgress, PROGRESS_POLL_MS);
+}
+
+function finishBoot() {
+  if (bootDone) return;
+  bootDone = true;
+  document.getElementById('bootOverlay').hidden = true;
+  document.getElementById('mainApp').hidden = false;
+}
+
 async function poll() {
   try {
     const res = await fetch('/api/status');
     const data = await res.json();
+    finishBoot();
     render(data);
   } catch (e) {
     document.getElementById('statusText').textContent = 'connection lost';
@@ -586,6 +718,7 @@ async function poll() {
     setTimeout(poll, REFRESH_MS);
   }
 }
+pollProgress();
 poll();
 </script>
 </body>
