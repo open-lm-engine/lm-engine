@@ -325,6 +325,99 @@ Copyright (c) 2026, Mayank Mishra
   .boot .log div { white-space: pre-wrap; line-height: 1.6; }
   .boot .log .t { opacity: .6; margin-right: 6px; }
   [hidden] { display: none !important; }
+
+  .host-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .host-row .host-tag { margin-bottom: 0; }
+  .logs-open-btn {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .logs-open-btn:hover { background: rgba(59,111,214,.1); }
+
+  .log-drawer {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 46vh;
+    max-height: 520px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px rgba(0,0,0,.15);
+    display: flex;
+    flex-direction: column;
+    z-index: 50;
+  }
+  .log-drawer-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .log-drawer-title {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-right: auto;
+  }
+  .log-drawer-path {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    flex-basis: 100%;
+  }
+  .log-back-btn, .log-refresh-hint {
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .log-back-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 0;
+  }
+  .log-drawer-close {
+    font-size: 16px;
+    line-height: 1;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px 6px;
+  }
+  .log-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .log-file-list {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .log-file-list td {
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .log-file-list tr:hover td { background: rgba(59,111,214,.06); cursor: pointer; }
+  .log-file-name { font-family: var(--mono); }
+  .log-file-meta { color: var(--muted); text-align: right; white-space: nowrap; }
+  .log-view {
+    margin: 0;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .log-view.error { color: var(--bad); }
 </style>
 </head>
 <body>
@@ -349,6 +442,17 @@ Copyright (c) 2026, Mayank Mishra
 </div>
 
 <footer>Polls each host over SSH every 6s. Local-only, served from your machine.</footer>
+
+<div class="log-drawer" id="logDrawer" hidden>
+  <div class="log-drawer-header">
+    <button class="log-back-btn" id="logBackBtn" onclick="showLogList()" hidden>&larr; files</button>
+    <span class="log-drawer-title" id="logDrawerTitle"></span>
+    <span class="log-refresh-hint" id="logRefreshHint"></span>
+    <button class="log-drawer-close" onclick="closeLogsBrowser()">&times;</button>
+    <span class="log-drawer-path" id="logDrawerPath"></span>
+  </div>
+  <div class="log-drawer-body" id="logDrawerBody"></div>
+</div>
 
 <script>
 const REFRESH_MS = 6000;
@@ -423,7 +527,10 @@ function renderTpu(c) {
         </tr>`).join('')}</tbody></table>`;
 
   return `
-    <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+    <div class="host-row">
+      <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+      <button class="logs-open-btn" onclick="openLogsBrowser('${escapeHtml(c.id)}')">logs</button>
+    </div>
     ${note}
     <div class="tiles">${tiles.map(t => `<div class="tile"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub||''}</div></div>`).join('')}</div>
     <section><h2>TPU Chips</h2>
@@ -471,7 +578,10 @@ function renderAmdGpu(c) {
         </tr>`).join('')}</tbody></table>`;
 
   return `
-    <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+    <div class="host-row">
+      <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+      <button class="logs-open-btn" onclick="openLogsBrowser('${escapeHtml(c.id)}')">logs</button>
+    </div>
     <div class="tiles">${tiles.map(t => `<div class="tile"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub||''}</div></div>`).join('')}</div>
     <section><h2>GPUs</h2>
       <table><thead><tr><th>GPU</th><th>Temp</th><th>Power</th><th>VRAM</th><th>Util</th></tr></thead>
@@ -522,7 +632,10 @@ function renderNvidiaGpu(c) {
         </tr>`).join('')}</tbody></table>`;
 
   return `
-    <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+    <div class="host-row">
+      <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+      <button class="logs-open-btn" onclick="openLogsBrowser('${escapeHtml(c.id)}')">logs</button>
+    </div>
     ${note}
     <div class="tiles">${tiles.map(t => `<div class="tile"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub||''}</div></div>`).join('')}</div>
     <section><h2>GPUs</h2>
@@ -587,7 +700,10 @@ function renderSlurmGpu(c) {
       }).join('');
 
   return `
-    <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+    <div class="host-row">
+      <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+      <button class="logs-open-btn" onclick="openLogsBrowser('${escapeHtml(c.id)}')">logs</button>
+    </div>
     <div class="tiles">${tiles.map(t => `<div class="tile"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub||''}</div></div>`).join('')}</div>
     <section>
       <h2>Node Occupancy (${nodes.length} nodes)</h2>
@@ -720,6 +836,128 @@ async function poll() {
 }
 pollProgress();
 poll();
+
+// ---------------------------------------------------------------- logs browser
+const LOG_LIST_POLL_MS = 5000;
+const LOG_VIEW_POLL_MS = 3000;
+let logDrawerState = null; // { clusterId, mode: 'list'|'view', file, timer }
+
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + ' KiB';
+  return (n/1024/1024).toFixed(1) + ' MiB';
+}
+function fmtAgo(epochSeconds) {
+  const s = Math.max(0, Math.floor(Date.now()/1000 - epochSeconds));
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+
+function stopLogPoll() {
+  if (logDrawerState && logDrawerState.timer) clearTimeout(logDrawerState.timer);
+}
+
+async function pollLogList() {
+  if (!logDrawerState || logDrawerState.mode !== 'list') return;
+  const { clusterId } = logDrawerState;
+  const bodyEl = document.getElementById('logDrawerBody');
+  try {
+    const res = await fetch(`/api/logs_list?cluster=${encodeURIComponent(clusterId)}`);
+    const data = await res.json();
+    if (!logDrawerState || logDrawerState.mode !== 'list') return;
+    if (data.ok) {
+      document.getElementById('logDrawerPath').textContent = data.dir || '';
+      bodyEl.innerHTML = !data.files.length
+        ? `<div class="empty-note" style="margin:14px">No files in ${escapeHtml(data.dir || 'logs/')} yet.</div>`
+        : `<table class="log-file-list"><tbody>${data.files.map(f => `
+            <tr onclick="openLogFile('${escapeHtml(f.name)}')">
+              <td class="log-file-name">${escapeHtml(f.name)}</td>
+              <td class="log-file-meta">${fmtBytes(f.size)}</td>
+              <td class="log-file-meta">${fmtAgo(f.mtime)}</td>
+            </tr>`).join('')}</tbody></table>`;
+    } else {
+      bodyEl.innerHTML = `<div class="log-view error">${escapeHtml(data.error || 'failed to list logs')}</div>`;
+    }
+  } catch (e) {
+    if (!logDrawerState || logDrawerState.mode !== 'list') return;
+    bodyEl.innerHTML = `<div class="log-view error">connection lost while listing logs</div>`;
+  }
+  if (logDrawerState && logDrawerState.mode === 'list') {
+    logDrawerState.timer = setTimeout(pollLogList, LOG_LIST_POLL_MS);
+  }
+}
+
+async function pollLogView() {
+  if (!logDrawerState || logDrawerState.mode !== 'view') return;
+  const { clusterId, file } = logDrawerState;
+  const bodyEl = document.getElementById('logDrawerBody');
+  let pre = bodyEl.querySelector('.log-view');
+  if (!pre) {
+    bodyEl.innerHTML = '<pre class="log-view"></pre>';
+    pre = bodyEl.querySelector('.log-view');
+  }
+  try {
+    const res = await fetch(`/api/log?cluster=${encodeURIComponent(clusterId)}&file=${encodeURIComponent(file)}&lines=300`);
+    const data = await res.json();
+    if (!logDrawerState || logDrawerState.mode !== 'view') return;
+    const atBottom = bodyEl.scrollTop + bodyEl.clientHeight >= bodyEl.scrollHeight - 20;
+    if (data.ok) {
+      pre.classList.remove('error');
+      pre.textContent = data.content || '(empty)';
+      document.getElementById('logDrawerPath').textContent = data.path || '';
+      if (atBottom) bodyEl.scrollTop = bodyEl.scrollHeight;
+    } else {
+      pre.classList.add('error');
+      pre.textContent = data.error || 'failed to fetch log';
+    }
+  } catch (e) {
+    if (!logDrawerState || logDrawerState.mode !== 'view') return;
+    pre.classList.add('error');
+    pre.textContent = 'connection lost while fetching log';
+  }
+  if (logDrawerState && logDrawerState.mode === 'view') {
+    logDrawerState.timer = setTimeout(pollLogView, LOG_VIEW_POLL_MS);
+  }
+}
+
+function showLogList() {
+  stopLogPoll();
+  logDrawerState.mode = 'list';
+  logDrawerState.file = null;
+  document.getElementById('logBackBtn').hidden = true;
+  document.getElementById('logDrawerTitle').textContent = logDrawerState.clusterId;
+  document.getElementById('logRefreshHint').textContent = `refreshing every ${LOG_LIST_POLL_MS/1000}s`;
+  document.getElementById('logDrawerPath').textContent = '';
+  document.getElementById('logDrawerBody').innerHTML = 'loading...';
+  pollLogList();
+}
+
+function openLogFile(file) {
+  if (!logDrawerState) return;
+  stopLogPoll();
+  logDrawerState.mode = 'view';
+  logDrawerState.file = file;
+  document.getElementById('logBackBtn').hidden = false;
+  document.getElementById('logDrawerTitle').textContent = `${logDrawerState.clusterId} · ${file}`;
+  document.getElementById('logRefreshHint').textContent = `refreshing every ${LOG_VIEW_POLL_MS/1000}s`;
+  document.getElementById('logDrawerBody').innerHTML = '<pre class="log-view">loading...</pre>';
+  pollLogView();
+}
+
+function openLogsBrowser(clusterId) {
+  stopLogPoll();
+  logDrawerState = { clusterId, mode: 'list', file: null, timer: null };
+  document.getElementById('logDrawer').hidden = false;
+  showLogList();
+}
+
+function closeLogsBrowser() {
+  stopLogPoll();
+  logDrawerState = null;
+  document.getElementById('logDrawer').hidden = true;
+}
 </script>
 </body>
 </html>

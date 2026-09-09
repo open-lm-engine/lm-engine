@@ -69,6 +69,7 @@ import copy
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -82,11 +83,19 @@ from lm_engine.virtual_cluster.remote import (
     DEFAULT_CLUSTERS_YAML,
     DEFAULT_JOBS_DIR,
     DEFAULT_WORKDIR,
+    SLURM_BIN_FALLBACK_DIR,
     check_node_limit,
+    ensure_job_dir,
     get_cluster,
+    new_job_dir,
+    resolve_workdir,
     scp,
     ssh,
 )
+
+
+def _local_slurm_bin(name: str) -> str:
+    return shutil.which(name) or f"{SLURM_BIN_FALLBACK_DIR}/{name}"
 
 
 def _deep_set(d: dict, dotpath: str, value) -> None:
@@ -298,12 +307,15 @@ def _run_on_remote_cluster(args: argparse.Namespace, extra_sbatch_args: list[str
     cluster = get_cluster(args.clusters, args.cluster, allowed_kinds={"slurm_gpu"})
     host = cluster["ssh_host"]
     check_node_limit(cluster, args.num_nodes)
+    args.workdir = resolve_workdir(cluster, args.workdir)
 
     if not args.sweep and not args.sweep_id:
         raise SystemExit("--sweep (sweep config YAML) or --sweep_id is required")
 
     job_name = args.name or f"sweep-{Path(args.config).stem}-{time.strftime('%Y%m%d-%H%M%S')}"
-    remote_job_dir = f"{args.jobs_dir}/{job_name}"
+    # hash-suffixed so a resubmit under the same --name never clobbers a still-in-flight sweep's
+    # config/logs; <jobs_dir>/<job_name> is kept pointed at the latest one below.
+    remote_job_dir = new_job_dir(args.jobs_dir, job_name)
     remote_script_path = f"{remote_job_dir}/wandb_sweep.py"
     remote_config_path = f"{remote_job_dir}/config.yaml"
     remote_sweep_path = f"{remote_job_dir}/sweep.yaml" if args.sweep else None
@@ -352,8 +364,15 @@ def _run_on_remote_cluster(args: argparse.Namespace, extra_sbatch_args: list[str
     # convention in _submit_agent_job).
     inner_cmd = " ".join(remote_parts)
     wandb_key_prefix = f"WANDB_API_KEY={shlex.quote(args.wandb_api_key)} " if args.wandb_api_key else ""
+    # source shell rc files for API keys/env vars kept there (e.g. WANDB_API_KEY) — this nohup'd
+    # non-interactive shell won't source any of these on its own, and Slurm agent jobs inherit
+    # whatever env the driver has when they're submitted. Try .bash_profile/.profile too: a stock
+    # .bashrc commonly has an early `case $- in *i*) ;; *) return;; esac`-style guard for
+    # non-interactive shells that silently no-ops past anything exported below it.
     run_cmd = (
-        f"cd {args.workdir} && [ -f .venv/bin/activate ] && source .venv/bin/activate; {wandb_key_prefix}{inner_cmd}"
+        f"cd {args.workdir} && [ -f ~/.bash_profile ] && source ~/.bash_profile; "
+        f"[ -f ~/.profile ] && source ~/.profile; [ -f ~/.bashrc ] && source ~/.bashrc; "
+        f"[ -f .venv/bin/activate ] && source .venv/bin/activate; {wandb_key_prefix}{inner_cmd}"
     )
     remote_log_path = f"{remote_job_dir}/run.log"
     remote_cmd = f"nohup bash -c {shlex.quote(run_cmd)} > {remote_log_path} 2>&1 < /dev/null & disown"
@@ -367,7 +386,7 @@ def _run_on_remote_cluster(args: argparse.Namespace, extra_sbatch_args: list[str
         print(f"[dry-run] would run on {host}:\n  {remote_cmd}")
         return
 
-    ssh(host, f"mkdir -p {remote_job_dir}", capture=True)
+    ensure_job_dir(host, args.jobs_dir, job_name, remote_job_dir)
     ssh(host, f"echo sweep > {remote_job_dir}/kind", capture=True)
     scp(str(Path(__file__).resolve()), host, remote_script_path)
     scp(args.config, host, remote_config_path)
@@ -389,7 +408,7 @@ def _count_running_jobs(job_ids: list[str]) -> int:
     if not job_ids:
         return 0
     result = subprocess.run(
-        ["squeue", "--jobs", ",".join(job_ids), "-h", "-o", "%i"],
+        [_local_slurm_bin("squeue"), "--jobs", ",".join(job_ids), "-h", "-o", "%i"],
         capture_output=True,
         text=True,
     )
@@ -425,7 +444,7 @@ def _submit_agent_job(
         agent_parts += ["--entity", args.entity]
 
     cmd = [
-        "sbatch",
+        _local_slurm_bin("sbatch"),
         f"--nodes={args.num_nodes}",
         f"--gpus-per-node={args.gpus_per_node}",
         f"--mem-per-gpu={args.mem_per_gpu}G",
@@ -482,8 +501,9 @@ def main():
     )
     parser.add_argument(
         "--workdir",
-        default=DEFAULT_WORKDIR,
-        help="remote lm-engine checkout to run from (only used with --cluster)",
+        default=None,
+        help=f"remote lm-engine checkout to run from (only used with --cluster; default: the cluster's own "
+        f"'workdir' in clusters.yaml, else {DEFAULT_WORKDIR!r})",
     )
     parser.add_argument("--name", default=None, help="remote job name (only used with --cluster)")
     parser.add_argument(
