@@ -16,6 +16,7 @@ Usage:
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import threading
@@ -23,8 +24,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import yaml
+
+from ..remote import DEFAULT_WORKDIR
 
 
 HERE = Path(__file__).parent
@@ -32,6 +36,9 @@ DEFAULT_CLUSTERS_YAML = HERE.parent / "clusters.yaml"
 DEFAULT_PORT = 8765
 STATUS_TIMEOUT = 25
 CACHE_TTL = 4  # seconds; avoid hammering SSH if multiple clients poll
+LOG_SSH_TIMEOUT = 10
+MAX_LOG_LINES = 2000
+_SAFE_LOG_FILENAME = re.compile(r"^[A-Za-z0-9._-]+$")
 
 VALID_KINDS = {"tpu", "slurm_gpu", "amd_gpu", "nvidia_gpu"}
 DEFAULT_SCRIPTS = {
@@ -70,6 +77,7 @@ def load_clusters(path: Path) -> list:
                 "ssh_host": entry.get("ssh_host") or cid,
                 "script": HERE / script,
                 "max_nodes": entry.get("max_nodes"),
+                "workdir": entry.get("workdir"),
             }
         )
     return clusters
@@ -561,6 +569,79 @@ def get_status_cached() -> dict:
     return data
 
 
+def _find_cluster(cluster_id: str) -> dict | None:
+    return next((c for c in _CLUSTERS if c["id"] == cluster_id), None)
+
+
+def list_logs(cluster_id: str) -> dict:
+    """List files under <cluster workdir>/logs, newest first."""
+    cluster = _find_cluster(cluster_id)
+    if cluster is None:
+        return {"ok": False, "error": f"unknown cluster {cluster_id!r}"}
+
+    workdir = cluster.get("workdir") or DEFAULT_WORKDIR
+    logs_dir = f"{workdir}/logs"
+    # size(bytes) mtime(epoch) name — maxsplit=2 so filenames with spaces stay intact.
+    # `|| true` so a missing logs dir (no job has run yet) is an empty list, not an error.
+    cmd = f"cd {logs_dir} 2>/dev/null && stat -c '%s %Y %n' * 2>/dev/null || true"
+
+    try:
+        proc = subprocess.run(
+            ["ssh", "-o", "ConnectTimeout=8", "-o", "BatchMode=yes", cluster["ssh_host"], cmd],
+            capture_output=True,
+            text=True,
+            timeout=LOG_SSH_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"SSH to {cluster['ssh_host']} timed out after {LOG_SSH_TIMEOUT}s"}
+
+    files = []
+    for line in proc.stdout.strip().splitlines():
+        parts = line.split(" ", 2)
+        if len(parts) != 3:
+            continue
+        size_s, mtime_s, name = parts
+        try:
+            files.append({"name": name, "size": int(size_s), "mtime": int(mtime_s)})
+        except ValueError:
+            continue
+    files.sort(key=lambda f: -f["mtime"])
+
+    return {"ok": True, "dir": logs_dir, "files": files}
+
+
+def get_log_content(cluster_id: str, filename: str, lines: int) -> dict:
+    cluster = _find_cluster(cluster_id)
+    if cluster is None:
+        return {"ok": False, "error": f"unknown cluster {cluster_id!r}"}
+    if not filename or not _SAFE_LOG_FILENAME.match(filename):
+        return {"ok": False, "error": "invalid log filename"}
+
+    lines = max(1, min(lines, MAX_LOG_LINES))
+    workdir = cluster.get("workdir") or DEFAULT_WORKDIR
+    log_path = f"{workdir}/logs/{filename}"
+
+    try:
+        proc = subprocess.run(
+            [
+                "ssh",
+                "-o",
+                "ConnectTimeout=8",
+                "-o",
+                "BatchMode=yes",
+                cluster["ssh_host"],
+                f"tail -n {lines} {shlex.quote(log_path)} 2>&1",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=LOG_SSH_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"SSH to {cluster['ssh_host']} timed out after {LOG_SSH_TIMEOUT}s"}
+
+    return {"ok": True, "path": log_path, "content": proc.stdout}
+
+
 INDEX_HTML = (HERE / "index.html").read_text()
 
 
@@ -568,35 +649,44 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # quiet
 
+    def _send_json(self, data: dict) -> None:
+        body = json.dumps(data).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
-        if self.path == "/" or self.path == "/index.html":
+        parsed = urlparse(self.path)
+
+        if parsed.path == "/" or parsed.path == "/index.html":
             body = INDEX_HTML.encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-        elif self.path == "/api/status":
-            data = get_status_cached()
-            body = json.dumps(data).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        elif self.path == "/api/progress":
+        elif parsed.path == "/api/status":
+            self._send_json(get_status_cached())
+        elif parsed.path == "/api/progress":
             with _progress_lock:
                 data = {
                     "total": len(_CLUSTERS),
                     "clusters": dict(_progress_clusters),
                     "log": list(_progress_log[-50:]),
                 }
-            body = json.dumps(data).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self._send_json(data)
+        elif parsed.path == "/api/logs_list":
+            qs = parse_qs(parsed.query)
+            self._send_json(list_logs(qs.get("cluster", [""])[0]))
+        elif parsed.path == "/api/log":
+            qs = parse_qs(parsed.query)
+            try:
+                lines = int(qs.get("lines", ["200"])[0])
+            except ValueError:
+                lines = 200
+            self._send_json(get_log_content(qs.get("cluster", [""])[0], qs.get("file", [""])[0], lines))
         else:
             self.send_response(404)
             self.end_headers()
