@@ -116,11 +116,6 @@ def test_local_create_mode_schedules_jobs_via_wandb(
         assert "--project test-project" in wrap and "--entity test-entity" in wrap
 
 
-# ---------------------------------------------------------------------------
-# --cluster mode: dispatches through lm_engine.virtual_cluster instead
-# ---------------------------------------------------------------------------
-
-
 def test_remote_cluster_mode_ships_and_launches_sweep(
     wandb_sweep, monkeypatch, base_config_path, sweep_config_path, clusters_yaml_path
 ) -> None:
