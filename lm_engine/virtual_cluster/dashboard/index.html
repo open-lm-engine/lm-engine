@@ -1,0 +1,725 @@
+<!-- **************************************************
+Copyright (c) 2026, Mayank Mishra
+************************************************** -->
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster Dashboard</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --border: #e3e3e6;
+    --text: #1b1b1f;
+    --muted: #6b6b74;
+    --accent: #3b6fd6;
+    --good: #1a8a4a;
+    --warn: #b5820a;
+    --bad: #c23b3b;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --panel: #1e2024;
+      --border: #303338;
+      --text: #eaeaec;
+      --muted: #97979f;
+      --accent: #7aa2f7;
+      --good: #4ac97f;
+      --warn: #e0b43c;
+      --bad: #f0605e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 24px 32px 60px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .status-line {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--good);
+    display: inline-block;
+  }
+  .dot.bad { background: var(--bad); }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    user-select: none;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab .tdot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--good);
+  }
+  .tab .tdot.bad { background: var(--bad); }
+  .tab .tdot.idle { background: var(--muted); }
+
+  .panel-view { display: none; }
+  .panel-view.active { display: block; }
+
+  .host-tag {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .tile {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .tile .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .tile .value {
+    font-size: 22px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .tile .sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  section { margin-bottom: 28px; }
+  h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: .03em;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.mono, .mono { font-family: var(--mono); font-size: 12.5px; }
+  .cmd, .nodelist {
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.idle { background: rgba(120,120,130,.15); color: var(--muted); }
+  .badge.busy, .badge.mix, .badge.alloc, .badge.running { background: rgba(26,138,74,.15); color: var(--good); }
+  .badge.down, .badge.drain { background: rgba(194,59,59,.12); color: var(--bad); }
+  .badge.pending, .badge.requeue_hold { background: rgba(181,130,10,.14); color: var(--warn); }
+
+  .bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 90px;
+  }
+  .bar .track {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+  }
+  .bar .fill { height: 100%; background: var(--accent); }
+
+  .node-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  .node-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    background: var(--border);
+  }
+  .node-cell.idle { background: var(--muted); opacity: .35; }
+  .node-cell.mix, .node-cell.alloc { background: var(--good); }
+  .node-cell.down, .node-cell.drain { background: var(--bad); }
+
+  .legend { display: flex; gap: 16px; font-size: 11.5px; color: var(--muted); margin-bottom: 14px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  .empty-note {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 16px;
+    background: var(--panel);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+  }
+
+  .error-box {
+    background: rgba(194,59,59,.08);
+    border: 1px solid var(--bad);
+    color: var(--bad);
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+
+  .note-box {
+    font-size: 12px;
+    color: var(--warn);
+    background: rgba(181,130,10,.08);
+    border: 1px solid var(--warn);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 18px;
+  }
+
+  footer {
+    color: var(--muted);
+    font-size: 11.5px;
+    margin-top: 30px;
+  }
+
+  .boot {
+    max-width: 560px;
+    margin: 60px auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px 20px;
+  }
+  .boot h1 { margin-bottom: 4px; }
+  .boot .sub { font-size: 12.5px; color: var(--muted); margin-bottom: 16px; }
+  .boot .bartrack {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .boot .barfill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width .25s ease;
+  }
+  .boot .count {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .boot .cluster-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .boot .chip {
+    font-size: 11.5px;
+    font-family: var(--mono);
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(120,120,130,.12);
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .boot .chip.checking { color: var(--accent); background: rgba(59,111,214,.12); }
+  .boot .chip.ok { color: var(--good); background: rgba(26,138,74,.12); }
+  .boot .chip.error { color: var(--bad); background: rgba(194,59,59,.1); }
+  .boot .chip .spin {
+    width: 7px; height: 7px; border-radius: 50%;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .boot .log {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    height: 140px;
+    overflow-y: auto;
+  }
+  .boot .log div { white-space: pre-wrap; line-height: 1.6; }
+  .boot .log .t { opacity: .6; margin-right: 6px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="boot" id="bootOverlay">
+  <h1>Cluster Dashboard</h1>
+  <div class="sub" id="bootSub">starting up...</div>
+  <div class="bartrack"><div class="barfill" id="bootBarFill"></div></div>
+  <div class="count" id="bootCount"></div>
+  <div class="cluster-chips" id="bootChips"></div>
+  <div class="log" id="bootLog"></div>
+</div>
+
+<div id="mainApp" hidden>
+<header>
+  <h1>Cluster Dashboard</h1>
+  <div class="status-line"><span class="dot" id="statusDot"></span><span id="statusText">loading</span></div>
+</header>
+
+<div class="tabs" id="tabs"></div>
+<div id="views"></div>
+</div>
+
+<footer>Polls each host over SSH every 6s. Local-only, served from your machine.</footer>
+
+<script>
+const REFRESH_MS = 6000;
+let activeTab = null;
+
+function fmtPct(n) { return n === null || n === undefined ? "—" : n.toFixed(0) + "%"; }
+function fmtGib(n) { return n === null || n === undefined ? "—" : n.toFixed(1) + " GiB"; }
+function fmtEtimes(s) {
+  if (!s && s !== 0) return "—";
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function badgeClass(s) { return String(s || '').toLowerCase().replace(/[^a-z_]/g, ''); }
+
+function commonTiles(c) {
+  return [
+    { label: 'Load average', value: c.load ? c.load[0].toFixed(2) : '—',
+      sub: c.load ? `${c.load[1].toFixed(2)} / ${c.load[2].toFixed(2)} (5m/15m)` : '' },
+    { label: 'Memory', value: c.mem && c.mem.total_mb ? Math.round(100 * c.mem.used_mb / c.mem.total_mb) + '%' : '—',
+      sub: c.mem && c.mem.total_mb ? `${(c.mem.used_mb/1024).toFixed(1)} / ${(c.mem.total_mb/1024).toFixed(0)} GiB` : '' },
+    { label: 'Disk', value: c.disk && c.disk.pct != null ? c.disk.pct + '%' : '—',
+      sub: c.disk && c.disk.avail ? `${c.disk.avail} free` : '' },
+  ];
+}
+
+function renderTpu(c) {
+  const chips = c.tpu.chips || [];
+  const busyChips = chips.filter(ch => ch.pid).length;
+  const avgDuty = chips.some(ch => ch.duty_cycle_pct != null)
+    ? (chips.reduce((a, ch) => a + (ch.duty_cycle_pct || 0), 0) / chips.filter(ch => ch.duty_cycle_pct != null).length)
+    : null;
+
+  const tiles = [
+    { label: 'Accelerator', value: c.tpu.accelerator || '—', sub: `${chips.length} chip${chips.length === 1 ? '' : 's'}` },
+    { label: 'Running jobs', value: c.jobs.length, sub: c.jobs.length ? `${busyChips}/${chips.length} chips busy` : 'cluster idle' },
+    { label: 'Avg duty cycle', value: avgDuty != null ? avgDuty.toFixed(0) + '%' : '—', sub: 'across active chips' },
+    ...commonTiles(c),
+  ];
+
+  const note = c.tpu.note ? `<div class="note-box">${escapeHtml(c.tpu.note)}</div>` : '';
+
+  const chipRows = chips.map(ch => {
+    const duty = ch.duty_cycle_pct;
+    const dutyBar = duty == null ? '—' : `
+      <div class="bar"><div class="track"><div class="fill" style="width:${Math.min(100,duty)}%"></div></div><span class="mono">${duty.toFixed(0)}%</span></div>`;
+    const hbm = (ch.hbm_gib != null) ? `${fmtGib(ch.hbm_gib)}${ch.hbm_total_gib ? ' / ' + fmtGib(ch.hbm_total_gib) : ''}` : '—';
+    return `<tr>
+      <td class="mono">${ch.path}</td>
+      <td>${escapeHtml(ch.type)}</td>
+      <td>${dutyBar}</td>
+      <td class="mono">${hbm}</td>
+      <td>${ch.pid ? `<span class="badge busy">pid ${ch.pid}</span>` : `<span class="badge idle">idle</span>`}</td>
+    </tr>`;
+  }).join('');
+
+  const jobsHtml = !c.jobs.length
+    ? `<div class="empty-note">No process currently holds a TPU chip — cluster is idle.</div>`
+    : `<table><thead><tr><th>PID</th><th>User</th><th>Chips</th><th>CPU</th><th>Mem</th><th>Uptime</th><th>Command</th></tr></thead>
+        <tbody>${c.jobs.map(j => `<tr>
+          <td class="mono">${j.pid}</td>
+          <td>${escapeHtml(j.user)}</td>
+          <td class="mono">${j.chips.join(', ')}</td>
+          <td class="mono">${j.pcpu != null ? j.pcpu.toFixed(1) + '%' : '—'}</td>
+          <td class="mono">${j.pmem != null ? j.pmem.toFixed(1) + '%' : '—'}</td>
+          <td class="mono">${fmtEtimes(j.etimes)}</td>
+          <td class="mono cmd" title="${escapeHtml(j.cmd)}">${escapeHtml(j.cmd)}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+  return `
+    <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+    ${note}
+    <div class="tiles">${tiles.map(t => `<div class="tile"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub||''}</div></div>`).join('')}</div>
+    <section><h2>TPU Chips</h2>
+      <table><thead><tr><th>Chip</th><th>Type</th><th>Duty cycle</th><th>HBM</th><th>Status</th></tr></thead>
+      <tbody>${chipRows}</tbody></table>
+    </section>
+    <section><h2>Running Jobs</h2>${jobsHtml}</section>
+  `;
+}
+
+function renderAmdGpu(c) {
+  const gpus = c.gpus || [];
+  const jobs = c.jobs || [];
+  const avgGpuPct = gpus.length ? gpus.reduce((a,g) => a+g.gpu_pct, 0) / gpus.length : null;
+  const avgVramPct = gpus.length ? gpus.reduce((a,g) => a+g.vram_pct, 0) / gpus.length : null;
+  const users = [...new Set(jobs.map(j => j.user))];
+
+  const tiles = [
+    { label: 'GPUs', value: gpus.length, sub: 'MI350X' },
+    { label: 'Processes', value: jobs.length, sub: users.length ? `by ${users.join(', ')}` : 'idle' },
+    { label: 'Avg GPU util', value: avgGpuPct != null ? avgGpuPct.toFixed(0) + '%' : '—', sub: 'across chips' },
+    { label: 'Avg VRAM used', value: avgVramPct != null ? avgVramPct.toFixed(0) + '%' : '—', sub: 'across chips' },
+    ...commonTiles(c),
+  ];
+
+  const gpuRows = gpus.map(g => `<tr>
+      <td class="mono">gpu${g.index}</td>
+      <td class="mono">${g.temp_c.toFixed(0)}°C</td>
+      <td class="mono">${g.power_w.toFixed(0)}W</td>
+      <td><div class="bar"><div class="track"><div class="fill" style="width:${g.vram_pct}%"></div></div><span class="mono">${g.vram_pct}%</span></div></td>
+      <td><div class="bar"><div class="track"><div class="fill" style="width:${g.gpu_pct}%"></div></div><span class="mono">${g.gpu_pct}%</span></div></td>
+    </tr>`).join('');
+
+  const jobsHtml = !jobs.length
+    ? `<div class="empty-note">No process currently holds a GPU — box is idle.</div>`
+    : `<table><thead><tr><th>PID</th><th>User</th><th>GPU node(s)</th><th>VRAM</th><th>CPU</th><th>Uptime</th><th>Command</th></tr></thead>
+        <tbody>${jobs.map(j => `<tr>
+          <td class="mono">${j.pid}</td>
+          <td>${escapeHtml(j.user)}</td>
+          <td class="mono">${j.gpus.join(', ') || '—'}</td>
+          <td class="mono">${j.vram_used_gib.toFixed(1)} GiB</td>
+          <td class="mono">${j.pcpu != null ? j.pcpu.toFixed(1) + '%' : '—'}</td>
+          <td class="mono">${fmtEtimes(j.etimes)}</td>
+          <td class="mono cmd" title="${escapeHtml(j.cmd)}">${escapeHtml(j.cmd)}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+  return `
+    <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+    <div class="tiles">${tiles.map(t => `<div class="tile"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub||''}</div></div>`).join('')}</div>
+    <section><h2>GPUs</h2>
+      <table><thead><tr><th>GPU</th><th>Temp</th><th>Power</th><th>VRAM</th><th>Util</th></tr></thead>
+      <tbody>${gpuRows}</tbody></table>
+    </section>
+    <section><h2>Processes</h2>${jobsHtml}</section>
+  `;
+}
+
+function renderNvidiaGpu(c) {
+  const gpus = c.gpus || [];
+  const jobs = c.jobs || [];
+  const avgGpuPct = gpus.length ? gpus.reduce((a,g) => a+g.gpu_pct, 0) / gpus.length : null;
+  const avgMemPct = gpus.length ? gpus.reduce((a,g) => a + 100*g.mem_used_mib/g.mem_total_mib, 0) / gpus.length : null;
+  const users = [...new Set(jobs.map(j => j.user))];
+
+  const note = c.note ? `<div class="note-box">${escapeHtml(c.note)}</div>` : '';
+
+  const tiles = [
+    { label: 'GPUs', value: gpus.length ? gpus.length : '—', sub: gpus[0] ? gpus[0].name.replace('NVIDIA ', '') : (c.note ? 'unreachable' : '') },
+    { label: 'Processes', value: gpus.length ? jobs.length : '—', sub: users.length ? `by ${users.join(', ')}` : (c.note ? '' : 'idle') },
+    { label: 'Avg GPU util', value: avgGpuPct != null ? avgGpuPct.toFixed(0) + '%' : '—', sub: 'across chips' },
+    { label: 'Avg VRAM used', value: avgMemPct != null ? avgMemPct.toFixed(0) + '%' : '—', sub: 'across chips' },
+    ...commonTiles(c),
+  ];
+
+  const gpuRows = gpus.map(g => {
+    const memPct = 100 * g.mem_used_mib / g.mem_total_mib;
+    return `<tr>
+      <td class="mono">gpu${g.index}</td>
+      <td class="mono">${g.temp_c.toFixed(0)}°C</td>
+      <td><div class="bar"><div class="track"><div class="fill" style="width:${memPct}%"></div></div><span class="mono">${(g.mem_used_mib/1024).toFixed(0)}/${(g.mem_total_mib/1024).toFixed(0)} GiB</span></div></td>
+      <td><div class="bar"><div class="track"><div class="fill" style="width:${g.gpu_pct}%"></div></div><span class="mono">${g.gpu_pct}%</span></div></td>
+    </tr>`;
+  }).join('');
+
+  const jobsHtml = !jobs.length
+    ? `<div class="empty-note">No process currently holds a GPU — box is idle.</div>`
+    : `<table><thead><tr><th>PID</th><th>User</th><th>GPU</th><th>VRAM</th><th>CPU</th><th>Uptime</th><th>Command</th></tr></thead>
+        <tbody>${jobs.map(j => `<tr>
+          <td class="mono">${j.pid}</td>
+          <td>${escapeHtml(j.user)}</td>
+          <td class="mono">${j.gpu_index != null ? 'gpu' + j.gpu_index : '—'}</td>
+          <td class="mono">${j.vram_used_gib.toFixed(1)} GiB</td>
+          <td class="mono">${j.pcpu != null ? j.pcpu.toFixed(1) + '%' : '—'}</td>
+          <td class="mono">${fmtEtimes(j.etimes)}</td>
+          <td class="mono cmd" title="${escapeHtml(j.cmd)}">${escapeHtml(j.cmd)}</td>
+        </tr>`).join('')}</tbody></table>`;
+
+  return `
+    <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+    ${note}
+    <div class="tiles">${tiles.map(t => `<div class="tile"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub||''}</div></div>`).join('')}</div>
+    <section><h2>GPUs</h2>
+      ${gpus.length ? `<table><thead><tr><th>GPU</th><th>Temp</th><th>VRAM</th><th>Util</th></tr></thead><tbody>${gpuRows}</tbody></table>` : `<div class="empty-note">No GPU telemetry available.</div>`}
+    </section>
+    <section><h2>Processes</h2>${jobsHtml}</section>
+  `;
+}
+
+function renderSlurmGpu(c) {
+  const nodes = c.nodes || [];
+  const totalGpus = nodes.reduce((a, n) => a + (n.gpus || 0), 0);
+  const busyNodes = nodes.filter(n => ['mix', 'alloc'].includes(n.state)).length;
+  const downNodes = nodes.filter(n => ['down', 'drain'].includes(n.state)).length;
+  const runningJobs = (c.queue || []).filter(j => j.state === 'RUNNING');
+  const pendingJobs = (c.queue || []).filter(j => j.state !== 'RUNNING');
+
+  const tiles = [
+    { label: 'GPUs', value: totalGpus, sub: `${nodes.length} node${nodes.length === 1 ? '' : 's'}` },
+    { label: 'Nodes busy', value: `${busyNodes}/${nodes.length}`, sub: downNodes ? `${downNodes} down/drain` : 'none down' },
+    { label: 'Running jobs', value: runningJobs.length, sub: pendingJobs.length ? `${pendingJobs.length} pending/other` : 'queue clear' },
+    ...commonTiles(c),
+  ];
+
+  const nodeGrid = nodes.map(n =>
+    `<div class="node-cell ${n.state}" title="${escapeHtml(n.name)} · ${escapeHtml(n.state)} · ${n.gpus} GPU"></div>`
+  ).join('');
+
+  const jobRow = j => `<tr>
+      <td class="mono">${escapeHtml(j.jobid)}</td>
+      <td>${escapeHtml(j.partition)}</td>
+      <td>${escapeHtml(j.user)}</td>
+      <td>${escapeHtml(j.name)}</td>
+      <td><span class="badge ${badgeClass(j.state)}">${escapeHtml(j.state)}</span></td>
+      <td class="mono">${escapeHtml(j.elapsed)}</td>
+      <td class="mono">${escapeHtml(j.nnodes)}</td>
+      <td class="mono nodelist" title="${escapeHtml(j.nodelist)}">${escapeHtml(j.nodelist) || '—'}</td>
+    </tr>`;
+  const jobTable = jobs => `<table><thead><tr><th>Job</th><th>Partition</th><th>User</th><th>Name</th><th>State</th><th>Time</th><th>Nodes</th><th>Nodelist</th></tr></thead><tbody>${jobs.map(jobRow).join('')}</tbody></table>`;
+  const myJobs = c.my_jobs || [];
+
+  const myGpu = c.my_gpu || {};
+  const myGpuJobIds = Object.keys(myGpu);
+  const myGpuHtml = !myGpuJobIds.length
+    ? `<div class="empty-note">No running job of yours to sample live GPU stats from.</div>`
+    : myGpuJobIds.map(jid => {
+        const gpus = myGpu[jid];
+        const jobMeta = (c.queue || []).find(j => j.jobid === jid);
+        const rows = gpus.map(g => `<tr>
+            <td class="mono">${g.index}</td>
+            <td>${escapeHtml(g.name)}</td>
+            <td>
+              <div class="bar"><div class="track"><div class="fill" style="width:${g.util_pct}%"></div></div><span class="mono">${g.util_pct}%</span></div>
+            </td>
+            <td class="mono">${(g.mem_used_mib/1024).toFixed(1)} / ${(g.mem_total_mib/1024).toFixed(0)} GiB</td>
+            <td class="mono">${g.temp_c}°C</td>
+          </tr>`).join('');
+        return `
+          <h2 style="margin-top:14px">Job ${escapeHtml(jid)}${jobMeta ? ' · ' + escapeHtml(jobMeta.name) + ' · ' + escapeHtml(jobMeta.nodelist) : ''}</h2>
+          <table><thead><tr><th>GPU</th><th>Model</th><th>Util</th><th>Memory</th><th>Temp</th></tr></thead>
+          <tbody>${rows}</tbody></table>`;
+      }).join('');
+
+  return `
+    <div class="host-tag">${c.host} · ${c.uptime ? 'up ' + c.uptime : ''}</div>
+    <div class="tiles">${tiles.map(t => `<div class="tile"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="sub">${t.sub||''}</div></div>`).join('')}</div>
+    <section>
+      <h2>Node Occupancy (${nodes.length} nodes)</h2>
+      <div class="node-grid">${nodeGrid}</div>
+      <div class="legend">
+        <span><i style="background:var(--muted);opacity:.35"></i>idle</span>
+        <span><i style="background:var(--good)"></i>allocated / mixed</span>
+        <span><i style="background:var(--bad)"></i>down / drain</span>
+      </div>
+    </section>
+    <section><h2>My Jobs${c.username ? ' (' + escapeHtml(c.username) + ')' : ''}</h2>
+      ${myJobs.length ? jobTable(myJobs) : `<div class="empty-note">You have no jobs in the queue.</div>`}
+    </section>
+    <section><h2>All Jobs</h2>
+      ${(c.queue||[]).length ? jobTable(c.queue) : `<div class="empty-note">Queue is empty.</div>`}
+    </section>
+    <section><h2>My Live GPU Usage</h2>${myGpuHtml}</section>
+  `;
+}
+
+function render(data) {
+  const dot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+
+  statusText.textContent = 'live · ' + new Date(data.fetched_at * 1000).toLocaleTimeString();
+  const anyBad = data.clusters.some(c => !c.ok);
+  dot.classList.toggle('bad', anyBad);
+
+  const tabsEl = document.getElementById('tabs');
+  const viewsEl = document.getElementById('views');
+  if (activeTab === null) activeTab = data.clusters[0].id;
+
+  tabsEl.innerHTML = data.clusters.map(c => {
+    let dotClass = 'idle';
+    if (!c.ok) dotClass = 'bad';
+    else if (['tpu', 'amd_gpu', 'nvidia_gpu'].includes(c.kind) && c.jobs && c.jobs.length) dotClass = '';
+    else if (c.kind === 'slurm_gpu' && c.queue && c.queue.some(j => j.state === 'RUNNING')) dotClass = '';
+    return `<div class="tab ${c.id === activeTab ? 'active' : ''}" data-id="${c.id}">
+      <span class="tdot ${dotClass}"></span>${escapeHtml(c.label)}
+    </div>`;
+  }).join('');
+  tabsEl.querySelectorAll('.tab').forEach(el => {
+    el.addEventListener('click', () => { activeTab = el.dataset.id; renderViews(data); });
+  });
+
+  renderViews(data);
+}
+
+function renderViews(data) {
+  document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.id === activeTab));
+  const viewsEl = document.getElementById('views');
+  viewsEl.innerHTML = data.clusters.map(c => {
+    let body;
+    if (!c.ok) {
+      body = `<div class="error-box">${escapeHtml(c.error)}</div>`;
+    } else if (c.kind === 'tpu') {
+      body = renderTpu(c);
+    } else if (c.kind === 'amd_gpu') {
+      body = renderAmdGpu(c);
+    } else if (c.kind === 'nvidia_gpu') {
+      body = renderNvidiaGpu(c);
+    } else {
+      body = renderSlurmGpu(c);
+    }
+    return `<div class="panel-view ${c.id === activeTab ? 'active' : ''}" data-id="${c.id}">${body}</div>`;
+  }).join('');
+}
+
+const PROGRESS_POLL_MS = 300;
+let bootDone = false;
+
+function fmtClock(ts) {
+  return new Date(ts * 1000).toLocaleTimeString([], { hour12: false });
+}
+
+function renderBoot(data) {
+  const total = data.total || 0;
+  const clusters = data.clusters || {};
+  const ids = Object.keys(clusters);
+  const doneCount = ids.filter(id => clusters[id].state === 'ok' || clusters[id].state === 'error').length;
+  const pct = total ? Math.round(100 * doneCount / total) : 0;
+
+  document.getElementById('bootBarFill').style.width = pct + '%';
+  document.getElementById('bootCount').textContent = total ? `${doneCount} / ${total} cluster(s) checked` : 'loading clusters.yaml...';
+  document.getElementById('bootSub').textContent = doneCount < total ? 'checking each cluster over SSH...' : 'finishing up...';
+
+  document.getElementById('bootChips').innerHTML = ids.map(id => {
+    const st = clusters[id].state;
+    const spin = st === 'checking' ? '<span class="spin"></span>' : '';
+    return `<span class="chip ${st}">${spin}${escapeHtml(id)}</span>`;
+  }).join('');
+
+  const logEl = document.getElementById('bootLog');
+  logEl.innerHTML = (data.log || []).map(entry =>
+    `<div><span class="t">${fmtClock(entry.ts)}</span>${escapeHtml(entry.message)}</div>`
+  ).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function pollProgress() {
+  if (bootDone) return;
+  try {
+    const res = await fetch('/api/progress');
+    renderBoot(await res.json());
+  } catch (e) {
+    // ignore; the main status poll will surface connection loss
+  }
+  if (!bootDone) setTimeout(pollProgress, PROGRESS_POLL_MS);
+}
+
+function finishBoot() {
+  if (bootDone) return;
+  bootDone = true;
+  document.getElementById('bootOverlay').hidden = true;
+  document.getElementById('mainApp').hidden = false;
+}
+
+async function poll() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    finishBoot();
+    render(data);
+  } catch (e) {
+    document.getElementById('statusText').textContent = 'connection lost';
+    document.getElementById('statusDot').classList.add('bad');
+  } finally {
+    setTimeout(poll, REFRESH_MS);
+  }
+}
+pollProgress();
+poll();
+</script>
+</body>
+</html>
