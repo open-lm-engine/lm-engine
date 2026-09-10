@@ -729,9 +729,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
     experiments_tracker = ExperimentsTracker(
-        experiments_tracker_name=args.logging_args.experiments_tracker_name,
-        wandb_args=args.logging_args.wandb_args,
-        checkpoint_metadata=experiments_tracker_state_dict,
+        wandb_args=args.logging_args.wandb_args, checkpoint_metadata=experiments_tracker_state_dict
     )
 
     # track all hyperparams in args

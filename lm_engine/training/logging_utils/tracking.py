@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 import torch
 
 from ...accelerator import Accelerator
-from ..enums import ExperimentsTrackerName
 from ..parallel import ProcessGroupManager
 from ..utils import is_wandb_available
 
@@ -42,34 +41,29 @@ class ExperimentsTracker:
 
     def __init__(
         self,
-        experiments_tracker_name: ExperimentsTrackerName | None,
-        wandb_args: BaseArgs,
+        wandb_args: BaseArgs | None,
         checkpoint_metadata: dict,
     ) -> ExperimentsTracker:
         self.is_tracking_rank = is_tracking_rank()
-        self.experiments_tracker_name = experiments_tracker_name
-        self.tracking_enabled = experiments_tracker_name is not None
+        self.tracking_enabled = wandb_args is not None
 
-        if not self.is_tracking_rank:
+        if not self.is_tracking_rank or not self.tracking_enabled:
             return
 
-        if experiments_tracker_name == ExperimentsTrackerName.wandb:
-            kwargs = wandb_args.to_dict() if checkpoint_metadata is None else checkpoint_metadata
-            resume = None if checkpoint_metadata is None else "auto"
+        kwargs = wandb_args.to_dict() if checkpoint_metadata is None else checkpoint_metadata
+        resume = None if checkpoint_metadata is None else "auto"
 
-            wandb.init(resume=resume, **kwargs)
+        wandb.init(resume=resume, **kwargs)
 
-            # this is for a custom step, we can't use the wandb step
-            # since it doesn't allow time travel to the past
-            wandb.define_metric("iteration", hidden=True)
-            # track the LSF/Slurm job in W&B per run - bobcalio
-            if _JOB_ID is not None:
-                wandb.define_metric("job", step_metric="iteration", hidden=True, step_sync=True)
+        # this is for a custom step, we can't use the wandb step
+        # since it doesn't allow time travel to the past
+        wandb.define_metric("iteration", hidden=True)
+        # track the LSF/Slurm job in W&B per run - bobcalio
+        if _JOB_ID is not None:
+            wandb.define_metric("job", step_metric="iteration", hidden=True, step_sync=True)
 
-            wandb.define_metric("train/*", step_metric="iteration", step_sync=True)
-            wandb.define_metric("val/*", step_metric="iteration", step_sync=True)
-        elif experiments_tracker_name is not None:
-            raise ValueError(f"unexpected experiments_tracker ({experiments_tracker_name})")
+        wandb.define_metric("train/*", step_metric="iteration", step_sync=True)
+        wandb.define_metric("val/*", step_metric="iteration", step_sync=True)
 
     def log_args(self, args: BaseArgs, **extra_metadata) -> None:
         """log args
@@ -89,10 +83,7 @@ class ExperimentsTracker:
                     raise ValueError(f"duplicate key ({k})")
                 args[k] = v
 
-            if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-                wandb.config.update(args, allow_val_change=True)
-            else:
-                raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
+            wandb.config.update(args, allow_val_change=True)
 
     def track(self, values: dict, step: int | None = None, context: str | None = None) -> None:
         """main tracking method
@@ -106,35 +97,29 @@ class ExperimentsTracker:
         if not self.tracking_enabled:
             return
 
-        if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-            if context is not None:
-                values = {f"{context}/{k}": v for k, v in values.items()}
+        if context is not None:
+            values = {f"{context}/{k}": v for k, v in values.items()}
 
-            # this is for a custom step, we can't use the wandb step
-            # since it doesn't allow time travel to the past
-            values["iteration"] = step
-            # track the LSF/Slurm job in W&B per run - bobcalio
-            if _JOB_ID is not None:
-                values["job"] = _JOB_ID
+        # this is for a custom step, we can't use the wandb step
+        # since it doesn't allow time travel to the past
+        values["iteration"] = step
+        # track the LSF/Slurm job in W&B per run - bobcalio
+        if _JOB_ID is not None:
+            values["job"] = _JOB_ID
 
-            # FIXME this is needed to prevent TPU from getting stuck
-            # on GPU, only 1 rank needs to call this but on TPUs, every rank needs to call this
-            if Accelerator.get_accelerator() == Accelerator.tpu:
-                values = {k: v.to("cpu") if isinstance(v, torch.Tensor) else v for k, v in values.items()}
+        # FIXME this is needed to prevent TPU from getting stuck
+        # on GPU, only 1 rank needs to call this but on TPUs, every rank needs to call this
+        if Accelerator.get_accelerator() == Accelerator.tpu:
+            values = {k: v.to("cpu") if isinstance(v, torch.Tensor) else v for k, v in values.items()}
 
-            if self.is_tracking_rank:
-                wandb.log(values)
-        else:
-            raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
+        if self.is_tracking_rank:
+            wandb.log(values)
 
     def finish(self) -> None:
         if not self.tracking_enabled or not self.is_tracking_rank:
             return
 
-        if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-            wandb.finish()
-        else:
-            raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
+        wandb.finish()
 
     def state_dict(self) -> dict:
         if not self.is_tracking_rank:
@@ -142,15 +127,14 @@ class ExperimentsTracker:
 
         state_dict = {}
         if self.tracking_enabled:
-            if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-                state_dict = {
-                    "id": wandb.run.id,
-                    "name": wandb.run.name,
-                    "tags": wandb.run.tags,
-                    "group": wandb.run.group,
-                    "notes": wandb.run.notes,
-                    "entity": wandb.run.entity,
-                    "project": wandb.run.project,
-                }
+            state_dict = {
+                "id": wandb.run.id,
+                "name": wandb.run.name,
+                "tags": wandb.run.tags,
+                "group": wandb.run.group,
+                "notes": wandb.run.notes,
+                "entity": wandb.run.entity,
+                "project": wandb.run.project,
+            }
 
         return state_dict
