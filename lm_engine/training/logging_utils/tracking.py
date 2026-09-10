@@ -37,8 +37,8 @@ def is_tracking_rank() -> bool:
     )
 
 
-# to track the LSF/Slurm job in W&B per run - bobcalio
-_JOB_ID = None if int(os.getenv("JOB_ID", -1)) == -1 else int(os.getenv("JOB_ID"))
+# track the Slurm job in W&B per run
+_JOB_ID = os.getenv("SLURM_JOB_ID")
 
 
 class ProgressBar:
@@ -104,9 +104,8 @@ class ExperimentsTracker:
             # this is for a custom step, we can't use the wandb step
             # since it doesn't allow time travel to the past
             wandb.define_metric("iteration", hidden=True)
-            # track the LSF/Slurm job in W&B per run - bobcalio
             if _JOB_ID is not None:
-                wandb.define_metric("job", step_metric="iteration", hidden=True, step_sync=True)
+                wandb.define_metric("job_id", step_metric="iteration", step_sync=True)
 
             wandb.define_metric("train/*", step_metric="iteration", step_sync=True)
             wandb.define_metric("val/*", step_metric="iteration", step_sync=True)
@@ -167,9 +166,8 @@ class ExperimentsTracker:
             # this is for a custom step, we can't use the wandb step
             # since it doesn't allow time travel to the past
             values["iteration"] = step
-            # track the LSF/Slurm job in W&B per run - bobcalio
             if _JOB_ID is not None:
-                values["job"] = _JOB_ID
+                values["job_id"] = _JOB_ID
 
             # FIXME this is needed to prevent TPU from getting stuck
             # on GPU, only 1 rank needs to call this but on TPUs, every rank needs to call this
