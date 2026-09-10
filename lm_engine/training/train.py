@@ -29,7 +29,14 @@ from .distributed import wrap_model_container_for_distributed_training
 from .dtensors import dtensor_to_tensor
 from .enums import TuningMethod
 from .kernels import enable_kernels
-from .logging_utils import ExperimentsTracker, MetricsTrackingDict, TorchProfiler, log_environment, log_rank_0
+from .logging_utils import (
+    ExperimentsTracker,
+    MetricsTrackingDict,
+    TorchProfiler,
+    compute_model_statistics,
+    log_environment,
+    log_rank_0,
+)
 from .model_wrapper import get_model_container
 from .optimization import get_learning_rate, get_optimizer_container, get_scheduler_container
 from .parallel import ProcessGroupManager, broadcast_tensor_parallel_input
@@ -453,6 +460,15 @@ def train(
             throughput_tracker["step_time (sec)"] = step_time
             throughput_tracker["tokens"] = global_step_in_tokens
 
+            if args.logging_args.track_model_statistics:
+                model_statistics_tracker = compute_model_statistics(
+                    model_container=model_container,
+                    gradient_clipping=gradient_clipping,
+                    gradient_norm=(loss_step_dict["grad_norm"] if "grad_norm" in loss_step_dict else None),
+                )
+            else:
+                model_statistics_tracker = MetricsTrackingDict({})
+
             if cost_per_accelerator_per_second is not None:
                 cumulative_cost_usd += time_elapsed * num_accelerators * cost_per_accelerator_per_second
                 metrics_tracker["cost (USD)"] = cumulative_cost_usd
@@ -461,7 +477,11 @@ def train(
                 global_step=global_step,
                 global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
-                metrics_trackers=[(metrics_tracker, "train"), (throughput_tracker, "throughput")],
+                metrics_trackers=[
+                    (metrics_tracker, "train"),
+                    (throughput_tracker, "throughput"),
+                    (model_statistics_tracker, "statistics"),
+                ],
             )
 
             start_time = time.perf_counter()

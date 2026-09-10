@@ -8,10 +8,13 @@ import os
 from typing import TYPE_CHECKING
 
 import torch
+from torch.distributed.tensor import DTensor
 
 from ...accelerator import Accelerator
+from ..containers import ModelContainer
 from ..parallel import ProcessGroupManager
 from ..utils import is_wandb_available
+from .loss_dict import MetricsTrackingDict
 
 
 if TYPE_CHECKING:

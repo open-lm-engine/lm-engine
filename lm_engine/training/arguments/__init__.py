@@ -366,6 +366,10 @@ class LoggingArgs(BaseArgs):
     torch_profiler_trace_path: str | None = None
     # cost per accelerator per hour in USD; if set, training cost is tracked and logged
     cost_per_accelerator_per_hour: float | None = None
+    # whether to log per-parameter and per-gradient norms, at the same cadence as log_interval
+    track_model_statistics: bool = False
+    # cost per accelerator per hour in USD; if set, training cost is tracked and logged
+    cost_per_accelerator_per_hour: float | None = None
 
 
 class KernelArgs(BaseArgs):
