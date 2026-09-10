@@ -47,11 +47,9 @@ def track_metrics(
     """
 
     message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
+    combined_values = {}
 
     for metrics_tracker, context in metrics_trackers:
-        # experiments tracker
-        experiments_tracker.track(metrics_tracker.get_dict(), step=global_step, context=context)
-
         for key in metrics_tracker:
             if key == "tokens":
                 continue
@@ -61,6 +59,9 @@ def track_metrics(
             else:
                 message += f", {context}-{key} = {metrics_tracker[key]:.4f}"
 
+        combined_values.update({f"{context}/{key}": value for key, value in metrics_tracker.get_dict().items()})
+
+    experiments_tracker.track(combined_values, step=global_step)
     log_metrics(logging.INFO, message)
 
 

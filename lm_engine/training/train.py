@@ -461,11 +461,7 @@ def train(
             throughput_tracker["tokens"] = global_step_in_tokens
 
             if args.logging_args.track_model_statistics:
-                model_statistics_tracker = compute_model_statistics(
-                    model_container=model_container,
-                    gradient_clipping=gradient_clipping,
-                    gradient_norm=(loss_step_dict["grad_norm"] if "grad_norm" in loss_step_dict else None),
-                )
+                model_statistics_tracker = compute_model_statistics(model_container=model_container)
             else:
                 model_statistics_tracker = MetricsTrackingDict({})
 
