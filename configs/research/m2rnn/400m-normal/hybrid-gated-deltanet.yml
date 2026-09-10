@@ -523,7 +523,6 @@ save_args:
 logging_args:
   log_interval: 10
   # torch_profiler_trace_path: tmp
-  experiments_tracker_name: wandb
   wandb_args:
     project: m2rnn
     name: hybrid-gated-deltanet-400m-cosine
