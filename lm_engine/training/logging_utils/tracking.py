@@ -116,10 +116,8 @@ class ExperimentsTracker:
             wandb.log(values)
 
     def finish(self) -> None:
-        if not self.tracking_enabled or not self.is_tracking_rank:
-            return
-
-        wandb.finish()
+        if self.tracking_enabled and self.is_tracking_rank:
+            wandb.finish()
 
     def state_dict(self) -> dict:
         if not self.is_tracking_rank:
