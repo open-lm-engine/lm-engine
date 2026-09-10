@@ -621,7 +621,6 @@ save_args:
 
 logging_args:
   log_interval: 10
-  experiments_tracker_name: wandb
   wandb_args:
     project: multilayer-attention
     name: 3b-base
