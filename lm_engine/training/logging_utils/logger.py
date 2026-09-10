@@ -8,7 +8,6 @@ from warnings import warn
 
 from ..parallel import ProcessGroupManager, run_rank_n
 from ..utils import (
-    is_aim_available,
     is_causal_conv1d_available,
     is_colorlog_available,
     is_fla_available,
@@ -99,7 +98,6 @@ def log_environment() -> None:
     packages = sorted(["{}=={}".format(d.metadata["Name"], d.version) for d in distributions()])
 
     for function, message in [
-        (is_aim_available, "aim is not installed"),
         (is_causal_conv1d_available, "causal-conv1d is not installed"),
         (is_colorlog_available, "colorlog is not installed"),
         (is_fla_available, "fla is not installed"),

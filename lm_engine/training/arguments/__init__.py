@@ -335,18 +335,8 @@ class DistributedArgs(BaseArgs):
             _check_not_None([(self.pipeline_parallel_schedule, "pipeline_parallel_schedule")])
 
 
-class AimArgs(BaseArgs):
-    # aim repo, experiment logs are saved here
-    repo: str = None
-    # name of the experiment
-    experiment: str = None
-
-    def model_post_init(self, __context: Any) -> None:
-        _check_not_None([(self.repo, "repo"), (self.experiment, "experiment")])
-
-
 class WandBArgs(BaseArgs):
-    # aim repo, experiment logs are saved here
+    # wandb project, experiment logs are saved here
     project: str = None
     # name of the experiment; None lets wandb auto-generate a name
     name: str | None = None
@@ -368,11 +358,9 @@ class LoggingArgs(BaseArgs):
     logging_level: str = "INFO"
     # log interval
     log_interval: int = 10
-    # arguments if using aim
-    aim_args: AimArgs | None = None
     # arguments if using wandb
     wandb_args: WandBArgs | None = None
-    # experiment tracker to use (aim or wandb)
+    # experiment tracker to use (wandb)
     experiments_tracker_name: ExperimentsTrackerName | None = None
     # whether to use colored logs
     use_colored_logs: bool = False
@@ -383,9 +371,7 @@ class LoggingArgs(BaseArgs):
     cost_per_accelerator_per_hour: float | None = None
 
     def model_post_init(self, __context: Any) -> None:
-        if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-            _check_not_None([(self.aim_args, "aim_args")])
-        elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
+        if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
             _check_not_None([(self.wandb_args, "wandb_args")])
 
 

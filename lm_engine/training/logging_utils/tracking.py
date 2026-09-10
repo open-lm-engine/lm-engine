@@ -13,15 +13,12 @@ from tqdm import tqdm
 from ...accelerator import Accelerator
 from ..enums import ExperimentsTrackerName
 from ..parallel import ProcessGroupManager
-from ..utils import is_aim_available, is_wandb_available
+from ..utils import is_wandb_available
 
 
 if TYPE_CHECKING:
     from ..arguments import BaseArgs
 
-
-if is_aim_available():
-    from aim import Run as AimRun
 
 if is_wandb_available():
     import wandb
@@ -81,7 +78,6 @@ class ExperimentsTracker:
     def __init__(
         self,
         experiments_tracker_name: ExperimentsTrackerName | None,
-        aim_args: BaseArgs,
         wandb_args: BaseArgs,
         checkpoint_metadata: dict,
     ) -> ExperimentsTracker:
@@ -92,10 +88,7 @@ class ExperimentsTracker:
         if not self.is_tracking_rank:
             return
 
-        if experiments_tracker_name == ExperimentsTrackerName.aim:
-            kwargs = aim_args.to_dict() if checkpoint_metadata is None else checkpoint_metadata
-            self.run = AimRun(**kwargs)
-        elif experiments_tracker_name == ExperimentsTrackerName.wandb:
+        if experiments_tracker_name == ExperimentsTrackerName.wandb:
             kwargs = wandb_args.to_dict() if checkpoint_metadata is None else checkpoint_metadata
             resume = None if checkpoint_metadata is None else "auto"
 
@@ -131,13 +124,7 @@ class ExperimentsTracker:
                     raise ValueError(f"duplicate key ({k})")
                 args[k] = v
 
-            if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-                for k, v in args.items():
-                    try:
-                        self.run[k] = v
-                    except TypeError:
-                        self.run[k] = str(v)
-            elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
+            if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
                 wandb.config.update(args, allow_val_change=True)
             else:
                 raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
@@ -154,13 +141,7 @@ class ExperimentsTracker:
         if not self.tracking_enabled:
             return
 
-        if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-            if context is not None:
-                context = {"subset": context}
-
-            for key, value in values.items():
-                self.run.track(value=value, name=key, step=step, context=context)
-        elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
+        if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
             if context is not None:
                 values = {f"{context}/{k}": v for k, v in values.items()}
 
@@ -185,9 +166,7 @@ class ExperimentsTracker:
         if not self.tracking_enabled or not self.is_tracking_rank:
             return
 
-        if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-            self.run.close()
-        elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
+        if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
             wandb.finish()
         else:
             raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
@@ -198,9 +177,7 @@ class ExperimentsTracker:
 
         state_dict = {}
         if self.tracking_enabled:
-            if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-                state_dict = {"run_hash": self.run.hash}
-            elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
+            if self.experiments_tracker_name == ExperimentsTrackerName.wandb:
                 state_dict = {
                     "id": wandb.run.id,
                     "name": wandb.run.name,

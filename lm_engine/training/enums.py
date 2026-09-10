@@ -54,7 +54,6 @@ class KLDivergenceMethod(Enum):
 class ExperimentsTrackerName(Enum):
     """Experiment tracker to use"""
 
-    aim = "aim"
     wandb = "wandb"
 
 
