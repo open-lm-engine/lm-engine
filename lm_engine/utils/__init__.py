@@ -4,7 +4,6 @@
 
 from .environment import environment, get_boolean_env_variable
 from .packages import (
-    is_aim_available,
     is_causal_conv1d_available,
     is_coda_available,
     is_colorlog_available,

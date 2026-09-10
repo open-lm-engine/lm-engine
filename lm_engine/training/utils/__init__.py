@@ -8,7 +8,6 @@ import torch
 from ...utils import (
     environment,
     get_boolean_env_variable,
-    is_aim_available,
     is_causal_conv1d_available,
     is_coda_available,
     is_colorlog_available,

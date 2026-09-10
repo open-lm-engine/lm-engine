@@ -3,18 +3,6 @@
 # **************************************************
 
 try:
-    import aim
-
-    _IS_AIM_AVAILABLE = True
-except ImportError:
-    _IS_AIM_AVAILABLE = False
-
-
-def is_aim_available() -> bool:
-    return _IS_AIM_AVAILABLE
-
-
-try:
     import causal_conv1d
 
     _IS_CAUSAL_CONV1D_AVAILABLE = True
