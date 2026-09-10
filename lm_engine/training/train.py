@@ -400,6 +400,7 @@ def train(
     start_time = time.perf_counter()
     steps_since_start_time = 0
     metrics_tracker = MetricsTrackingDict({})
+    throughput_tracker = MetricsTrackingDict({})
 
     while global_step < num_training_steps:
         global_step += 1
@@ -448,9 +449,9 @@ def train(
             if model_flops is not None:
                 metrics_tracker["FLOPs"] = model_flops * steps_since_start_time / time_elapsed
 
-            metrics_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
-            metrics_tracker["step_time (sec)"] = step_time
-            metrics_tracker["tokens"] = global_step_in_tokens
+            throughput_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
+            throughput_tracker["step_time (sec)"] = step_time
+            throughput_tracker["tokens"] = global_step_in_tokens
 
             if cost_per_accelerator_per_second is not None:
                 cumulative_cost_usd += time_elapsed * num_accelerators * cost_per_accelerator_per_second
@@ -460,8 +461,7 @@ def train(
                 global_step=global_step,
                 global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
-                metrics_tracker=metrics_tracker,
-                context="train",
+                metrics_trackers=[(metrics_tracker, "train"), (throughput_tracker, "throughput")],
             )
 
             start_time = time.perf_counter()
