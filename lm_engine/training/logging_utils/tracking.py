@@ -8,7 +8,6 @@ import os
 from typing import TYPE_CHECKING
 
 import torch
-from tqdm import tqdm
 
 from ...accelerator import Accelerator
 from ..enums import ExperimentsTrackerName
@@ -36,40 +35,6 @@ def is_tracking_rank() -> bool:
 
 # to track the LSF/Slurm job in W&B per run - bobcalio
 _JOB_ID = None if int(os.getenv("JOB_ID", -1)) == -1 else int(os.getenv("JOB_ID"))
-
-
-class ProgressBar:
-    """progress bar for training or validation"""
-
-    def __init__(self, start: int, end: int, desc: str | None = None) -> ProgressBar:
-        self.is_tracking_rank = is_tracking_rank()
-        if not self.is_tracking_rank:
-            return
-
-        self.progress_bar = tqdm(total=end, desc=desc)
-        self.update(start)
-
-    def update(self, n: int = 1) -> None:
-        """updates progress bar
-
-        Args:
-            n (int, optional): Number of steps to update the progress bar with. Defaults to 1.
-        """
-
-        if not self.is_tracking_rank:
-            return
-
-        self.progress_bar.update(n=n)
-
-    def track(self, **loss_kwargs) -> None:
-        """track specific metrics in progress bar"""
-
-        if not self.is_tracking_rank:
-            return
-
-        # for key in loss_kwargs:
-        #     loss_kwargs[key] = "{0:.5f}".format(loss_kwargs[key])
-        self.progress_bar.set_postfix(**loss_kwargs)
 
 
 class ExperimentsTracker:
