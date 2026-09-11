@@ -8,10 +8,13 @@ import os
 from typing import TYPE_CHECKING
 
 import torch
+from torch.distributed.tensor import DTensor
 
 from ...accelerator import Accelerator
+from ..containers import ModelContainer
 from ..parallel import ProcessGroupManager
 from ..utils import is_wandb_available
+from .loss_dict import MetricsTrackingDict
 
 
 if TYPE_CHECKING:
@@ -32,8 +35,8 @@ def is_tracking_rank() -> bool:
     )
 
 
-# to track the LSF/Slurm job in W&B per run - bobcalio
-_JOB_ID = None if int(os.getenv("JOB_ID", -1)) == -1 else int(os.getenv("JOB_ID"))
+# track the Slurm job in W&B per run
+_JOB_ID = os.getenv("SLURM_JOB_ID")
 
 
 class ExperimentsTracker:
@@ -58,9 +61,8 @@ class ExperimentsTracker:
         # this is for a custom step, we can't use the wandb step
         # since it doesn't allow time travel to the past
         wandb.define_metric("iteration", hidden=True)
-        # track the LSF/Slurm job in W&B per run - bobcalio
         if _JOB_ID is not None:
-            wandb.define_metric("job", step_metric="iteration", hidden=True, step_sync=True)
+            wandb.define_metric("job_id", step_metric="iteration", step_sync=True)
 
         wandb.define_metric("train/*", step_metric="iteration", step_sync=True)
         wandb.define_metric("val/*", step_metric="iteration", step_sync=True)
@@ -103,9 +105,8 @@ class ExperimentsTracker:
         # this is for a custom step, we can't use the wandb step
         # since it doesn't allow time travel to the past
         values["iteration"] = step
-        # track the LSF/Slurm job in W&B per run - bobcalio
         if _JOB_ID is not None:
-            values["job"] = _JOB_ID
+            values["job_id"] = _JOB_ID
 
         # FIXME this is needed to prevent TPU from getting stuck
         # on GPU, only 1 rank needs to call this but on TPUs, every rank needs to call this
@@ -136,3 +137,38 @@ class ExperimentsTracker:
             }
 
         return state_dict
+
+
+@torch.no_grad()
+def compute_model_statistics(model_container: ModelContainer) -> MetricsTrackingDict:
+    assert len(model_container) == 1
+    model = model_container[0]
+
+    metrics_tracker = MetricsTrackingDict({})
+
+    def _maybe_gather_norm(tensor: torch.Tensor) -> float:
+        norm = tensor.norm()
+        if isinstance(norm, DTensor):
+            norm = norm.full_tensor()
+        return norm
+
+    param_norm_squared_sum = 0
+    grad_norm_squared_sum = 0
+
+    for name, param in model.named_parameters():
+        param_norm = _maybe_gather_norm(param)
+        metrics_tracker[f"param/norm/{name}"] = param_norm
+        param_norm_squared_sum += param_norm**2
+
+        if param.grad is None:
+            continue
+
+        grad_norm = _maybe_gather_norm(param.grad)
+        metrics_tracker[f"grad/norm/{name}"] = grad_norm
+
+        grad_norm_squared_sum += grad_norm**2
+
+    metrics_tracker["param/total-norm"] = param_norm_squared_sum**0.5
+    metrics_tracker["grad/total-norm"] = grad_norm_squared_sum**0.5
+
+    return metrics_tracker
