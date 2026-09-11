@@ -34,7 +34,7 @@ from .logging_utils import (
     ExperimentsTracker,
     MetricsTrackingDict,
     TorchProfiler,
-    compute_model_statistics,
+    get_statistics_from_tensors,
     log_environment,
     log_rank_0,
 )
@@ -215,8 +215,12 @@ def train_step_without_pipeline_parallel(
             train_metrics_tracker = train_metrics_tracker + loss_micro_step_dict
 
         if track_model_statistics:
-            model_statistics_tracker = model_statistics_tracker + compute_model_statistics(
-                model_container=model_container
+            model_statistics_tracker = model_statistics_tracker + get_statistics_from_tensors(
+                tensors=model_container[0].named_parameters(), prefix="param"
+            )
+
+            model_statistics_tracker = model_statistics_tracker + get_statistics_from_tensors(
+                tensors={name: tensor.grad for name, tensor in model_container[0].named_parameters()}, prefix="grad"
             )
 
         if gradient_clipping is None:
