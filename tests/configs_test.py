@@ -19,6 +19,8 @@ def _collect_configs():
     paths = sorted(glob.glob(os.path.join(_CONFIGS_DIR, "**", "*.yml"), recursive=True))
     result = []
     for path in paths:
+        if "-template." in os.path.basename(path):
+            continue
         d = load_yaml(path)
         for key, cls in _ARGS_CLASS_BY_KEY.items():
             if key in d:

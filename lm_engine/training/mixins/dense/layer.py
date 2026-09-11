@@ -27,6 +27,7 @@ class Block(nn.Module):
 
         hidden_size = config.hidden_size
         self.m_residual = config.m_residual
+        self.mlp_type = config.mlp_blocks[layer_idx].mlp_type
 
         self.ln_1 = get_normalization_function(
             config.normalization_function,
@@ -82,11 +83,31 @@ class Block(nn.Module):
         r = x
 
         x = self.ln_2(x)
-        x = self.mlp_block(x)
+        x = self._mlp_forward(
+            x=x, cache_params=cache_params, attention_mask_info=attention_mask_info, position_info=position_info
+        )
 
         if self.m_residual is not None:
             x = x * self.m_residual
 
         x = x + r
+
+        return x
+
+    def _mlp_forward(
+        self,
+        x: torch.Tensor,
+        cache_params: GenerationCache | None = None,
+        attention_mask_info: AttentionMaskInfo | None = None,
+        position_info: PositionInfo | None = None,
+    ) -> torch.Tensor:
+        if self.mlp_type in ["MLP", "MoE"]:
+            x = self.mlp_block(x)
+        elif self.mlp_type == "DeltaMLP":
+            x = self.mlp_block(
+                x, cache_params=cache_params, attention_mask_info=attention_mask_info, position_info=position_info
+            )
+        else:
+            raise ValueError(f"unexpected mlp_type ({self.mlp_type})")
 
         return x

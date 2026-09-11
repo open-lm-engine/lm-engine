@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .delta_mlp import DeltaMLP, DeltaMLPArgs
+from .delta_moe import DeltaMoE, DeltaMoEArgs
 from .mlp import MLP, MLPArgs, interleave_up_gate_tensor_for_mlp, split_up_gate_tensor_for_mlp
 from .moe import MoE, MoEArgs, ParameterizedExperts
 
@@ -16,7 +18,7 @@ if TYPE_CHECKING:
 
 def get_mlp_block(
     config: CommonConfig, use_padding_free_transformer: bool, sequence_parallel: bool, layer_idx: int
-) -> MLP | MoE:
+) -> MLP | MoE | DeltaMLP | DeltaMoE:
     block = config.mlp_blocks[layer_idx]
     mlp_type = block.mlp_type
 
@@ -36,6 +38,10 @@ def get_mlp_block(
         mlp = MLP(**kwargs)
     elif mlp_type == "MoE":
         mlp = MoE(**kwargs)
+    elif mlp_type == "DeltaMLP":
+        mlp = DeltaMLP(**kwargs, layer_idx=layer_idx, norm_eps=config.layer_norm_epsilon)
+    elif mlp_type == "DeltaMoE":
+        mlp = DeltaMoE(**kwargs, layer_idx=layer_idx, norm_eps=config.layer_norm_epsilon)
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")
 

@@ -7,6 +7,7 @@ from enum import Enum
 
 class ParamsGroupMethod(Enum):
     mup = "mup"
+    hyperball = "hyperball"
 
 
 class GradientCheckpointingMethod(Enum):
@@ -53,6 +54,7 @@ class KLDivergenceMethod(Enum):
 
 class Kernel(Enum):
     # XMA (https://github.com/open-lm-engine/accelerated-model-architectures)
+    adam_hyperball = "adam_hyperball"
     causal_conv1d = "causal_conv1d"
     continuous_count = "continuous_count"
     cross_entropy = "cross_entropy"

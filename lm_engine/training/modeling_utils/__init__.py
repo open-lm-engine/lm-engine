@@ -13,6 +13,10 @@ from .linear import ColumnParallelLinear, ParameterizedLinear, RowParallelLinear
 from .lm_head import LMHead
 from .mlp_blocks import (
     MLP,
+    DeltaMLP,
+    DeltaMLPArgs,
+    DeltaMoE,
+    DeltaMoEArgs,
     MLPArgs,
     MoE,
     MoEArgs,

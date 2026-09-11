@@ -16,6 +16,7 @@ authors = [
 ]
 dependencies = [
     "datasets==5.0.0",
+    "einops>=0.8.0",
     "gitpython==3.1.50",
     "multi-storage-client[google-cloud-storage]==0.51.0",
     "ninja==1.13.0",
@@ -34,6 +35,8 @@ coda = [
     "coda-kernels==0.2",
 ]
 cuda = [
+    "causal-conv1d>=1.4.0",
+    "flash-linear-attention==0.5.0",
     "torch==2.10.0",
     "apache-tvm-ffi==0.1.12",
     "nvidia-cutlass-dsl==4.6.0",
@@ -65,6 +68,12 @@ torch = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["lm_engine"]
+
+[tool.pytest.ini_options]
+markers = [
+    "gpu: tests that require CUDA GPUs",
+    "slow: long-running tests",
+]
 
 [tool.isort]
 ensure_newline_before_comments = true

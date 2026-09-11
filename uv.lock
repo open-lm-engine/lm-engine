@@ -270,6 +270,17 @@ wheels = [
 ]
 
 [[package]]
+name = "causal-conv1d"
+version = "1.6.2.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ninja" },
+    { name = "packaging" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/63/5c/2403b8410122d159405c4bd8456340c7251c193358fa24d30cb273fb5048/causal_conv1d-1.6.2.post1.tar.gz", hash = "sha256:245e314ea21064ded7a5bf6b3b842b644aa6f92e45cecfe3e935629744c35ff4", size = 29434, upload-time = "2026-05-09T13:00:51.622Z" }
+
+[[package]]
 name = "certifi"
 version = "2026.6.17"
 source = { registry = "https://pypi.org/simple" }
@@ -655,6 +666,32 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e0/c8/35bdf04fb30755e2ed758f877edf3eb4a243c2463d3a258cc28b18b7a6e2/filelock-3.29.6.tar.gz", hash = "sha256:895c532ef3f4ef04972b9446a8c4e2931a5c399ff3c4be4c9369f2639b80f793", size = 70301, upload-time = "2026-07-06T23:08:08.577Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/49/7467c2946ccd9617f7da38187071bdc45bb9a95df51f4d63d6622432ce4e/filelock-3.29.6-py3-none-any.whl", hash = "sha256:14d5f5597d2e0c4dbd774cfb6d8132da1db44da83732aab679d54f7dcf97ab65", size = 45478, upload-time = "2026-07-06T23:08:07.197Z" },
+]
+
+[[package]]
+name = "fla-core"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "einops" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/03/14/2aabd37839b9f3c6a67fbc5678f906d04d0c242c603ac234eefe02df99a6/fla_core-0.5.0.tar.gz", hash = "sha256:476dd94711702af81cc4827010d9209f6053d8cdceac8e43d3c8497071f07a81", size = 418171, upload-time = "2026-04-21T20:25:40.948Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f4/03/96e6820d176256353670b41ca56dabbbebe129674b4f4ad7b54a152b7b36/fla_core-0.5.0-py3-none-any.whl", hash = "sha256:5c826ff32daf6b629658e3e4f6125d87cf8c32eea937e3be9ba85f51951d809a", size = 595276, upload-time = "2026-04-21T20:25:37.698Z" },
+]
+
+[[package]]
+name = "flash-linear-attention"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fla-core" },
+    { name = "transformers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/79/5c/1db76cc829c951117a3112f306d50333bd71399d2e35807fe7c99ffc2007/flash_linear_attention-0.5.0.tar.gz", hash = "sha256:22b789a47f07738b4382ecdf775d7bb40e0d803c467c34f8e2ecd6a1dc780938", size = 160419, upload-time = "2026-04-21T20:25:42.344Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cc/16/7736db08806981562c728f32ea1dcb4565948fa9faffdbf4ffbf72522fbf/flash_linear_attention-0.5.0-py3-none-any.whl", hash = "sha256:92e64e989ed34355c1f838232597b2e39783ee0494ada3199b58e156aa1d8eb8", size = 319037, upload-time = "2026-04-21T20:25:39.473Z" },
 ]
 
 [[package]]
@@ -1223,6 +1260,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "datasets" },
+    { name = "einops" },
     { name = "gitpython" },
     { name = "multi-storage-client", extra = ["google-cloud-storage"] },
     { name = "ninja" },
@@ -1237,6 +1275,8 @@ coda = [
     { name = "coda-kernels" },
 ]
 cuda = [
+    { name = "causal-conv1d" },
+    { name = "flash-linear-attention" },
     { name = "apache-tvm-ffi" },
     { name = "nvidia-cutlass-dsl" },
     { name = "torch" },
@@ -1269,9 +1309,12 @@ tpu = [
 [package.metadata]
 requires-dist = [
     { name = "aiobotocore", marker = "extra == 'data'", specifier = "==3.7.0" },
+    { name = "causal-conv1d", marker = "extra == 'cuda'", specifier = ">=1.4.0" },
     { name = "apache-tvm-ffi", marker = "extra == 'cuda'", specifier = "==0.1.12" },
     { name = "coda-kernels", marker = "extra == 'coda'", specifier = "==0.2" },
     { name = "datasets", specifier = "==5.0.0" },
+    { name = "einops", specifier = ">=0.8.0" },
+    { name = "flash-linear-attention", marker = "extra == 'cuda'", specifier = "==0.5.0" },
     { name = "gitpython", specifier = "==3.1.50" },
     { name = "google-api-core", marker = "extra == 'tpu'", specifier = "==2.31.0" },
     { name = "google-cloud-storage", marker = "extra == 'tpu'", specifier = "==3.12.0" },

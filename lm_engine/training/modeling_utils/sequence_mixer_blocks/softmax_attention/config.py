@@ -19,6 +19,7 @@ class SoftmaxAttentionArgs(BaseArgs):
     softmax_dropout: float = 0
     dropout: float = 0
     add_bias: bool = False
+    use_qk_norm: bool = False
     attention_multiplier: float | None = None
     attention_multiplier_method: str | None = ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD
     attention_gate: bool = False

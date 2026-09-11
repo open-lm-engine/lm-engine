@@ -6,7 +6,13 @@ import torch.nn as nn
 
 
 _INIT_MARKER = "_is_initialized"
-_METADATA_MARKERS = ["_no_weight_decay", "_has_mup_learning_rate"]
+_METADATA_MARKERS = [
+    "_no_weight_decay",
+    "_has_mup_learning_rate",
+    "_conv_hyperball",
+    "_is_attention_parameter",
+    "_attention_head_dim",
+]
 _ALL_MARKERS = _METADATA_MARKERS + [_INIT_MARKER]
 
 
@@ -31,12 +37,39 @@ def mark_parameter_as_initialized(parameter: nn.Parameter | None) -> nn.Paramete
     return parameter
 
 
+def mark_parameter_as_conv_hyperball(parameter: nn.Parameter | None) -> nn.Parameter | None:
+    if parameter is not None:
+        parameter._conv_hyperball = True
+
+    return parameter
+
+
+def mark_parameter_as_attention_parameter(parameter: nn.Parameter | None, head_dim: int) -> nn.Parameter | None:
+    if parameter is not None:
+        parameter._is_attention_parameter = True
+        parameter._attention_head_dim = head_dim
+
+    return parameter
+
+
+def is_attention_parameter(parameter: nn.Parameter | None) -> bool:
+    return getattr(parameter, "_is_attention_parameter", False)
+
+
+def get_attention_head_dim(parameter: nn.Parameter | None) -> int | None:
+    return getattr(parameter, "_attention_head_dim", None)
+
+
 def is_parameter_with_no_weight_decay(parameter: nn.Parameter | None) -> bool:
     return getattr(parameter, "_no_weight_decay", False)
 
 
 def is_parameter_with_mup_learning_rate(parameter: nn.Parameter | None) -> bool:
     return getattr(parameter, "_has_mup_learning_rate", False)
+
+
+def is_parameter_conv_hyperball(parameter: nn.Parameter | None) -> bool:
+    return getattr(parameter, "_conv_hyperball", False)
 
 
 def is_parameter_initialized(parameter: nn.Parameter | None) -> bool:

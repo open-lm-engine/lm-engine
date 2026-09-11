@@ -1,0 +1,687 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+datasets:
+  # class_name - data_name & data_sampling_ratio are not used but need to be passed to avoid errors
+  - class_name: MegatronDataset
+    data_name: Megatron
+    data_sampling_ratio: 1
+    class_args:
+      eval_steps: 2
+      num_workers: 16
+      data_cache_path: /export/local/cache
+      node_uses_local_storage: true
+      data_path:
+        - 1
+        - /data/merged_data/dolma_merged_olmo
+        - 1
+        - /data/merged_data/longmino_merged_olmo
+        - 1
+        - /data/merged_data/stack_merged_olmo
+      split: 99.5,0.5,0
+      # split: 1,0,0
+      sequence_length: 65536
+
+tokenizer_args:
+  tokenizer_name: allenai/OLMo-3-1025-7B
+
+kernel_args:
+  kernels:
+    - rnn
+    - gru
+    - flash_attention_3
+
+model_args:
+  pretrained_config:
+    initializer_range: 0.02
+    layer_norm_epsilon: 1e-05
+    model_type: gpt_base
+    normalization_function: rmsnorm
+    position_embedding_type: rope
+    hidden_size: 1024
+    num_layers: 24
+    init_method: fan_in
+    use_depth_scaled_init: false
+    bos_token_id: 100257  # OLMo-3 uses same as eos
+    eos_token_id: 100257
+    pad_token_id: 100277
+    vocab_size: 100278
+    max_position_embeddings: 65536
+    sequence_mixer_blocks:
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+      - sequence_mixer_type: softmax_attention
+        num_attention_heads: 16
+        num_key_value_heads: 16
+        use_qk_norm: true
+        attention_gate: false
+        exclusive_self_attention: true
+        sliding_window: 4096
+        add_bias: false
+        attention_multiplier_method: "1 / head_dim"
+    mlp_blocks:
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+      - activation_function: silu
+        mlp_type: DeltaMLP
+        add_bias: false
+        intermediate_size: 2688
+        num_ranks: 54
+        num_heads: 21
+        use_v_proj: false
+        use_q_l2norm: false
+        use_shortconv: true
+        use_tied_beta: false
+        use_decay_beta: true
+        use_head_o_norm: false
+        allow_neg_eigval: false
+        kernel_size: 4
+        value_scale: null
+  efficient_initialization: false
+
+tuning_args:
+  tuning_method: pretraining
+
+save_args:
+  save_path: /data/checkpoints_jyo/deltamlp-muonH-rerun
+  save_interval: 10000
+
+# load_args:
+#   load_path: /workspace/main/lm-engine/checkpoints
+
+logging_args:
+  log_interval: 10
+  log_parameter_and_gradient_interval: 500
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: delta-mlp
+    name: delta-mlp-muonH
+
+training_parameters:
+  num_training_steps: 50000
+  eval_interval: 50000
+  micro_batch_size: 1
+  gradient_accumulation_steps: 1
+  eval_during_training: true
+
+optimizer_args:
+  params_group_method: hyperball
+  class_name: MuonHyperball
+  class_args:
+    lr: 5e-3
+    weight_decay: 0.1
+    momentum: 0.95
+    nesterov: true
+    betas:
+      - 0.9
+      - 0.95
+    eps: 1e-10
+    hybrid_ns: true
+
+lr_scheduler_args:
+  lr_decay_style: cosine
+  num_warmup_steps: 5000
+  num_constant_steps: 0
+  num_decay_steps: 45000
+
+mixed_precision_args:
+  dtype: bf16
+
+distributed_args:
+  stage: 3
+  torch_compile: true
+  zero_topology:
+    data_parallel_replication_world_size: 4
+    data_parallel_sharding_world_size: 8
+  gradient_checkpointing_method: block
+  gradient_checkpointing_args:
+    num_blocks: 19

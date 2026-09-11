@@ -129,6 +129,7 @@ def get_sequence_mixer(
             num_layers=config.num_layers,
             causal=causal,
             layer_idx=layer_idx,
+            norm_eps=config.layer_norm_epsilon,
             use_depth_scaled_init=config.use_depth_scaled_init,
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,

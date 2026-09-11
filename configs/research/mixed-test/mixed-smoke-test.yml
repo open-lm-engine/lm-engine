@@ -1,0 +1,165 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+# **************************************************
+# Smoke-test config for the MixedDataset dataloader.
+# The mixture currently has a single stitched source (OLMo-3 tokenized), since
+# only one real stitched corpus exists on disk. MixedDataset with one source is
+# a legitimate, supported configuration: with a single source,
+# MixedSequenceDataset defers entirely to that source's own ordering (no
+# additional shuffle is applied, since there's nothing to mix). A second,
+# genuinely distinct stitched_seq_path should be added here once a second real
+# corpus exists, to exercise true multi-source mixing (MixedDataset now
+# rejects two sources that reference the same stitched_seq_path). Validation
+# is a single mixed loader aggregating val samples from all sources that
+# provide the split.
+# Runs only 10 steps to verify data loading -> forward -> backward works.
+# The model below is a plain Transformer with sliding-window attention (SWA)
+# and a standard MLP block, kept small on purpose (see
+# configs/pretraining-examples/nvidia-1.yml for a similarly-sized reference)
+# so the smoke test is cheap and runs on a single node without the multi-node
+# topology (context/data parallel) a real run would use.
+# Note: changing the sources (or their order) mid-run changes the mixture index
+# mapping, so resuming assumes an unchanged datasets config.
+# **************************************************
+
+datasets:
+  - class_name: MixedDataset
+    data_name: MixedDolma
+    data_sampling_ratio: 1
+    class_args:
+      sequence_length: 4096
+      eval_steps: 2
+      num_workers: 4
+      sources:
+        - class_name: StitchedDataset
+          data_name: StitchedDolmaMix
+          class_args:
+            stitched_seq_path: /workspace/users/freda/pretrain-data/stitched/test/OLMo-3-1025-7B/resharded/reindexed-from-qwen3-chunk2048/window-32_prob-0.5/sequence.parquet
+            tokenized_data_root: /workspace/users/freda/pretrain-data/tokenized/test/OLMo-3-1025-7B/resharded
+            split_ratio: [0.995, 0.005, 0.0]
+tokenizer_args:
+  tokenizer_name: allenai/OLMo-3-1025-7B
+kernel_args:
+  kernels:
+  - flash_attention_3
+model_args:
+  pretrained_config:
+    initializer_range: 0.02
+    layer_norm_epsilon: 1e-05
+    model_type: gpt_base
+    normalization_function: rmsnorm
+    position_embedding_type: rope
+    hidden_size: 256
+    num_layers: 4
+    rope_theta: 500000
+    rope_scaling: null
+    m_emb: null
+    m_width: null
+    m_residual: null
+    embedding_init_method: normal
+    init_method: fan_in
+    use_depth_scaled_init: false
+    tie_word_embeddings: true
+    bos_token_id: 100257
+    eos_token_id: 100257
+    pad_token_id: 100277
+    vocab_size: 100278
+    max_position_embeddings: 4096
+    sequence_mixer_blocks:
+    - sequence_mixer_type: softmax_attention
+      num_attention_heads: 8
+      num_key_value_heads: 8
+      use_qk_norm: true
+      attention_gate: false
+      exclusive_self_attention: true
+      sliding_window: 4096
+      add_bias: false
+      attention_multiplier_method: 1 / head_dim
+    - sequence_mixer_type: softmax_attention
+      num_attention_heads: 8
+      num_key_value_heads: 8
+      use_qk_norm: true
+      attention_gate: false
+      exclusive_self_attention: true
+      sliding_window: 4096
+      add_bias: false
+      attention_multiplier_method: 1 / head_dim
+    - sequence_mixer_type: softmax_attention
+      num_attention_heads: 8
+      num_key_value_heads: 8
+      use_qk_norm: true
+      attention_gate: false
+      exclusive_self_attention: true
+      sliding_window: 4096
+      add_bias: false
+      attention_multiplier_method: 1 / head_dim
+    - sequence_mixer_type: softmax_attention
+      num_attention_heads: 8
+      num_key_value_heads: 8
+      use_qk_norm: true
+      attention_gate: false
+      exclusive_self_attention: true
+      sliding_window: 4096
+      add_bias: false
+      attention_multiplier_method: 1 / head_dim
+    mlp_blocks:
+    - mlp_type: MLP
+      activation_function: silu
+      intermediate_size: 1024
+      add_bias: false
+      dropout: 0
+    - mlp_type: MLP
+      activation_function: silu
+      intermediate_size: 1024
+      add_bias: false
+      dropout: 0
+    - mlp_type: MLP
+      activation_function: silu
+      intermediate_size: 1024
+      add_bias: false
+      dropout: 0
+    - mlp_type: MLP
+      activation_function: silu
+      intermediate_size: 1024
+      add_bias: false
+      dropout: 0
+  efficient_initialization: false
+tuning_args:
+  tuning_method: pretraining
+save_args:
+  save_path: /tmp/freda-research/checkpoints/mixed-smoke-test-tiny
+  save_interval: 10
+logging_args:
+  log_interval: 2
+  experiments_tracker_name: wandb
+  wandb_args:
+    project: freda-research
+    name: mixed-smoke-test-tiny
+    tags:
+    - smoke-test
+    - mixed-dataset
+training_parameters:
+  num_training_steps: 10
+  eval_interval: 5
+  micro_batch_size: 1
+  gradient_accumulation_steps: 2
+  eval_during_training: true
+  gradient_clipping: null
+optimizer_args:
+  class_name: TorchAdamW
+  class_args:
+    lr: 3e-4
+    weight_decay: 0.1
+    betas:
+    - 0.9
+    - 0.95
+    eps: 1e-10
+lr_scheduler_args:
+  lr_decay_style: cosine
+  num_warmup_steps: 2
+  num_constant_steps: 0
+  num_decay_steps: 8
+mixed_precision_args:
+  dtype: bf16

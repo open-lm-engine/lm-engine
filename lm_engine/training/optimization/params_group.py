@@ -2,8 +2,6 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 
@@ -12,7 +10,12 @@ from ..containers import ModelContainer
 from ..enums import ParamsGroupMethod
 from ..logging_utils import log_rank_0
 from ..model_wrapper import ModelWrapper
-from ..parameter import is_parameter_with_mup_learning_rate, is_parameter_with_no_weight_decay
+from ..parameter import (
+    is_attention_parameter,
+    is_parameter_conv_hyperball,
+    is_parameter_with_mup_learning_rate,
+    is_parameter_with_no_weight_decay,
+)
 
 
 class _ParamsGroup(BaseArgs):
@@ -27,9 +30,7 @@ class _ParamsGroup(BaseArgs):
         # do in a sorted order
         param_names = self.get_param_names()
 
-        result["params"] = []
-        for param_name in param_names:
-            result["params"].append(self.parameter_name_map[param_name])
+        result["params"] = [self.parameter_name_map[n] for n in param_names]
 
         return result
 
@@ -130,9 +131,82 @@ def get_mup_group_with_names(model: ModelWrapper, optimizer_class_args: dict) ->
     return params_group_list
 
 
+def get_hyperball_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -> _ParamsGroupsList:
+    if model.has_teacher_model():
+        log_rank_0(logging.WARN, "found a teacher model in the ModelWrapper")
+        model = model.model
+
+    conv_hyperball_params = {}
+    attention_hyperball_params = {}
+    hyperball_params = {}
+    no_weight_decay_params = {}
+    normal_params = {}
+
+    for name, parameter in model.named_parameters():
+        if is_parameter_with_mup_learning_rate(parameter):
+            if is_parameter_conv_hyperball(parameter):
+                conv_hyperball_params[name] = parameter
+            elif is_attention_parameter(parameter):
+                attention_hyperball_params[name] = parameter
+            else:
+                hyperball_params[name] = parameter
+        elif is_parameter_with_no_weight_decay(parameter):
+            assert not is_parameter_conv_hyperball(parameter)
+            assert not is_attention_parameter(parameter)
+
+            no_weight_decay_params[name] = parameter
+        else:
+            normal_params[name] = parameter
+
+    hybrid_ns = optimizer_class_args.pop("hybrid_ns", False)
+
+    params_group_list = _ParamsGroupsList(
+        params_groups=[
+            _ParamsGroup(
+                name="conv_hyperball",
+                parameter_name_map=conv_hyperball_params,
+                params_group_kwargs={
+                    "hyperball": True,
+                    "conv_hyperball_group": True,
+                    "weight_decay": 0,
+                    "hybrid_ns": hybrid_ns,
+                },
+            ),
+            _ParamsGroup(
+                name="attention_hyperball",
+                parameter_name_map=attention_hyperball_params,
+                params_group_kwargs={
+                    "hyperball": True,
+                    "attention_hyperball_group": True,
+                    "weight_decay": 0,
+                    "hybrid_ns": hybrid_ns,
+                },
+            ),
+            _ParamsGroup(
+                name="hyperball",
+                parameter_name_map=hyperball_params,
+                params_group_kwargs={
+                    "hyperball": True,
+                    "weight_decay": 0,
+                    "hybrid_ns": hybrid_ns,
+                },
+            ),
+            _ParamsGroup(
+                name="no_weight_decay",
+                parameter_name_map=no_weight_decay_params,
+                params_group_kwargs={"weight_decay": 0},
+            ),
+            _ParamsGroup(name="normal", parameter_name_map=normal_params),
+        ]
+    )
+
+    return params_group_list
+
+
 _PARAM_GROUPS = {
     None: get_normal_group_with_names,
     ParamsGroupMethod.mup: get_mup_group_with_names,
+    ParamsGroupMethod.hyperball: get_hyperball_group_with_names,
 }
 
 

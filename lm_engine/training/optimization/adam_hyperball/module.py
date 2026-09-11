@@ -1,0 +1,154 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+from __future__ import annotations
+
+import torch
+from torch.distributed.tensor import DTensor
+from torch.optim import AdamW, Optimizer
+from torch.optim.adam import adam
+
+from ....kernels.accelerator import KernelBackend
+from ...enums import Kernel
+from ...kernels import is_kernel_allowed
+from .op import adam_hyperball
+
+
+class AdamHyperball(Optimizer):
+    def __init__(
+        self,
+        params,
+        lr: float = 1e-3,
+        betas: tuple[float, float] = (0.9, 0.95),
+        eps: float = 1e-10,
+        weight_decay: float = 0.1,
+        hyperball: bool = False,
+        maximize: bool = False,
+    ) -> AdamHyperball:
+        defaults = dict(
+            lr=lr,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            hyperball=hyperball,
+            foreach=None,
+            capturable=False,
+            differentiable=False,
+            fused=None,
+            amsgrad=False,
+            maximize=maximize,
+        )
+
+        super().__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self) -> None:
+        for group in self.param_groups:
+            beta1, beta2 = group["betas"]
+            params: list[torch.Tensor] = []
+            grads: list[torch.Tensor] = []
+            exp_avgs: list[torch.Tensor] = []
+            exp_avg_sqs: list[torch.Tensor] = []
+            state_steps: list[torch.Tensor | int] = []
+
+            if group["hyperball"]:
+                Rs: list[torch.Tensor] = []
+
+                self._init_adam_hyperball_group(
+                    group=group,
+                    params=params,
+                    grads=grads,
+                    exp_avgs=exp_avgs,
+                    exp_avg_sqs=exp_avg_sqs,
+                    Rs=Rs,
+                    state_steps=state_steps,
+                )
+
+                kernel_backend = None if is_kernel_allowed(Kernel.adam_hyperball) else KernelBackend.torch
+
+                adam_hyperball(
+                    params=params,
+                    grads=grads,
+                    exp_avgs=exp_avgs,
+                    exp_avg_sqs=exp_avg_sqs,
+                    Rs=Rs,
+                    lr=group["lr"],
+                    beta1=beta1,
+                    beta2=beta2,
+                    maximize=group["maximize"],
+                    state_steps=state_steps,
+                    eps=group["eps"],
+                    kernel_backend=kernel_backend,
+                )
+            else:
+                max_exp_avg_sqs: list[torch.Tensor] = []
+
+                has_complex = AdamW._init_group(
+                    self,
+                    group=group,
+                    params_with_grad=params,
+                    grads=grads,
+                    exp_avgs=exp_avgs,
+                    exp_avg_sqs=exp_avg_sqs,
+                    max_exp_avg_sqs=max_exp_avg_sqs,
+                    state_steps=state_steps,
+                )
+
+                adam(
+                    params=params,
+                    grads=grads,
+                    exp_avgs=exp_avgs,
+                    exp_avg_sqs=exp_avg_sqs,
+                    max_exp_avg_sqs=max_exp_avg_sqs,
+                    state_steps=state_steps,
+                    amsgrad=group["amsgrad"],
+                    has_complex=has_complex,
+                    beta1=beta1,
+                    beta2=beta2,
+                    lr=group["lr"],
+                    weight_decay=group["weight_decay"],
+                    eps=group["eps"],
+                    maximize=group["maximize"],
+                    foreach=group["foreach"],
+                    capturable=group["capturable"],
+                    differentiable=group["differentiable"],
+                    fused=group["fused"],
+                    grad_scale=getattr(self, "grad_scale", None),
+                    found_inf=getattr(self, "found_inf", None),
+                    decoupled_weight_decay=True,
+                )
+
+    def _init_adam_hyperball_group(
+        self,
+        group: dict,
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        exp_avgs: list[torch.Tensor],
+        exp_avg_sqs: list[torch.Tensor],
+        Rs: list[torch.Tensor],
+        state_steps: list[int],
+    ) -> None:
+        for W in group["params"]:
+            if W.grad is None:
+                continue
+
+            state = self.state[W]
+
+            if len(state) == 0:
+                state["step"] = 1
+                state["exp_avg"] = torch.zeros_like(W)
+                state["exp_avg_sq"] = torch.zeros_like(W)
+
+                # do the communication for R ahead of time to prevent it on every timestep
+                R = W.float().norm()
+                if isinstance(R, DTensor):
+                    R = R.full_tensor()
+                state["R"] = R
+
+            params.append(W)
+            grads.append(W.grad)
+            exp_avgs.append(state["exp_avg"])
+            exp_avg_sqs.append(state["exp_avg_sq"])
+            Rs.append(state["R"])
+            state_steps.append(state["step"])

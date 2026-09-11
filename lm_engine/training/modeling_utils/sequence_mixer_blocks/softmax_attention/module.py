@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import torch
 import torch.nn.functional as F
@@ -13,7 +14,7 @@ from .....accelerator import Accelerator
 from .....math import divide_if_divisible
 from ....generation_cache import GenerationCache, GenerationState, LinearCache
 from ....kernels import is_flash_attention_enabled, wait_for_ACT
-from ....parameter import mark_parameter_as_mup_learning_rate
+from ....parameter import mark_parameter_as_attention_parameter, mark_parameter_as_mup_learning_rate
 from ....utils import is_torch_xla_available
 from ...activations import sigmoid
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
@@ -22,6 +23,7 @@ from ...dropout import Dropout
 from ...dtensor_module import DTensorModule
 from ...init_utils import _get_std_for_linear
 from ...linear import ColumnParallelLinear, RowParallelLinear
+from ...normalization import get_normalization_function
 from ...position_embedding import PositionInfo, apply_rotary_pos_emb
 from .config import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD, SoftmaxAttentionArgs
 from .flash_attention import flash_attention
@@ -43,6 +45,7 @@ class SoftmaxAttention(DTensorModule):
         num_layers: int,
         causal: bool,
         layer_idx: int,
+        norm_eps: float,
         use_depth_scaled_init: bool,
         use_padding_free_transformer: bool = False,
         sequence_parallel: bool = False,
@@ -56,6 +59,7 @@ class SoftmaxAttention(DTensorModule):
         self.global_num_heads = config.num_attention_heads
         self.global_num_key_value_heads = config.num_key_value_heads
         self.add_bias = config.add_bias
+        self.use_qk_norm = config.use_qk_norm
         self.sliding_window = config.sliding_window
         self.attention_gate = config.attention_gate
         self.exclusive_self_attention = config.exclusive_self_attention
@@ -136,6 +140,10 @@ class SoftmaxAttention(DTensorModule):
             sequence_parallel=sequence_parallel,
         )
 
+        if self.use_qk_norm:
+            self.q_norm = get_normalization_function("rmsnorm", self.head_dim, eps=norm_eps)
+            self.k_norm = get_normalization_function("rmsnorm", self.head_dim, eps=norm_eps)
+
         self.softmax_dropout_p = config.softmax_dropout
 
         self.softmax_dropout = Dropout(
@@ -152,6 +160,17 @@ class SoftmaxAttention(DTensorModule):
 
         mark_parameter_as_mup_learning_rate(self.c_attn.weight)
         mark_parameter_as_mup_learning_rate(self.c_proj.weight)
+
+        if self.attention_gate:
+            warnings.warn(
+                "MuonHyperball cannot split c_attn's heads when attention_gate=True (the gate "
+                "doubles the Q rows, so the [Q|K|V] block structure doesn't hold). c_attn will be "
+                "treated as an unsplit matrix.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            mark_parameter_as_attention_parameter(self.c_attn.weight, head_dim=self.head_dim)
 
     def forward(
         self,
@@ -195,6 +214,10 @@ class SoftmaxAttention(DTensorModule):
             )
 
         q = q.reshape(*output_shape)
+
+        if self.use_qk_norm:
+            q = self.q_norm(q)
+            k = self.k_norm(k)
 
         if self.exclusive_self_attention:
             v_xsa = v

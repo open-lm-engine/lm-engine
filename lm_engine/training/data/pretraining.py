@@ -11,7 +11,10 @@ from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..logging_utils import log_rank_0
 from ..parallel import ProcessGroupManager
 from .dataloader import ResumableDataLoader
-from .megatron import GPTDataset, MegatronBatchSampler, build, compile_helpers
+from .megatron import GPTDataset, MegatronBatchSampler, Split, build, compile_helpers
+from .mixed import MixedSequenceDataset, build_mixed_datasets
+from .stitched import OrderingStrategy, StitchedDatasetConfig, StitchedSequenceDataset
+from .stitched import build_sample_index as build_stitched_sample_index
 
 
 def _get_train_val_test_samples(
@@ -25,7 +28,7 @@ def _get_train_val_test_samples(
 
 
 def _get_dataloader(
-    dataset: GPTDataset | None,
+    dataset: GPTDataset | StitchedSequenceDataset | MixedSequenceDataset | None,
     consumed_samples: int,
     micro_batch_size: int,
     gradient_accumulation_steps: int,
@@ -75,9 +78,16 @@ def get_pretraining_dataloaders(
     num_pipeline_stages = args.distributed_args.num_pipeline_stages
     num_workers = class_args.get("num_workers", 2)
 
-    is_megatron = args.datasets[0].class_name == "MegatronDataset"
+    class_name = args.datasets[0].class_name
 
-    if is_megatron:
+    train_samples, val_samples, test_samples = _get_train_val_test_samples(
+        args.training_parameters.num_training_steps,
+        args.training_parameters.global_batch_size,
+        args.training_parameters.eval_interval,
+        class_args.get("eval_steps"),
+    )
+
+    if class_name == "MegatronDataset":
         compile_helpers()
 
         log_rank_0(logging.INFO, "> building train, validation, and test datasets for GPT ...")
@@ -85,14 +95,11 @@ def get_pretraining_dataloaders(
         # Option 1: data loading using --data-path with single file
         # Option 2: data loading using --data-path with multiple weighted files
         # Option 3: data loading using --(train|val|test)-data-path with multiple weighted files
+        sequence_length = class_args.get("sequence_length")
+
         train_ds, val_ds, test_ds = build(
-            sizes=_get_train_val_test_samples(
-                args.training_parameters.num_training_steps,
-                args.training_parameters.global_batch_size,
-                args.training_parameters.eval_interval,
-                class_args.get("eval_steps"),
-            ),
-            sequence_length=class_args.get("sequence_length"),
+            sizes=(train_samples, val_samples, test_samples),
+            sequence_length=sequence_length,
             blend=class_args.get("data_path"),
             blend_per_split=[
                 class_args.get("train_data_path"),
@@ -107,8 +114,44 @@ def get_pretraining_dataloaders(
             node_uses_local_storage=class_args.get("node_uses_local_storage", False),
             random_seed=class_args.get("seed", args.random_args.seed),
         )
+    elif class_name == "StitchedDataset":
+        config = StitchedDatasetConfig(
+            stitched_seq_path=class_args["stitched_seq_path"],
+            tokenized_data_root=class_args["tokenized_data_root"],
+            sequence_length=class_args["sequence_length"],
+            ordering_strategy=OrderingStrategy(class_args.get("ordering_strategy", "as_stored")),
+            seed=class_args.get("seed", args.random_args.seed),
+            split_ratio=tuple(class_args.get("split_ratio", [1.0, 0.0, 0.0])),
+        )
+
+        caching_allowed = class_args.get("caching_allowed", True)
+
+        def _build_dataset(split: Split, num_samples: int) -> StitchedSequenceDataset | None:
+            if num_samples == 0 or config.split_ratio[split.value] == 0.0:
+                return None
+            # Build one full epoch (num_samples=None) so the cache is independent of
+            # run length; the dataset replays it to serve the requested num_samples.
+            stitched_seq, sample_index = build_stitched_sample_index(config, split, None, caching_allowed)
+            return StitchedSequenceDataset(config, split, stitched_seq, sample_index, num_samples=num_samples)
+
+        train_ds = _build_dataset(Split.train, train_samples)
+        val_ds = _build_dataset(Split.valid, val_samples)
+        test_ds = _build_dataset(Split.test, test_samples)
+
+        log_rank_0(logging.INFO, "> finished creating StitchedSequenceDataset splits ...")
     else:
-        raise ValueError
+        assert class_name == "MixedDataset", f"Unsupported dataset class_name: {class_name}."
+        train_ds, val_ds, test_ds = build_mixed_datasets(
+            class_args,
+            train_samples=train_samples,
+            val_samples=val_samples,
+            test_samples=test_samples,
+            default_seed=args.random_args.seed,
+        )
+
+        log_rank_0(logging.INFO, "> finished creating MixedSequenceDataset splits ...")
+
+    log_rank_0(logging.INFO, "> finished creating GPT datasets ...")
 
     if not isinstance(val_ds, list):
         val_ds = [val_ds]
