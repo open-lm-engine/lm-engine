@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 from ..accelerator import Accelerator
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
+from .constants import LEARNING_RATE, STATISTICS, THROUGHPUT, TOKENS, TRAIN
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from .data import (
     DatasetSplit,
@@ -33,7 +34,7 @@ from .logging_utils import (
     ExperimentsTracker,
     MetricsTrackingDict,
     TorchProfiler,
-    compute_model_statistics,
+    get_statistics_from_tensors,
     log_environment,
     log_rank_0,
 )
@@ -214,8 +215,12 @@ def train_step_without_pipeline_parallel(
             train_metrics_tracker = train_metrics_tracker + loss_micro_step_dict
 
         if track_model_statistics:
-            model_statistics_tracker = model_statistics_tracker + compute_model_statistics(
-                model_container=model_container
+            model_statistics_tracker = model_statistics_tracker + get_statistics_from_tensors(
+                tensors=model_container[0].named_parameters(), prefix="param"
+            )
+
+            model_statistics_tracker = model_statistics_tracker + get_statistics_from_tensors(
+                tensors={name: tensor.grad for name, tensor in model_container[0].named_parameters()}, prefix="grad"
             )
 
         if gradient_clipping is None:
@@ -469,7 +474,8 @@ def train(
             train_metrics_tracker = train_metrics_tracker / log_interval
             model_statistics_tracker = model_statistics_tracker / log_interval
 
-            train_metrics_tracker["learning_rate"] = get_learning_rate(model_container, lr_scheduler_container)
+            train_metrics_tracker[LEARNING_RATE] = get_learning_rate(model_container, lr_scheduler_container)
+            train_metrics_tracker[TOKENS] = global_step_in_tokens
 
             if model_flops is not None:
                 train_metrics_tracker["FLOPs"] = model_flops * steps_since_start_time / time_elapsed
@@ -478,7 +484,6 @@ def train(
                 {
                     "billion_tokens_per_day": tokens_per_batch * 86400 / step_time / 1e9,
                     "step_time (sec)": step_time,
-                    "tokens": global_step_in_tokens,
                 }
             )
 
@@ -491,9 +496,9 @@ def train(
                 global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
                 metrics_trackers=[
-                    (train_metrics_tracker, "train"),
-                    (throughput_tracker, "throughput"),
-                    (model_statistics_tracker, "statistics"),
+                    (model_statistics_tracker, STATISTICS),
+                    (throughput_tracker, THROUGHPUT),
+                    (train_metrics_tracker, TRAIN),
                 ],
             )
 

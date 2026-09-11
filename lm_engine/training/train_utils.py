@@ -7,6 +7,7 @@ import logging
 import torch
 from torch.distributed import ReduceOp
 
+from .constants import LEARNING_RATE, STATISTICS, STEP, TOKENS
 from .enums import GradientCheckpointingMethod
 from .hf_adapter import is_custom_model
 from .logging_utils import ExperimentsTracker, MetricsTrackingDict, log_metrics
@@ -46,15 +47,15 @@ def track_metrics(
         metrics_trackers (list[tuple[MetricsTrackingDict, str]]): list of (metrics tracker, context) pairs
     """
 
-    message = f"step = {global_step:,}, tokens = {global_step_in_tokens:,}"
+    message = f"{STEP} = {global_step:,}, {TOKENS} = {global_step_in_tokens:,}"
     combined_values = {}
 
     for metrics_tracker, context in metrics_trackers:
         for key in metrics_tracker:
-            if key == "tokens":
+            if context == STATISTICS or key == TOKENS:
                 continue
 
-            if key == "learning_rate":
+            if key == LEARNING_RATE:
                 message += f", {key} = {metrics_tracker[key]:.4e}"
             else:
                 message += f", {context}-{key} = {metrics_tracker[key]:.4f}"

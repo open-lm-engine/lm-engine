@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 import torch
 from torch.distributed.tensor import DTensor
@@ -139,36 +139,23 @@ class ExperimentsTracker:
         return state_dict
 
 
-@torch.no_grad()
-def compute_model_statistics(model_container: ModelContainer) -> MetricsTrackingDict:
-    assert len(model_container) == 1
-    model = model_container[0]
+def _maybe_gather_norm(tensor: torch.Tensor) -> float:
+    norm = tensor.norm()
+    if isinstance(norm, DTensor):
+        norm = norm.full_tensor()
+    return norm
 
+
+@torch.no_grad()
+def get_statistics_from_tensors(tensors: Iterable[tuple[str, torch.Tensor]], prefix: str) -> MetricsTrackingDict:
+    total_norm = 0
     metrics_tracker = MetricsTrackingDict({})
 
-    def _maybe_gather_norm(tensor: torch.Tensor) -> float:
-        norm = tensor.norm()
-        if isinstance(norm, DTensor):
-            norm = norm.full_tensor()
-        return norm
+    for name, tensor in tensors:
+        norm = 0 if tensor is None else _maybe_gather_norm(tensor)
+        metrics_tracker[f"{prefix}-norm/{name}"] = norm
+        total_norm += norm**2
 
-    param_norm_squared_sum = 0
-    grad_norm_squared_sum = 0
-
-    for name, param in model.named_parameters():
-        param_norm = _maybe_gather_norm(param)
-        metrics_tracker[f"param/norm/{name}"] = param_norm
-        param_norm_squared_sum += param_norm**2
-
-        if param.grad is None:
-            continue
-
-        grad_norm = _maybe_gather_norm(param.grad)
-        metrics_tracker[f"grad/norm/{name}"] = grad_norm
-
-        grad_norm_squared_sum += grad_norm**2
-
-    metrics_tracker["param/total-norm"] = param_norm_squared_sum**0.5
-    metrics_tracker["grad/total-norm"] = grad_norm_squared_sum**0.5
+    metrics_tracker[f"{prefix}-norm/total"] = total_norm**0.5
 
     return metrics_tracker
