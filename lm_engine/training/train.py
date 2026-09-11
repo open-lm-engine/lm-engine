@@ -220,7 +220,8 @@ def train_step_without_pipeline_parallel(
             )
 
             model_statistics_tracker = model_statistics_tracker + get_statistics_from_tensors(
-                tensors={name: tensor.grad for name, tensor in model_container[0].named_parameters()}, prefix="grad"
+                tensors=((name, tensor.grad) for name, tensor in model_container[0].named_parameters()),
+                prefix="grad",
             )
 
         if gradient_clipping is None:
