@@ -33,9 +33,9 @@ from .logging_utils import (
     ExperimentsTracker,
     MetricsTrackingDict,
     TorchProfiler,
+    compute_model_statistics,
     log_environment,
     log_rank_0,
-    track_parameter_and_gradient_info,
 )
 from .model_wrapper import get_model_container
 from .optimization import (
@@ -156,7 +156,8 @@ def train_step_without_pipeline_parallel(
     gradient_accumulation_steps: int,
     sequence_length: int,
     tuning_method: TuningMethod,
-) -> MetricsTrackingDict:
+    track_model_statistics: bool,
+) -> tuple[MetricsTrackingDict, MetricsTrackingDict]:
     assert len(model_container) == 1
     model = model_container[0]
 
@@ -173,7 +174,9 @@ def train_step_without_pipeline_parallel(
         elif fsdp_algorithm == 2:
             model.set_requires_gradient_sync(False)
 
-    metrics_tracker = MetricsTrackingDict({})
+    train_metrics_tracker = MetricsTrackingDict({})
+    model_statistics_tracker = MetricsTrackingDict({})
+
     optimizer_container.zero_grad()
 
     if tuning_method == TuningMethod.full_finetuning:
@@ -198,7 +201,7 @@ def train_step_without_pipeline_parallel(
                     loss_micro_step.backward()
 
                 with torch.inference_mode():
-                    metrics_tracker = metrics_tracker + loss_micro_step_dict
+                    train_metrics_tracker = train_metrics_tracker + loss_micro_step_dict
 
         if fsdp_algorithm == 2:
             model.set_requires_gradient_sync(True)
@@ -212,7 +215,12 @@ def train_step_without_pipeline_parallel(
             loss_micro_step.backward()
 
         with torch.inference_mode():
-            metrics_tracker = metrics_tracker + loss_micro_step_dict
+            train_metrics_tracker = train_metrics_tracker + loss_micro_step_dict
+
+        if track_model_statistics:
+            model_statistics_tracker = model_statistics_tracker + compute_model_statistics(
+                model_container=model_container
+            )
 
         effective_gradient_clipping = gradient_clipping if gradient_clipping is not None else float("inf")
         if fsdp_algorithm == 1:
@@ -233,15 +241,20 @@ def train_step_without_pipeline_parallel(
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp([model])
 
     with torch.inference_mode():
-        metrics_tracker = metrics_tracker / gradient_accumulation_steps
-        metrics_tracker["grad_norm"] = grad_norm
+        train_metrics_tracker = train_metrics_tracker / gradient_accumulation_steps
 
-        for key in metrics_tracker:
-            metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
+        train_metrics_tracker["grad_norm"] = (
+            torch.zeros((), device=Accelerator.get_current_device(), dtype=torch.float32)
+            if grad_norm is None
+            else grad_norm
+        )
 
-        metrics_tracker = all_reduce_metrics_tracker(metrics_tracker)
+        for key in train_metrics_tracker:
+            train_metrics_tracker[key] = dtensor_to_tensor(train_metrics_tracker[key])
 
-    return metrics_tracker
+        train_metrics_tracker = all_reduce_metrics_tracker(train_metrics_tracker)
+
+    return train_metrics_tracker, model_statistics_tracker
 
 
 def track_val_metrics(
@@ -322,7 +335,7 @@ def train(
     eval_interval = args.training_parameters.eval_interval
     save_interval = args.save_args.save_interval
     log_interval = args.logging_args.log_interval
-    log_parameter_and_gradient_interval = args.logging_args.log_parameter_and_gradient_interval
+    track_model_statistics = args.logging_args.track_model_statistics
 
     tuning_method = args.tuning_args.tuning_method
 
@@ -406,7 +419,9 @@ def train(
 
     start_time = time.perf_counter()
     steps_since_start_time = 0
-    metrics_tracker = MetricsTrackingDict({})
+
+    train_metrics_tracker = MetricsTrackingDict({})
+    model_statistics_tracker = MetricsTrackingDict({})
 
     while global_step < num_training_steps:
         global_step += 1
@@ -414,7 +429,11 @@ def train(
         global_step_in_tokens += tokens_per_batch
 
         if is_pipeline_parallel_enabled:
-            loss_step_dict = train_step_with_pipeline_parallel(
+            if track_model_statistics:
+                raise NotImplementedError
+
+            _model_statistics_tracker = MetricsTrackingDict({})
+            _train_metrics_tracker = train_step_with_pipeline_parallel(
                 model_container=model_container,
                 pipeline_schedule=pipeline_schedule,
                 optimizer_container=optimizer_container,
@@ -426,7 +445,7 @@ def train(
                 sequence_length=sequence_length,
             )
         else:
-            loss_step_dict = train_step_without_pipeline_parallel(
+            _train_metrics_tracker, _model_statistics_tracker = train_step_without_pipeline_parallel(
                 model_container=model_container,
                 optimizer_container=optimizer_container,
                 lr_scheduler_container=lr_scheduler_container,
@@ -439,52 +458,54 @@ def train(
                 gradient_accumulation_steps=gradient_accumulation_steps,
                 sequence_length=sequence_length,
                 tuning_method=args.tuning_args.tuning_method,
+                track_model_statistics=track_model_statistics,
             )
 
-        metrics_tracker = metrics_tracker + loss_step_dict
+        train_metrics_tracker = train_metrics_tracker + _train_metrics_tracker
+        model_statistics_tracker = model_statistics_tracker + _model_statistics_tracker
         torch_profiler.step()
 
         if global_step % log_interval == 0:
-            metrics_tracker = metrics_tracker / log_interval
-
             time_elapsed = time.perf_counter() - start_time
             step_time = time_elapsed / steps_since_start_time
 
-            metrics_tracker["learning_rate"] = get_learning_rate(model_container, lr_scheduler_container)
+            train_metrics_tracker = train_metrics_tracker / log_interval
+            model_statistics_tracker = model_statistics_tracker / log_interval
+
+            train_metrics_tracker["learning_rate"] = get_learning_rate(model_container, lr_scheduler_container)
 
             if model_flops is not None:
-                metrics_tracker["FLOPs"] = model_flops * steps_since_start_time / time_elapsed
+                train_metrics_tracker["FLOPs"] = model_flops * steps_since_start_time / time_elapsed
 
-            metrics_tracker["billion_tokens_per_day"] = tokens_per_batch * 86400 / step_time / 1e9
-            metrics_tracker["step_time (sec)"] = step_time
-            metrics_tracker["tokens"] = global_step_in_tokens
-
-            if (
-                log_parameter_and_gradient_interval is not None
-                and global_step % log_parameter_and_gradient_interval == 0
-            ):
-                track_parameter_and_gradient_info(
-                    model_container=model_container,
-                    metrics_tracker=metrics_tracker,
-                    gradient_clipping=gradient_clipping,
-                    gradient_norm=(loss_step_dict["grad_norm"] if "grad_norm" in loss_step_dict else None),
-                )
+            throughput_tracker = MetricsTrackingDict(
+                {
+                    "billion_tokens_per_day": tokens_per_batch * 86400 / step_time / 1e9,
+                    "step_time (sec)": step_time,
+                    "tokens": global_step_in_tokens,
+                }
+            )
 
             if cost_per_accelerator_per_second is not None:
                 cumulative_cost_usd += time_elapsed * num_accelerators * cost_per_accelerator_per_second
-                metrics_tracker["cost (USD)"] = cumulative_cost_usd
+                throughput_tracker["cost (USD)"] = cumulative_cost_usd
 
             track_metrics(
                 global_step=global_step,
                 global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
-                metrics_tracker=metrics_tracker,
-                context="train",
+                metrics_trackers=[
+                    (train_metrics_tracker, "train"),
+                    (throughput_tracker, "throughput"),
+                    (model_statistics_tracker, "statistics"),
+                ],
             )
 
             start_time = time.perf_counter()
             steps_since_start_time = 0
-            metrics_tracker = MetricsTrackingDict({})
+
+            # reset stats
+            train_metrics_tracker = MetricsTrackingDict({})
+            model_statistics_tracker = MetricsTrackingDict({})
 
         if eval_during_training and (global_step % eval_interval == 0 or global_step == num_training_steps):
             evaluate(
@@ -747,10 +768,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         )
 
     experiments_tracker = ExperimentsTracker(
-        experiments_tracker_name=args.logging_args.experiments_tracker_name,
-        aim_args=args.logging_args.aim_args,
-        wandb_args=args.logging_args.wandb_args,
-        checkpoint_metadata=experiments_tracker_state_dict,
+        wandb_args=args.logging_args.wandb_args, checkpoint_metadata=experiments_tracker_state_dict
     )
 
     # track all hyperparams in args

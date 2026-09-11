@@ -52,13 +52,6 @@ class KLDivergenceMethod(Enum):
     backward = "backward"
 
 
-class ExperimentsTrackerName(Enum):
-    """Experiment tracker to use"""
-
-    aim = "aim"
-    wandb = "wandb"
-
-
 class Kernel(Enum):
     # XMA (https://github.com/open-lm-engine/accelerated-model-architectures)
     adam_hyperball = "adam_hyperball"

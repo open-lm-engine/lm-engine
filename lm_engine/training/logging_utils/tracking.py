@@ -10,22 +10,17 @@ from typing import TYPE_CHECKING
 
 import torch
 from torch.distributed.tensor import DTensor
-from tqdm import tqdm
 
 from ...accelerator import Accelerator
 from ..containers import ModelContainer
-from ..enums import ExperimentsTrackerName
 from ..parallel import ProcessGroupManager
-from ..utils import is_aim_available, is_wandb_available
+from ..utils import is_wandb_available
 from .loss_dict import MetricsTrackingDict
 
 
 if TYPE_CHECKING:
     from ..arguments import BaseArgs
 
-
-if is_aim_available():
-    from aim import Run as AimRun
 
 if is_wandb_available():
     import wandb
@@ -41,42 +36,8 @@ def is_tracking_rank() -> bool:
     )
 
 
-# to track the LSF/Slurm job in W&B per run - bobcalio
-_JOB_ID = None if int(os.getenv("JOB_ID", -1)) == -1 else int(os.getenv("JOB_ID"))
-
-
-class ProgressBar:
-    """progress bar for training or validation"""
-
-    def __init__(self, start: int, end: int, desc: str | None = None) -> ProgressBar:
-        self.is_tracking_rank = is_tracking_rank()
-        if not self.is_tracking_rank:
-            return
-
-        self.progress_bar = tqdm(total=end, desc=desc)
-        self.update(start)
-
-    def update(self, n: int = 1) -> None:
-        """updates progress bar
-
-        Args:
-            n (int, optional): Number of steps to update the progress bar with. Defaults to 1.
-        """
-
-        if not self.is_tracking_rank:
-            return
-
-        self.progress_bar.update(n=n)
-
-    def track(self, **loss_kwargs) -> None:
-        """track specific metrics in progress bar"""
-
-        if not self.is_tracking_rank:
-            return
-
-        # for key in loss_kwargs:
-        #     loss_kwargs[key] = "{0:.5f}".format(loss_kwargs[key])
-        self.progress_bar.set_postfix(**loss_kwargs)
+# track the Slurm job in W&B per run
+_JOB_ID = os.getenv("SLURM_JOB_ID")
 
 
 def get_code_provenance() -> dict:
@@ -110,38 +71,28 @@ class ExperimentsTracker:
 
     def __init__(
         self,
-        experiments_tracker_name: ExperimentsTrackerName | None,
-        aim_args: BaseArgs,
-        wandb_args: BaseArgs,
+        wandb_args: BaseArgs | None,
         checkpoint_metadata: dict,
     ) -> ExperimentsTracker:
         self.is_tracking_rank = is_tracking_rank()
-        self.experiments_tracker_name = experiments_tracker_name
-        self.tracking_enabled = experiments_tracker_name is not None
+        self.tracking_enabled = wandb_args is not None
 
-        if not self.is_tracking_rank:
+        if not self.is_tracking_rank or not self.tracking_enabled:
             return
 
-        if experiments_tracker_name == ExperimentsTrackerName.aim:
-            kwargs = aim_args.to_dict() if checkpoint_metadata is None else checkpoint_metadata
-            self.run = AimRun(**kwargs)
-        elif experiments_tracker_name == ExperimentsTrackerName.wandb:
-            kwargs = wandb_args.to_dict() if checkpoint_metadata is None else checkpoint_metadata
-            resume = None if checkpoint_metadata is None else "auto"
+        kwargs = wandb_args.to_dict() if checkpoint_metadata is None else checkpoint_metadata
+        resume = None if checkpoint_metadata is None else "auto"
 
-            wandb.init(resume=resume, **kwargs)
+        wandb.init(resume=resume, **kwargs)
 
-            # this is for a custom step, we can't use the wandb step
-            # since it doesn't allow time travel to the past
-            wandb.define_metric("iteration", hidden=True)
-            # track the LSF/Slurm job in W&B per run - bobcalio
-            if _JOB_ID is not None:
-                wandb.define_metric("job", step_metric="iteration", hidden=True, step_sync=True)
+        # this is for a custom step, we can't use the wandb step
+        # since it doesn't allow time travel to the past
+        wandb.define_metric("iteration", hidden=True)
+        if _JOB_ID is not None:
+            wandb.define_metric("job_id", step_metric="iteration", step_sync=True)
 
-            wandb.define_metric("train/*", step_metric="iteration", step_sync=True)
-            wandb.define_metric("val/*", step_metric="iteration", step_sync=True)
-        elif experiments_tracker_name is not None:
-            raise ValueError(f"unexpected experiments_tracker ({experiments_tracker_name})")
+        wandb.define_metric("train/*", step_metric="iteration", step_sync=True)
+        wandb.define_metric("val/*", step_metric="iteration", step_sync=True)
 
     def log_args(self, args: BaseArgs, **extra_metadata) -> None:
         """log args
@@ -164,16 +115,7 @@ class ExperimentsTracker:
                     raise ValueError(f"duplicate key ({k})")
                 args[k] = v
 
-            if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-                for k, v in args.items():
-                    try:
-                        self.run[k] = v
-                    except TypeError:
-                        self.run[k] = str(v)
-            elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-                wandb.config.update(args, allow_val_change=True)
-            else:
-                raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
+            wandb.config.update(args, allow_val_change=True)
 
     def track(self, values: dict, step: int | None = None, context: str | None = None) -> None:
         """main tracking method
@@ -187,43 +129,26 @@ class ExperimentsTracker:
         if not self.tracking_enabled:
             return
 
-        if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-            if context is not None:
-                context = {"subset": context}
+        if context is not None:
+            values = {f"{context}/{k}": v for k, v in values.items()}
 
-            for key, value in values.items():
-                self.run.track(value=value, name=key, step=step, context=context)
-        elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-            if context is not None:
-                values = {f"{context}/{k}": v for k, v in values.items()}
+        # this is for a custom step, we can't use the wandb step
+        # since it doesn't allow time travel to the past
+        values["iteration"] = step
+        if _JOB_ID is not None:
+            values["job_id"] = _JOB_ID
 
-            # this is for a custom step, we can't use the wandb step
-            # since it doesn't allow time travel to the past
-            values["iteration"] = step
-            # track the LSF/Slurm job in W&B per run - bobcalio
-            if _JOB_ID is not None:
-                values["job"] = _JOB_ID
+        # FIXME this is needed to prevent TPU from getting stuck
+        # on GPU, only 1 rank needs to call this but on TPUs, every rank needs to call this
+        if Accelerator.get_accelerator() == Accelerator.tpu:
+            values = {k: v.to("cpu") if isinstance(v, torch.Tensor) else v for k, v in values.items()}
 
-            # FIXME this is needed to prevent TPU from getting stuck
-            # on GPU, only 1 rank needs to call this but on TPUs, every rank needs to call this
-            if Accelerator.get_accelerator() == Accelerator.tpu:
-                values = {k: v.to("cpu") if isinstance(v, torch.Tensor) else v for k, v in values.items()}
-
-            if self.is_tracking_rank:
-                wandb.log(values)
-        else:
-            raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
+        if self.is_tracking_rank:
+            wandb.log(values)
 
     def finish(self) -> None:
-        if not self.tracking_enabled or not self.is_tracking_rank:
-            return
-
-        if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-            self.run.close()
-        elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
+        if self.tracking_enabled and self.is_tracking_rank:
             wandb.finish()
-        else:
-            raise ValueError(f"unexpected experiments_tracker ({self.experiments_tracker_name})")
 
     def state_dict(self) -> dict:
         if not self.is_tracking_rank:
@@ -231,58 +156,49 @@ class ExperimentsTracker:
 
         state_dict = {}
         if self.tracking_enabled:
-            if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-                state_dict = {"run_hash": self.run.hash}
-            elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-                state_dict = {
-                    "id": wandb.run.id,
-                    "name": wandb.run.name,
-                    "tags": wandb.run.tags,
-                    "group": wandb.run.group,
-                    "notes": wandb.run.notes,
-                    "entity": wandb.run.entity,
-                    "project": wandb.run.project,
-                }
+            state_dict = {
+                "id": wandb.run.id,
+                "name": wandb.run.name,
+                "tags": wandb.run.tags,
+                "group": wandb.run.group,
+                "notes": wandb.run.notes,
+                "entity": wandb.run.entity,
+                "project": wandb.run.project,
+            }
 
         return state_dict
 
 
 @torch.no_grad()
-def track_parameter_and_gradient_info(
-    model_container: ModelContainer,
-    metrics_tracker: MetricsTrackingDict,
-    gradient_clipping: float | None = None,
-    gradient_norm: float | None = None,
-    histograms: bool = False,
-) -> None:
-    assert is_wandb_available()
+def compute_model_statistics(model_container: ModelContainer) -> MetricsTrackingDict:
     assert len(model_container) == 1
     model = model_container[0]
 
-    scale = 1.0
-    if gradient_clipping is not None and gradient_norm is not None:
-        total_norm = float(gradient_norm)
-        scale = max(1.0, (total_norm + 1e-6) / gradient_clipping)
+    metrics_tracker = MetricsTrackingDict({})
 
     def _maybe_gather_norm(tensor: torch.Tensor) -> float:
         norm = tensor.norm()
         if isinstance(norm, DTensor):
             norm = norm.full_tensor()
-        return norm.item()
+        return norm
 
-    def _maybe_gather_tolist(tensor: torch.Tensor) -> list:
-        if isinstance(tensor, DTensor):
-            tensor = tensor.full_tensor()
-        return tensor.detach().flatten().cpu().tolist()
+    param_norm_squared_sum = 0
+    grad_norm_squared_sum = 0
 
     for name, param in model.named_parameters():
-        metrics_tracker[f"param/norm/{name}"] = _maybe_gather_norm(param)
-        if histograms:
-            metrics_tracker[f"param/hist/{name}"] = wandb.Histogram(_maybe_gather_tolist(param))
+        param_norm = _maybe_gather_norm(param)
+        metrics_tracker[f"param/norm/{name}"] = param_norm
+        param_norm_squared_sum += param_norm**2
 
-        if param.grad is not None:
-            metrics_tracker[f"grad/norm/{name}"] = _maybe_gather_norm(param.grad)
-            metrics_tracker[f"scaled-grad/norm/{name}"] = _maybe_gather_norm(param.grad * scale)
-            if histograms:
-                metrics_tracker[f"grad/hist/{name}"] = wandb.Histogram(_maybe_gather_tolist(param.grad))
-                metrics_tracker[f"scaled-grad/hist/{name}"] = wandb.Histogram(_maybe_gather_tolist(param.grad * scale))
+        if param.grad is None:
+            continue
+
+        grad_norm = _maybe_gather_norm(param.grad)
+        metrics_tracker[f"grad/norm/{name}"] = grad_norm
+
+        grad_norm_squared_sum += grad_norm**2
+
+    metrics_tracker["param/total-norm"] = param_norm_squared_sum**0.5
+    metrics_tracker["grad/total-norm"] = grad_norm_squared_sum**0.5
+
+    return metrics_tracker

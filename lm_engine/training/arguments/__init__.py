@@ -9,7 +9,6 @@ from ...math import divide_if_divisible
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..enums import (
     ContextParallelLoadBalancerMethod,
-    ExperimentsTrackerName,
     GradientCheckpointingMethod,
     Kernel,
     KLDivergenceMethod,
@@ -335,18 +334,8 @@ class DistributedArgs(BaseArgs):
             _check_not_None([(self.pipeline_parallel_schedule, "pipeline_parallel_schedule")])
 
 
-class AimArgs(BaseArgs):
-    # aim repo, experiment logs are saved here
-    repo: str = None
-    # name of the experiment
-    experiment: str = None
-
-    def model_post_init(self, __context: Any) -> None:
-        _check_not_None([(self.repo, "repo"), (self.experiment, "experiment")])
-
-
 class WandBArgs(BaseArgs):
-    # aim repo, experiment logs are saved here
+    # wandb project, experiment logs are saved here
     project: str = None
     # name of the experiment; None lets wandb auto-generate a name
     name: str | None = None
@@ -368,32 +357,17 @@ class LoggingArgs(BaseArgs):
     logging_level: str = "INFO"
     # log interval
     log_interval: int = 10
-    # arguments if using aim
-    aim_args: AimArgs | None = None
-    # arguments if using wandb
+    # wandb args
     wandb_args: WandBArgs | None = None
-    # experiment tracker to use (aim or wandb)
-    experiments_tracker_name: ExperimentsTrackerName | None = None
     # whether to use colored logs
     use_colored_logs: bool = False
     # torch profiler trace path, specifying a path will enable the torch profiler
     # this can cause some performance impact so use sparingly
     torch_profiler_trace_path: str | None = None
-    # interval for logging per-parameter and per-gradient norms and histograms, None disables it
-    log_parameter_and_gradient_interval: int | None = None
+    # whether to log per-parameter and per-gradient norms, at the same cadence as log_interval
+    track_model_statistics: bool = False
     # cost per accelerator per hour in USD; if set, training cost is tracked and logged
     cost_per_accelerator_per_hour: float | None = None
-
-    def model_post_init(self, __context: Any) -> None:
-        if self.experiments_tracker_name == ExperimentsTrackerName.aim:
-            _check_not_None([(self.aim_args, "aim_args")])
-        elif self.experiments_tracker_name == ExperimentsTrackerName.wandb:
-            _check_not_None([(self.wandb_args, "wandb_args")])
-
-        if self.log_parameter_and_gradient_interval is not None:
-            assert (
-                self.log_parameter_and_gradient_interval % self.log_interval == 0
-            ), "log_parameter_and_gradient_interval must be a multiple of log_interval"
 
 
 class KernelArgs(BaseArgs):
