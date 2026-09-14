@@ -13,7 +13,6 @@ from .....accelerator import Accelerator
 from .....math import divide_if_divisible
 from ....generation_cache import GenerationCache, GenerationState, LinearCache
 from ....kernels import is_flash_attention_enabled, wait_for_ACT
-from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import is_torch_xla_available
 from ...activations import sigmoid
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
@@ -149,9 +148,6 @@ class SoftmaxAttention(DTensorModule):
             use_padding_free_transformer=use_padding_free_transformer,
             sequence_parallel=sequence_parallel,
         )
-
-        mark_parameter_as_mup_learning_rate(self.c_attn.weight)
-        mark_parameter_as_mup_learning_rate(self.c_proj.weight)
 
     def forward(
         self,

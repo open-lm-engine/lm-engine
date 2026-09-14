@@ -11,7 +11,6 @@ from .....math import divide_if_divisible
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
-from ....parameter import mark_parameter_as_mup_learning_rate
 from ...activations import is_glu, silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
@@ -104,8 +103,6 @@ class LinearAttention(nn.Module):
                 use_padding_free_transformer=use_padding_free_transformer,
             )
 
-            mark_parameter_as_mup_learning_rate(self.conv1d.weight)
-
         self.output_projection = ParameterizedLinear(
             self.g_shape,
             self.output_size,
@@ -121,9 +118,6 @@ class LinearAttention(nn.Module):
         )
 
         self.norm = get_normalization_function(config.normalization_function, self.num_heads * self.v_head_dim)
-
-        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
-        mark_parameter_as_mup_learning_rate(self.output_projection.weight)
 
     def forward(
         self,

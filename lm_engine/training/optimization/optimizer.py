@@ -16,8 +16,8 @@ from torch.optim.rmsprop import RMSprop as TorchRMSprop
 from torch.optim.rprop import Rprop as TorchRprop
 from torch.optim.sgd import SGD as TorchSGD
 
+from ..arguments import ParamsGroup
 from ..containers import BackwardHookOptimizerContainer, ModelContainer, OptimizerContainer
-from ..enums import ParamsGroupMethod
 from .params_group import get_param_groups_list
 
 
@@ -42,7 +42,7 @@ def get_optimizer_container(
     optimizer_class_name: str,
     optimizer_class_args: dict,
     model_container: ModelContainer,
-    params_group_method: ParamsGroupMethod,
+    param_groups: list[ParamsGroup],
     use_optimizer_with_backward_hook: bool,
 ) -> OptimizerContainer:
     """setup list of optimizers for the model
@@ -51,7 +51,7 @@ def get_optimizer_container(
         optimizer_class_name (str): optimizer class name
         optimizer_class_args (dict): args for the optimizer class
         model_container (ModelContainer): model container
-        params_group_method (ParamsGroupMethod): the params grouping to use
+        param_groups (list[ParamsGroup]): custom params groups to use, see OptimizerArgs.param_groups
         use_optimizer_with_backward_hook (bool): whether to use optimizer as a backward hook
 
     Returns:
@@ -65,7 +65,7 @@ def get_optimizer_container(
     if optimizer_class is None:
         raise ImportError("relevant package for the optimizer is not installed")
 
-    params_groups_list = get_param_groups_list(model_container, optimizer_class_args, params_group_method)
+    params_groups_list = get_param_groups_list(model_container, optimizer_class_args, param_groups)
 
     if use_optimizer_with_backward_hook:
         for model, params_groups in zip(model_container, params_groups_list):

@@ -718,7 +718,7 @@ def main(args_class: type[DistillationArgs | TrainingArgs] = TrainingArgs) -> No
         optimizer_class_name=args.optimizer_args.class_name,
         optimizer_class_args=args.optimizer_args.class_args,
         model_container=model_container,
-        params_group_method=args.optimizer_args.params_group_method,
+        param_groups=args.optimizer_args.param_groups,
         use_optimizer_with_backward_hook=args.optimizer_args.use_optimizer_with_backward_hook,
     )
 

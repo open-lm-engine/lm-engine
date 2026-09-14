@@ -14,7 +14,7 @@ from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed, wait_for_ACT
 from ....parallel import ProcessGroupManager
-from ....parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
+from ....parameter import mark_parameter_as_initialized
 from ....utils import is_triton_available
 from ...dtensor_module import DTensorModule
 from ...linear import ColumnParallelLinear, RowParallelLinear
@@ -47,8 +47,6 @@ class ParameterizedExperts(nn.Module):
         self.bias = None
         if add_bias:
             self.bias = nn.Parameter(torch.empty(num_experts, out_features))
-
-        mark_parameter_as_no_weight_decay(self.bias)
 
         self.num_experts = num_experts
         self.in_features = in_features

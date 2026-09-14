@@ -12,11 +12,7 @@ import torch.nn.functional as F
 from torch.distributed.tensor import DTensor, Replicate
 
 from ...dtensors import tensor_to_dtensor
-from ...parameter import (
-    mark_parameter_as_initialized,
-    mark_parameter_as_mup_learning_rate,
-    mark_parameter_as_no_weight_decay,
-)
+from ...parameter import mark_parameter_as_initialized
 from ..dtensor_module import DTensorModule
 from ..linear import ParameterizedLinear
 
@@ -41,15 +37,11 @@ class SoftplusDecayGate(DTensorModule):
 
         if has_projection:
             self.proj = ParameterizedLinear(hidden_size, self.output_size, std=std)
-            mark_parameter_as_mup_learning_rate(self.proj.weight)
         else:
             assert hidden_size is None
 
         self.A_log = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
-        mark_parameter_as_no_weight_decay(self.A_log)
-
         self.dt_bias = nn.Parameter(torch.empty(self.output_size, dtype=torch.float32))
-        mark_parameter_as_no_weight_decay(self.dt_bias)
 
         assert A_init_min >= 0
         assert A_init_max >= A_init_min

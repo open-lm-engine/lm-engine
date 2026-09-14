@@ -14,7 +14,6 @@ from ..enums import (
     KLDivergenceMethod,
     LossMask,
     LRDecaySchedule,
-    ParamsGroupMethod,
     TuningMethod,
 )
 from ..logging_utils import set_logger
@@ -209,11 +208,17 @@ class DatasetArgs(BaseArgs):
             assert self.data_sampling_ratio > 0, "data_sampling_ratio should be a positive integer"
 
 
+class ParamsGroup(BaseArgs):
+    name: str
+    patterns: list[str]
+    params_group_kwargs: dict = {}
+
+
 class OptimizerArgs(BaseArgs):
     # optimizer class
     class_name: str = "TorchAdamW"
-    # how to create param groups
-    params_group_method: ParamsGroupMethod | None = None
+    # custom params groups checked (in order) before the catch-all "normal" group
+    param_groups: list[ParamsGroup] = []
     # backward hooked optimizer
     use_optimizer_with_backward_hook: bool = False
     # class args for optimizer

@@ -12,11 +12,7 @@ from .....math import divide_if_divisible
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
-from ....parameter import (
-    mark_parameter_as_initialized,
-    mark_parameter_as_mup_learning_rate,
-    mark_parameter_as_no_weight_decay,
-)
+from ....parameter import mark_parameter_as_initialized
 from ...activations import get_activation_function, is_glu, silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
@@ -106,8 +102,6 @@ class RNN(nn.Module):
                 use_padding_free_transformer=use_padding_free_transformer,
             )
 
-            mark_parameter_as_mup_learning_rate(self.conv1d.weight)
-
         self.activation_function = get_activation_function(self.activation_string)
         self.state_weight = nn.Parameter(torch.empty(self.num_heads, self.state_head_dim, self.state_head_dim))
 
@@ -126,12 +120,6 @@ class RNN(nn.Module):
         )
 
         self.norm = get_normalization_function(config.normalization_function, self.state_size)
-
-        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
-        mark_parameter_as_mup_learning_rate(self.state_weight)
-        mark_parameter_as_mup_learning_rate(self.output_projection.weight)
-
-        mark_parameter_as_no_weight_decay(self.state_weight)
 
         self.reset_parameters()
 
