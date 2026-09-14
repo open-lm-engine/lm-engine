@@ -95,7 +95,12 @@ def get_param_groups_with_names(
             _ParamsGroup(name=group.name, parameter_name_map=matched_params, params_group_kwargs=params_group_kwargs)
         )
 
-    params_groups.append(_ParamsGroup(name="normal", parameter_name_map=remaining_params))
+    if remaining_params:
+        raise ValueError(
+            "the following parameter(s) didn't match any params group's patterns (add a catch-all group, "
+            f"e.g. ParamsGroup(name='normal', patterns=['*']), if this is intended): "
+            f"{sorted(remaining_params.keys())}"
+        )
 
     result = _ParamsGroupsList(params_groups=params_groups)
     log_rank_0(logging.INFO, f"params groups:\n{result}")
