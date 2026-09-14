@@ -40,6 +40,13 @@ class _ParamsGroup(BaseArgs):
     def __len__(self) -> int:
         return len(self.parameter_name_map)
 
+    def __str__(self) -> str:
+        lines = [f"{self.name} ({len(self)} params):"]
+        lines.extend(f"    {param_name}" for param_name in self.get_param_names())
+        return "\n".join(lines)
+
+    __repr__ = __str__
+
 
 class _ParamsGroupsList(BaseArgs):
     params_groups: list[_ParamsGroup] = []
@@ -56,6 +63,11 @@ class _ParamsGroupsList(BaseArgs):
 
     def get_param_names(self) -> list[str]:
         return {group.name: group.get_param_names() for group in self.params_groups}
+
+    def __str__(self) -> str:
+        return "\n".join(str(group) for group in self.params_groups)
+
+    __repr__ = __str__
 
 
 def get_param_groups_with_names(
@@ -85,7 +97,10 @@ def get_param_groups_with_names(
 
     params_groups.append(_ParamsGroup(name="normal", parameter_name_map=remaining_params))
 
-    return _ParamsGroupsList(params_groups=params_groups)
+    result = _ParamsGroupsList(params_groups=params_groups)
+    log_rank_0(logging.INFO, f"params groups:\n{result}")
+
+    return result
 
 
 def get_param_groups_list(
