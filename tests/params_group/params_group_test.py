@@ -56,13 +56,19 @@ _NO_WEIGHT_DECAY_GROUP = ParamsGroup(
     params_group_kwargs={"weight_decay": 0},
 )
 
+# catch-all: get_param_groups_with_names raises if any parameter matches no group's patterns
+_NORMAL_GROUP = ParamsGroup(name="normal", patterns=["*"])
+
 
 @pytest.mark.parametrize("use_fsdp", [False, True])
 @pytest.mark.parametrize("use_torch_compile", [False, True])
 @pytest.mark.parametrize("efficient_initialization", [False, True])
 @pytest.mark.parametrize(
     "filename_param_groups",
-    [("mup.json", [_MUP_GROUP, _NO_WEIGHT_DECAY_GROUP]), ("normal.json", [_NO_WEIGHT_DECAY_GROUP])],
+    [
+        ("mup.json", [_MUP_GROUP, _NO_WEIGHT_DECAY_GROUP, _NORMAL_GROUP]),
+        ("normal.json", [_NO_WEIGHT_DECAY_GROUP, _NORMAL_GROUP]),
+    ],
 )
 def test_params_group(
     use_fsdp: bool,
