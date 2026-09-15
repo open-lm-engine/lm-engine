@@ -5,6 +5,8 @@
 from argparse import ArgumentParser
 from typing import Any
 
+from pydantic import field_validator
+
 from ...math import divide_if_divisible
 from ..defaults import INPUT_FORMAT, OUTPUT_FORMAT
 from ..enums import (
@@ -218,7 +220,13 @@ class OptimizerArgs(BaseArgs):
     # optimizer class
     class_name: str = "TorchAdamW"
     # custom params groups checked (in order) before the catch-all "normal" group
-    param_groups: list[ParamsGroup] = []
+    param_groups: list[ParamsGroup]
+
+    @field_validator("param_groups", mode="before")
+    @classmethod
+    def _resolve_param_groups_path(cls, value: Any) -> Any:
+        return load_yaml(value) if isinstance(value, str) else value
+
     # backward hooked optimizer
     use_optimizer_with_backward_hook: bool = False
     # class args for optimizer
@@ -410,7 +418,7 @@ class TrainingArgs(BaseArgs):
     # tuning related arguments
     tuning_args: TuningArgs = None
     # optimizer related arguments
-    optimizer_args: OptimizerArgs = OptimizerArgs()
+    optimizer_args: OptimizerArgs = None
     # lr_scheduler related arguments
     lr_scheduler_args: LRSchedulerArgs = LRSchedulerArgs()
     # list of datasets to use
@@ -435,6 +443,7 @@ class TrainingArgs(BaseArgs):
             [
                 (self.model_args, "model_args"),
                 (self.tuning_args, "tuning_args"),
+                (self.optimizer_args, "optimizer_args"),
                 (self.save_args, "save_args"),
                 (self.datasets, "datasets"),
             ]

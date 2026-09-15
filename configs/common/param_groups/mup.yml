@@ -1,0 +1,54 @@
+# **************************************************
+# Copyright (c) 2026, Mayank Mishra
+# **************************************************
+
+# Shared default params-group config, for optimizer_args.param_groups. Reproduces the grouping
+# behavior of the old marker system (mark_parameter_as_mup_learning_rate /
+# mark_parameter_as_no_weight_decay), matched by fnmatch pattern against each parameter's full
+# dotted name instead of a per-parameter marker. See lm_engine/training/optimization/params_group.py.
+#
+# Point a training config at this file with:
+#   optimizer_args:
+#     param_groups: configs/common/param_groups/mup.yml
+#
+# mup is listed before no_weight_decay so a parameter matching both (e.g. a decay gate's D/A_log,
+# or an rnn/gru/m2rnn's state_weight) lands in "mup" (first match wins), matching the old marker
+# priority where is_parameter_with_mup_learning_rate was checked before is_parameter_with_no_weight_decay.
+- name: mup
+  patterns:
+    - "*.mlp_block.c_fc.weight"
+    - "*.mlp_block.c_proj.weight"
+    - "*.mlp_block.c_fc_shared.weight"
+    - "*.mlp_block.c_proj_shared.weight"
+    - "*.mlp_block.gate.weight"
+    - "*.mlp_block.up_fc.weight"
+    - "*.mlp_block.gate_fc.weight"
+    - "*.sequence_mixer.c_attn.weight"
+    - "*.sequence_mixer.c_proj.weight"
+    - "*.sequence_mixer.conv1d.weight"
+    - "*.sequence_mixer.in_proj.weight"
+    - "*.sequence_mixer.out_proj.weight"
+    - "*.sequence_mixer.input_projection.weight"
+    - "*.sequence_mixer.output_projection.weight"
+    - "*.sequence_mixer.state_weight"
+    - "*.sequence_mixer.D"
+    - "*.sequence_mixer.decay_gate.A_log"
+
+- name: no_weight_decay
+  patterns:
+    - "*.ln_1.weight"
+    - "*.ln_2.weight"
+    - "*.ln_f.weight"
+    - "*.norm.weight"
+    - "*.bias"
+    - "*.dt_bias"
+    - "*.state_weight"
+    - "*.D"
+    - "*.decay_gate.A_log"
+  params_group_kwargs:
+    weight_decay: 0
+
+# catch-all: get_param_groups_with_names raises if any parameter matches no group's patterns
+- name: normal
+  patterns:
+    - "*"
