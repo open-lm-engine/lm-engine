@@ -139,8 +139,8 @@ training_parameters:
   eval_during_training: false
 
 optimizer_args:
-  params_group_method: mup
   class_name: TorchAdamW
+  param_groups: []
   class_args:
     lr: 3e-4
     weight_decay: 0.1

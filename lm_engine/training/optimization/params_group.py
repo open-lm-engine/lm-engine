@@ -4,15 +4,14 @@
 
 from __future__ import annotations
 
+import fnmatch
 import logging
 from typing import Any
 
-from ..arguments import BaseArgs
+from ..arguments import BaseArgs, ParamsGroup
 from ..containers import ModelContainer
-from ..enums import ParamsGroupMethod
 from ..logging_utils import log_rank_0
 from ..model_wrapper import ModelWrapper
-from ..parameter import is_parameter_with_mup_learning_rate, is_parameter_with_no_weight_decay
 
 
 class _ParamsGroup(BaseArgs):
@@ -41,6 +40,13 @@ class _ParamsGroup(BaseArgs):
     def __len__(self) -> int:
         return len(self.parameter_name_map)
 
+    def __str__(self) -> str:
+        lines = [f"{self.name} ({len(self)} params):"]
+        lines.extend(f"    {param_name}" for param_name in self.get_param_names())
+        return "\n".join(lines)
+
+    __repr__ = __str__
+
 
 class _ParamsGroupsList(BaseArgs):
     params_groups: list[_ParamsGroup] = []
@@ -58,88 +64,51 @@ class _ParamsGroupsList(BaseArgs):
     def get_param_names(self) -> list[str]:
         return {group.name: group.get_param_names() for group in self.params_groups}
 
+    def __str__(self) -> str:
+        return "\n".join(str(group) for group in self.params_groups)
 
-def get_normal_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -> _ParamsGroupsList:
+    __repr__ = __str__
+
+
+def get_param_groups_with_names(
+    model: ModelWrapper, optimizer_class_args: dict, param_groups: list[ParamsGroup]
+) -> _ParamsGroupsList:
     if model.has_teacher_model():
         log_rank_0(logging.WARN, "found a teacher model in the ModelWrapper")
         # this is the student model
         model = model.model
 
-    normal_params = {}
-    no_weight_decay_params = {}
+    remaining_params = dict(model.named_parameters())
+    params_groups = []
 
-    for name, parameter in model.named_parameters():
-        if is_parameter_with_no_weight_decay(parameter):
-            no_weight_decay_params[name] = parameter
-        else:
-            normal_params[name] = parameter
+    for group in param_groups:
+        matched_params = {}
+        for name in list(remaining_params.keys()):
+            if any(fnmatch.fnmatch(name, pattern) for pattern in group.patterns):
+                matched_params[name] = remaining_params.pop(name)
 
-    params_group_list = _ParamsGroupsList(
-        params_groups=[
-            _ParamsGroup(name="normal", parameter_name_map=normal_params),
-            _ParamsGroup(
-                name="no_weight_decay",
-                parameter_name_map=no_weight_decay_params,
-                params_group_kwargs={"weight_decay": 0},
-            ),
-        ]
-    )
+        params_group_kwargs = dict(group.params_group_kwargs)
+        if group.name == "mup" and "lr" not in params_group_kwargs:
+            params_group_kwargs["lr"] = optimizer_class_args["lr"] / model.config.m_width
 
-    return params_group_list
+        params_groups.append(
+            _ParamsGroup(name=group.name, parameter_name_map=matched_params, params_group_kwargs=params_group_kwargs)
+        )
 
+    if remaining_params:
+        raise ValueError(
+            "the following parameter(s) didn't match any params group's patterns (add a catch-all group, "
+            f"e.g. ParamsGroup(name='normal', patterns=['*']), if this is intended): "
+            f"{sorted(remaining_params.keys())}"
+        )
 
-def get_mup_group_with_names(model: ModelWrapper, optimizer_class_args: dict) -> list[_ParamsGroup]:
-    assert model.config.init_method in (
-        "mup",
-        "fan_in",
-    ), "params_group_method='mup' requires init_method to be 'mup' or 'fan_in'"
+    result = _ParamsGroupsList(params_groups=params_groups)
+    log_rank_0(logging.INFO, f"params groups:\n{result}")
 
-    if model.has_teacher_model():
-        log_rank_0(logging.WARN, "found a teacher model in the ModelWrapper")
-        # this is the student model
-        model = model.model
-
-    normal_params = {}
-    no_weight_decay_params = {}
-    mup_params = {}
-
-    for name, parameter in model.named_parameters():
-        if is_parameter_with_mup_learning_rate(parameter):
-            mup_params[name] = parameter
-        elif is_parameter_with_no_weight_decay(parameter):
-            no_weight_decay_params[name] = parameter
-        else:
-            normal_params[name] = parameter
-
-    params_group_list = _ParamsGroupsList(
-        params_groups=[
-            _ParamsGroup(name="normal", parameter_name_map=normal_params),
-            _ParamsGroup(
-                name="no_weight_decay",
-                parameter_name_map=no_weight_decay_params,
-                params_group_kwargs={"weight_decay": 0},
-            ),
-            _ParamsGroup(
-                name="mup",
-                parameter_name_map=mup_params,
-                params_group_kwargs={"lr": optimizer_class_args["lr"] / model.config.m_width},
-            ),
-        ]
-    )
-
-    return params_group_list
-
-
-_PARAM_GROUPS = {
-    None: get_normal_group_with_names,
-    ParamsGroupMethod.mup: get_mup_group_with_names,
-}
+    return result
 
 
 def get_param_groups_list(
-    model_container: ModelContainer, optimizer_class_args: dict, params_group_method: ParamsGroupMethod | None
-) -> list[list[_ParamsGroup]]:
-    if params_group_method not in _PARAM_GROUPS:
-        raise ValueError(f"unexpected `params_group_method` {params_group_method}")
-
-    return [_PARAM_GROUPS[params_group_method](model, optimizer_class_args) for model in model_container]
+    model_container: ModelContainer, optimizer_class_args: dict, param_groups: list[ParamsGroup]
+) -> list[_ParamsGroupsList]:
+    return [get_param_groups_with_names(model, optimizer_class_args, param_groups) for model in model_container]

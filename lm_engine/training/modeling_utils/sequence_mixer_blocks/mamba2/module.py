@@ -11,11 +11,7 @@ from .....math import divide_if_divisible
 from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
-from ....parameter import (
-    mark_parameter_as_initialized,
-    mark_parameter_as_mup_learning_rate,
-    mark_parameter_as_no_weight_decay,
-)
+from ....parameter import mark_parameter_as_initialized
 from ...activations import silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution, _apply_mask_to_padding_states
@@ -129,13 +125,6 @@ class Mamba2(nn.Module):
         )
 
         self.D = nn.Parameter(torch.empty(self.num_heads))
-        mark_parameter_as_no_weight_decay(self.D)
-
-        mark_parameter_as_mup_learning_rate(self.decay_gate.A_log)
-        mark_parameter_as_mup_learning_rate(self.D)
-        mark_parameter_as_mup_learning_rate(self.conv1d.weight)
-        mark_parameter_as_mup_learning_rate(self.in_proj.weight)
-        mark_parameter_as_mup_learning_rate(self.out_proj.weight)
 
         self.reset_parameters()
 

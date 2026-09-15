@@ -10,7 +10,7 @@ import torch.nn.functional as F
 
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
-from ...parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
+from ...parameter import mark_parameter_as_initialized
 from ..quack import quack_linear
 
 
@@ -30,8 +30,6 @@ class ParameterizedLinear(nn.Linear):
     ) -> ParameterizedLinear:
         self.std = std
         super().__init__(in_features, out_features, bias)
-
-        mark_parameter_as_no_weight_decay(self.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return linear_func(x, self.weight, self.bias)

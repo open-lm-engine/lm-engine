@@ -8,11 +8,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ...accelerator import Accelerator
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..parallel import ProcessGroupManager
-from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
+from ..parameter import mark_parameter_as_initialized
 from ..utils import is_causal_conv1d_available
 from .activations import get_activation_function
 from .rotaters import AllGatherRotater
@@ -91,9 +90,6 @@ class DepthwiseCausalConvolution(nn.Conv1d):
         self.activation_function = get_activation_function(self.activation_string)
         self.use_activation_inside_kernel = self.activation_string in [None, "silu", "swish"]
         self.kernel_size = kernel_size
-
-        if self.bias is not None:
-            mark_parameter_as_no_weight_decay(self.bias)
 
         self.reset_parameters()
 

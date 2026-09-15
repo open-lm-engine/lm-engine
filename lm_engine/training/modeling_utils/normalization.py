@@ -15,7 +15,7 @@ from ...kernels.functional import rmsnorm as xma_rmsnorm
 from ..dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed, wait_for_ACT
-from ..parameter import mark_parameter_as_initialized, mark_parameter_as_no_weight_decay
+from ..parameter import mark_parameter_as_initialized
 from ..utils import is_quack_available
 from .dtensor_module import DTensorModule
 from .TP import get_module_placements
@@ -195,8 +195,5 @@ def get_normalization_function(
             normalization = _NORMALIZATION_FUNCTIONS[normalization_function](**kwargs)
     else:
         raise ValueError(f"unexpected `normalization_function` {normalization_function}")
-
-    for parameter in normalization.parameters():
-        mark_parameter_as_no_weight_decay(parameter)
 
     return normalization

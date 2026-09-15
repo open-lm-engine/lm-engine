@@ -14,7 +14,6 @@ from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ....loss import add_aux_loss
 from ....parallel import ProcessGroupManager
-from ....parameter import mark_parameter_as_mup_learning_rate
 from ....utils import is_sonicmoe_available
 from ...activations import get_activation_function, is_glu, sigmoid
 from ...dropout import Dropout
@@ -140,14 +139,6 @@ class MoE(DTensorModule):
         ) >= (9, 0)
 
         self.stream_id = torch.cuda.current_stream().stream_id if torch.cuda.is_available() else None
-
-        mark_parameter_as_mup_learning_rate(self.gate.weight)
-        mark_parameter_as_mup_learning_rate(self.c_fc.weight)
-        mark_parameter_as_mup_learning_rate(self.c_proj.weight)
-
-        if self.shared_intermediate_size is not None:
-            mark_parameter_as_mup_learning_rate(self.c_fc_shared.weight)
-            mark_parameter_as_mup_learning_rate(self.c_proj_shared.weight)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not self.use_padding_free_transformer:

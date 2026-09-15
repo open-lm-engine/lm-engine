@@ -17,11 +17,7 @@ from ....enums import Kernel
 from ....generation_cache import ConstantCache, GenerationCache, GenerationState
 from ....kernels import is_kernel_allowed
 from ....parallel import ProcessGroupManager
-from ....parameter import (
-    mark_parameter_as_initialized,
-    mark_parameter_as_mup_learning_rate,
-    mark_parameter_as_no_weight_decay,
-)
+from ....parameter import mark_parameter_as_initialized
 from ...activations import is_glu, silu
 from ...attention_mask_info import AttentionMaskInfo, resolve_attention_and_position_info
 from ...depthwise_causal_convolution import DepthwiseCausalConvolution
@@ -135,11 +131,8 @@ class M2RNN(nn.Module):
                 use_padding_free_transformer=use_padding_free_transformer,
             )
 
-            mark_parameter_as_mup_learning_rate(self.conv1d.weight)
-
         if self.use_residual:
             self.D = nn.Parameter(torch.empty(self.num_heads, self.v_head_dim))
-            mark_parameter_as_no_weight_decay(self.D)
 
         self.state_weight = nn.Parameter(torch.empty(self.num_weight_heads, self.v_head_dim, self.v_head_dim))
         self.output_projection = ParameterizedLinear(
@@ -157,10 +150,6 @@ class M2RNN(nn.Module):
         )
 
         self.g_norm = get_normalization_function(config.normalization_function, self.num_heads * self.v_head_dim)
-
-        mark_parameter_as_mup_learning_rate(self.input_projection.weight)
-        mark_parameter_as_mup_learning_rate(self.state_weight)
-        mark_parameter_as_mup_learning_rate(self.output_projection.weight)
 
         self.reset_parameters()
 
