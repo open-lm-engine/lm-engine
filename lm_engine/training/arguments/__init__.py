@@ -210,10 +210,29 @@ class DatasetArgs(BaseArgs):
             assert self.data_sampling_ratio > 0, "data_sampling_ratio should be a positive integer"
 
 
+class ModuleParameterMatch(BaseArgs):
+    # nn.Module subclass name, e.g. "MLP", "SoftmaxAttention" etc
+    class_name: str
+    # parameter path(s) relative to a matched module instance, e.g. ["weight", "bias"]
+    parameter_names: list[str]
+
+
 class ParamsGroup(BaseArgs):
     name: str
-    patterns: list[str]
+    # matched first (in list order) against module_matches
+    module_matches: list[ModuleParameterMatch] = []
+    # fallback: matched (in list order) via fnmatch against the full dotted parameter name, for
+    # whatever isn't claimed by any group's module_matches
+    patterns: list[str] = []
     params_group_kwargs: dict = {}
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.module_matches:
+            assert not self.patterns
+        elif self.patterns:
+            assert not self.module_matches
+        else:
+            raise ValueError("atleast one of module_matches or patterns should be passed")
 
 
 class OptimizerArgs(BaseArgs):

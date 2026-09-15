@@ -7,8 +7,9 @@ import os
 
 import pytest
 import torch
+from pydantic import ValidationError
 
-from lm_engine.training.arguments import ParamsGroup
+from lm_engine.training.arguments import ModuleParameterMatch, ParamsGroup
 from lm_engine.training.distributed import wrap_model_container_for_distributed_training
 from lm_engine.training.model_wrapper import get_model_container
 from lm_engine.training.optimization.params_group import get_param_groups_list
@@ -114,3 +115,64 @@ def test_params_group(
         stripped_resultant_group = tmp
 
     assert expected_group == stripped_resultant_group
+
+
+def test_params_group_module_matches() -> None:
+    rnn_state_weight_group = ParamsGroup(
+        name="rnn_state_weight",
+        module_matches=[ModuleParameterMatch(class_name="RNN", parameter_names=["state_weight"])],
+    )
+    normal_group = ParamsGroup(name="normal", patterns=["*"])
+    param_groups = [rnn_state_weight_group, normal_group]
+
+    args = load_training_args_for_unit_tests("params_group/training_config.yml")
+
+    if not ProcessGroupManager.is_initialized():
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "29500"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["RANK"] = "0"
+
+        ProcessGroupManager()
+
+    model_container = get_model_container(args, efficient_initialization=False, keep_in_fp32=True)
+    params_groups = get_param_groups_list(model_container, args.optimizer_args.class_args, param_groups)[0]
+
+    result = params_groups.get_param_names()
+
+    assert result["rnn_state_weight"] == ["model.transformer.h.2.sequence_mixer.state_weight"]
+    assert "model.transformer.h.3.sequence_mixer.state_weight" in result["normal"]
+    assert "model.transformer.h.2.sequence_mixer.state_weight" not in result["normal"]
+
+
+def test_params_group_module_matches_disambiguates_shared_leaf_class() -> None:
+    attention_qkv_group = ParamsGroup(
+        name="attention_qkv",
+        module_matches=[ModuleParameterMatch(class_name="SoftmaxAttention", parameter_names=["c_attn.weight"])],
+    )
+    normal_group = ParamsGroup(name="normal", patterns=["*"])
+    param_groups = [attention_qkv_group, normal_group]
+
+    args = load_training_args_for_unit_tests("params_group/training_config.yml")
+
+    if not ProcessGroupManager.is_initialized():
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "29500"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["RANK"] = "0"
+
+        ProcessGroupManager()
+
+    model_container = get_model_container(args, efficient_initialization=False, keep_in_fp32=True)
+    params_groups = get_param_groups_list(model_container, args.optimizer_args.class_args, param_groups)[0]
+
+    result = params_groups.get_param_names()
+
+    assert result["attention_qkv"] == ["model.transformer.h.0.sequence_mixer.c_attn.weight"]
+    assert "model.transformer.h.0.mlp_block.c_fc.weight" in result["normal"]
+    assert "model.transformer.h.0.sequence_mixer.c_attn.weight" not in result["normal"]
+
+
+def test_params_group_requires_module_matches_or_patterns() -> None:
+    with pytest.raises(ValidationError):
+        ParamsGroup(name="empty")
