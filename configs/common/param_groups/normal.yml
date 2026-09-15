@@ -2,11 +2,25 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-# Minimal params-group config, for optimizer_args.param_groups: a single catch-all group, so every
-# parameter gets the same weight_decay/lr (no mup lr-scaling, no no_weight_decay split). Point a
-# training config at this file with:
+# Point a training config at this file with:
 #   optimizer_args:
 #     param_groups: configs/common/param_groups/normal.yml
+- name: no_weight_decay
+  patterns:
+    - "*.ln_1.weight"
+    - "*.ln_2.weight"
+    - "*.ln_f.weight"
+    - "*.norm.weight"
+    - "*.ln.weight"
+    - "*.o_norm.weight"
+    - "*.bias"
+    - "*.dt_bias"
+    - "*.state_weight"
+    - "*.D"
+    - "*.decay_gate.A_log"
+  params_group_kwargs:
+    weight_decay: 0
+
 - name: normal
   patterns:
     - "*"
