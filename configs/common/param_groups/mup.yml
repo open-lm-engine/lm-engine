@@ -5,28 +5,6 @@
 # Point a training config at this file with:
 #   optimizer_args:
 #     param_groups: configs/common/param_groups/mup.yml
-- name: mup
-  patterns:
-    - "*.mlp_block.c_fc.weight"
-    - "*.mlp_block.c_proj.weight"
-    - "*.mlp_block.c_fc_shared.weight"
-    - "*.mlp_block.c_proj_shared.weight"
-    - "*.mlp_block.gate.weight"
-    - "*.mlp_block.up_fc.weight"
-    - "*.mlp_block.gate_fc.weight"
-    - "*.sequence_mixer.c_attn.weight"
-    - "*.sequence_mixer.c_proj.weight"
-    - "*.sequence_mixer.conv1d.weight"
-    - "*.sequence_mixer.in_proj.weight"
-    - "*.sequence_mixer.out_proj.weight"
-    - "*.sequence_mixer.input_projection.weight"
-    - "*.sequence_mixer.output_projection.weight"
-    - "*.sequence_mixer.state_weight"
-    - "*.sequence_mixer.D"
-    - "*.sequence_mixer.decay_gate.A_log"
-  params_group_kwargs:
-    lr_multiplier_method: "1 / m_width"
-
 - name: no_weight_decay
   module_matches:
     - class_name: RMSNorm
@@ -38,21 +16,8 @@
     - class_name: PNorm
       parameter_names:
         - weight
-    - class_name: RNN
-      parameter_names:
-        - state_weight
-    - class_name: GRU
-      parameter_names:
-        - state_weight
-    - class_name: M2RNN
-      parameter_names:
-        - state_weight
-    - class_name: Mamba2
-      parameter_names:
-        - D
     - class_name: SoftplusDecayGate
       parameter_names:
-        - A_log
         - dt_bias
   patterns:
     - "*.bias"
@@ -60,5 +25,15 @@
     weight_decay: 0
 
 - name: normal
+  module_matches:
+    - class_name: ParameterizedEmbedding
+      parameter_names:
+        - weight
+
+# catch-all: every remaining weight (mlp/attention/sequence-mixer projections, state_weight, D, A_log, ...)
+# gets the muP learning-rate multiplier
+- name: mup
   patterns:
     - "*"
+  params_group_kwargs:
+    lr_multiplier_method: "1 / m_width"

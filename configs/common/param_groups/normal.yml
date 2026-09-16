@@ -25,6 +25,7 @@
     - class_name: M2RNN
       parameter_names:
         - state_weight
+        - D
     - class_name: Mamba2
       parameter_names:
         - D
