@@ -43,17 +43,17 @@ _MUP_GROUP = ParamsGroup(
 
 _NO_WEIGHT_DECAY_GROUP = ParamsGroup(
     name="no_weight_decay",
-    patterns=[
-        "*.ln_1.weight",
-        "*.ln_2.weight",
-        "*.ln_f.weight",
-        "*.norm.weight",
-        "*.bias",
-        "*.dt_bias",
-        "*.state_weight",
-        "*.D",
-        "*.decay_gate.A_log",
+    module_matches=[
+        ModuleParameterMatch(class_name="RMSNorm", parameter_names=["weight"]),
+        ModuleParameterMatch(class_name="LayerNorm", parameter_names=["weight"]),
+        ModuleParameterMatch(class_name="PNorm", parameter_names=["weight"]),
+        ModuleParameterMatch(class_name="RNN", parameter_names=["state_weight"]),
+        ModuleParameterMatch(class_name="GRU", parameter_names=["state_weight"]),
+        ModuleParameterMatch(class_name="M2RNN", parameter_names=["state_weight"]),
+        ModuleParameterMatch(class_name="Mamba2", parameter_names=["D"]),
+        ModuleParameterMatch(class_name="SoftplusDecayGate", parameter_names=["A_log", "dt_bias"]),
     ],
+    patterns=["*.bias"],
     params_group_kwargs={"weight_decay": 0},
 )
 

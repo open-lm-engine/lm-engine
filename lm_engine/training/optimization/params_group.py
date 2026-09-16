@@ -72,7 +72,7 @@ class _ParamsGroupsList(BaseArgs):
 
 def _match_by_module_class(
     model: ModelWrapper, remaining_params: dict, module_matches: list[ModuleParameterMatch]
-) -> None:
+) -> dict:
     matched_params = {}
 
     for module_name, module in model.named_modules():
@@ -86,8 +86,8 @@ def _match_by_module_class(
 
                 full_name = f"{module_name}.{local_name}" if module_name else local_name
 
-                assert full_name in remaining_params
-                matched_params[full_name] = remaining_params.pop(full_name)
+                if full_name in remaining_params:
+                    matched_params[full_name] = remaining_params.pop(full_name)
 
     return matched_params
 
@@ -104,11 +104,13 @@ def get_param_groups_with_names(
     matched_params_per_group = []
 
     for group in param_groups:
-        if group.module_matches:
-            matched_params = _match_by_module_class(model, remaining_params, group.module_matches)
-        else:
-            matched_params = {}
+        matched_params = {}
 
+        if group.module_matches:
+            matched_params.update(_match_by_module_class(model, remaining_params, group.module_matches))
+
+        # fall back to matching whatever module_matches didn't claim against patterns
+        if group.patterns:
             for name in list(remaining_params.keys()):
                 if any(fnmatch.fnmatch(name, pattern) for pattern in group.patterns):
                     matched_params[name] = remaining_params.pop(name)

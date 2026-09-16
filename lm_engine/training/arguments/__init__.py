@@ -227,12 +227,7 @@ class ParamsGroup(BaseArgs):
     params_group_kwargs: dict = {}
 
     def model_post_init(self, __context: Any) -> None:
-        if self.module_matches:
-            assert not self.patterns
-        elif self.patterns:
-            assert not self.module_matches
-        else:
-            raise ValueError("atleast one of module_matches or patterns should be passed")
+        assert self.module_matches or self.patterns, "atleast one of module_matches or patterns should be passed"
 
 
 class OptimizerArgs(BaseArgs):
