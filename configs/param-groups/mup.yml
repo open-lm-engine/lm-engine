@@ -4,7 +4,7 @@
 
 # Point a training config at this file with:
 #   optimizer_args:
-#     param_groups: configs/common/param_groups/normal.yml
+#     param_groups: configs/param-groups/mup.yml
 - name: no_weight_decay
   module_matches:
     - class_name: RMSNorm
@@ -16,21 +16,8 @@
     - class_name: PNorm
       parameter_names:
         - weight
-    - class_name: RNN
-      parameter_names:
-        - state_weight
-    - class_name: GRU
-      parameter_names:
-        - state_weight
-    - class_name: M2RNN
-      parameter_names:
-        - state_weight
-    - class_name: Mamba2
-      parameter_names:
-        - D
     - class_name: SoftplusDecayGate
       parameter_names:
-        - A_log
         - dt_bias
   patterns:
     - "*.bias"
@@ -38,5 +25,15 @@
     weight_decay: 0
 
 - name: normal
+  module_matches:
+    - class_name: ParameterizedEmbedding
+      parameter_names:
+        - weight
+
+# catch-all: every remaining weight (mlp/attention/sequence-mixer projections, state_weight, D, A_log, ...)
+# gets the muP learning-rate multiplier
+- name: mup
   patterns:
     - "*"
+  params_group_kwargs:
+    lr_multiplier_method: "1 / m_width"

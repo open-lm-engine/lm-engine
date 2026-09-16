@@ -286,7 +286,7 @@ training_parameters:
 
 optimizer_args:
   class_name: TorchAdamW
-  param_groups: configs/common/param_groups/normal.yml
+  param_groups: configs/param-groups/normal.yml
   class_args:
     lr: 1e-5
     weight_decay: 0.1
