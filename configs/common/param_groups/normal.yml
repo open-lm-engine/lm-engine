@@ -9,29 +9,29 @@
   module_matches:
     - class_name: RMSNorm
       parameter_names:
-      - weight
+        - weight
     - class_name: LayerNorm
       parameter_names:
-      - weight
+        - weight
     - class_name: PNorm
       parameter_names:
-      - weight
+        - weight
     - class_name: RNN
       parameter_names:
-      - state_weight
+        - state_weight
     - class_name: GRU
       parameter_names:
-      - state_weight
+        - state_weight
     - class_name: M2RNN
       parameter_names:
-      - state_weight
+        - state_weight
     - class_name: Mamba2
       parameter_names:
-      - D
+        - D
     - class_name: SoftplusDecayGate
       parameter_names:
-      - A_log
-      - dt_bias
+        - A_log
+        - dt_bias
   patterns:
     - "*.bias"
   params_group_kwargs:

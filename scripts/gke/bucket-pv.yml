@@ -8,7 +8,7 @@ metadata:
   name: mayank-data-pv
 spec:
   accessModes:
-  - ReadWriteMany
+    - ReadWriteMany
   capacity:
     storage: 100Gi
   storageClassName: mayank-storage-class 

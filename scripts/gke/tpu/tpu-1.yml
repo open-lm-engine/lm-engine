@@ -19,17 +19,17 @@ spec:
         cloud.google.com/gke-tpu-accelerator: tpu-v6e-slice
         cloud.google.com/gke-tpu-topology: 1x1
       containers:
-      - name: mayank-job
-        image: ghcr.io/open-lm-engine/tpu:latest
-        command: ["sleep", "infinity"]
-        resources:
-          requests:
-            cpu: 44
-            memory: 176Gi
-            google.com/tpu: 1
-          limits:
-            cpu: 44
-            memory: 176Gi
-            google.com/tpu: 1
+        - name: mayank-job
+          image: ghcr.io/open-lm-engine/tpu:latest
+          command: ["sleep", "infinity"]
+          resources:
+            requests:
+              cpu: 44
+              memory: 176Gi
+              google.com/tpu: 1
+            limits:
+              cpu: 44
+              memory: 176Gi
+              google.com/tpu: 1
       restartPolicy: Never
   backoffLimit: 0
