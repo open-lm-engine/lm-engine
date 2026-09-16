@@ -18,7 +18,7 @@ from lm_engine.training.parallel import ProcessGroupManager
 from ..utils import load_training_args_for_unit_tests
 
 
-_PARAM_GROUPS_CONFIG_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "configs", "common", "param_groups")
+_PARAM_GROUPS_CONFIG_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "configs", "param-groups")
 
 
 def _load_param_groups(filename: str) -> list[ParamsGroup]:

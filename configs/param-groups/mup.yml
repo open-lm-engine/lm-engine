@@ -4,7 +4,7 @@
 
 # Point a training config at this file with:
 #   optimizer_args:
-#     param_groups: configs/common/param_groups/mup.yml
+#     param_groups: configs/param-groups/mup.yml
 - name: no_weight_decay
   module_matches:
     - class_name: RMSNorm
