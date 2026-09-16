@@ -10,7 +10,7 @@ spec:
   capacity:
     storage: 10Ti
   accessModes:
-  - ReadWriteMany
+    - ReadWriteMany
   nfs:
     path: /hans_ssd
     server: 10.41.137.218
@@ -23,7 +23,7 @@ metadata:
   name: filestore-pvc
 spec:
   accessModes:
-  - ReadWriteMany
+    - ReadWriteMany
   storageClassName: ""
   resources:
     requests:

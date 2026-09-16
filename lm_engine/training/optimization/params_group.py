@@ -8,10 +8,13 @@ import fnmatch
 import logging
 from typing import Any
 
-from ..arguments import BaseArgs, ParamsGroup
+from ..arguments import BaseArgs, ModuleParameterMatch, ParamsGroup
 from ..containers import ModelContainer
 from ..logging_utils import log_rank_0
 from ..model_wrapper import ModelWrapper
+
+
+_LR_MULTIPLIER_M_WIDTH_DIVIDE = "1 / m_width"
 
 
 class _ParamsGroup(BaseArgs):
@@ -70,6 +73,28 @@ class _ParamsGroupsList(BaseArgs):
     __repr__ = __str__
 
 
+def _match_by_module_class(
+    model: ModelWrapper, remaining_params: dict, module_matches: list[ModuleParameterMatch]
+) -> dict:
+    matched_params = {}
+
+    for module_name, module in model.named_modules():
+        for match in module_matches:
+            if type(module).__name__ != match.class_name:
+                continue
+
+            for local_name, _ in module.named_parameters(recurse=True):
+                if local_name not in match.parameter_names:
+                    continue
+
+                full_name = f"{module_name}.{local_name}" if module_name else local_name
+
+                if full_name in remaining_params:
+                    matched_params[full_name] = remaining_params.pop(full_name)
+
+    return matched_params
+
+
 def get_param_groups_with_names(
     model: ModelWrapper, optimizer_class_args: dict, param_groups: list[ParamsGroup]
 ) -> _ParamsGroupsList:
@@ -79,16 +104,31 @@ def get_param_groups_with_names(
         model = model.model
 
     remaining_params = dict(model.named_parameters())
-    params_groups = []
+    matched_params_per_group = []
 
     for group in param_groups:
         matched_params = {}
-        for name in list(remaining_params.keys()):
-            if any(fnmatch.fnmatch(name, pattern) for pattern in group.patterns):
-                matched_params[name] = remaining_params.pop(name)
 
+        if group.module_matches:
+            matched_params.update(_match_by_module_class(model, remaining_params, group.module_matches))
+
+        # fall back to matching whatever module_matches didn't claim against patterns
+        if group.patterns:
+            for name in list(remaining_params.keys()):
+                if any(fnmatch.fnmatch(name, pattern) for pattern in group.patterns):
+                    matched_params[name] = remaining_params.pop(name)
+
+        matched_params_per_group.append(matched_params)
+
+    params_groups = []
+    for group, matched_params in zip(param_groups, matched_params_per_group):
         params_group_kwargs = dict(group.params_group_kwargs)
-        if group.name == "mup" and "lr" not in params_group_kwargs:
+        lr_multiplier_method = params_group_kwargs.pop("lr_multiplier_method", None)
+
+        if lr_multiplier_method is not None:
+            assert lr_multiplier_method == _LR_MULTIPLIER_M_WIDTH_DIVIDE
+            assert "lr" not in params_group_kwargs
+
             params_group_kwargs["lr"] = optimizer_class_args["lr"] / model.config.m_width
 
         params_groups.append(

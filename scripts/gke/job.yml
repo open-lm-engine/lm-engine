@@ -14,22 +14,22 @@ spec:
     spec:
       serviceAccountName: gcs-access
       containers:
-      - name: mayank-job
-        image: ghcr.io/open-lm-engine/data:latest
-        command: ["sleep", "infinity"]
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "8Gi"
-          limits:
-            cpu: "1"
-            memory: "8Gi"
-        volumeMounts:
-        - name: gcs-volume
-          mountPath: /data
+        - name: mayank-job
+          image: ghcr.io/open-lm-engine/data:latest
+          command: ["sleep", "infinity"]
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "8Gi"
+            limits:
+              cpu: "1"
+              memory: "8Gi"
+          volumeMounts:
+            - name: gcs-volume
+              mountPath: /data
       volumes:
-      - name: gcs-volume
-        persistentVolumeClaim:
-          claimName: mayank-data-pvc
+        - name: gcs-volume
+          persistentVolumeClaim:
+            claimName: mayank-data-pvc
       restartPolicy: Never
   backoffLimit: 0

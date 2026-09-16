@@ -24,18 +24,38 @@
     - "*.sequence_mixer.state_weight"
     - "*.sequence_mixer.D"
     - "*.sequence_mixer.decay_gate.A_log"
+  params_group_kwargs:
+    lr_multiplier_method: "1 / m_width"
 
 - name: no_weight_decay
+  module_matches:
+    - class_name: RMSNorm
+      parameter_names:
+        - weight
+    - class_name: LayerNorm
+      parameter_names:
+        - weight
+    - class_name: PNorm
+      parameter_names:
+        - weight
+    - class_name: RNN
+      parameter_names:
+        - state_weight
+    - class_name: GRU
+      parameter_names:
+        - state_weight
+    - class_name: M2RNN
+      parameter_names:
+        - state_weight
+    - class_name: Mamba2
+      parameter_names:
+        - D
+    - class_name: SoftplusDecayGate
+      parameter_names:
+        - A_log
+        - dt_bias
   patterns:
-    - "*.ln_1.weight"
-    - "*.ln_2.weight"
-    - "*.ln_f.weight"
-    - "*.norm.weight"
     - "*.bias"
-    - "*.dt_bias"
-    - "*.state_weight"
-    - "*.D"
-    - "*.decay_gate.A_log"
   params_group_kwargs:
     weight_decay: 0
 

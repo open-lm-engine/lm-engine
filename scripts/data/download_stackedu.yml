@@ -24,40 +24,40 @@ spec:
         restartPolicy: Never
         serviceAccountName: gcs-access
         containers:
-        - name: ray-head
-          image: ghcr.io/open-lm-engine/data:latest
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                - /bin/sh
-                - -c
-                - |
-                  git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
-          env:
-          - name: RAY_scheduler_schedule_warning_interval_s
-            value: "3600"
-          - name: RAY_event_stats
-            value: "0"
-          resources:
-            requests:
-              memory: "32Gi"
-              cpu: "1"
-            limits:
-              memory: "64Gi"
-              cpu: "16"
-          volumeMounts:
-          - name: gcs-volume
-            mountPath: /data
-          - name: filestore-volume
-            mountPath: /local-ssd
+          - name: ray-head
+            image: ghcr.io/open-lm-engine/data:latest
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - |
+                      git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
+            env:
+              - name: RAY_scheduler_schedule_warning_interval_s
+                value: "3600"
+              - name: RAY_event_stats
+                value: "0"
+            resources:
+              requests:
+                memory: "32Gi"
+                cpu: "1"
+              limits:
+                memory: "64Gi"
+                cpu: "16"
+            volumeMounts:
+              - name: gcs-volume
+                mountPath: /data
+              - name: filestore-volume
+                mountPath: /local-ssd
         volumes:
-        - name: gcs-volume
-          persistentVolumeClaim:
-            claimName: mayank-data-pvc
-        - name: filestore-volume
-          persistentVolumeClaim:
-            claimName: filestore-pvc
+          - name: gcs-volume
+            persistentVolumeClaim:
+              claimName: mayank-data-pvc
+          - name: filestore-volume
+            persistentVolumeClaim:
+              claimName: filestore-pvc
   workerGroupSpecs:
     - groupName: worker-group
       replicas: 0
@@ -74,37 +74,37 @@ spec:
           restartPolicy: Never
           serviceAccountName: gcs-access
           containers:
-          - name: ray-worker
-            image: ghcr.io/open-lm-engine/data:latest
-            lifecycle:
-              postStart:
-                exec:
-                  command:
-                  - /bin/sh
-                  - -c
-                  - |
-                    git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
-            env:
-            - name: RAY_scheduler_schedule_warning_interval_s
-              value: "3600"
-            - name: RAY_event_stats
-              value: "0"
-            resources:
-              requests:
-                memory: "64Gi"
-                cpu: "8"
-              limits:
-                memory: "64Gi"
-                cpu: "16"
-            volumeMounts:
-            - name: gcs-volume
-              mountPath: /data
-            - name: filestore-volume
-              mountPath: /local-ssd
+            - name: ray-worker
+              image: ghcr.io/open-lm-engine/data:latest
+              lifecycle:
+                postStart:
+                  exec:
+                    command:
+                      - /bin/sh
+                      - -c
+                      - |
+                        git clone -b test --single-branch https://github.com/open-lm-engine/lm-engine
+              env:
+                - name: RAY_scheduler_schedule_warning_interval_s
+                  value: "3600"
+                - name: RAY_event_stats
+                  value: "0"
+              resources:
+                requests:
+                  memory: "64Gi"
+                  cpu: "8"
+                limits:
+                  memory: "64Gi"
+                  cpu: "16"
+              volumeMounts:
+                - name: gcs-volume
+                  mountPath: /data
+                - name: filestore-volume
+                  mountPath: /local-ssd
           volumes:
-          - name: gcs-volume
-            persistentVolumeClaim:
-              claimName: mayank-data-pvc
-          - name: filestore-volume
-            persistentVolumeClaim:
-              claimName: filestore-pvc
+            - name: gcs-volume
+              persistentVolumeClaim:
+                claimName: mayank-data-pvc
+            - name: filestore-volume
+              persistentVolumeClaim:
+                claimName: filestore-pvc
