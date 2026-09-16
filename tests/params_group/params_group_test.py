@@ -141,3 +141,55 @@ def test_params_group_module_matches_disambiguates_shared_leaf_class() -> None:
 def test_params_group_requires_module_matches_or_patterns() -> None:
     with pytest.raises(ValidationError):
         ParamsGroup(name="empty")
+
+
+def test_params_group_lr_multiplier_method() -> None:
+    mup_like_group = ParamsGroup(
+        name="mup_like",
+        patterns=["*.mlp_block.c_fc.weight"],
+        params_group_kwargs={"lr_multiplier_method": "1 / m_width"},
+    )
+    normal_group = ParamsGroup(name="normal", patterns=["*"])
+    param_groups = [mup_like_group, normal_group]
+
+    args = load_training_args_for_unit_tests("params_group/training_config.yml")
+
+    if not ProcessGroupManager.is_initialized():
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "29500"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["RANK"] = "0"
+
+        ProcessGroupManager()
+
+    model_container = get_model_container(args, efficient_initialization=False, keep_in_fp32=True)
+    expected_lr = args.optimizer_args.class_args["lr"] / model_container[0].config.m_width
+
+    for _ in range(2):
+        params_groups = get_param_groups_list(model_container, args.optimizer_args.class_args, param_groups)[0]
+        groups_by_name = {group.name: group for group in params_groups.params_groups}
+
+        mup_like_kwargs = groups_by_name["mup_like"].to_param_group()
+        assert mup_like_kwargs["lr"] == expected_lr
+        assert "lr_multiplier_method" not in mup_like_kwargs
+
+        assert "lr" not in groups_by_name["normal"].to_param_group()
+
+
+def test_params_group_unknown_lr_multiplier_method_raises() -> None:
+    bad_group = ParamsGroup(name="bad", patterns=["*"], params_group_kwargs={"lr_multiplier_method": "does_not_exist"})
+
+    args = load_training_args_for_unit_tests("params_group/training_config.yml")
+
+    if not ProcessGroupManager.is_initialized():
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "29500"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["RANK"] = "0"
+
+        ProcessGroupManager()
+
+    model_container = get_model_container(args, efficient_initialization=False, keep_in_fp32=True)
+
+    with pytest.raises(AssertionError):
+        get_param_groups_list(model_container, args.optimizer_args.class_args, [bad_group])

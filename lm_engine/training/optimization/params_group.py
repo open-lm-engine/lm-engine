@@ -14,6 +14,9 @@ from ..logging_utils import log_rank_0
 from ..model_wrapper import ModelWrapper
 
 
+_LR_MULTIPLIER_M_WIDTH_DIVIDE = "1 / m_width"
+
+
 class _ParamsGroup(BaseArgs):
     name: str
     parameter_name_map: dict
@@ -120,7 +123,12 @@ def get_param_groups_with_names(
     params_groups = []
     for group, matched_params in zip(param_groups, matched_params_per_group):
         params_group_kwargs = dict(group.params_group_kwargs)
-        if group.name == "mup" and "lr" not in params_group_kwargs:
+        lr_multiplier_method = params_group_kwargs.pop("lr_multiplier_method", None)
+
+        if lr_multiplier_method is not None:
+            assert lr_multiplier_method == _LR_MULTIPLIER_M_WIDTH_DIVIDE
+            assert "lr" not in params_group_kwargs
+
             params_group_kwargs["lr"] = optimizer_class_args["lr"] / model.config.m_width
 
         params_groups.append(
