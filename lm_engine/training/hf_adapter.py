@@ -49,6 +49,7 @@ from .parameter import (
 from .utils import (
     SafeTensorsWeightsManager,
     disable_generation_cache,
+    download_repo,
     is_generation_cache_enabled,
     torch_dtype_to_string,
 )
@@ -179,6 +180,13 @@ class LLMAdapter_HF(PreTrainedModel, GenerationMixin):
         assert isinstance(device_map, dict) and set(device_map) == {
             ""
         }, f"LLMAdapter_HF only supports device_map={{'': <device>}}, got {device_map!r}"
+
+        if not os.path.isdir(pretrained_model_name_or_path):
+            _, _, resolved_path = download_repo(pretrained_model_name_or_path)
+            assert (
+                resolved_path is not None
+            ), f"could not resolve '{pretrained_model_name_or_path}' to a local path or a downloadable HF Hub repo"
+            pretrained_model_name_or_path = resolved_path
 
         if os.path.isfile(os.path.join(pretrained_model_name_or_path, "latest_checkpointed_iteration.json")):
             # lazy import avoids circular dependency (checkpointing → model_wrapper → hf_adapter)
