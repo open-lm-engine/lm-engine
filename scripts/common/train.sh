@@ -12,6 +12,7 @@ GPUS_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -w)
 NODE_RANK=$(($(echo ${LSB_MCPU_HOSTS} | tr ' ' '\n' | sed 'n; d' | grep -n -m1 $(echo $HOSTNAME | cut -d'.' -f1) | cut -d':' -f1)-1))
 
 export TRITON_PRINT_AUTOTUNING=1
+export QUACK_COMPILE_WORKERS=1
 
 TOKENIZERS_PARALLELISM=false \
 torchrun --nnodes=$NNODES \
