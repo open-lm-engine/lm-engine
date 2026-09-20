@@ -302,6 +302,7 @@ class GPTDataset(torch.utils.data.Dataset):
             document_index = _build_document_index(
                 self.indexed_indices, num_epochs, numpy_random_state, separate_final_epoch
             )
+            document_index = document_index.astype(np.int64)
             np.save(path_to_document_index, document_index, allow_pickle=True)
             t_end = time.time()
             log_rank_0(logging.DEBUG, f"\t> time elapsed: {t_end - t_beg:4f} seconds")
