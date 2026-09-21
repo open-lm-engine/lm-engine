@@ -197,19 +197,9 @@ class MoE(DTensorModule):
         x = self.dropout(x)
 
         if self.training:
-            moe_aux_loss, moe_z_loss = self._compute_switch_loss_and_z_loss(
+            self._compute_switch_loss_and_z_loss(
                 logits=router_logits, probs=torch.softmax(router_logits, dim=-1), expert_frequency=expert_frequency
             )
-
-            metrics_tracker = get_extra_metrics()
-
-            metrics_tracker[f"{MOE_ROUTER_AUX_LOSS}/{self.layer_idx}"] = (
-                moe_aux_loss,
-                self.router_aux_loss_coefficient,
-            )
-
-            metrics_tracker[f"{MOE_Z_LOSS}/{self.layer_idx}"] = (moe_z_loss, self.z_loss_coefficient)
-            metrics_tracker[f"{MOE_EXPERT_FREQUENCY}/{self.layer_idx}"] = expert_frequency
 
         return x
 
@@ -335,6 +325,16 @@ class MoE(DTensorModule):
         )
 
         moe_z_loss = (torch.logsumexp(logits, dim=-1) ** 2).mean()
+
+        metrics_tracker = get_extra_metrics()
+
+        metrics_tracker[f"{MOE_ROUTER_AUX_LOSS}/{self.layer_idx}"] = (
+            moe_aux_loss,
+            self.router_aux_loss_coefficient,
+        )
+
+        metrics_tracker[f"{MOE_Z_LOSS}/{self.layer_idx}"] = (moe_z_loss, self.z_loss_coefficient)
+        metrics_tracker[f"{MOE_EXPERT_FREQUENCY}/{self.layer_idx}"] = expert_frequency
 
         return moe_aux_loss, moe_z_loss
 
