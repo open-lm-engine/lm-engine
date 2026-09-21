@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import torch
 
-from ..logging_utils import MetricsTrackingDict
+from ..metrics import ExtraMetrics
 
 
 @dataclass
@@ -18,7 +18,7 @@ class BaseModelOutputWithPast:
 @dataclass
 class CausalLMOutputWithPast:
     loss: torch.Tensor | None = None
-    extra_metrics: MetricsTrackingDict | None = None
+    extra_metrics: ExtraMetrics | None = None
     logits: torch.Tensor | None = None
     cache_params: tuple[tuple[torch.Tensor]] | None = None
     last_hidden_state: torch.Tensor | None = None
@@ -33,4 +33,4 @@ class PipelineParallelInput:
 @dataclass
 class PipelineParallelOutput:
     hidden_states: torch.Tensor | None = None
-    extra_metrics: MetricsTrackingDict | None = None
+    extra_metrics: ExtraMetrics | None = None

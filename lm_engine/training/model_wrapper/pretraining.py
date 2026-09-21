@@ -10,7 +10,6 @@ from ...accelerator import Accelerator
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
-from ..metrics import is_aux_loss_zero
 from ..modeling_utils import (
     AttentionMaskInfo,
     CausalLMOutputWithPast,
@@ -95,7 +94,7 @@ class ModelWrapperForPretraining(ModelWrapper):
         batch: dict | torch.Tensor,
         aux_loss_from_pipeline_parallel: torch.Tensor | float = 0,
         lm_loss_multiplier: float = 1,
-    ) -> dict:
+    ) -> MetricsTrackingDict:
         """forward function for a batch
 
         Args:

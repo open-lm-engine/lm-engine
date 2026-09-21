@@ -17,9 +17,8 @@ from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
 from ..hf_adapter import LLMAdapter_HF, get_causal_lm_class, get_output_embeddings, is_custom_model
 from ..kernels import is_kernel_allowed
-from ..logging_utils import log_rank_0
+from ..logging_utils import MetricsTrackingDict, log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss
-from ..metrics import is_aux_loss_zero
 from ..modeling_utils import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
 from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
@@ -131,21 +130,22 @@ class ModelWrapper(nn.Module):
         )
 
         lm_loss = lm_loss * lm_loss_multiplier
+        loss = lm_loss
 
-        if is_aux_loss_zero():
-            output = {"loss": lm_loss, "lm_loss": lm_loss}
-        else:
+        extra_metrics = model_outputs.extra_metrics
+        output = MetricsTrackingDict({"loss": loss, "lm_loss": lm_loss})
+
+        if not extra_metrics.is_aux_loss_zero():
+            aux_loss = extra_metrics.aggregate_loss()
+            output["loss"] = output["loss"] + aux_loss
+
             if self.is_pipeline_parallel_enabled:
                 self._extra_metrics = self._extra_metrics + {"aux_loss": aux_loss}
 
             if tensor_parallel_enabled:
                 aux_loss = tensor_to_dtensor(aux_loss, device_mesh=self.tp_mesh, current_placement=Replicate())
 
-            output = {
-                "loss": _F.apply(lm_loss, aux_loss, self.router_aux_loss_coef),
-                "lm_loss": lm_loss,
-                "aux_loss": aux_loss,
-            }
+            output = output + extra_metrics
 
         return output
 
@@ -333,15 +333,3 @@ def _remove_first_occurance(string: str, substring: str) -> str:
         string = string[len(substring) :]
 
     return string
-
-
-class _F(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, lm_loss: torch.Tensor, aux_loss: torch.Tensor, router_aux_loss_coef: float) -> torch.Tensor:
-        ctx.router_aux_loss_coef = router_aux_loss_coef
-        return lm_loss + router_aux_loss_coef * aux_loss
-
-    @staticmethod
-    @torch._dynamo.disable
-    def backward(ctx, grad_output: torch.Tensor) -> tuple[torch.Tensor | None]:
-        return grad_output, ctx.router_aux_loss_coef * grad_output, None

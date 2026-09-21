@@ -43,6 +43,7 @@ class MoE(DTensorModule):
         initializer_range: float,
         m_width: float,
         num_layers: int,
+        layer_idx: int,
         use_depth_scaled_init: bool,
         use_padding_free_transformer: bool,
         sequence_parallel: bool = False,
@@ -58,6 +59,7 @@ class MoE(DTensorModule):
         self.intermediate_size = config.intermediate_size
         self.shared_intermediate_size = config.shared_intermediate_size
         self.shared_expert_gating = config.shared_expert_gating
+        self.layer_idx = layer_idx
         self.router_aux_loss_coefficient = config.router_aux_loss_coefficient
         self.z_loss_coefficient = config.z_loss_coefficient
         self.normalized_topk = config.normalized_topk
@@ -202,9 +204,9 @@ class MoE(DTensorModule):
             metrics_tracker = get_extra_metrics()
 
             metrics_tracker = metrics_tracker + {
-                MOE_ROUTER_AUX_LOSS: (moe_aux_loss, self.router_aux_loss_coefficient),
-                MOE_Z_LOSS: (moe_z_loss, self.z_loss_coefficient),
-                MOE_EXPERT_FREQUENCY: expert_frequency,
+                f"{MOE_ROUTER_AUX_LOSS}/{layer_idx}": (moe_aux_loss, self.router_aux_loss_coefficient),
+                f"{MOE_Z_LOSS}/{layer_idx}": (moe_z_loss, self.z_loss_coefficient),
+                f"{MOE_EXPERT_FREQUENCY}/{layer_idx}": expert_frequency,
             }
 
             set_extra_metrics(metrics_tracker)
