@@ -211,8 +211,6 @@ class MoE(DTensorModule):
             metrics_tracker[f"{MOE_Z_LOSS}/{self.layer_idx}"] = (moe_z_loss, self.z_loss_coefficient)
             metrics_tracker[f"{MOE_EXPERT_FREQUENCY}/{self.layer_idx}"] = expert_frequency
 
-            set_extra_metrics(metrics_tracker)
-
         return x
 
     def _compute_routing_weights(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
