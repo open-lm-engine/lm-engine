@@ -14,11 +14,12 @@ MOE_EXPERT_FREQUENCY = "moe_expert_frequency"
 
 class ExtraMetrics(MetricsTrackingDict):
     def is_aux_loss_zero(self) -> bool:
-        for name in [MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS]:
-            if name in self and self[name] is not None:
-                return True
+        for key in self:
+            is_loss = any(key.startswith(prefix) for prefix in [MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS])
+            if is_loss and self[key] is not None:
+                return False
 
-        return False
+        return True
 
     def aggregate_loss(self) -> torch.Tensor:
         loss_aggregate = 0
@@ -33,13 +34,37 @@ class ExtraMetrics(MetricsTrackingDict):
 
         return loss_aggregate
 
+    def get_metrics_for_logging(self) -> dict:
+        # drops the coeff used for backprop so per-layer and total values logged here stay unweighted
+        metrics = {}
+        totals = {}
+
+        for key in self:
+            value = self[key]
+
+            is_loss = any(key.startswith(prefix) for prefix in [MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS])
+            assert is_loss or key.startswith(MOE_EXPERT_FREQUENCY)
+
+            if is_loss:
+                loss, _ = value
+                metrics[key] = loss
+
+                prefix = MOE_ROUTER_AUX_LOSS if key.startswith(MOE_ROUTER_AUX_LOSS) else MOE_Z_LOSS
+                totals[prefix] = totals.get(prefix, 0) + loss
+            else:
+                metrics[key] = value
+
+        metrics.update(totals)
+
+        return metrics
+
 
 _EXTRA_METRICS = ExtraMetrics({})
 
 
 def reset_extra_metrics() -> None:
     global _EXTRA_METRICS
-    _EXTRA_METRICS = MetricsTrackingDict({})
+    _EXTRA_METRICS = ExtraMetrics({})
 
 
 def get_extra_metrics() -> MetricsTrackingDict:

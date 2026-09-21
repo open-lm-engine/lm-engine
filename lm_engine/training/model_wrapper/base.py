@@ -137,15 +137,16 @@ class ModelWrapper(nn.Module):
 
         if not extra_metrics.is_aux_loss_zero():
             aux_loss = extra_metrics.aggregate_loss()
+
+            if tensor_parallel_enabled:
+                aux_loss = tensor_to_dtensor(aux_loss, device_mesh=self.tp_mesh, current_placement=Replicate())
+
             output["loss"] = output["loss"] + aux_loss
 
             if self.is_pipeline_parallel_enabled:
                 self._extra_metrics = self._extra_metrics + {"aux_loss": aux_loss}
 
-            if tensor_parallel_enabled:
-                aux_loss = tensor_to_dtensor(aux_loss, device_mesh=self.tp_mesh, current_placement=Replicate())
-
-            output = output + extra_metrics
+            output = output + extra_metrics.get_metrics_for_logging()
 
         return output
 
