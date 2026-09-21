@@ -12,20 +12,18 @@ from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...generation_cache import GenerationCache
 from ...kernels import is_kernel_allowed
-from ...loss import add_aux_loss, clear_aux_loss, get_aux_loss
+from ...metrics import MOE_ROUTER_AUX_LOSS, get_extra_metrics, reset_extra_metrics
 from ...model_config import CommonConfig
 from ...modeling_utils import (
     AttentionMaskInfo,
-    DTensorModule,
-    LMHead,
-    PositionInfo,
-    resolve_attention_and_position_info,
-)
-from ...modeling_utils.io import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
+    DTensorModule,
+    LMHead,
     PipelineParallelInput,
     PipelineParallelOutput,
+    PositionInfo,
+    resolve_attention_and_position_info,
 )
 from ...parallel import ProcessGroupManager
 from ...utils import SafeTensorsWeightsManager
@@ -71,7 +69,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         if self.is_pipeline_parallel_enabled:
             assert cache_params is None
 
-        clear_aux_loss()
+        reset_extra_metrics()
 
         if self.is_first_stage:
             assert pipeline_parallel_input is None, "first stage should not get pipeline_parallel_input"
@@ -94,6 +92,7 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                     raise NotImplementedError("KV caching is not supported with padding_free transformer")
         else:
             assert input_ids is None
+            # FIXME will fix later since we don't use PP at the moment
             add_aux_loss(pipeline_parallel_input.aux_loss)
 
         transformer_outputs: BaseModelOutputWithPast = self.transformer(
@@ -110,7 +109,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         del transformer_outputs
 
         lm_logits = None
-        aux_loss = get_aux_loss()
 
         if self.is_last_stage:
             if is_kernel_allowed(Kernel.coda_linear_cross_entropy) or is_kernel_allowed(
@@ -140,12 +138,13 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
                 lm_logits = dtensor_to_tensor(lm_logits, device_mesh=self.tp_mesh, desired_placement=Replicate())
 
             output = CausalLMOutputWithPast(
-                aux_loss=aux_loss,
+                extra_metrics=get_extra_metrics(),
                 logits=lm_logits,
                 cache_params=cache_params,
                 last_hidden_state=hidden_states,
             )
         else:
+            # FIXME will fix later since we don't use PP at the moment
             output = PipelineParallelOutput(hidden_states=hidden_states, aux_loss=aux_loss)
 
         return output

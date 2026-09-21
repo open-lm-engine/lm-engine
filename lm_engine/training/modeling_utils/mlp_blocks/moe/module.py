@@ -12,7 +12,7 @@ from torch.distributed.tensor import Partial, Replicate, Shard
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....loss import add_aux_loss
+from ....metrics import MOE_EXPERT_FREQUENCY, MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS, get_extra_metrics, set_extra_metrics
 from ....parallel import ProcessGroupManager
 from ....utils import is_sonicmoe_available
 from ...activations import get_activation_function, is_glu, sigmoid
@@ -58,6 +58,8 @@ class MoE(DTensorModule):
         self.intermediate_size = config.intermediate_size
         self.shared_intermediate_size = config.shared_intermediate_size
         self.shared_expert_gating = config.shared_expert_gating
+        self.router_aux_loss_coefficient = config.router_aux_loss_coefficient
+        self.z_loss_coefficient = config.z_loss_coefficient
         self.normalized_topk = config.normalized_topk
 
         up_std = _get_std_for_linear(
@@ -192,15 +194,20 @@ class MoE(DTensorModule):
 
         x = self.dropout(x)
 
-        aux_loss = (
-            self._compute_switch_loss(
+        if self.training:
+            moe_aux_loss, moe_z_loss = self._compute_switch_loss_and_z_loss(
                 logits=router_logits, probs=torch.softmax(router_logits, dim=-1), expert_frequency=expert_frequency
             )
-            if self.training
-            else 0
-        )
 
-        add_aux_loss(aux_loss)
+            metrics_tracker = get_extra_metrics()
+
+            metrics_tracker = metrics_tracker + {
+                MOE_ROUTER_AUX_LOSS: (moe_aux_loss, self.router_aux_loss_coefficient),
+                MOE_Z_LOSS: (moe_z_loss, self.z_loss_coefficient),
+                MOE_EXPERT_FREQUENCY: expert_frequency,
+            }
+
+            set_extra_metrics(metrics_tracker)
 
         return x
 
@@ -305,14 +312,14 @@ class MoE(DTensorModule):
 
         return x, indices
 
-    def _compute_switch_loss(
+    def _compute_switch_loss_and_z_loss(
         self, logits: torch.Tensor, probs: torch.Tensor, expert_frequency: torch.Tensor
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         logits = logits.view(-1, logits.size(-1))
         probs = probs.view(-1, probs.size(-1))
 
         num_experts = logits.size(1)
-        acc_probs = probs.sum(0)
+        acc_probs = probs.float().sum(0)
 
         expert_frequency = expert_frequency.float()
 
@@ -321,14 +328,13 @@ class MoE(DTensorModule):
                 expert_frequency, reduceOp="sum", group=ProcessGroupManager.get_data_parallel_group()
             )
 
-        switch_loss = (
+        moe_aux_loss = (
             num_experts * (F.normalize(acc_probs, p=1, dim=0) * F.normalize(expert_frequency, p=1, dim=0)).sum()
         )
-        z_loss = (torch.logsumexp(logits, dim=-1) ** 2).mean()
 
-        loss = switch_loss + 0.1 * z_loss
+        moe_z_loss = (torch.logsumexp(logits, dim=-1) ** 2).mean()
 
-        return loss.type_as(logits)
+        return moe_aux_loss, moe_z_loss
 
     def get_num_active_parameters(self) -> int:
         num_elements = 0

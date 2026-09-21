@@ -96,29 +96,3 @@ def get_autoregressive_language_modeling_loss(
         )
 
     return loss
-
-
-_AUX_LOSS: torch.Tensor | float = 0
-
-
-def clear_aux_loss() -> None:
-    global _AUX_LOSS
-    _AUX_LOSS = 0
-
-
-def add_aux_loss(aux_loss: torch.Tensor) -> None:
-    global _AUX_LOSS
-    _AUX_LOSS = _AUX_LOSS + aux_loss
-
-
-def get_aux_loss() -> torch.Tensor:
-    return _AUX_LOSS
-
-
-def is_aux_loss_zero(aux_loss: torch.Tensor | float) -> bool:
-    if aux_loss is None:
-        return True
-    elif isinstance(aux_loss, torch.Tensor):
-        return False
-
-    return aux_loss == 0

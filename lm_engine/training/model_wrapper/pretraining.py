@@ -10,7 +10,7 @@ from ...accelerator import Accelerator
 from ..enums import Kernel
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict
-from ..loss import is_aux_loss_zero
+from ..metrics import is_aux_loss_zero
 from ..modeling_utils import (
     AttentionMaskInfo,
     CausalLMOutputWithPast,
@@ -138,6 +138,7 @@ class ModelWrapperForPretraining(ModelWrapper):
             output: CausalLMOutputWithPast | PipelineParallelOutput = self.model(**batch)
 
         if self.is_pipeline_parallel_enabled:
+            # FIXME fix PP aux loss later
             # aux_loss is returned as a 0 dimensional tensor
             aux_loss = output.aux_loss
             use_aux_loss = not is_aux_loss_zero(aux_loss)
