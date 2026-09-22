@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from torch.utils._pytree import register_pytree_node
+
 
 class MetricsTrackingDict:
     def __init__(self, data: dict) -> MetricsTrackingDict:
@@ -57,3 +59,15 @@ class MetricsTrackingDict:
         for key in self.data:
             x += f"{key} = {self[key]}\n"
         return x.rstrip()
+
+
+# FSDP2 relies on pytree to find the tensors in a module's forward output so it can attach the
+# hook that re-gathers root-level parameters before backward. Without this registration, tensors
+# nested inside a MetricsTrackingDict (e.g. the loss) are invisible to FSDP2, and root parameters
+# that aren't part of a nested fully_shard'd block (e.g. tied embeddings, lm_head) stay resharded
+# with zero-size storage when backward runs, raising a `setStorage ... storage size 0` error.
+register_pytree_node(
+    MetricsTrackingDict,
+    lambda instance: (list(instance.data.values()), list(instance.data.keys())),
+    lambda values, keys: MetricsTrackingDict(dict(zip(keys, values))),
+)
