@@ -76,9 +76,9 @@ import time
 from pathlib import Path
 
 import requests
-import wandb
 import yaml
 
+import wandb
 from lm_engine.virtual_cluster.remote import (
     DEFAULT_CLUSTERS_YAML,
     DEFAULT_JOBS_DIR,
