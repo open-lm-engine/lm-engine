@@ -4,7 +4,8 @@
 
 import torch
 import torch.nn.functional as F
-from torch.distributed.tensor import DTensor, Replicate, Shard
+from torch.distributed.tensor import DTensor, Partial, Replicate, Shard
+from torch.distributed.tensor.experimental import local_map
 
 from ..kernels.functional import cross_entropy, fused_linear_cross_entropy
 from .dtensors import tensor_to_dtensor

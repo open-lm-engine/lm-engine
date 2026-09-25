@@ -6,12 +6,16 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+from torch.distributed.tensor import DTensor, Replicate, Shard
+from torch.distributed.tensor.experimental import local_map
 
 from ....math import divide_if_divisible
+from ...dtensors import tensor_to_dtensor
 from ...generation_cache import GenerationCache
 from ...model_config import CommonConfig
 from ...modeling_utils import (
     AttentionMaskInfo,
+    BaseModelOutputWithPast,
     Dropout,
     ParameterizedEmbedding,
     PositionInfo,
@@ -21,7 +25,7 @@ from ...modeling_utils import (
     resolve_attention_and_position_info,
 )
 from ...modeling_utils.init_utils import _get_std_for_embedding
-from ...modeling_utils.io import BaseModelOutputWithPast
+from ...modeling_utils.TP import get_tensor_parallel_activation_placements
 from ...parallel import ProcessGroupManager
 from ...utils import is_generation_cache_enabled
 from .layer import Block
@@ -198,6 +202,9 @@ class BaseModelMixin(PreTrainedModelMixin):
     ) -> tuple[torch.Tensor, AttentionMaskInfo, PositionInfo, GenerationCache | None]:
         attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
 
+        # input_ids is a DTensor on the (dp, cp, tp) mesh: (batch, sequence) sharded over dp and cp, or (tokens,)
+        # sharded over dp with padding free transformer
+        assert isinstance(input_ids, DTensor), "input_ids should be a DTensor on the SPMD mesh"
         input_shape = input_ids.size()
 
         if self.use_padding_free_transformer:

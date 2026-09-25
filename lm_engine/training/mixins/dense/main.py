@@ -5,10 +5,10 @@
 from __future__ import annotations
 
 import torch
-from torch.distributed.tensor import DTensor, Replicate, Shard, distribute_tensor
+from torch.distributed.tensor import DTensor, Shard, distribute_tensor
+from torch.distributed.tensor.experimental import local_map
 
 from ....math import divide_if_divisible
-from ...dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ...enums import Kernel
 from ...generation_cache import GenerationCache
 from ...kernels import is_kernel_allowed
@@ -25,6 +25,7 @@ from ...modeling_utils import (
     PositionInfo,
     resolve_attention_and_position_info,
 )
+from ...modeling_utils.TP import get_tensor_parallel_activation_placements
 from ...parallel import ProcessGroupManager
 from ...utils import SafeTensorsWeightsManager
 from .base import PreTrainedModelMixin
@@ -61,7 +62,6 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
         cache_params: GenerationCache | None = None,
         attention_mask_info: AttentionMaskInfo | None = None,
         position_info: PositionInfo | None = None,
-        output_parallel_lm_logits: bool = False,
         pipeline_parallel_input: PipelineParallelInput | None = None,
     ) -> CausalLMOutputWithPast | PipelineParallelOutput:
         attention_mask_info, position_info = resolve_attention_and_position_info(attention_mask_info, position_info)
