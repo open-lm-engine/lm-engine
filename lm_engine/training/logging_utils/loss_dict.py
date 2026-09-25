@@ -35,7 +35,7 @@ class MetricsTrackingDict:
                 self.data[key] = self.data.get(key, 0) / value
         elif isinstance(x, (int, float)):
             for key in self.data:
-                self.data[key] /= x
+                self.data[key] = self.data[key] / x
         else:
             raise ValueError()
 
