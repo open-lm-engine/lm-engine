@@ -7,6 +7,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributed.tensor import DTensor
 
 from ...enums import Kernel
 from ...kernels import is_kernel_allowed
@@ -16,6 +17,9 @@ from ..quack import quack_linear
 
 def linear_func(input: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor | None = None) -> torch.Tensor:
     if is_kernel_allowed(Kernel.quack_gemm):
+        if isinstance(input, DTensor):
+            raise NotImplementedError("quack_gemm is not supported with DTensor inputs yet")
+
         # QuACK only handles local CUDA fp16/bf16 tensors; other Linear calls stay on torch.
         output = quack_linear(input, weight, bias)
         if output is not None:

@@ -5,7 +5,7 @@
 import torch
 import torch.nn as nn
 from torch.distributed import DeviceMesh
-from torch.distributed.tensor import DTensor, Placement
+from torch.distributed.tensor import DTensor, Placement, distribute_tensor
 
 
 def _get_all_markers():
