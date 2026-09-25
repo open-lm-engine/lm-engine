@@ -13,7 +13,7 @@ from torch.distributed.tensor import DTensor
 from ...accelerator import Accelerator
 from ..parallel import ProcessGroupManager
 from ..utils import is_wandb_available
-from .loss_dict import MetricsTrackingDict
+from .metrics_tracking import MetricsTrackingDict
 
 
 if TYPE_CHECKING:
