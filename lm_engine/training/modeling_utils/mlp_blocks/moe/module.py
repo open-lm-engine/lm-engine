@@ -9,10 +9,11 @@ import torch.nn.functional as F
 from torch.distributed._functional_collectives import all_reduce
 from torch.distributed.tensor import Partial, Replicate, Shard
 
+from ....constants import MOE_EXPERT_FREQUENCY, MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS
 from ....dtensors import dtensor_to_tensor, tensor_to_dtensor
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
-from ....metrics import MOE_EXPERT_FREQUENCY, MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS, get_extra_metrics
+from ....metrics import get_extra_metrics
 from ....parallel import ProcessGroupManager
 from ....utils import is_sonicmoe_available
 from ...activations import get_activation_function, is_glu, sigmoid

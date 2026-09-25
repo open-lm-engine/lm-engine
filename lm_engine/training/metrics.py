@@ -4,12 +4,8 @@
 
 import torch
 
+from .constants import MOE_EXPERT_FREQUENCY, MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS
 from .logging_utils import MetricsTrackingDict
-
-
-MOE_ROUTER_AUX_LOSS = "moe_router_aux_loss"
-MOE_Z_LOSS = "moe_z_loss"
-MOE_EXPERT_FREQUENCY = "moe_expert_frequency"
 
 
 class ExtraMetrics(MetricsTrackingDict):
@@ -25,7 +21,7 @@ class ExtraMetrics(MetricsTrackingDict):
         loss_aggregate = 0
 
         for key in self:
-            is_loss = any([key.startswith(prefix) for prefix in [MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS]])
+            is_loss = self._is_loss(key)
             assert is_loss or key.startswith(MOE_EXPERT_FREQUENCY)
 
             if is_loss:
@@ -42,7 +38,7 @@ class ExtraMetrics(MetricsTrackingDict):
         for key in self:
             value = self[key]
 
-            is_loss = any(key.startswith(prefix) for prefix in [MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS])
+            is_loss = self._is_loss(key)
             assert is_loss or key.startswith(MOE_EXPERT_FREQUENCY)
 
             if is_loss:
@@ -57,6 +53,13 @@ class ExtraMetrics(MetricsTrackingDict):
         metrics.update(totals)
 
         return metrics
+
+    def _is_loss(self, key: str) -> bool:
+        for prefix in [MOE_ROUTER_AUX_LOSS, MOE_Z_LOSS]:
+            if key.startswith(prefix):
+                return True
+
+        return False
 
 
 _EXTRA_METRICS = ExtraMetrics({})
