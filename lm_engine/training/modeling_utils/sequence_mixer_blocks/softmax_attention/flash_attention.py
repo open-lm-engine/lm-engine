@@ -28,10 +28,10 @@ if is_flash_attention_3_available():
     from flash_attn_interface import flash_attn_varlen_func as flash_attention_3_varlen
 
 if is_flash_attention_4_available():
-    from flash_attn.cute import _flash_attn_backward as _flash_attn_4_backward
-    from flash_attn.cute import _flash_attn_forward as _flash_attn_4_forward
     from flash_attn.cute import flash_attn_func as flash_attention_4
     from flash_attn.cute import flash_attn_varlen_func as flash_attention_4_varlen
+    from flash_attn.cute.interface import _flash_attn_bwd as _flash_attn_4_backward
+    from flash_attn.cute.interface import _flash_attn_fwd as _flash_attn_4_forward
 
 
 def _get_flash_attention_function(dropout: float) -> tuple[Callable, ...]:

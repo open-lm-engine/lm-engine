@@ -324,6 +324,13 @@ class MoE(DTensorModule):
 
         moe_z_loss = (torch.logsumexp(logits, dim=-1) ** 2).mean()
 
+        # probs and logits only cover the local 1/cp sequence shard, divide by cp to match the lm_loss normalization
+        if ProcessGroupManager.is_context_parallel_enabled():
+            cp_world_size_inv = 1 / ProcessGroupManager.get_context_parallel_world_size()
+
+            moe_aux_loss = moe_aux_loss * cp_world_size_inv
+            moe_z_loss = moe_z_loss * cp_world_size_inv
+
         metrics_tracker = get_extra_metrics()
 
         metrics_tracker[f"{MOE_ROUTER_AUX_LOSS}/{self.layer_idx}"] = (

@@ -224,13 +224,22 @@ class ModelWrapper(nn.Module):
 
         if self.model_name is None:
             if self.tokenizer.bos_token_id is not None:
-                assert self.tokenizer.bos_token_id == self.config.bos_token_id
+                assert self.tokenizer.bos_token_id == self.config.bos_token_id, (
+                    self.tokenizer.bos_token_id,
+                    self.config.bos_token_id,
+                )
 
             if self.tokenizer.eos_token_id is not None:
-                assert self.tokenizer.eos_token_id == self.config.eos_token_id
+                assert self.tokenizer.eos_token_id == self.config.eos_token_id, (
+                    self.tokenizer.eos_token_id,
+                    self.config.eos_token_id,
+                )
 
             if self.tokenizer.pad_token_id is not None:
-                assert self.tokenizer.pad_token_id == self.config.pad_token_id
+                assert self.tokenizer.pad_token_id == self.config.pad_token_id, (
+                    self.tokenizer.pad_token_id,
+                    self.config.pad_token_id,
+                )
 
         context = nullcontext()
         kwargs = {}
