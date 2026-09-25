@@ -114,23 +114,17 @@ class CausalLMModelMixin(PreTrainedModelMixin, DTensorModule):
             if is_kernel_allowed(Kernel.coda_linear_cross_entropy) or is_kernel_allowed(
                 Kernel.fused_linear_cross_entropy
             ):
-                if self.m_width is not None:
-                    hidden_states = hidden_states * (1 / self.m_width)
-            else:
-                lm_logits = (
-                    LMHead.compute_with_weight(
-                        x=hidden_states,
-                        weight=self.transformer.wte.weight,
-                        use_padding_free_transformer=self.use_padding_free_transformer,
-                        sequence_parallel=self.sequence_parallel,
-                        tp_mesh=self.tp_mesh if self.is_tp_enabled else None,
-                    )
-                    if self._tied_word_embeddings
-                    else self.lm_head(hidden_states)
-                )
+                raise NotImplementedError("fused linear cross entropy kernels are not supported with DTensor yet")
 
-                if self.m_width is not None:
-                    lm_logits = lm_logits * (1 / self.m_width)
+            # token-major logits, sharded on the vocab dim over tp
+            lm_logits = (
+                LMHead.compute_with_weight(x=hidden_states, weight=self.transformer.wte.weight)
+                if self._tied_word_embeddings
+                else self.lm_head(hidden_states)
+            )
+
+            if self.m_width is not None:
+                lm_logits = lm_logits * (1 / self.m_width)
 
             if self.is_tp_enabled and not output_parallel_lm_logits:
                 # all gather
