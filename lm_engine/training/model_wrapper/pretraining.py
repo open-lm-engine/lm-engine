@@ -87,8 +87,6 @@ class ModelWrapperForPretraining(ModelWrapper):
             assert not self.reset_attention_mask, "reset_attention_mask is not supported with pipeline parallelism"
             assert not self.reset_position_ids, "reset_position_ids is not supported with pipeline parallelism"
 
-            self._extra_metrics = MetricsTrackingDict({})
-
     def forward(
         self,
         batch: dict | torch.Tensor,
@@ -160,15 +158,6 @@ class ModelWrapperForPretraining(ModelWrapper):
             )
 
         return output
-
-    def get_extra_metrics(self) -> dict:
-        if "aux_loss" in self._extra_metrics:
-            self._extra_metrics["aux_loss"] = self._extra_metrics["aux_loss"].squeeze(0)
-
-        return self._extra_metrics
-
-    def reset_extra_metrics(self) -> None:
-        self._extra_metrics = MetricsTrackingDict({})
 
     def _prepare_model_inputs(self, batch: dict) -> dict:
         if self.is_pipeline_parallel_enabled:

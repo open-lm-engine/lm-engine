@@ -4,6 +4,7 @@
 
 PARAM_NORM = "param_norm"
 GRAD_NORM = "grad_norm"
+AUX_LOSS = "aux_loss"
 STEP = "step"
 THROUGHPUT = "throughput"
 TRAIN = "train"

@@ -19,6 +19,7 @@ from ..hf_adapter import LLMAdapter_HF, get_causal_lm_class, get_output_embeddin
 from ..kernels import is_kernel_allowed
 from ..logging_utils import MetricsTrackingDict, log_rank_0
 from ..loss import get_autoregressive_language_modeling_loss
+from ..metrics import ExtraMetrics
 from ..modeling_utils import CausalLMOutputWithPast
 from ..parallel import ProcessGroupManager
 from ..utils import SafeTensorsWeightsManager, string_to_torch_dtype
@@ -77,6 +78,9 @@ class ModelWrapper(nn.Module):
         self.is_last_stage = self.pipeline_stage_id == self.num_pipeline_stages - 1
         self.is_pipeline_parallel_enabled = self.num_pipeline_stages > 1
 
+        # aux losses and other extra metrics accumulated over micro-steps, read with `get_extra_metrics`
+        self._extra_metrics = MetricsTrackingDict({})
+
         use_model_parallelism = ProcessGroupManager.is_tensor_parallel_enabled() or self.is_pipeline_parallel_enabled
 
         self._setup_config()
@@ -132,10 +136,10 @@ class ModelWrapper(nn.Module):
         lm_loss = lm_loss * lm_loss_multiplier
         loss = lm_loss
 
-        extra_metrics = model_outputs.extra_metrics
+        extra_metrics: ExtraMetrics | None = getattr(model_outputs, "extra_metrics", None)
         output = MetricsTrackingDict({"loss": loss, "lm_loss": lm_loss})
 
-        if not extra_metrics.is_aux_loss_zero():
+        if extra_metrics is not None and not extra_metrics.is_aux_loss_zero():
             aux_loss = extra_metrics.aggregate_loss()
 
             if tensor_parallel_enabled:
@@ -143,12 +147,19 @@ class ModelWrapper(nn.Module):
 
             output["loss"] = output["loss"] + aux_loss
 
-            if self.is_pipeline_parallel_enabled:
-                self._extra_metrics = self._extra_metrics + {"aux_loss": aux_loss}
-
-            output = output + extra_metrics.get_metrics_for_logging()
+            with torch.no_grad():
+                metrics_for_logging = extra_metrics.get_metrics_for_logging()
+                self._extra_metrics = self._extra_metrics + {
+                    key: value.detach() for key, value in metrics_for_logging.items()
+                }
 
         return output
+
+    def get_extra_metrics(self) -> MetricsTrackingDict:
+        return self._extra_metrics
+
+    def reset_extra_metrics(self) -> None:
+        self._extra_metrics = MetricsTrackingDict({})
 
     def save_pretrained(self, save_path: str, state_dict: dict | None = None) -> None:
         self.tokenizer.save_pretrained(save_path, legacy_format=False)
