@@ -328,6 +328,10 @@ class MoE(DTensorModule):
 
         loss = switch_loss + 0.1 * z_loss
 
+        # probs and logits only cover the local 1/cp sequence shard, divide by cp to match the lm_loss normalization
+        if ProcessGroupManager.is_context_parallel_enabled():
+            loss = loss / ProcessGroupManager.get_context_parallel_world_size()
+
         return loss.type_as(logits)
 
     def get_num_active_parameters(self) -> int:
