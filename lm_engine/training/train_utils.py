@@ -7,7 +7,7 @@ import logging
 import torch
 from torch.distributed import ReduceOp
 
-from .constants import LEARNING_RATE, STATISTICS, STEP, TOKENS
+from .constants import GRAD_NORM, LEARNING_RATE, PARAM_NORM, STEP, TOKENS
 from .enums import GradientCheckpointingMethod
 from .hf_adapter import is_custom_model
 from .logging_utils import ExperimentsTracker, MetricsTrackingDict, log_metrics
@@ -56,7 +56,7 @@ def track_metrics(
 
     for metrics_tracker, context in metrics_trackers:
         for key in metrics_tracker:
-            if context == STATISTICS or key == TOKENS:
+            if context in [PARAM_NORM, GRAD_NORM] or key == TOKENS:
                 continue
 
             value = metrics_tracker[key]

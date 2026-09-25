@@ -2,7 +2,8 @@
 # Copyright (c) 2026, Mayank Mishra
 # **************************************************
 
-STATISTICS = "statistics"
+PARAM_NORM = "param_norm"
+GRAD_NORM = "grad_norm"
 STEP = "step"
 THROUGHPUT = "throughput"
 TRAIN = "train"
