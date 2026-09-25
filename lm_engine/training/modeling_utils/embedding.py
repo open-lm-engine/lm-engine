@@ -9,14 +9,15 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributed.tensor import Replicate, Shard
+from torch.distributed.tensor import Partial, Replicate, Shard
+from torch.distributed.tensor.experimental import local_map
 
 from ...math import divide_if_divisible
-from ..dtensors import dtensor_to_tensor, tensor_to_dtensor
+from ..dtensors import tensor_to_dtensor
 from ..parallel import ProcessGroupManager
 from ..parameter import mark_parameter_as_initialized
 from .dtensor_module import DTensorModule
-from .TP import get_module_placements
+from .TP import get_activation_placements, get_parameter_placements, get_tensor_parallel_activation_placements
 
 
 class ParameterizedEmbedding(DTensorModule):

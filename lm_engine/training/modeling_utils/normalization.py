@@ -4,21 +4,18 @@
 
 from __future__ import annotations
 
-from functools import partial
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributed.tensor import Replicate
 
-from ...kernels.functional import rmsnorm as xma_rmsnorm
-from ..dtensors import dtensor_to_tensor, tensor_to_dtensor
+from ..dtensors import tensor_to_dtensor
 from ..enums import Kernel
-from ..kernels import is_kernel_allowed, wait_for_ACT
+from ..kernels import is_kernel_allowed
 from ..parameter import mark_parameter_as_initialized
 from ..utils import is_quack_available
 from .dtensor_module import DTensorModule
-from .TP import get_module_placements
+from .TP import get_parameter_placements
 
 
 if is_quack_available():

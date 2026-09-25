@@ -9,10 +9,9 @@ import torch.nn as nn
 from torch.distributed.tensor import Replicate, Shard
 
 from ....math import divide_if_divisible
-from ...dtensors import dtensor_to_tensor, tensor_to_dtensor, use_async_tensor_parallel
-from ...parallel import ProcessGroupManager
+from ...dtensors import tensor_to_dtensor, use_async_tensor_parallel
 from ..dtensor_module import DTensorModule
-from ..TP import get_module_placements
+from ..TP import get_parameter_placements, get_tensor_parallel_activation_placements
 from .base import ParameterizedLinear
 
 

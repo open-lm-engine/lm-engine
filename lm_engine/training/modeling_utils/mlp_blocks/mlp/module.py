@@ -5,20 +5,22 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
+from torch.distributed.tensor import Shard
+from torch.distributed.tensor.experimental import local_map
 
 from .....accelerator import Accelerator
 from ....enums import Kernel
 from ....kernels import is_kernel_allowed
 from ...activations import get_activation_function, is_glu
 from ...dropout import Dropout
+from ...dtensor_module import DTensorModule
 from ...init_utils import _get_std_for_linear
 from ...linear import ColumnParallelLinear, RowParallelLinear
-from ...quack import mlp_fc1_gemm_act, mlp_fc1_gemm_gated
+from ...TP import get_tensor_parallel_activation_placements
 from .config import MLPArgs
 
 
-class MLP(nn.Module):
+class MLP(DTensorModule):
     def __init__(
         self,
         hidden_size: int,

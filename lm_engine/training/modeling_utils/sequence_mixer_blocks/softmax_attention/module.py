@@ -8,6 +8,8 @@ import math
 
 import torch
 import torch.nn.functional as F
+from torch.distributed.tensor import Shard
+from torch.distributed.tensor.experimental import local_map
 
 from .....accelerator import Accelerator
 from .....math import divide_if_divisible
@@ -22,6 +24,7 @@ from ...dtensor_module import DTensorModule
 from ...init_utils import _get_std_for_linear
 from ...linear import ColumnParallelLinear, RowParallelLinear
 from ...position_embedding import PositionInfo, apply_rotary_pos_emb
+from ...TP import get_tensor_parallel_activation_placements
 from .config import ATTENTION_MULTIPLIER_INVERSE_METHOD, ATTENTION_MULTIPLIER_INVERSE_SQRT_METHOD, SoftmaxAttentionArgs
 from .flash_attention import flash_attention
 

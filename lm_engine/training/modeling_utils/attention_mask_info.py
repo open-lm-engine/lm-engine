@@ -7,7 +7,9 @@ from dataclasses import dataclass, field
 import torch
 import torch.nn.functional as F
 
+from ...math import divide_if_divisible
 from ..generation_cache import GenerationCache
+from ..parallel import ProcessGroupManager
 from .position_embedding import PositionInfo
 
 
