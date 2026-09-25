@@ -69,10 +69,6 @@ class CommonConfig(BaseArgs):
     tie_word_embeddings: bool
     router_aux_loss_coef: float | None = None
     rope_dim: int | None = None
-    # HuggingFace compatibility fields
-    # dtype: str | None = None
-    # name_or_path: str = ""
-    # is_encoder_decoder: bool = False
 
     def model_post_init(self, __context: Any) -> None:
         assert (

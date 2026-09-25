@@ -35,7 +35,7 @@ def get_mlp_block(
     if mlp_type == "MLP":
         mlp = MLP(**kwargs)
     elif mlp_type == "MoE":
-        mlp = MoE(**kwargs)
+        mlp = MoE(**kwargs, layer_idx=layer_idx)
     else:
         raise ValueError(f"invalid mlp_type ({mlp_type}) for layer ({layer_idx})")
 

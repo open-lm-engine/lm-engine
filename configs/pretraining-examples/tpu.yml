@@ -55,7 +55,6 @@ model_args:
     rope_scaling: null
     embedding_init_method: normal
     use_depth_scaled_init: true
-    router_aux_loss_coef: 0.001
     tie_word_embeddings: false
     m_emb: null
     m_width: null

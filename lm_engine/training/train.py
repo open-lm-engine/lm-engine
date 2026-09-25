@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from ..accelerator import Accelerator
 from .arguments import DistillationArgs, TrainingArgs, get_args
 from .checkpointing import ensure_last_checkpoint_is_saved, load_checkpoint_for_training, save_checkpoint
-from .constants import LEARNING_RATE, STATISTICS, THROUGHPUT, TOKENS, TRAIN
+from .constants import AUX_LOSS, GRAD_NORM, LEARNING_RATE, PARAM_NORM, THROUGHPUT, TOKENS, TRAIN
 from .containers import LRSchedulerContainer, ModelContainer, OptimizerContainer
 from .data import (
     DatasetSplit,
@@ -64,7 +64,7 @@ def train_step_with_pipeline_parallel(
     micro_batch_size: int,
     gradient_accumulation_steps: int,
     sequence_length: int,
-) -> MetricsTrackingDict:
+) -> tuple[MetricsTrackingDict, MetricsTrackingDict]:
     fsdp_algorithm = 2 if hasattr(model_container[0], "set_requires_gradient_sync") else 1
     grad_norm = []
 
@@ -112,6 +112,7 @@ def train_step_with_pipeline_parallel(
         FP8Manager.precompute_float8_dynamic_scale_for_fsdp(model_container)
 
     metrics_tracker = MetricsTrackingDict({})
+    aux_loss_tracker = MetricsTrackingDict({})
 
     with torch.inference_mode():
         if gradient_clipping is not None:
@@ -124,20 +125,17 @@ def train_step_with_pipeline_parallel(
             losses = losses.squeeze(0)
 
             metrics_tracker = metrics_tracker + {"loss": losses, "grad_norm": grad_norm}
-            metrics_tracker = metrics_tracker + model.get_extra_metrics()
-            model.reset_extra_metrics()
-
             metrics_tracker = metrics_tracker / gradient_accumulation_steps
 
             if gradient_clipping is not None:
                 metrics_tracker["grad_norm"] = grad_norm
 
-            for key in metrics_tracker:
-                metrics_tracker[key] = dtensor_to_tensor(metrics_tracker[key])
+            aux_loss_tracker = model_container[-1].get_extra_metrics() / gradient_accumulation_steps
+            model_container[-1].reset_extra_metrics()
 
-            metrics_tracker = all_reduce_metrics_tracker(metrics_tracker)
+            metrics_tracker, aux_loss_tracker = _all_reduce_metrics_trackers(metrics_tracker, aux_loss_tracker)
 
-    return metrics_tracker
+    return metrics_tracker, aux_loss_tracker
 
 
 def train_step_without_pipeline_parallel(
@@ -154,7 +152,7 @@ def train_step_without_pipeline_parallel(
     sequence_length: int,
     tuning_method: TuningMethod,
     track_model_statistics: bool,
-) -> tuple[MetricsTrackingDict, MetricsTrackingDict]:
+) -> tuple[MetricsTrackingDict, MetricsTrackingDict, MetricsTrackingDict, MetricsTrackingDict]:
     assert len(model_container) == 1
     model = model_container[0]
 
@@ -172,7 +170,8 @@ def train_step_without_pipeline_parallel(
             model.set_requires_gradient_sync(False)
 
     train_metrics_tracker = MetricsTrackingDict({})
-    model_statistics_tracker = MetricsTrackingDict({})
+    param_norm_tracker = MetricsTrackingDict({})
+    grad_norm_tracker = MetricsTrackingDict({})
 
     optimizer_container.zero_grad()
 
@@ -215,11 +214,11 @@ def train_step_without_pipeline_parallel(
             train_metrics_tracker = train_metrics_tracker + loss_micro_step_dict
 
         if track_model_statistics:
-            model_statistics_tracker = model_statistics_tracker + get_statistics_from_tensors(
+            param_norm_tracker = param_norm_tracker + get_statistics_from_tensors(
                 tensors=model_container[0].named_parameters(), prefix="param"
             )
 
-            model_statistics_tracker = model_statistics_tracker + get_statistics_from_tensors(
+            grad_norm_tracker = grad_norm_tracker + get_statistics_from_tensors(
                 tensors=((name, tensor.grad) for name, tensor in model_container[0].named_parameters()),
                 prefix="grad",
             )
@@ -252,12 +251,30 @@ def train_step_without_pipeline_parallel(
             else grad_norm
         )
 
-        for key in train_metrics_tracker:
-            train_metrics_tracker[key] = dtensor_to_tensor(train_metrics_tracker[key])
+        aux_loss_tracker = model.get_extra_metrics() / gradient_accumulation_steps
+        model.reset_extra_metrics()
 
-        train_metrics_tracker = all_reduce_metrics_tracker(train_metrics_tracker)
+        train_metrics_tracker, aux_loss_tracker = _all_reduce_metrics_trackers(train_metrics_tracker, aux_loss_tracker)
 
-    return train_metrics_tracker, model_statistics_tracker
+    return train_metrics_tracker, aux_loss_tracker, param_norm_tracker, grad_norm_tracker
+
+
+def _all_reduce_metrics_trackers(
+    metrics_tracker: MetricsTrackingDict, aux_loss_tracker: MetricsTrackingDict
+) -> tuple[MetricsTrackingDict, MetricsTrackingDict]:
+    # merged so both trackers share a single all-reduce
+    merged_tracker = MetricsTrackingDict({})
+    for tracker in [metrics_tracker, aux_loss_tracker]:
+        for key in tracker:
+            assert key not in merged_tracker
+            merged_tracker[key] = dtensor_to_tensor(tracker[key])
+
+    merged_tracker = all_reduce_metrics_tracker(merged_tracker)
+
+    metrics_tracker = MetricsTrackingDict({key: merged_tracker[key] for key in metrics_tracker})
+    aux_loss_tracker = MetricsTrackingDict({key: merged_tracker[key] for key in aux_loss_tracker})
+
+    return metrics_tracker, aux_loss_tracker
 
 
 def track_val_metrics(
@@ -424,7 +441,9 @@ def train(
     steps_since_start_time = 0
 
     train_metrics_tracker = MetricsTrackingDict({})
-    model_statistics_tracker = MetricsTrackingDict({})
+    param_norm_tracker = MetricsTrackingDict({})
+    grad_norm_tracker = MetricsTrackingDict({})
+    aux_loss_tracker = MetricsTrackingDict({})
 
     while global_step < num_training_steps:
         global_step += 1
@@ -435,8 +454,7 @@ def train(
             if track_model_statistics:
                 raise NotImplementedError
 
-            _model_statistics_tracker = MetricsTrackingDict({})
-            _train_metrics_tracker = train_step_with_pipeline_parallel(
+            _train_metrics_tracker, _aux_loss_tracker = train_step_with_pipeline_parallel(
                 model_container=model_container,
                 pipeline_schedule=pipeline_schedule,
                 optimizer_container=optimizer_container,
@@ -447,25 +465,33 @@ def train(
                 gradient_accumulation_steps=gradient_accumulation_steps,
                 sequence_length=sequence_length,
             )
+
+            _param_norm_tracker = MetricsTrackingDict({})
+            _grad_norm_tracker = MetricsTrackingDict({})
         else:
-            _train_metrics_tracker, _model_statistics_tracker = train_step_without_pipeline_parallel(
-                model_container=model_container,
-                optimizer_container=optimizer_container,
-                lr_scheduler_container=lr_scheduler_container,
-                train_dataloader=train_dataloader_iterator,
-                gradient_clipping=gradient_clipping,
-                forward_context=forward_context,
-                backward_context=backward_context,
-                sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
-                micro_batch_size=micro_batch_size,
-                gradient_accumulation_steps=gradient_accumulation_steps,
-                sequence_length=sequence_length,
-                tuning_method=args.tuning_args.tuning_method,
-                track_model_statistics=track_model_statistics,
+            _train_metrics_tracker, _aux_loss_tracker, _param_norm_tracker, _grad_norm_tracker = (
+                train_step_without_pipeline_parallel(
+                    model_container=model_container,
+                    optimizer_container=optimizer_container,
+                    lr_scheduler_container=lr_scheduler_container,
+                    train_dataloader=train_dataloader_iterator,
+                    gradient_clipping=gradient_clipping,
+                    forward_context=forward_context,
+                    backward_context=backward_context,
+                    sync_every_gradient_accumulation_step=args.distributed_args.sync_every_gradient_accumulation_step,
+                    micro_batch_size=micro_batch_size,
+                    gradient_accumulation_steps=gradient_accumulation_steps,
+                    sequence_length=sequence_length,
+                    tuning_method=args.tuning_args.tuning_method,
+                    track_model_statistics=track_model_statistics,
+                )
             )
 
         train_metrics_tracker = train_metrics_tracker + _train_metrics_tracker
-        model_statistics_tracker = model_statistics_tracker + _model_statistics_tracker
+        param_norm_tracker = param_norm_tracker + _param_norm_tracker
+        grad_norm_tracker = grad_norm_tracker + _grad_norm_tracker
+        aux_loss_tracker = aux_loss_tracker + _aux_loss_tracker
+
         torch_profiler.step()
 
         if global_step % log_interval == 0:
@@ -473,7 +499,9 @@ def train(
             step_time = time_elapsed / steps_since_start_time
 
             train_metrics_tracker = train_metrics_tracker / log_interval
-            model_statistics_tracker = model_statistics_tracker / log_interval
+            param_norm_tracker = param_norm_tracker / log_interval
+            grad_norm_tracker = grad_norm_tracker / log_interval
+            aux_loss_tracker = aux_loss_tracker / log_interval
 
             train_metrics_tracker[LEARNING_RATE] = get_learning_rate(model_container, lr_scheduler_container)
             train_metrics_tracker[TOKENS] = global_step_in_tokens
@@ -497,9 +525,11 @@ def train(
                 global_step_in_tokens=global_step_in_tokens,
                 experiments_tracker=experiments_tracker,
                 metrics_trackers=[
-                    (model_statistics_tracker, STATISTICS),
-                    (throughput_tracker, THROUGHPUT),
                     (train_metrics_tracker, TRAIN),
+                    (aux_loss_tracker, AUX_LOSS),
+                    (param_norm_tracker, PARAM_NORM),
+                    (grad_norm_tracker, GRAD_NORM),
+                    (throughput_tracker, THROUGHPUT),
                 ],
             )
 
@@ -508,7 +538,9 @@ def train(
 
             # reset stats
             train_metrics_tracker = MetricsTrackingDict({})
-            model_statistics_tracker = MetricsTrackingDict({})
+            param_norm_tracker = MetricsTrackingDict({})
+            grad_norm_tracker = MetricsTrackingDict({})
+            aux_loss_tracker = MetricsTrackingDict({})
 
         if eval_during_training and (global_step % eval_interval == 0 or global_step == num_training_steps):
             evaluate(

@@ -7,7 +7,7 @@ import logging
 import torch
 from torch.distributed import ReduceOp
 
-from .constants import LEARNING_RATE, STATISTICS, STEP, TOKENS
+from .constants import AUX_LOSS, GRAD_NORM, LEARNING_RATE, PARAM_NORM, STEP, TOKENS
 from .enums import GradientCheckpointingMethod
 from .hf_adapter import is_custom_model
 from .logging_utils import ExperimentsTracker, MetricsTrackingDict, log_metrics
@@ -20,14 +20,18 @@ def all_reduce_metrics_tracker(metrics_tracker: MetricsTrackingDict) -> MetricsT
     if ProcessGroupManager.get_data_parallel_world_size() == 1:
         return metrics_tracker
 
-    tensor = [metrics_tracker[key] for key in metrics_tracker]
-    tensor = torch.stack(tensor)
+    keys_by_shape: dict[torch.Size, list[str]] = {}
+    for key in metrics_tracker:
+        keys_by_shape.setdefault(metrics_tracker[key].shape, []).append(key)
 
-    torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
-    tensor = tensor / ProcessGroupManager.get_data_loading_world_size()
+    for keys in keys_by_shape.values():
+        tensor = torch.stack([metrics_tracker[key] for key in keys])
 
-    for i, key in enumerate(metrics_tracker):
-        metrics_tracker[key] = tensor[i]
+        torch.distributed.all_reduce(tensor, op=ReduceOp.SUM, group=ProcessGroupManager.get_data_parallel_group())
+        tensor = tensor * (1 / ProcessGroupManager.get_data_loading_world_size())
+
+        for i, key in enumerate(keys):
+            metrics_tracker[key] = tensor[i]
 
     return metrics_tracker
 
@@ -52,13 +56,15 @@ def track_metrics(
 
     for metrics_tracker, context in metrics_trackers:
         for key in metrics_tracker:
-            if context == STATISTICS or key == TOKENS:
+            if context in [PARAM_NORM, GRAD_NORM, AUX_LOSS] or key == TOKENS:
                 continue
 
-            if key == LEARNING_RATE:
-                message += f", {key} = {metrics_tracker[key]:.4e}"
-            else:
-                message += f", {context}-{key} = {metrics_tracker[key]:.4f}"
+            value = metrics_tracker[key]
+            if not isinstance(value, torch.Tensor) or value.dim() == 0:
+                if key == LEARNING_RATE:
+                    message += f", {key} = {value:.4e}"
+                else:
+                    message += f", {context}-{key} = {value:.4f}"
 
         combined_values.update({f"{context}/{key}": value for key, value in metrics_tracker.get_dict().items()})
 
